@@ -40,7 +40,7 @@
 | make_spectrogram | B6 | wired 10-11 | 12 passed；纯 numpy STFT | 5a2f4d9 |
 | query_dataset | B6 | wired 10-11 | 15 passed；AND 过滤+批次分组 | 627ca94 |
 | index_dataset | B6 | wired 10-11 | 14 passed；四动作+自愈 rebuild | 1b1bbbf |
-| check_style_params | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
+| check_style_params | B7 | wired 10-11 | 65 passed；六样式域+红线 | pending |
 | gen_tone | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
 | gen_sweep | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
 | gen_chirp | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |

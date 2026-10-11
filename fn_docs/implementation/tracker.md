@@ -270,10 +270,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B7 — check_style_params, gen_tone, gen_sweep, gen_chirp, gen_bandlimited_noise, gen_partial_band, gen_pulse, compose_jamming
 ### check_style_params
-- [ ] check_style_params · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] check_style_params · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] check_style_params · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] check_style_params · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] check_style_params · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:check_style_params' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] check_style_params · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/synthesize_style/test_check_style_params.py | tail -1 → 65 passed in 0.03s (10-11)
+- [x] check_style_params · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b7.py | grep -q '探针全过' && echo 签名探针过（顶层 B8 装配后复检调用点） → 签名探针过（顶层 B8 装配后复检调用点） (10-11)
+- [x] check_style_params · 清单进位 — 证据: bash -c grep -q '| check_style_params | B7 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] check_style_params · commit — 预告: fn(check_style_params): wired 含四文档变更
 ### gen_tone
 - [ ] gen_tone · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -875,4 +875,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B5 双审收口——①configure 签名意图对齐「越域 ValueError 先行/设备异常 BackendError」（Ruling③式）；②rx 溢出语义现为熔断 fail-loud（规格写告警事件，B8 append_event 到位时评估是否降级为告警） — 三轴观察+对抗修复 — 无 — responsibility.md 一处+batches 变更记录 Ruling⑦ (10-11)
 - Ruling: B6 两处规约歧义取舍——①make_spectrogram frames 公式按具体期望值 7 落地为 1+ceil((N-nfft)/hop)（尾帧补零计入，skipped 仅整段不足一窗）；②index_dataset 读路径 IO 失败归 IndexWriteError、仅非法 JSON/结构错触发自动 rebuild（防 IndexFormatError 短路写失败口径） — 子代理实现时申报（规约文本自相矛盾/两口径冲突） — 无（语义更精确，测试固化） — batches 变更记录 Ruling⑧ (10-11)
 - Ruling: B6 双审收口——①R29 空输入口径回写 responsibility（空→跳段不抛，SpectrogramError 类全库不存在按实现口径修正）；②对抗 中6低7 全修复（stderr 污染/NaN 静默/帧规模上限/rebuild 毒化/真机时基鸭子接口+fail-closed/矛盾态降级/CLI 重试）；修复触 autodetect_backend.py 一处（低#10 落点唯一，子代理申报） — 三轴观察+对抗 — 无 — responsibility.md 一处+batches Ruling⑨ (10-11)
+- Ruling: B7 两处规约歧义裁定——①gen_chirp 对抗项「三角中点频率≈center」按形状数学不成立（u=T/2 是峰值 center+bw/2），测试改在 u=T/4、3T/4 双侧验证 ≈center 且 u=T/2 验证峰值；②compose_jamming 分量等长采用严格校验（不一致即拒列长度，不零填充） — 子代理实现时申报 — 无（语义更严） — batches 变更记录 Ruling⑩ (10-11)
 
