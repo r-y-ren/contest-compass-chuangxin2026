@@ -54,8 +54,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B2 — load_calibration_table, lookup_jsr, check_monotonicity, build_gain_calibration, calibrate_leakage, compensate_link_power
 ### load_calibration_table
-- [ ] load_calibration_table · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] load_calibration_table · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
+- [x] load_calibration_table · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:load_calibration_table' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] load_calibration_table · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/shared/test_load_calibration_table.py | tail -1 → 16 passed in 0.02s (10-11)
 - [ ] load_calibration_table · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
 - [ ] load_calibration_table · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] load_calibration_table · commit — 预告: fn(load_calibration_table): wired 含四文档变更
@@ -66,8 +66,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] lookup_jsr · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] lookup_jsr · commit — 预告: fn(lookup_jsr): wired 含四文档变更
 ### check_monotonicity
-- [ ] check_monotonicity · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] check_monotonicity · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
+- [x] check_monotonicity · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:check_monotonicity' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] check_monotonicity · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/build_gain_calibration/test_check_monotonicity.py | tail -1 → 34 passed in 0.02s (10-11)
 - [ ] check_monotonicity · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
 - [ ] check_monotonicity · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] check_monotonicity · commit — 预告: fn(check_monotonicity): wired 含四文档变更
@@ -78,8 +78,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] build_gain_calibration · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] build_gain_calibration · commit — 预告: fn(build_gain_calibration): wired 含四文档变更
 ### calibrate_leakage
-- [ ] calibrate_leakage · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] calibrate_leakage · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
+- [x] calibrate_leakage · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:calibrate_leakage' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] calibrate_leakage · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k leak_calibration -q | tail -1 → 10 passed, 178 deselected in 0.07s (10-11)
 - [ ] calibrate_leakage · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
 - [ ] calibrate_leakage · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] calibrate_leakage · commit — 预告: fn(calibrate_leakage): wired 含四文档变更
