@@ -132,10 +132,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B4 — register_backend, lookup_backend, manage_backend_registry, loopback_sim_stream, open_sim_backend, read_sigmf_timeline, open_replay_backend
 ### register_backend
-- [ ] register_backend · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] register_backend · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] register_backend · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] register_backend · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] register_backend · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:register_backend' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] register_backend · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/manage_backend_registry/test_register_backend.py | tail -1 → 15 passed in 0.01s (10-11)
+- [x] register_backend · wired — 证据: bash -c grep -rn 'register_backend(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/manage_backend_registry/manage_backend_registry.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
+- [x] register_backend · 清单进位 — 证据: bash -c grep -q '| register_backend | B4 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] register_backend · commit — 预告: fn(register_backend): wired 含四文档变更
 ### lookup_backend
 - [ ] lookup_backend · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
