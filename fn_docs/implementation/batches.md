@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B7 | check_style_params, gen_tone, gen_sweep, gen_chirp, gen_bandlimited_noise, gen_partial_band, gen_pulse, compose_jamming | 样式八叶子单测绿（styles_synth 下层） | 样式下层（synthesize_style 子树切半①） |
-| B8 | append_event, synthesize_style, lookup_style_recipe, switch_style, plan_attenuator_combo, set_channel_attenuation | synthesize_style wired 六样式频谱断言（styles_synth）；切换<2s（styles_switch）；档位组合绿（channel_ladder） | 样式上层+信道+共享事件 |
+| ▶ B8 | append_event, synthesize_style, lookup_style_recipe, switch_style, plan_attenuator_combo, set_channel_attenuation | synthesize_style wired 六样式频谱断言（styles_synth）；切换<2s（styles_switch）；档位组合绿（channel_ladder） | 样式上层+信道+共享事件 |
 | B9 | plan_ladder_steps, run_power_ladder, compute_pathloss, map_distance_to_loss | 阶梯/失效即停绿（power_ladder）；L(d) 断言（pathloss_map） | 功率/距离族 |
 | B10 | enforce_bandwidth_limit, capture_monitor_spectrum, estimate_snr, check_flatness, compute_spectrum_stats | 限带/分段绿（monitor_capture）；SNR/平坦度（spectrum_stats） | 监测族 |
 | B11 | parse_esp32_frame, drive_esp32_link, parse_nrf24_frame, drive_nrf24_link, apply_cliff_model, simulate_link_degradation, compute_per, normalize_kpi | dut 四树 wired（dut_esp32/dut_nrf24/dut_sim/kpi_model） | 被测链路族 |
@@ -32,4 +31,5 @@
 | 10-11 | Ruling⑦B5 双审 | configure 错误字段对齐；rx 溢出熔断语义 B8 复评；对抗 中3低9 全修（真机能力对齐：tx 天线仅 TX/RX、rx 增益≤76） |
 | 10-11 | Ruling⑧B6 歧义取舍 | 谱图 frames 公式（期望值 7=1+ceil）；索引读 IO 失败≠损坏（写口径不被短路） |
 | 10-11 | Ruling⑨B6 双审 | R29 空输入口径回写；中6低7 全修（真机时基链打通）；autodetect_backend.py 修复落点申报 |
+| 10-11 | Ruling⑩B7 歧义裁定 | chirp 三角中点=峰值非中心（双侧四分点验证）；compose 分量等长严格拒 |
 

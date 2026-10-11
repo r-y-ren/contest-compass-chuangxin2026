@@ -16,3 +16,4 @@
 | 10-11 | B5+ | 双审：三轴过门（2 观察）+对抗 中3低9 → 12 项全修复（BackendError 契约族/空转熔断/真机域对齐/校验边角），24 回归 | 602 全库绿（含真机）；Ruling⑦ 留痕 |
 | 10-11 | B6 | probe_uhd_devices, probe_gpsdo_status, make_spectrogram, query_dataset（波1）, autodetect_backend, resolve_clock_reference, index_dataset（波2） | 699 全库绿；真机 auto→b210 实开；Ruling⑧ 两处歧义取舍 |
 | 10-11 | B6+ | 双审：三轴过门（3 观察）+对抗 中6低8 → 13 项修复+23 回归；Ruling⑨（R29 口径回写） | 723 全库绿；真机 get_clock_source='internal' 时基链可达 |
+| 10-11 | B7 | check_style_params, gen_tone, gen_sweep, gen_chirp（波1）, gen_bandlimited_noise, gen_partial_band, gen_pulse, compose_jamming（波2） | 1108 全库绿；六样式签名探针；Ruling⑩ 两处裁定 |
