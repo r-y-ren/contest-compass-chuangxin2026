@@ -30,8 +30,8 @@
 | configure_b210_channels | B5 | wired 10-11 | 23 passed；域校验+回读容差+NaN 拒 | c782435 |
 | write_b210_tx_stream | B5 | wired 10-11 | 11 passed；欠载熔断+元素规整 | f36dddc |
 | read_b210_rx_stream | B5 | wired 10-11 | 12 passed；溢出熔断+惰性 | 5ec4459 |
-| open_b210_backend | B5 | stub 10-11 | pytest -k backend_b210 | — |
-| exchange_scpi | B5 | wired 10-11 | 20 passed；四类解析+Timeout 重试 | pending |
+| open_b210_backend | B5 | wired 10-11 | 26 passed 含真机 open/close；注入传输适配 | pending |
+| exchange_scpi | B5 | wired 10-11 | 20 passed；四类解析+Timeout 重试 | 14ceea2 |
 | create_visa_driver | B5 | stub 10-11 | pytest -k visa_slot | — |
 | probe_uhd_devices | B6 | stub 10-11 | 上游覆盖: autodetect_backend | — |
 | autodetect_backend | B6 | stub 10-11 | pytest -k backend_autodetect | — |
