@@ -202,7 +202,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] open_b210_backend · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k backend_b210 -q | tail -1 → 26 passed, 548 deselected in 2.74s (10-11)
 - [x] open_b210_backend · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b5.py | grep -q '真机在位=True' && echo 顶层实跑通过（真机在位） → 顶层实跑通过（真机在位） (10-11)
 - [x] open_b210_backend · 清单进位 — 证据: bash -c grep -q '| open_b210_backend | B5 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] open_b210_backend · commit — 预告: fn(open_b210_backend): wired 含四文档变更
+- [x] open_b210_backend · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(open_b210_backend)' && echo commit在案 → commit在案 (10-11)
 ### exchange_scpi
 - [x] exchange_scpi · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:exchange_scpi' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
 - [x] exchange_scpi · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/create_visa_driver/test_exchange_scpi.py | tail -1 → 20 passed in 0.02s (10-11)
@@ -210,10 +210,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] exchange_scpi · 清单进位 — 证据: bash -c grep -q '| exchange_scpi | B5 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [x] exchange_scpi · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(exchange_scpi)' && echo commit在案 → commit在案 (10-11)
 ### create_visa_driver
-- [ ] create_visa_driver · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] create_visa_driver · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] create_visa_driver · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] create_visa_driver · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] create_visa_driver · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:create_visa_driver' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] create_visa_driver · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k visa_slot -q | tail -1 → 19 passed, 555 deselected in 0.64s (10-11)
+- [x] create_visa_driver · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b5.py | grep -q 'visa query_id' && echo 顶层实跑通过 → 顶层实跑通过 (10-11)
+- [x] create_visa_driver · 清单进位 — 证据: bash -c grep -q '| create_visa_driver | B5 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] create_visa_driver · commit — 预告: fn(create_visa_driver): wired 含四文档变更
 
 ## B5 批间门
