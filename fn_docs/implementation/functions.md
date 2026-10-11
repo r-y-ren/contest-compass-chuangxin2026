@@ -22,9 +22,9 @@
 | manage_run | B3 | wired 10-11 | 12 passed；实跑 done+停发射+八件套 | 6156e9b |
 | register_backend | B4 | wired 10-11 | 15 passed；调用点 manage_backend_registry.py | abd0680 |
 | lookup_backend | B4 | wired 10-11 | 28 passed；别名+相近名提示 | 70fa979 |
-| manage_backend_registry | B4 | wired 10-11 | 11 passed；实跑注册表链 | pending |
+| manage_backend_registry | B4 | wired 10-11 | 11 passed；实跑注册表链 | 2298078 |
 | loopback_sim_stream | B4 | wired 10-11 | 22 passed；四效应+夹紧+种子复现 | 50e877e |
-| open_sim_backend | B4 | stub 10-11 | pytest -k backend_sim | — |
+| open_sim_backend | B4 | wired 10-11 | 16 passed；REGISTRY 自注册+鸭子接口 | pending |
 | read_sigmf_timeline | B4 | wired 10-11 | 16 passed；三 datatype 手写解析 | 88c288b |
 | open_replay_backend | B4 | stub 10-11 | pytest -k backend_replay | — |
 | configure_b210_channels | B5 | stub 10-11 | 上游覆盖: open_b210_backend | — |
