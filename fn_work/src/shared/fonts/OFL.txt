@@ -1,2 +1,0 @@
-NotoSansSC-Regular.otf —— SIL Open Font License 1.1（https://openfontlicense.org/）
-来源: notofonts/noto-cjk（SimplifiedChinese 子集），2026-10-03 下载入库（R13 内置字体）

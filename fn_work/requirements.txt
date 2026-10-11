@@ -1,13 +1,12 @@
-# linkbench 任务依赖（fn_work/）
-# SDR 栈不经 pip：Arch 用 pacman -S uhd gnuradio；Windows 用 PothosSDR
-pyyaml>=6
-numpy>=1.26
-matplotlib>=3.8
-pyserial>=3.5
-sigmf>=1.2
-fastapi>=0.110
-uvicorn>=0.29
-websockets>=12
-requests>=2.31
-pytest>=8
-httpx>=0.27  # serve_console selftest（TestClient）
+numpy
+scipy
+matplotlib
+sigmf
+pyvisa
+pyvisa-py
+fastapi
+uvicorn[standard]
+websockets
+pyserial
+pymavlink
+pytest

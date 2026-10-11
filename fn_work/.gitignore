@@ -1,5 +1,0 @@
-__pycache__/
-*.pyc
-runs/
-models/
-.pytest_cache/

@@ -1,7 +1,0 @@
-# 对照：不注入，跑满全程——验收"无干扰对照不误报"
-meta: {name: nojam_control, version: 1}
-dut: {links: [wifi, nrf24]}
-injection: null
-criteria: {per_threshold: 0.10, sustain_s: 10, disconnect_s: 30}
-safety: {max_tx_gain_db: 0}
-record: {sigmf: true, ch2_monitor: true}

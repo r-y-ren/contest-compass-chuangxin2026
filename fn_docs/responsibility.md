@@ -1,479 +1,1173 @@
-# 责任文档：无人机链路抗干扰测评台（STITP 一期）
+# 责任文档：无人机链路抗干扰测试平台（重做版）
 
 > 由 fn-divide 产出与独占更新；fn-implement 只读。进度与状态见 implementation.md。
 > 职责字段是**重写规约**：凭职责详述 + 签名意图（输入/输出），必须能完美复现该函数功能。
-> **实现期发现结构性变化（函数增/删/拆/并/职责或调用关系变化）必须回到本阶段改本文档**（快速确认通道除外，须留变更说明）。
-> 产出依据：fn_docs/requirements.md（2026-10-03 严格重跑版，R1–R12，用户门口确认）。
+> **实现期发现结构性变化（函数增/删/拆/并/职责或调用关系变化）必须回到 fn-divide 改本文档**（快速确认通道），不得只在代码里改。
+> 需求依据：`fn_docs/requirements.md`（55 条 R，2026-10-11 细化版）；全部函数 `[新增]`（旧实现已删，无存量改造）。
 
 ## 结构概览（纯结构，不带职责）
 
-- generate_jamming ← R1
-  - synthesize_style
-- calibrate_power ← R2
-- collect_dut_samples ← R3
-  - start_dut_source
-    - parse_serial_line
-- record_run_streams ← R4
-  - compute_spectrum_stats
-- execute_scenario ← R5
-  - plan_steps
+- load_scenario ← R1
+  - validate_scenario_schema
+  - normalize_scenario
+- manage_run ← R2
+  - create_run_workspace
+  - append_run_log
+  - finalize_run
+- manage_backend_registry ← R3
+  - register_backend
+  - lookup_backend
+- open_b210_backend ← R4
+  - configure_b210_channels
+  - write_b210_tx_stream
+  - read_b210_rx_stream
+- open_sim_backend ← R5
+  - loopback_sim_stream
+- open_replay_backend ← R6
+  - read_sigmf_timeline
+- autodetect_backend ← R7
+  - probe_uhd_devices
+- create_visa_driver ← R8
+  - exchange_scpi
+- synthesize_style ← R9
+  - check_style_params
+  - gen_tone
+  - gen_sweep
+  - gen_chirp
+  - gen_bandlimited_noise
+  - gen_partial_band
+  - gen_pulse
+  - compose_jamming
+- switch_style ← R10
+  - lookup_style_recipe
+- run_power_ladder ← R11
+  - plan_ladder_steps
+- set_channel_attenuation ← R12
+  - plan_attenuator_combo
+- map_distance_to_loss ← R13
+  - compute_pathloss
+- lookup_jsr ← R14
+- resolve_clock_reference ← R15
+  - probe_gpsdo_status
+- capture_monitor_spectrum ← R16
+  - enforce_bandwidth_limit
+- compute_spectrum_stats ← R17
+  - estimate_snr
+  - check_flatness
+- drive_esp32_link ← R18
+  - parse_esp32_frame
+- drive_nrf24_link ← R19
+  - parse_nrf24_frame
+- simulate_link_degradation ← R20
+  - apply_cliff_model
+- normalize_kpi ← R21
+  - compute_per
+- record_run_streams ← R22
+  - compute_alignment_error
+- execute_gb42590_protocol ← R23
   - check_failure
-- index_dataset ← R6
-- train_classifier ← R7
-  - make_spectrogram
-  - grouped_cv_split
-- predict_style ← R7
-- run_demo ← R8
-- build_report ← R8
-  - plot_triple_curves
-- create_instrument_backend ← R9
-- serve_console ← R10
-- bridge_to_sitl ← R11 [P1]
-- animate_link_state ← R12 [P1]
-# ── 演进轮一增量（R13–R16，2026-10-03）──
-- launch_console ← R13
-- build_mid_material ← R16
-- serve_console ← R10+R13 [改造：+render_static_pages]
-- execute_scenario ← R5+R14+R15 [改造：+scaled_criteria/+apply_calibration/+resume_from]
-- shared 增：register_cjk_font
-# ── 演进轮二增量（R17–R18，2026-10-06）──
-- serve_console ← R10+R13+R17+R18 [改造：+probe_device_status 子树、/api_devices 端点、状态栏挂载、样式精修]
-- render_static_pages ← R13+R18 [改造：统一深色驾驶舱样式+状态条入三页]
-# ── 演进轮三增量（R19–R20，2026-10-06）──
-- ws_stream_feed ← R19（serve_console 子）
-- shared 增：RuntimeFeed, per_response_model
-- execute_scenario ← R5+R14+R15+R19 [改造：+feed 发流（kpi/event/progress）]
-- serve_console ← R10+R13+R17+R18+R19+R20 [改造：WS 源化+/api/preview+交互四件挂载]
-- start_dut_source ← R3+R20 [改造：响应模型共用 shared.per_response_model]
-# ── 演进轮四增量（R21，2026-10-06）──
-- collect_dashboard ← R21（serve_console 子）
-- serve_console ← R10+R13+R17+R18+R19+R20+R21 [改造：/api/dashboard+/api/seed_demo+仪表盘网格四卡]
+  - record_failure_level
+- run_baseline_check ← R24
+- plot_triple_curves ← R25
+  - build_curve_frames
+- compare_failure_boundaries ← R26
+- write_sigmf_recording ← R27
+  - annotate_truth_labels
+- index_dataset ← R28
+  - query_dataset
+- make_spectrogram ← R29
+- train_classifier ← R30
+  - dispatch_remote_training
+- grouped_cv_evaluate ← R31
+  - make_group_splits
+- predict_style ← R32
+- run_emc_conduction_sim ← R33
+- run_emc_radiation_sim ← R34
+- run_emc_sweep ← R35
+  - plan_frequency_sweep
+- build_gain_calibration ← R36
+  - check_monotonicity
+- calibrate_leakage ← R37
+- compensate_link_power ← R38
+- open_sim_siggen ← R39
+- open_sim_analyzer ← R40
+- open_sim_mixer ← R41
+  - upconvert_with_image_rejection
+- open_sim_emi_receiver ← R42
+- open_sim_attenuator ← R43
+- run_demo ← R44
+  - execute_scenario
+- build_report ← R45
+  - render_disclaimer_sections
+  - assemble_frequency_plots
+- verify_report_traceability ← R46
+  - extract_report_numbers
+- serve_console ← R47
+  - create_console_app
+- render_console_pages ← R48
+  - build_scenario_cards
+- push_realtime_kpi ← R49
+  - measure_refresh_latency
+  - trigger_emergency_stop
+- update_ledger ← R50
+  - locate_ledger_row
+- audit_ledger ← R51
+  - count_comment_ratio
+- guard_compliance ← R52
+  - check_power_cap
+  - check_band_whitelist
+  - check_env_declarations
+- bridge_to_sitl ← R53
+  - map_per_to_injection
+- run_rl_policy ← R54
+  - fallback_fixed_strategy
+- run_rff_pipeline ← R55
 
 ## 需求覆盖矩阵（P1 在 R 号后标注；非功能约束不进矩阵，fn-close 终检对照 requirements 非功能节）
 
 | 需求 | 顶层函数 |
 |---|---|
-| R1 | generate_jamming |
-| R2 | calibrate_power |
-| R3 | collect_dut_samples |
-| R4 | record_run_streams |
-| R5 | execute_scenario |
-| R6 | index_dataset |
-| R7 | train_classifier, predict_style（训练与推理两个程序入口） |
-| R8 | run_demo, build_report（演示编排与报告生成两个程序入口） |
-| R9 | create_instrument_backend（仪表插槽工厂；链路插槽=start_dut_source、样式插槽=synthesize_style 注册表——三插槽契约见 R9 块引言） |
-| R10 | serve_console |
-| R11 [P1] | bridge_to_sitl |
-| R12 [P1] | animate_link_state |
-| R13 | launch_console；serve_console [改造]（报告中心/帮助页，经 render_static_pages） |
-| R14 | execute_scenario [改造]（scaled_criteria 判据同步缩放+倍率入 run 目录，build_report 出脚注） |
-| R15 | execute_scenario [改造]（apply_calibration 功率换算+resume_from 断点续跑）；build_report [改造]（标定状态行） |
-| R16 | build_mid_material |
-| R17 | probe_device_status（serve_console 子）+ serve_console [改造]（/api_devices+状态栏全站） |
-| R18 | serve_console [改造]+render_static_pages [改造]（深色驾驶舱统一样式，无新函数） |
-| R19 | RuntimeFeed（shared）+ ws_stream_feed（serve_console 子）+ execute_scenario [改造]（发流）+ serve_console [改造]（WS 真源化） |
-| R20 | per_response_model（shared）+ serve_console [改造]（双曲线/进度卡/时间线/滑杆预览+/api/preview）+ start_dut_source [改造]（响应模型共用） |
-| R21 | collect_dashboard（serve_console 子）+ serve_console [改造]（/api/dashboard+/api/seed_demo/网格四卡挂载） |
+| R1 | load_scenario |
+| R2 | manage_run |
+| R3 | manage_backend_registry |
+| R4 | open_b210_backend |
+| R5 | open_sim_backend |
+| R6 | open_replay_backend |
+| R7 | autodetect_backend |
+| R8 [P1] | create_visa_driver |
+| R9 | synthesize_style |
+| R10 | switch_style |
+| R11 | run_power_ladder |
+| R12 | set_channel_attenuation |
+| R13 | map_distance_to_loss |
+| R14 | lookup_jsr |
+| R15 [P1] | resolve_clock_reference |
+| R16 | capture_monitor_spectrum |
+| R17 | compute_spectrum_stats |
+| R18 | drive_esp32_link |
+| R19 | drive_nrf24_link |
+| R20 | simulate_link_degradation |
+| R21 | normalize_kpi |
+| R22 | record_run_streams |
+| R23 | execute_gb42590_protocol |
+| R24 | run_baseline_check |
+| R25 | plot_triple_curves |
+| R26 | compare_failure_boundaries |
+| R27 | write_sigmf_recording |
+| R28 | index_dataset |
+| R29 | make_spectrogram |
+| R30 | train_classifier |
+| R31 | grouped_cv_evaluate |
+| R32 | predict_style |
+| R33 [P1] | run_emc_conduction_sim |
+| R34 [P1] | run_emc_radiation_sim |
+| R35 [P1] | run_emc_sweep |
+| R36 | build_gain_calibration |
+| R37 | calibrate_leakage |
+| R38 | compensate_link_power |
+| R39 [P1] | open_sim_siggen |
+| R40 [P1] | open_sim_analyzer |
+| R41 [P1] | open_sim_mixer |
+| R42 [P1] | open_sim_emi_receiver |
+| R43 [P1] | open_sim_attenuator |
+| R44 | run_demo |
+| R45 | build_report |
+| R46 | verify_report_traceability |
+| R47 | serve_console |
+| R48 | render_console_pages |
+| R49 | push_realtime_kpi |
+| R50 | update_ledger |
+| R51 | audit_ledger |
+| R52 | guard_compliance |
+| R53 [P1] | bridge_to_sitl |
+| R54 [P1] | run_rl_policy |
+| R55 [P1] | run_rff_pipeline |
 
 ## 共享函数（shared/：多顶层共用；矩阵挂全部受益需求）
 
-- **load_scenario**（调用方：generate_jamming, record_run_streams, execute_scenario, serve_console, run_demo）
-  - 职责：把场景 YAML 的唯一输入格式解析为强类型场景对象（注入段/判据/安全顶/记录开关）；做语义校验（频段范围 2400–2483.5MHz、样式名在注册表内、功率不超过安全顶 0dB、判据参数非负），任何一项不合法即拒载。
-  - 签名意图：输入: 场景 YAML 路径 / 输出: 场景对象（含全部段落） / 错误: 文件缺失或 schema/语义不合法→抛异常并指明字段名。
+- **stop_transmit_safely**（调用方：manage_run, run_power_ladder, drive_esp32_link, record_run_streams, execute_gb42590_protocol, trigger_emergency_stop）
+  - 职责：安全停发射的唯一出口——幂等地令当前发射通道进入静默（后端 stop+增益归零+事件记录），供所有异常/急停/正常收尾路径复用；保证"先停发射再退出"铁律单点实现。
+  - 签名意图：输入: 后端实例（可空）/ 输出: 停发射结果（已停/原本未发射/失败原因）/ 错误: 后端已失联→尽力而为并返回失败原因，不抛出（安全路径不允许被异常打断）。
+  - tested 策略：上游覆盖: manage_run（R2 三路径用例）+ push_realtime_kpi（R49 急停用例）
+  - 核验命令：上游覆盖: manage_run
+- **append_event**（调用方：run_power_ladder, set_channel_attenuation, execute_gb42590_protocol, run_demo）
+  - 职责：向当前运行 events.jsonl 追加一条带主机单调钟时间戳的注入事件（类型/档位/电平/附加字段），行级 JSON 落盘保证崩溃后已写事件不丢。
+  - 签名意图：输入: 运行目录+事件字典 / 输出: 已写入的事件行 / 错误: 目录不存在或磁盘写失败→抛出（由调用方走停发射路径）。
+  - tested 策略：上游覆盖: run_power_ladder（事件时间线断言）
+  - 核验命令：上游覆盖: run_power_ladder
+- **load_calibration_table**（调用方：lookup_jsr, compensate_link_power, set_channel_attenuation）
+  - 职责：按名称加载标定表文件（增益标定/链路损耗/天线系数），校验结构（频点/档位覆盖、无 NaN）后返回只读表；表缺失或损坏按调用方语义抛出或返回带【待实测】标注的占位表。
+  - 签名意图：输入: 表名+运行配置 / 输出: 标定表对象（含来源与占位标记）/ 错误: 文件损坏→抛出；缺失→按参数决定占位或抛出。
+  - tested 策略：上游覆盖: lookup_jsr（缺表拒绝用例）+ compensate_link_power（无表标注用例）
+  - 核验命令：上游覆盖: lookup_jsr
+- **make_disclaimer_block**（调用方：run_emc_conduction_sim, run_emc_radiation_sim, run_emc_sweep, build_report）
+  - 职责：生成统一的口径声明块（模拟后端/非 CISPR 16-1-1 接收机/屏蔽盒环境/仅自建链路/GB 42590 方法学预研定位，按场景类型取舍），供 EMC 段与报告脚注复用，保证四处声明文字一致。
+  - 签名意图：输入: 声明场景枚举（emc/报告全局/急停页）/ 输出: 声明文本块 / 错误: 未知枚举→抛出。
+  - tested 策略：上游覆盖: build_report（口径声明字段断言）
+  - 核验命令：上游覆盖: build_report
+
+## 功能块 load_scenario ← R1
+
+（R1：场景 YAML 加载与校验——字段完整性、取值域、频段白名单（经 guard_compliance）、功率上限；非法即退出码 2 并指错。）
+
+- **load_scenario** [L0|新增]
+  - 职责：读取场景 YAML 文件并产出规范化场景对象：依次完成文件读取（YAML 解析失败→指错行）、validate_scenario_schema 字段校验、guard_compliance 红线校验（拒则退出码 2 语义异常）、normalize_scenario 规范化（默认值填充、单位统一）；是场景进入系统的唯一入口。
+  - 签名意图：输入: 场景文件路径 / 输出: 规范化场景对象（样式/频段/梯度/判据/后端）/ 错误: ScenarioError（含字段名与原因，供退出码 2）。
+  - 调用方：run_demo；serve_console（场景 API）
   - tested 策略：自有单测
-  - 核验命令：测试: test_load_scenario（合法卡载入+四类非法卡各拒一）
-- **write_sigmf**（调用方：generate_jamming, record_run_streams）
-  - 职责：把一段复基带 IQ 与真值标注（样式/功率档/时间窗）写为一对 sigmf-data/sigmf-meta 文件，符合 SigMF v1.2.0；标注字段完整（后续 dataset 分组与训练真值的唯一来源）。
-  - 签名意图：输入: 输出基名, IQ 数组, 标注列表 / 输出: 两个文件路径 / 错误: 写入失败抛异常。
+  - 核验命令：测试: scenario_validate
+  - **validate_scenario_schema** [L1|新增]
+    - 职责：校验场景字段完整性与取值域（样式名在册、频段/带宽/采样率数值域、梯度参数非负、判据阈值域）；只判"形状与数值"，不判红线（红线归 guard_compliance）。
+    - 签名意图：输入: 原始解析后的 dict / 输出: 通过（None）或逐字段错误列表 / 错误: 不抛出，返回错误列表由上层汇总。
+    - 调用方：load_scenario
+    - tested 策略：上游覆盖: load_scenario
+    - 核验命令：上游覆盖: load_scenario
+  - **normalize_scenario** [L1|新增]
+    - 职责：把通过校验的场景填充默认值并规范化（频率单位统一 Hz、时间统一 ms、后端缺省 auto、判据缺省 PER>10%），产出下游唯一依赖的场景对象形状。
+    - 签名意图：输入: 校验通过 dict / 输出: 规范化场景对象 / 错误: 默认值与显式值类型冲突→ScenarioError。
+    - 调用方：load_scenario
+    - tested 策略：上游覆盖: load_scenario
+    - 核验命令：上游覆盖: load_scenario
+
+## 功能块 manage_run ← R2
+
+（R2：运行目录与生命周期——八件套、状态机 starting→armed→running→stopping→done/failed、任何退出路径先停发射（经 stop_transmit_safely）、日志落盘、结果 JSON。）
+
+- **manage_run** [L0|新增]
+  - 职责：一次运行的全生命周期管理：创建工作区（create_run_workspace 八件套骨架）、驱动状态机（starting/armed/running/stopping/done/failed，非法迁移拒绝）、收尾时保证 stop_transmit_safely 已执行、写出结果 JSON（退出码/耗时/后端/时钟口径/对齐误差）；所有顶层执行路径（run_demo、console 启动）都必须在本管理器内运行。
+  - 签名意图：输入: 规范化场景对象+执行回调 / 输出: 运行目录路径+结果 JSON / 错误: 执行回调异常→转 failed 状态再抛出（先停发射）；目录创建失败→RunDirError（退出码 1）。
+  - 调用方：run_demo；serve_console
   - tested 策略：自有单测
-  - 核验命令：测试: test_write_read_sigmf（写后 sigmf 库校验通过且标注可读回）
-- **read_sigmf**（调用方：train_classifier, predict_style, index_dataset）
-  - 职责：读一对 SigMF 文件为 (IQ, meta)；校验格式合法与标注齐全，缺失即报错（供数据集校验与推理输入共用）。
-  - 签名意图：输入: 录制基名 / 输出: (IQ 数组, meta 字典) / 错误: 文件缺失/校验不过抛异常并含原因。
+  - 核验命令：测试: run_lifecycle
+  - **create_run_workspace** [L1|新增]
+    - 职责：创建 runs/<YYYYMMDD-HHMMSS>/ 目录与八件套占位（场景副本、kpi.csv 表头、events.jsonl、monitor.csv 表头、SigMF 目录、report.md 占位、图目录、run.log），冲突时后缀去重。
+    - 签名意图：输入: 基础 runs 目录+场景 / 输出: 运行目录 / 错误: 磁盘不可写/空间预检不足→RunDirError。
+    - 调用方：manage_run
+    - tested 策略：上游覆盖: manage_run
+    - 核验命令：上游覆盖: manage_run
+  - **append_run_log** [L1|新增]
+    - 职责：向 run.log 追加结构化日志行（时间戳+级别+模块+消息+上下文字段），运行结束后只读封存；所有模块经它落日志（无 print 直写）。
+    - 签名意图：输入: 运行目录+级别+消息+上下文 dict / 输出: 无（副作用写文件）/ 错误: 写失败→静默降级内存缓冲并在结果 JSON 标注日志不完整。
+    - 调用方：manage_run 及各模块（经运行上下文）
+    - tested 策略：上游覆盖: manage_run
+    - 核验命令：上游覆盖: manage_run
+  - **finalize_run** [L1|新增]
+    - 职责：收尾：确认停发射结果、封存三路数据文件（flush+fsync）、写结果 JSON（退出码语义/耗时/后端/时钟/对齐误差/缺项清单）、状态机迁移至 done/failed。
+    - 签名意图：输入: 运行上下文+退出语义 / 输出: 结果 JSON 路径 / 错误: 收尾自身失败→结果 JSON 记"收尾异常"并保留已写数据。
+    - 调用方：manage_run
+    - tested 策略：上游覆盖: manage_run
+    - 核验命令：上游覆盖: manage_run
+
+## 功能块 manage_backend_registry ← R3
+
+（R3：仪表插槽接口与注册机制——统一接口（IQ 收发/参数/能力声明）、注册表、三类插槽对称、新增=文件+注册。）
+
+- **manage_backend_registry** [L0|新增]
+  - 职责：仪表后端注册与获取的总入口：定义后端统一接口契约（能力声明+参数下发+IQ 收发+启停），维护全局注册表；获取时按名解析，未注册名明确报错；保证"新后端=新文件+register_backend 调用"即可接入。
+  - 签名意图：输入: 后端名（或注册请求：名+工厂）/ 输出: 后端实例或注册确认 / 错误: 未注册名→BackendError（列出可用名）；重复注册→拒绝（除非显式覆盖参数）。
+  - 调用方：autodetect_backend；run_demo；各 sim 远期后端
   - tested 策略：自有单测
-  - 核验命令：测试: test_write_read_sigmf（与 write 成对往返）
-- **EstopManager**（类；调用方：execute_scenario, record_run_streams, serve_console）
-  - 职责：全局急停管理。arm(callback) 注册停发射回调；fire(reason) 按注册序同步触发全部回调并置位（本次运行内状态只升不降）；state 报 armed/fired 与原因摘要。任何异常退出路径先经它停发射。
-  - 签名意图：输入: arm=回调函数, fire=原因字符串 / 输出: state 属性 / 错误: 回调抛错不阻断其余回调执行。
+  - 核验命令：测试: slot_registry
+  - **register_backend** [L1|新增]
+    - 职责：把后端工厂函数按名登记入注册表（含能力元数据：频段/带宽/增益域/是否模拟），登记时做接口契约形式检查（必需方法齐全）。
+    - 签名意图：输入: 名+工厂+能力元数据 / 输出: 登记确认 / 错误: 契约缺失方法或重名→BackendError。
+    - 调用方：manage_backend_registry；各后端模块（import 时自注册）
+    - tested 策略：上游覆盖: manage_backend_registry
+    - 核验命令：上游覆盖: manage_backend_registry
+  - **lookup_backend** [L1|新增]
+    - 职责：按名（含别名解析：b210/sim/replay/auto）返回后端工厂与能力元数据，供 autodetect_backend 与场景后端选择使用。
+    - 签名意图：输入: 后端名 / 输出: 工厂+能力元数据 / 错误: 未知名→BackendError（附可用名列表）。
+    - 调用方：manage_backend_registry；autodetect_backend
+    - tested 策略：上游覆盖: manage_backend_registry
+    - 核验命令：上游覆盖: manage_backend_registry
+
+## 功能块 open_b210_backend ← R4
+
+（R4：B210 真硬件后端——UHD 双通道 CH1 注入/CH2 监测、参数下发回读、70MHz–6GHz；初始化失败上抛由 R7 决定降级。）
+
+- **open_b210_backend** [L0|新增]
+  - 职责：创建并初始化 B210 硬件后端：UHD 设备打开、双子通道（CH1 TX/CH2 RX）分配、configure_b210_channels 参数下发、提供 IQ 读写流句柄与硬件状态（时钟源/GPS 锁定）；注册名 b210。
+  - 签名意图：输入: 后端参数（频率/增益/采样率/天线）/ 输出: 后端实例（实现统一接口）/ 错误: 设备打不开/参数下发失败→BackendError（含 UHD 错误原文）。
+  - 调用方：manage_backend_registry（工厂）；autodetect_backend
+  - tested 策略：自有单测（在位实测；不在位 skip 并标注）
+  - 核验命令：测试: backend_b210
+  - **configure_b210_channels** [L1|新增]
+    - 职责：向 UHD 下发双通道参数（中心频率/增益/采样率/带宽/天线选择）并回读校验（回读偏差超容差报错），含 GPSDO/PPS 时钟源配置。
+    - 签名意图：输入: 设备句柄+参数集 / 输出: 回读确认的参数集 / 错误: 参数越硬件域或回读不符→BackendError。
+    - 调用方：open_b210_backend
+    - tested 策略：上游覆盖: open_b210_backend
+    - 核验命令：上游覆盖: open_b210_backend
+  - **write_b210_tx_stream** [L1|新增]
+    - 职责：把基带 IQ 流送入 CH1 发射（分块下发、欠载检测、发送字节计数），支持运行中增益/频率参数热更新。
+    - 签名意图：输入: 后端实例+IQ 块迭代器 / 输出: 发送统计 / 错误: 欠载超阈/设备失联→BackendError（上层走停发射）。
+    - 调用方：open_b210_backend（流接口）
+    - tested 策略：上游覆盖: open_b210_backend
+    - 核验命令：上游覆盖: open_b210_backend
+  - **read_b210_rx_stream** [L1|新增]
+    - 职责：从 CH2 连续读取监测 IQ 流（溢出检测、时间戳标记），供 capture_monitor_spectrum 消费。
+    - 签名意图：输入: 后端实例+读取参数 / 输出: IQ 块迭代器（含时间戳与溢出标志）/ 错误: 溢出超阈→告警事件，失联→BackendError。
+    - 调用方：open_b210_backend（流接口）；capture_monitor_spectrum
+    - tested 策略：上游覆盖: open_b210_backend
+    - 核验命令：上游覆盖: open_b210_backend
+
+## 功能块 open_sim_backend ← R5
+
+（R5：sim 模拟后端——全参数软件仿真、注入 IQ 环回、无硬件全流程。）
+
+- **open_sim_backend** [L0|新增]
+  - 职责：创建纯软件仿真仪表后端（注册名 sim）：参数域与 B210 同构（可配置扩展频段/带宽/增益）、注入 IQ 经 loopback_sim_stream 环回给监测与链路退化模型消费、可控注入仿真噪声与信道效应；无任何硬件依赖。
+  - 签名意图：输入: 后端参数（同 b210 形状，域可放宽）/ 输出: 后端实例 / 错误: 参数域校验同形拒绝。
+  - 调用方：manage_backend_registry（工厂）；autodetect_backend（降级目标）
   - tested 策略：自有单测
-  - 核验命令：测试: test_estop（注册两回调→fire→按序都执行且幂等）
+  - 核验命令：测试: backend_sim
+  - **loopback_sim_stream** [L1|新增]
+    - 职责：sim 内部环回通道：把 TX IQ 按配置的延迟/衰减/加噪变换后作为 RX 流返回（供监测与退化模型得到与注入一致的信号），保持时间戳因果。
+    - 签名意图：输入: TX IQ 块+信道效应参数 / 输出: 变换后 RX IQ 块 / 错误: 参数越仿真域→夹紧并标注。
+    - 调用方：open_sim_backend
+    - tested 策略：上游覆盖: open_sim_backend
+    - 核验命令：上游覆盖: open_sim_backend
 
-## 功能块 generate_jamming ← R1
+## 功能块 open_replay_backend ← R6
 
-（块引言：R1 六类干扰样式生成引擎。按场景注入段参数化生成单音/扫频/啁啾/带限噪声/部分频带/脉冲六类复基带波形，经仪表后端发射并同步 SigMF 归档；dry-run 只产参数表不出射频。样式集为插件注册表——新样式=注册新构建函数，本引擎主体零改动。）
+（R6：replay 回放后端——SigMF 真值对按时间轴回放，复现与测试。）
 
-- **generate_jamming** [L0|新增]
-  - 职责：接收注入段，逐样式合成波形→经仪表后端发射（dry-run 则跳过）→录制归档 SigMF（真值标注=样式/功率档/时间窗）→返回结果对象（路径+样式元数据+错误清单）。参数越界或设备失联：立即停发射、errors 非空、ok=False。
-  - 签名意图：输入: 注入段对象, {dry_run, 输出目录, 后端名} / 输出: 结果对象（ok/dry_run/sigmf 路径/样式元数据/错误清单） / 错误: 越界/失联→先停发再返回失败结果。
-  - 调用方：程序入口（gen 命令）
-  - tested 策略：自有单测（dry-run 路径+mock 后端）
-  - 核验命令：测试: R1 冒烟（dry-run 参数表+短时发射 SigMF 标注+瀑布目视）——继承 R1 验收方式
-  - **synthesize_style** [L1|新增]
-    - 职责：按样式名从注册表分发到对应构建器，合成一段复基带 IQ。样式名不在注册表→明确报错。注册表即样式插槽（新样式=注册新构建函数，不改调用方）。
-    - 签名意图：输入: 样式名, 参数（频率/带宽/时长/采样率/样式专有参数） / 输出: 复基带 IQ 数组+样式元数据 / 错误: 未知样式/参数非法抛异常。
-    - 调用方：generate_jamming
-    - tested 策略：自有单测
-    - 核验命令：测试: test_synthesize_style（六样式各出非零 IQ+未知样式拒）
+- **open_replay_backend** [L0|新增]
+  - 职责：创建回放后端（注册名 replay）：打开 SigMF 录制对，read_sigmf_timeline 按录制时间轴（可倍速）产出 RX 流；无 TX 能力（发发射请求即明确报错），用于复现既有数据流。
+  - 签名意图：输入: SigMF 路径+倍速 / 输出: 后端实例 / 错误: 文件损坏/时间轴断裂→BackendError。
+  - 调用方：manage_backend_registry（工厂）
+  - tested 策略：自有单测
+  - 核验命令：测试: backend_replay
+  - **read_sigmf_timeline** [L1|新增]
+    - 职责：解析 SigMF 元数据与数据文件，按样本时间戳切块产出（保序），暴露标注（样式/功率档）供回放场景对齐。
+    - 签名意图：输入: SigMF 对路径 / 输出: 时间戳 IQ 块迭代器+标注 / 错误: 元数据缺字段/数据截断→BackendError。
+    - 调用方：open_replay_backend
+    - tested 策略：上游覆盖: open_replay_backend
+    - 核验命令：上游覆盖: open_replay_backend
 
-## 功能块 calibrate_power ← R2
+## 功能块 autodetect_backend ← R7
 
-（块引言：R2 功率标定与步进。建立"软件增益细档×衰减器粗档→注入功率"的标定表，供执行器把场景功率档换算为后端可执行值；单调性检查保证步进可信。）
+（R7：后端自动探测与降级——uhd_find_devices 探测、在位 b210/不在位 sim、标识贯通日志与 UI、初始化失败显式报错不静默。）
 
-- **calibrate_power** [L0|新增]
-  - 职责：对频点×增益档组合逐档实测（或按后端提供的传递函数计算），产出 calibration.json（频点×档位→注入功率表），并做单调性检查：相邻档差值与设定步距偏差>1dB 即在结果中告警。首版实测偏差如实入表。
-  - 签名意图：输入: 频点列表, 增益档列表, 输出目录 / 输出: 标定结果（表路径/单调性是否通过/最大偏差/条目数） / 错误: 后端失联→中止并报错。
-  - 调用方：程序入口（calibrate 命令）、execute_scenario（内部取表）
-  - tested 策略：自有单测（mock 后端传递函数）
-  - 核验命令：测试: R2 标定（产表+单调性检查打印）——继承 R2 验收方式
+- **autodetect_backend** [L0|新增]
+  - 职责：启动时决定当前后端：probe_uhd_devices 探测→在位尝试 open_b210_backend→成功用 b210；不在位降级 sim；在位但初始化失败→显式报错并提示"显式指定 --backend sim 可降级"，**绝不静默 sim**；把最终后端名+探测依据写入运行上下文（日志/UI/报告贯通）。
+  - 签名意图：输入: 显式后端名（可空=auto）/ 输出: 后端实例+选择记录（探测输出/决策原因）/ 错误: 显式名失败→BackendError；auto 且初始化失败→BackendError（附降级建议）。
+  - 调用方：run_demo；serve_console
+  - tested 策略：自有单测（三态注入测试）
+  - 核验命令：测试: backend_autodetect
+  - **probe_uhd_devices** [L1|新增]
+    - 职责：调用 uhd_find_devices（或 UHD API）枚举在位 USRP，返回设备清单与原始输出；工具缺失/执行失败返回空清单+原因（按无设备处理，不抛出）。
+    - 签名意图：输入: 无 / 输出: 设备列表+探测原始输出+失败原因 / 错误: 不抛出（失败信息进返回值）。
+    - 调用方：autodetect_backend
+    - tested 策略：上游覆盖: autodetect_backend
+    - 核验命令：上游覆盖: autodetect_backend
 
-## 功能块 collect_dut_samples ← R3
+## 功能块 create_visa_driver ← R8 [P1]
 
-（块引言：R3 被测双链路采集。真实链路（ESP32 WiFi/NRF24，串口 JSON 行 1Hz）与合成链路同接口——统一样本流是链路插槽的契约形态；串口异常记事件不中断采集。）
+（R8：PyVISA SCPI 仪表槽位——远期真仪表接入层，与插槽同构；sim 仪表可注入同槽演示。）
 
-- **collect_dut_samples** [L0|新增]
-  - 职责：按场景声明的链路清单启动样本源，在给定时长内（或直到回调停止）持续收集样本并逐条回调；串口断连/序号跳变记 gap 事件继续采集；返回样本与事件清单。
-  - 签名意图：输入: 链路清单, 时长, 逐条回调 / 输出: (样本列表, gap/异常事件列表) / 错误: 全部链路失联→返回已收内容并报错。
-  - 调用方：程序入口（dut --watch）、record_run_streams
-  - tested 策略：自有单测（合成源路径）
-  - 核验命令：测试: R3 空跑（5 分钟本底 PER/拔线 gap/合成与真实同接口）——继承 R3 验收方式
-  - **start_dut_source** [L1|新增]
-    - 职责：链路插槽工厂——按配置返回真实串口源或合成源，两者产出同构样本流（合成源按 jam_profile 生成指定 PER 台阶，供无硬件演示与开发）。未知链路类型拒启。
-    - 签名意图：输入: 链路配置（类型/串口名或合成档案/种子） / 输出: 样本流对象（可迭代+可关闭） / 错误: 串口打不开/未知类型抛异常。
-    - 调用方：collect_dut_samples
-    - tested 策略：自有单测（合成源）；真实源上游覆盖
-    - 核验命令：测试: test_start_dut_source（合成源出流+未知类型拒）
-    - **parse_serial_line** [L2|新增]
-      - 职责：一行串口 JSON→样本对象（字段与串口契约一致：link/seq/ts/per/计数/RSSI 或 NRF 计数/fw）；字段缺失或 seq 回退跳变抛出携带字段名的异常（上层转 gap 事件）。
-      - 签名意图：输入: 一行字节 / 输出: 样本对象 / 错误: 非法 JSON/字段缺失/seq 异常→异常含字段名。
-      - 调用方：start_dut_source（真实源分支）
-      - tested 策略：自有单测
-      - 核验命令：测试: test_parse_serial_line（合法行/缺字段行/seq 跳变行三分支）
+- **create_visa_driver** [L0|新增]
+  - 职责：创建 PyVISA(+PyVISA-Py) 驱动槽位：按仪表型号加载 SCPI 命令映射（1433D/EMI 接收机等），exchange_scpi 完成查询/设置；实现统一仪表接口（能力声明=型号规格），远期真仪表与 sim 仪表同槽可换。
+  - 签名意图：输入: VISA 地址（或资源名）+型号 / 输出: 驱动实例（统一接口）/ 错误: 资源打不开/应答超时→DriverError（含仪器原文）。
+  - 调用方：manage_backend_registry（注册为 visa 槽）；open_sim_siggen 等远期后端复用其命令映射
+  - tested 策略：自有单测（模拟仪器应答往返）
+  - 核验命令：测试: visa_slot
+  - **exchange_scpi** [L1|新增]
+    - 职责：单次 SCPI 交互：发送命令、可选读回应答、超时与重试策略、原始应答解析为类型化值。
+    - 签名意图：输入: 驱动实例+命令+期望应答类型 / 输出: 类型化应答 / 错误: 超时/语法错→DriverError。
+    - 调用方：create_visa_driver
+    - tested 策略：上游覆盖: create_visa_driver
+    - 核验命令：上游覆盖: create_visa_driver
 
-## 功能块 record_run_streams ← R4
+## 功能块 synthesize_style ← R9
 
-（块引言：R4 三路统一采集与时间对齐。DUT 样本∥监测谱统计∥注入事件三路汇流，统一打主机单调钟时间戳，落 run 目录标准产物；时间轴覆盖率≥99%。）
+（R9：六类样式合成引擎——J(t) 分量程序化（A_k/Δf_k/θ_k）、参数校验内建（频率/带宽≤56MHz/功率域）、越界即拒。）
+
+- **synthesize_style** [L0|新增]
+  - 职责：样式合成总入口：check_style_params 参数校验后按样式名分派到六个生成器（gen_tone/gen_sweep/gen_chirp/gen_bandlimited_noise/gen_partial_band/gen_pulse）产出基带 IQ；多样式叠加经 compose_jamming 完成（J(t) 多源合成）；输出可直接进后端 TX 流。
+  - 签名意图：输入: 样式名+参数（频率/带宽/功率/时域形状）+样本预算 / 输出: 复数 IQ 数组（含元数据：实际带宽/功率归一）/ 错误: 参数越界（频率/带宽/功率域）→StyleError（指明参数名与界限）。
+  - 调用方：switch_style；run_power_ladder（各档重合成）；execute_gb42590_protocol
+  - tested 策略：自有单测
+  - 核验命令：测试: styles_synth
+  - **check_style_params** [L1|新增]
+    - 职责：样式参数取值域校验：频率∈后端能力域、带宽≤56MHz（带限类）、功率∈[下限,0dBm 红线内]、时域参数非负；只判域不合成。
+    - 签名意图：输入: 样式参数 dict / 输出: 通过/逐参数错误列表 / 错误: 不抛出，返回列表由上层转 StyleError。
+    - 调用方：synthesize_style
+    - tested 策略：上游覆盖: synthesize_style
+    - 核验命令：上游覆盖: synthesize_style
+  - **gen_tone** [L1|新增]
+    - 职责：生成单音（CW）复指数 IQ：给定频偏与长度，恒包络。
+    - 签名意图：输入: 频偏+样本数 / 输出: IQ 数组 / 错误: 域已由上游保证，不另抛。
+    - 调用方：synthesize_style
+    - tested 策略：上游覆盖: synthesize_style
+    - 核验命令：上游覆盖: synthesize_style
+  - **gen_sweep** [L1|新增]
+    - 职责：生成线性扫频 IQ（起止频率/时长/重复），相位连续累积。
+    - 签名意图：输入: f0/f1/时长/重复次数 / 输出: IQ 数组 / 错误: 同上不另抛。
+    - 调用方：synthesize_style
+    - tested 策略：上游覆盖: synthesize_style
+    - 核验命令：上游覆盖: synthesize_style
+  - **gen_chirp** [L1|新增]
+    - 职责：生成 chirp（线性调频，锯齿/三角）IQ，换频周期参数化。
+    - 签名意图：输入: 带宽/周期/形状 / 输出: IQ 数组 / 错误: 同上。
+    - 调用方：synthesize_style
+    - tested 策略：上游覆盖: synthesize_style
+    - 核验命令：上游覆盖: synthesize_style
+  - **gen_bandlimited_noise** [L1|新增]
+    - 职责：生成带限高斯噪声 IQ（滤波成型，99% 功率带宽参数化、平坦度≤4dB 设计目标）。
+    - 签名意图：输入: 带宽+样本数+随机种子 / 输出: IQ 数组（实测带宽/平坦度入元数据）/ 错误: 带宽>56MHz→StyleError。
+    - 调用方：synthesize_style
+    - tested 策略：上游覆盖: synthesize_style
+    - 核验命令：上游覆盖: synthesize_style
+  - **gen_partial_band** [L1|新增]
+    - 职责：生成部分频带干扰 IQ（占被测带宽的比例参数化，中心可偏置）。
+    - 签名意图：输入: 占比+中心偏置+样本数 / 输出: IQ 数组 / 错误: 同上。
+    - 调用方：synthesize_style
+    - tested 策略：上游覆盖: synthesize_style
+    - 核验命令：上游覆盖: synthesize_style
+  - **gen_pulse** [L1|新增]
+    - 职责：生成脉冲干扰 IQ（占空比/脉宽/重复频率参数化，载波可选）。
+    - 签名意图：输入: 占空比+脉宽+重复频率 / 输出: IQ 数组 / 错误: 同上。
+    - 调用方：synthesize_style
+    - tested 策略：上游覆盖: synthesize_style
+    - 核验命令：上游覆盖: synthesize_style
+  - **compose_jamming** [L1|新增]
+    - 职责：J(t) 多源合成：把 K 个分量 IQ 按各自 A_k 包络、Δf_k 频偏、θ_k 相位叠加为单一干扰波形（公式(1) 程序化），输出总功率归一信息。
+    - 签名意图：输入: 分量列表（IQ+包络+频偏+相位）/ 输出: 合成 IQ+各分量功率占比 / 错误: 分量长度不一致→StyleError。
+    - 调用方：synthesize_style
+    - tested 策略：上游覆盖: synthesize_style
+    - 核验命令：上游覆盖: synthesize_style
+
+## 功能块 switch_style ← R10
+
+（R10：样式注册表与快速切换——新增样式=注册不动核心、切换 <2s 软件操作。）
+
+- **switch_style** [L0|新增]
+  - 职责：运行前/间隙切换当前样式：lookup_style_recipe 取配方→预合成就绪实例→原子替换当前样式句柄；切换耗时测量入结果（<2s 判据）；切换期间不发发射（安全闸）。
+  - 签名意图：输入: 当前运行上下文+新样式名+参数 / 输出: 就绪样式实例+切换耗时 / 错误: 未注册样式→StyleError；合成失败→保持旧样式并报错。
+  - 调用方：run_demo；serve_console（场景卡切换）
+  - tested 策略：自有单测
+  - 核验命令：测试: styles_switch
+  - **lookup_style_recipe** [L1|新增]
+    - 职责：样式配方注册表查询（样式名→生成器绑定+默认参数+能力元数据），新样式注册=登记配方。
+    - 签名意图：输入: 样式名 / 输出: 配方 / 错误: 未注册→StyleError（附在册列表）。
+    - 调用方：switch_style；synthesize_style（分派）
+    - tested 策略：上游覆盖: switch_style
+    - 核验命令：上游覆盖: switch_style
+
+## 功能块 run_power_ladder ← R11
+
+（R11：功率步进执行器——GB 口径 −5dB 起 5dB 档递增、失效即停、事件流 events.jsonl。）
+
+- **run_power_ladder** [L0|新增]
+  - 职责：执行功率阶梯：plan_ladder_steps 生成档位计划→逐档下发（后端增益+衰减组合）→每档经 append_event 记录（时间戳/档号/电平/JSR 估计）→监听失效判据回调，触发即 stop_transmit_safely 并终止；档位不可达先停发射再报错。
+  - 签名意图：输入: 运行上下文+梯度参数+失效判据回调 / 输出: 档位执行记录列表 / 错误: 后端增益不可达→LadderError（已停发射）；判据回调异常→同停发射语义。
+  - 调用方：execute_gb42590_protocol；run_demo（非国标自定义梯度）
+  - tested 策略：自有单测
+  - 核验命令：测试: power_ladder
+  - **plan_ladder_steps** [L1|新增]
+    - 职责：把梯度参数展开为有序档位计划（起始=链路发射功率−5dB、步长 5dB、上限参数化；支持自定义起止/步长场景），每档标注预期电平与档号。
+    - 签名意图：输入: 链路参考功率+梯度参数 / 输出: 档位计划（电平/档号/说明）/ 错误: 起点高于红线→PlanError。
+    - 调用方：run_power_ladder
+    - tested 策略：上游覆盖: run_power_ladder
+    - 核验命令：上游覆盖: run_power_ladder
+
+## 功能块 set_channel_attenuation ← R12
+
+（R12：粗细档信道拼接——30dB 衰减器两态+软件增益细档、请求→组合映射、越界给出可达域。）
+
+- **set_channel_attenuation** [L0|新增]
+  - 职责：把目标衰减量翻译为档位组合：plan_attenuator_combo 计算（30dB 粗档接入/旁路 × 软件增益细档，标定表经 load_calibration_table）→下发后端→append_event 记录；请求超出可达范围时拒绝并返回可达域。
+  - 签名意图：输入: 目标衰减 dB+运行上下文 / 输出: 实达衰减+档位组合 / 错误: 超可达域→AttenuationError（附可达范围）。
+  - 调用方：run_power_ladder；map_distance_to_loss（间接经计划）
+  - tested 策略：自有单测
+  - 核验命令：测试: channel_ladder
+  - **plan_attenuator_combo** [L1|新增]
+    - 职责：纯计算：目标衰减→（粗档二态，软件增益档）组合与残差，输出组合序列；不含副作用。
+    - 签名意图：输入: 目标 dB+档位域+标定表 / 输出: 组合+实达值+残差 / 错误: 不抛出（不可达返回 None 由上层转 AttenuationError）。
+    - 调用方：set_channel_attenuation
+    - tested 策略：上游覆盖: set_channel_attenuation
+    - 核验命令：上游覆盖: set_channel_attenuation
+
+## 功能块 map_distance_to_loss ← R13
+
+（R13：距离-损耗映射——L(d) 公式(3) 功率台阶等效、n/X_σ 参数化、远场→近场演变序列。）
+
+- **map_distance_to_loss** [L0|新增]
+  - 职责：把距离序列映射为损耗计划：compute_pathloss 逐点算 L(d)（含 X_σ 阴影抽样，随机种子可控复现）→损耗值序列交给 set_channel_attenuation 语义生成档位计划；超可模拟距离域时给出可达距离范围。
+  - 签名意图：输入: 距离序列/参考距离 d₀/n/X_σ 参数 / 输出: 距离-损耗-档位计划 / 错误: 距离超可达衰减域→DistanceError（附可达范围）。
+  - 调用方：run_demo（距离演变场景）；run_power_ladder（演变模式）
+  - tested 策略：自有单测
+  - 核验命令：测试: pathloss_map
+  - **compute_pathloss** [L1|新增]
+    - 职责：公式(3) 单点计算：L(d)=L(d₀)+10n·log₁₀(d/d₀)+X_σ（X_σ=零均值高斯 σ 抽样，种子可控）；纯函数。
+    - 签名意图：输入: d/d₀/L(d₀)/n/X_σ 参数+种子 / 输出: 损耗 dB / 错误: d≤0 或 d<d₀→ValueError。
+    - 调用方：map_distance_to_loss
+    - tested 策略：上游覆盖: map_distance_to_loss
+    - 核验命令：上游覆盖: map_distance_to_loss
+
+## 功能块 lookup_jsr ← R14
+
+（R14：JSR 标定与换算——增益→注入功率标定表查询、JSR 换算、缺表拒绝。）
+
+- **lookup_jsr** [L0|新增]
+  - 职责：由当前增益档/频率查标定表得估计注入功率（load_calibration_table，含【待实测】占位语义），结合链路信号功率换算 JSR；标定表缺失时拒绝 JSR 场景并提示先标定。
+  - 签名意图：输入: 增益档+频率+链路信号功率 / 输出: 估计注入功率+JSR dB / 错误: 表缺失→CalibrationError（提示 build_gain_calibration）；插值域外→返回值带外推标注。
+  - 调用方：run_power_ladder（事件附 JSR）；compute_spectrum_stats（反演交叉校验）
+  - tested 策略：自有单测
+  - 核验命令：测试: jsr_calibration
+
+## 功能块 resolve_clock_reference ← R15 [P1]
+
+（R15：时钟参考探测——GPS/10MHz/PPS 可用性、驯服启用或主机钟降级、口径贯通日志与报告脚注。）
+
+- **resolve_clock_reference** [L0|新增]
+  - 职责：初始化时决定时基：probe_gpsdo_status 探测（GPS 锁定/外接 10MHz/PPS）→可用则配置后端时钟驯服、不可用降级主机单调钟；输出时钟口径（枚举+依据）写入运行上下文（报告脚注消费）；探测失败不阻塞。
+  - 签名意图：输入: 后端实例（可空）/ 输出: ClockReference（枚举/依据/驯服状态）/ 错误: 不抛出（任何失败→软件钟+标注）。
+  - 调用方：run_demo（初始化阶段）；manage_run（结果 JSON 记录）
+  - tested 策略：自有单测
+  - 核验命令：测试: clocking
+  - **probe_gpsdo_status** [L1|新增]
+    - 职责：读取后端/GPSDO 状态（锁定卫星数/参考源/PPS 可用），返回原始状态与可用性判定；无硬件返回不可用+原因。
+    - 签名意图：输入: 后端实例 / 输出: 状态 dict+可用布尔 / 错误: 不抛出。
+    - 调用方：resolve_clock_reference
+    - tested 策略：上游覆盖: resolve_clock_reference
+    - 核验命令：上游覆盖: resolve_clock_reference
+
+## 功能块 capture_monitor_spectrum ← R16
+
+（R16：监测谱采集——CH2 流→monitor.csv、56MHz 边界内建（限带/分段）、超带宽自动限带记录口径。）
+
+- **capture_monitor_spectrum** [L0|新增]
+  - 职责：消费监测 IQ 流产出 monitor.csv：按窗口做功率谱统计（频率 bin+功率+时间戳）逐行落盘；enforce_bandwidth_limit 在采集参数处实施 56MHz 边界（2.4G 整段自动限带或分段计划、5.8G 单信道段）；带宽口径写入运行上下文。
+  - 签名意图：输入: 监测流+采集参数 / 输出: monitor.csv 行流+分段口径 / 错误: 流中断→MonitorError（走停发射路径）。
+  - 调用方：record_run_streams（三路之一）
+  - tested 策略：自有单测
+  - 核验命令：测试: monitor_capture
+  - **enforce_bandwidth_limit** [L1|新增]
+    - 职责：给定目标观测频段与设备 56MHz 实时带宽，产出合法采集计划（单段限带或多段拼接），并生成口径说明（哪些频段受限）。
+    - 签名意图：输入: 目标频段+设备带宽 / 输出: 采集段计划+受限说明 / 错误: 目标频段全超设备域→MonitorError。
+    - 调用方：capture_monitor_spectrum
+    - tested 策略：上游覆盖: capture_monitor_spectrum
+    - 核验命令：上游覆盖: capture_monitor_spectrum
+
+## 功能块 compute_spectrum_stats ← R17
+
+（R17：频谱统计与核验——SNR 公式(4)、JSR 反演、平坦度≤4dB、杂散可观测口径。）
+
+- **compute_spectrum_stats** [L0|新增]
+  - 职责：对 monitor 数据窗口出统计行：estimate_snr（公式(4)，参考信号参数在位时）、JSR 反演（与 lookup_jsr 交叉）、check_flatness（带限噪声段）、监测底噪口径（无参考时只出功率统计并标注）；统计行供报告与判据使用。
+  - 签名意图：输入: monitor 窗口+参考参数（可空）/ 输出: 统计行（SNR/JSR/平坦度/底噪，含可用性标记）/ 错误: 窗口数据不足→跳窗计数，不抛出。
+  - 调用方：record_run_streams（随采随算）；build_report（图谱数据）
+  - tested 策略：自有单测
+  - 核验命令：测试: spectrum_stats
+  - **estimate_snr** [L1|新增]
+    - 职责：公式(4) 单窗口计算：SNR=P_signal/(P_noise+P_interference)，信号/噪声/干扰功率划分策略参数化（bin 归属法）。
+    - 签名意图：输入: 功率谱 bin+划分参数 / 输出: SNR dB+各功率分量 / 错误: 划分空带→返回不可用标记。
+    - 调用方：compute_spectrum_stats
+    - tested 策略：上游覆盖: compute_spectrum_stats
+    - 核验命令：上游覆盖: compute_spectrum_stats
+  - **check_flatness** [L1|新增]
+    - 职责：对指定频带计算平坦度（最大/最小功率差）并与 ≤4dB 判据比对，越限报警事件。
+    - 签名意图：输入: 功率谱 bin+目标频带 / 输出: 平坦度 dB+越限布尔 / 错误: 带内 bin 不足→不可用标记。
+    - 调用方：compute_spectrum_stats
+    - tested 策略：上游覆盖: compute_spectrum_stats
+    - 核验命令：上游覆盖: compute_spectrum_stats
+
+## 功能块 drive_esp32_link ← R18
+
+（R18：ESP32 WiFi 链路驱动——UDP 定长流+RSSI 上报固件、串口解析、PER/重传/RSSI、断开先停发射。）
+
+- **drive_esp32_link** [L0|新增]
+  - 职责：ESP32 被测链路驱动：维护串口连接、parse_esp32_frame 持续解析 KPI 帧（PER/重传/RSSI）打时间戳产出样本流；串口断开/帧损坏率超阈→stop_transmit_safely 后抛 LinkError；固件（PlatformIO 工程）随库交付。
+  - 签名意图：输入: 串口配置 / 输出: KPI 样本流（时间戳+指标）/ 错误: 断开/损坏超阈→LinkError（已停发射）。
+  - 调用方：record_run_streams（三路之一）
+  - tested 策略：自有单测（样本帧解析+断开处置）
+  - 核验命令：测试: dut_esp32
+  - **parse_esp32_frame** [L1|新增]
+    - 职责：单帧解析：串口行/帧→（seq/期望包/错包/重传/RSSI）类型化样本，校验和与乱序检测。
+    - 签名意图：输入: 原始帧字节 / 输出: KPI 样本 / 错误: 坏帧→FrameError（计入损坏率）。
+    - 调用方：drive_esp32_link
+    - tested 策略：上游覆盖: drive_esp32_link
+    - 核验命令：上游覆盖: drive_esp32_link
+
+## 功能块 drive_nrf24_link ← R19
+
+（R19：NRF24 链路驱动——RPD+ARC_CNT/PLOS_CNT 计数上报、无 RSSI 口径、断开处置同 R18。）
+
+- **drive_nrf24_link** [L0|新增]
+  - 职责：NRF24 被测链路驱动：串口解析计数帧（丢包/重传 RPD 1bit 门限），样本口径固定"丢包/重传"（不产 RSSI 字段）；断开处置同 drive_esp32_link（先停发射）；固件随库交付。
+  - 签名意图：输入: 串口配置 / 输出: KPI 样本流 / 错误: 断开→LinkError（已停发射）。
+  - 调用方：record_run_streams（三路之一）
+  - tested 策略：自有单测
+  - 核验命令：测试: dut_nrf24
+  - **parse_nrf24_frame** [L1|新增]
+    - 职责：单帧解析：计数寄存器读数→（发送/丢包/重传/RPD）类型化样本。
+    - 签名意图：输入: 原始帧 / 输出: KPI 样本 / 错误: 坏帧→FrameError。
+    - 调用方：drive_nrf24_link
+    - tested 策略：上游覆盖: drive_nrf24_link
+    - 核验命令：上游覆盖: drive_nrf24_link
+
+## 功能块 simulate_link_degradation ← R20
+
+（R20：sim 链路退化模型——注入参数驱动的 PER 退化（含悬崖）、模型参数【待实测】校准位、域外夹紧标注。）
+
+- **simulate_link_degradation** [L0|新增]
+  - 职责：无硬件 KPI 发生器：订阅注入事件流（样式/功率/频偏），按退化模型（S 形悬崖：低电平近基线 PER、临界档位陡升、参数【待实测】占位可校准）产出与真链路同构的 KPI 样本流；模型域外输入夹紧并标注。
+  - 签名意图：输入: 注入事件流+模型参数 / 输出: KPI 样本流（同 normalize_kpi 形状）/ 错误: 不抛出（域外夹紧+标注）。
+  - 调用方：record_run_streams（sim 模式 DUT 路）
+  - tested 策略：自有单测（单调性+悬崖档位）
+  - 核验命令：测试: dut_sim
+  - **apply_cliff_model** [L1|新增]
+    - 职责：单点退化计算：给定（样式,JSR/电平,频偏）→PER（sigmoid 悬崖），纯函数、参数可注入。
+    - 签名意图：输入: 注入状态+模型参数 / 输出: PER / 错误: 域外输入→夹紧值+标记。
+    - 调用方：simulate_link_degradation
+    - tested 策略：上游覆盖: simulate_link_degradation
+    - 核验命令：上游覆盖: simulate_link_degradation
+
+## 功能块 normalize_kpi ← R21
+
+（R21：KPI 数据模型与 PER 口径——两链路+sim 统一模型、PER≤10% 判据、BER→PER 口径声明、异源冲突拒。）
+
+- **normalize_kpi** [L0|新增]
+  - 职责：统一 KPI 模型出口：把 ESP32/NRF24/sim 三源样本归一为统一行（时间戳/链路名/PER/重传/RSSI?/来源标记），compute_per 统一计算口径（EN 300 328 判据字段），附口径元数据（BER→PER 声明、F13 数字空缺标注）；异源字段冲突拒绝并指源。
+  - 签名意图：输入: 任一源原始样本 / 输出: 统一 KPI 行+口径元数据 / 错误: 字段冲突/类型不符→KpiError（指明源与字段）。
+  - 调用方：record_run_streams（DUT 路出口）；execute_gb42590_protocol（判据输入）
+  - tested 策略：自有单测
+  - 核验命令：测试: kpi_model
+  - **compute_per** [L1|新增]
+    - 职责：PER 计算纯函数：错误包/总包（窗口参数化），附样本量与置信区间口径；样本量不足返回不可用标记。
+    - 签名意图：输入: 错包数/总包数+窗口 / 输出: PER+样本量标记 / 错误: 总包为 0→不可用标记（不抛出）。
+    - 调用方：normalize_kpi；check_failure
+    - tested 策略：上游覆盖: normalize_kpi
+    - 核验命令：上游覆盖: normalize_kpi
+
+## 功能块 record_run_streams ← R22
+
+（R22：三路对齐采集——DUT-KPI∥监测谱∥注入事件统一单调钟、对齐误差统计、单路超时策略。）
 
 - **record_run_streams** [L0|新增]
-  - 职责：一次运行期间并行采集三路（复用 collect_dut_samples 取 DUT 流；驱动监测通道取谱统计；接收执行器注入事件），统一时间戳，按 run 目录标准布局落盘（kpi.csv/events.jsonl/monitor.csv）；异常先经 EstopManager 停发射再抛出；结束时计算覆盖率。
-  - 签名意图：输入: 场景对象, 时长, run 目录, {是否带注入} / 输出: 记录结果（各产物路径/覆盖率） / 错误: 设备失联→急停后抛异常。
-  - 调用方：程序入口（record 命令）、execute_scenario
-  - tested 策略：自有单测（合成源+mock 后端）
-  - 核验命令：测试: R4 对齐（60s 三路行数一致率≥99%+事件±50ms 判定）——继承 R4 验收方式
-  - **compute_spectrum_stats** [L1|新增]
-    - 职责：一段监测 IQ→谱统计（峰值频率/占用度/平坦度/总功率），供 JSR 实测估计与带限噪声平坦度自检。
-    - 签名意图：输入: IQ 数组, 采样率 / 输出: 统计字典 / 错误: 空输入抛异常。
+  - 职责：三路采集编排：并行驱动 DUT 路（真链路或 simulate_link_degradation）、监测路（capture_monitor_spectrum+compute_spectrum_stats）、事件路（append_event 汇聚），统一主机单调钟盖戳；compute_alignment_error 统计对齐误差入结果 JSON；单路超时按策略（记录继续/停止，发射安全优先）处置。
+  - 签名意图：输入: 运行上下文+三路源配置 / 输出: kpi.csv+monitor.csv+events.jsonl+对齐统计 / 错误: 关键路（事件/DUT）丢失→停发射+StreamError；监测路丢失→记录降级继续。
+  - 调用方：execute_gb42590_protocol；run_demo（采集阶段）
+  - tested 策略：自有单测
+  - 核验命令：测试: align_streams
+  - **compute_alignment_error** [L1|新增]
+    - 职责：对齐误差统计：对三路事件按时间邻近配对（如档位变化↔KPI 跳变↔谱变化），产出配对时延分布（P50/P95）。
+    - 签名意图：输入: 三路时间序列 / 输出: 对齐误差统计 / 错误: 可配对事件不足→返回样本不足标记。
     - 调用方：record_run_streams
-    - tested 策略：自有单测（合成正弦+带限噪声）
-    - 核验命令：测试: test_compute_spectrum_stats
+    - tested 策略：上游覆盖: record_run_streams
+    - 核验命令：上游覆盖: record_run_streams
 
-## 功能块 execute_scenario ← R5
+## 功能块 execute_gb42590_protocol ← R23
 
-（块引言：R5 国标步进执行器。GB 42590 §5.11 协议的编排主体：读场景→取标定→按"样式外层×功率内层"步进注入→每步判失效→记录失效电平→交 record/build_report 出产物；断点续跑；执行器与仪表后端解耦（后端由 R9 工厂注入）。）
+（R23：GB 42590 §5.11 步进协议执行器——噪声/单音/多音、带宽≥链路带宽、−5dB 起 5dB 递增、失效即停记 P_crit、达上限标"未失效"。）
 
-- **execute_scenario** [L0|新增]
-  - 职责：完整执行一张场景卡：装载→校验→建步进计划→逐步（设样式/设功率/开→采集→判失效→关）→失效即停该样式记录电平→全部样式完成后产出 run 目录（KPI/事件/监测/SigMF）并调报告生成；对照卡（无注入）跑完须报告"未失效"；支持从 run 目录进度断点续跑；任何异常先急停。
-  - 签名意图：输入: 场景路径（或断点 run 目录） / 输出: 执行结果（各步结果/各样式失效电平表/对照误报标志/报告路径） / 错误: 装载或后端失败→急停并返回失败。
-  - 调用方：程序入口（run 命令）、serve_console（卡片一键测）、run_demo
-  - tested 策略：自有单测（mock 后端+合成链路全流程）
-  - 核验命令：测试: R5 双卡（国标卡产失效电平表+三元曲线+报告；对照卡不误报）——继承 R5 验收方式
-  - **plan_steps** [L1|新增]
-    - 职责：注入段→有序步进清单（样式外层循环×功率内层自 power_start 起按 step 递增至 power_stop 封顶）；纯计算无副作用，断点续跑据此切片。
-    - 签名意图：输入: 注入段对象 / 输出: 步进列表（序号/样式/功率/时长） / 错误: 注入段为空（对照卡）→返回空表。
-    - 调用方：execute_scenario
-    - tested 策略：自有单测
-    - 核验命令：测试: test_plan_steps（六样式×阶梯展开+对照空表）
+- **execute_gb42590_protocol** [L0|新增]
+  - 职责：国标测法编排：按样式（噪声/单音/多音）合成干扰（带宽≥链路带宽校验）→run_baseline_check 放行→run_power_ladder 执行步进（判据=check_failure）→失效时 record_failure_level 记 P_crit→汇总失效电平表；判据永不触发时达上限即停并标注"未失效"。
+  - 签名意图：输入: 规范化场景+链路参考功率 / 输出: 协议化结果（失效电平表+各档 KPI 摘要+未失效标注）/ 错误: 步进/采集异常→沿停发射语义上抛 ProtocolError。
+  - 调用方：run_demo；serve_console（国标场景卡）
+  - tested 策略：自有单测
+  - 核验命令：测试: gb42590_executor
   - **check_failure** [L1|新增]
-    - 职责：按判据（PER≥阈值持续 sustain_s，或断连≥disconnect_s）判定最近 KPI 窗口是否失效并给出类型；纯函数。
-    - 签名意图：输入: KPI 窗口样本列表, 判据对象 / 输出: (是否失效, 失效类型) / 错误: 空窗口→(False, "")。
-    - 调用方：execute_scenario
-    - tested 策略：自有单测
-    - 核验命令：测试: test_check_failure（越界/未持续/断连/空窗四分支）
+    - 职责：失效判据评估：给定窗口 KPI（compute_per 口径）与阈值（默认 PER>10%），返回失效/未失效+依据；纯函数。
+    - 签名意图：输入: PER+样本量+阈值 / 输出: 判定（bool+依据）/ 错误: 样本不足→未失效+样本量标记。
+    - 调用方：execute_gb42590_protocol；run_power_ladder（判据回调）
+    - tested 策略：上游覆盖: execute_gb42590_protocol
+    - 核验命令：上游覆盖: execute_gb42590_protocol
+  - **record_failure_level** [L1|新增]
+    - 职责：失效电平登记：捕获失效瞬间的档位/电平/JSR/KPI 快照/时间戳，写入运行结果与失效电平表条目（多样式可累积）。
+    - 签名意图：输入: 失效上下文 / 输出: 失效电平表条目 / 错误: 上下文字段缺失→补"未知"并标注。
+    - 调用方：execute_gb42590_protocol
+    - tested 策略：上游覆盖: execute_gb42590_protocol
+    - 核验命令：上游覆盖: execute_gb42590_protocol
 
-## 功能块 index_dataset ← R6
+## 功能块 run_baseline_check ← R24
 
-（块引言：R6 SigMF 真值数据集。扫描 run 产物→逐录制校验（格式+真值标注齐全）→按录制分组产 dataset_index.json——分组是训练分组 CV 的划分单位，也是对外发布的清单。）
+（R24：无干扰对照段——每轮先跑无干扰基线，异常即中止防误报。）
+
+- **run_baseline_check** [L0|新增]
+  - 职责：正式注入前的对照段：不发射干扰采集基线 KPI 窗口，基线 PER 超阈（链路自身故障/环境噪声）→中止运行（独立退出码语义）并给出排查提示；健康则输出基线统计供报告对照。
+  - 签名意图：输入: 运行上下文+基线阈值 / 输出: 基线报告（放行/中止+统计）/ 错误: 采集异常→沿停发射语义上抛。
+  - 调用方：execute_gb42590_protocol（前置）；run_demo
+  - tested 策略：自有单测
+  - 核验命令：测试: baseline_guard
+
+## 功能块 plot_triple_curves ← R25
+
+（R25：三元曲线——PER–电平/吞吐–误码/事件时间线三图+中文字体无缺字、数据不足出部分图。）
+
+- **plot_triple_curves** [L0|新增]
+  - 职责：由对齐三路数据组装并绘制三张 PNG：build_curve_frames 出数据帧→matplotlib 绘制（内置中文字体注册，全中文标签零缺字）；数据不足时输出已得部分并在结果标注缺项。
+  - 签名意图：输入: 运行目录三路数据 / 输出: 三张 PNG+图数据表 / 错误: 全部数据缺失→CurveError；部分缺失→降级出图。
+  - 调用方：build_report（图谱来源）
+  - tested 策略：自有单测
+  - 核验命令：测试: triple_curves
+  - **build_curve_frames** [L1|新增]
+    - 职责：把三路原始数据规整为三张图的数据帧（x/y 序列+标注点：失效档、档位变化线），纯计算。
+    - 签名意图：输入: kpi/events/monitor 数据 / 输出: 三个数据帧 / 错误: 数据空→空帧标记。
+    - 调用方：plot_triple_curves
+    - tested 策略：上游覆盖: plot_triple_curves
+    - 核验命令：上游覆盖: plot_triple_curves
+
+## 功能块 compare_failure_boundaries ← R26
+
+（R26：边界对比与薄弱定位——多样式失效电平对比表+薄弱样式/频点结论。）
+
+- **compare_failure_boundaries** [L0|新增]
+  - 职责：跨轮聚合失效电平：多样式/多频点对比表（失效电平升序），定位最薄弱样式/频点（失效电平最低者）并生成结论段（供跳频/纠错改进引用）；样本不足降级单样式报告。
+  - 签名意图：输入: 多轮失效电平条目 / 输出: 对比表+定位结论 / 错误: 仅一轮可用→降级标注输出。
+  - 调用方：build_report（结论段）；run_demo（多场景汇总）
+  - tested 策略：自有单测
+  - 核验命令：测试: boundary_compare
+
+## 功能块 write_sigmf_recording ← R27
+
+（R27：SigMF 录制与自动标注——IQ 归档+样式/功率档/时间窗/后端标注、磁盘预检、写失败停发射。）
+
+- **write_sigmf_recording** [L0|新增]
+  - 职责：把监测/发射 IQ 按 SigMF v1.2 归档：磁盘空间预检（不足→停发射路径）→数据分块写+元数据（annotate_truth_labels 自动标注）落盘→完成后校验对完整性。
+  - 签名意图：输入: IQ 流+运行上下文 / 输出: SigMF 对路径 / 错误: 写失败/磁盘不足→StorageError（已停发射）。
+  - 调用方：record_run_streams（录制路）
+  - tested 策略：自有单测
+  - 核验命令：测试: sigmf_record
+  - **annotate_truth_labels** [L1|新增]
+    - 职责：把运行事实（样式/参数/功率档序列/时间窗/后端/时钟口径）写入 SigMF 全局与捕获元数据标注段（标准字段+自定义命名空间）。
+    - 签名意图：输入: 运行事实 / 输出: SigMF 元数据标注 dict / 错误: 事实字段缺失→该字段标"未知"。
+    - 调用方：write_sigmf_recording
+    - tested 策略：上游覆盖: write_sigmf_recording
+    - 核验命令：上游覆盖: write_sigmf_recording
+
+## 功能块 index_dataset ← R28
+
+（R28：数据集索引与检索——按样式/频段/日期/后端检索、索引损坏重建。）
 
 - **index_dataset** [L0|新增]
-  - 职责：遍历 runs 目录下全部 SigMF 录制，逐条校验（复用 read_sigmf 的校验语义：格式合法+annotations 含样式/功率档/时间窗），汇总错误清单；按录制组织分组并写 dataset_index.json（每条含 group 字段，非空硬要求）。
-  - 签名意图：输入: runs 目录 / 输出: 索引结果（录制数/分组列表/错误清单/索引路径） / 错误: 任一录制不合法→计入错误清单（不中断整体），索引仍产出但命令以非零退出。
-  - 调用方：程序入口（dataset --check）、train_classifier
-  - tested 策略：自有单测（含一条坏录制的夹具目录）
-  - 核验命令：测试: R6 校验（全部通过且 group 非空；坏录制被点名）——继承 R6 验收方式
+  - 职责：跨运行数据集索引：登记每次 SigMF 对与关键标注（样式/频段/日期/后端/失效电平）到索引文件，query_dataset 检索；索引损坏时从 runs 目录重建并告警。
+  - 签名意图：输入: 运行记录（登记）或查询条件 / 输出: 索引条目/查询结果 / 错误: 索引损坏→IndexWarn+自动重建。
+  - 调用方：train_classifier（取数）；build_report（数据引用）
+  - tested 策略：自有单测
+  - 核验命令：测试: dataset_index
+  - **query_dataset** [L1|新增]
+    - 职责：条件检索（样式/频段/日期区间/后端/标签组合），返回 SigMF 路径+标注分组（供训练按批次分组）。
+    - 签名意图：输入: 查询条件 / 输出: 条目列表（含批次分组键）/ 错误: 条件字段未知→QueryError。
+    - 调用方：index_dataset；train_classifier；grouped_cv_evaluate
+    - tested 策略：上游覆盖: index_dataset
+    - 核验命令：上游覆盖: index_dataset
 
-## 功能块 train_classifier ← R7
+## 功能块 make_spectrogram ← R29
 
-（块引言：R7 训练侧。谱图七分类（六样式+无干扰），分组 CV 评测；算力后端自动选择：/toolbox 远程可用则派发，否则本地 CPU——对调用方透明。性能数字只如实记录。）
+（R29：谱图生成——IQ→谱图变换参数化、训练推理共用、短段跳过计数。）
+
+- **make_spectrogram** [L0|新增]
+  - 职责：IQ 段→谱图数组（STFT，窗长/重叠/频率轴参数化），训练与推理共用同一实现保证分布一致；段长不足跳过并计数；可输出 PNG 预览。
+  - 签名意图：输入: IQ 数组+参数 / 输出: 谱图数组（dB）+跳段计数 / 错误: 输入空→SpectrogramError。
+  - 调用方：train_classifier；grouped_cv_evaluate；predict_style
+  - tested 策略：自有单测
+  - 核验命令：测试: spectrogram
+
+## 功能块 train_classifier ← R30
+
+（R30：七分类训练——谱图 CNN、remote-compute 派发/本地降级、样本不足拒训、Dry-run。）
 
 - **train_classifier** [L0|新增]
-  - 职责：读数据集索引→按分组划分→逐录制生成谱图样本（真值取自标注）→训练分类模型（谱图 CNN 基线）→分组 CV 评测（混淆矩阵+Macro-F1）→模型与评测报告落盘；远程算力不可达自动降级本地并如实标注 backend。
-  - 签名意图：输入: 数据集目录, 输出目录, {backend=auto/toolbox/local} / 输出: 训练结果（模型路径/backend/Macro-F1/混淆矩阵图/报告路径） / 错误: 数据集为空或索引缺失→拒训。
-  - 调用方：程序入口（train 命令）、run_demo
-  - tested 策略：自有单测（小合成数据集端到端）
-  - 核验命令：测试: R7 训练端到端（产模型+分组 CV 报告）——继承 R7 验收方式
-  - **make_spectrogram** [L1|新增]
-    - 职责：复基带 IQ→幅度谱图矩阵（频率×时间）；训练与推理共用的唯一谱图口径。
-    - 签名意图：输入: IQ 数组, {nfft, hop} / 输出: 谱图矩阵 / 错误: 空输入抛异常。
-    - 调用方：train_classifier, predict_style
-    - tested 策略：自有单测
-    - 核验命令：测试: test_make_spectrogram（形状+能量非零）
-  - **grouped_cv_split** [L1|新增]
-    - 职责：数据集索引→n 折分组划分（同组同侧，杜绝段级泄漏）；纯函数。
-    - 签名意图：输入: 索引路径, 折数 / 输出: [(训练组列表, 测试组列表)] / 错误: 组数<折数→抛异常。
+  - 职责：训练入口：query_dataset 取数→make_spectrogram 出特征→样本量检查（不足拒训）→dispatch_remote_training 派发远程 GPU（显式参数才本地 CPU 降级）→回收模型文件+训练日志（指标入 metrics 记录，禁止预写）。
+  - 签名意图：输入: 数据查询条件+训练超参+执行地（remote/local）/ 输出: 模型文件+训练报告 / 错误: 样本不足→TrainError；远程不可达且未显式降级→TrainError。
+  - 调用方：run_demo（训练场景）；CLI 入口
+  - tested 策略：自有单测（小样本 sanity+拒训）；远程 Dry-run
+  - 核验命令：测试: train_classifier
+  - **dispatch_remote_training** [L1|新增]
+    - 职责：把训练任务打包派发到 remote-compute 远程算力（同步数据/拉起任务/回收产物/记录算力选项），失败返回原因供上层决定降级。
+    - 签名意图：输入: 训练包（代码路径+数据+超参）/ 输出: 远程产物（模型+日志）/ 错误: 派发/回收失败→RemoteError（含原因）。
     - 调用方：train_classifier
-    - tested 策略：自有单测
-    - 核验命令：测试: test_grouped_cv_split（无交集+全覆盖）
+    - tested 策略：上游覆盖: train_classifier
+    - 核验命令：上游覆盖: train_classifier
 
-## 功能块 predict_style ← R7
+## 功能块 grouped_cv_evaluate ← R31
 
-（块引言：R7 推理侧。对单条录制分段预测样式并与真值并列输出——验收演示与报告"识别样例"的来源。）
+（R31：分组 CV 评测——按录制批次分组防泄漏、混淆矩阵+Macro-F1、目标 0.85 如实记录。）
+
+- **grouped_cv_evaluate** [L0|新增]
+  - 职责：评测协议：make_group_splits 按录制批次（run id）划分 K 折（同批次不跨组）→逐折训练/推理（小模型或已训模型微调口径）→汇总混淆矩阵+Macro-F1+分组泄漏自检（构造段级划分对比实验证明无泄漏高估）；内部目标 0.85 不达标如实记录。
+  - 签名意图：输入: 数据集索引+模型工厂+K / 输出: 评测报告（矩阵/F1/泄漏自检）/ 错误: 批次信息缺失→EvaluateError（拒绝评测）。
+  - 调用方：train_classifier（训练后评测）；build_report（识别段）
+  - tested 策略：自有单测
+  - 核验命令：测试: grouped_cv
+  - **make_group_splits** [L1|新增]
+    - 职责：分组划分纯函数：按批次键把样本分组后划 K 折（组粒度，防段级泄漏），返回折索引；组数<K→降级折数并标注。
+    - 签名意图：输入: 样本批次键列表+K / 输出: 折划分 / 错误: 组数不足→降级标注（不抛出）。
+    - 调用方：grouped_cv_evaluate；run_rff_pipeline
+    - tested 策略：上游覆盖: grouped_cv_evaluate
+    - 核验命令：上游覆盖: grouped_cv_evaluate
+
+## 功能块 predict_style ← R32
+
+（R32：识别推理服务——单 run/单段 IQ 出样式+置信度入报告、模型缺失标注不阻塞。）
 
 - **predict_style** [L0|新增]
-  - 职责：载入模型→读录制→分段谱图→逐段预测样式与概率→与标注真值并列返回。
-  - 签名意图：输入: 模型路径, 录制基名 / 输出: 预测列表（段/预测样式/真值/概率表） / 错误: 模型或录制缺失→异常。
-  - 调用方：程序入口（predict 命令）、build_report、run_demo
-  - tested 策略：自有单测（合成模型+合成录制）
-  - 核验命令：测试: R7 预测（输出与真值并列打印）——继承 R7 验收方式
+  - 职责：推理入口：加载模型（缺失→返回"未识别"标注不阻塞主流程）→make_spectrogram→七分类前向→输出（标签+置信度+模型版本）供报告识别段；支持批量段聚合投票。
+  - 签名意图：输入: IQ/SigMF 路径+模型（可空）/ 输出: 识别结果行 / 错误: 模型缺失→带标注的未识别结果（不抛出）。
+  - 调用方：build_report；serve_console（在线识别）
+  - tested 策略：自有单测
+  - 核验命令：测试: infer_service
 
-## 功能块 run_demo ← R8
+## 功能块 run_emc_conduction_sim ← R33 [P1]
 
-（块引言：R8 一键演示编排。一条命令串起短场景→小样本推理→报告；与操控台"一键演示"按钮同底层；quick 路径走合成数据（无硬件可演示）。）
+（R33：EMC 传导摸底模拟——模拟 LISN+供电线传导电平流程、图谱段+模拟口径声明。）
+
+- **run_emc_conduction_sim** [L0|新增]
+  - 职责：传导摸底模拟流程：以模拟 LISN（sim 仪表）读取供电线传导发射电平（仿真读数模型），按限值线比较出余量图谱段；输出附 make_disclaimer_block 模拟口径声明；真仪表要求经 visa 槽时读数来源标注切换。
+  - 签名意图：输入: EMC 场景（频段/限值线）/ 输出: 传导摸底图谱段+声明 / 错误: 场景频段超模拟域→裁剪+标注。
+  - 调用方：build_report（EMC 段）；run_demo（EMC 场景）
+  - tested 策略：自有单测
+  - 核验命令：测试: emc_conduction
+
+## 功能块 run_emc_radiation_sim ← R34 [P1]
+
+（R34：EMC 辐射摸底模拟——屏蔽环境+标准增益补偿模型、辐射图谱+洁净度结论、模拟声明。）
+
+- **run_emc_radiation_sim** [L0|新增]
+  - 职责：辐射摸底模拟流程：模拟屏蔽环境天线测量（增益补偿模型经 compensate_link_power 口径），产出辐射发射图谱+频谱洁净度核验结论段；附模拟口径声明。
+  - 签名意图：输入: EMC 场景 / 输出: 辐射图谱段+洁净度结论 / 错误: 同 R33 语义。
+  - 调用方：build_report；run_demo
+  - tested 策略：自有单测
+  - 核验命令：测试: emc_radiation
+
+## 功能块 run_emc_sweep ← R35 [P1]
+
+（R35：EMC 步进扫频与杂散/敏感度流程——扫描编排、1kHz–3GHz 模拟口径、越界裁剪。）
+
+- **run_emc_sweep** [L0|新增]
+  - 职责：EMC 扫描编排：plan_frequency_sweep 生成步进扫描计划（模拟 EMI 接收机执行，1kHz–3GHz 口径）→逐点采集（杂散发射搜索/敏感度监测流程）→汇总扫描图谱与结论段；频率域越界裁剪并标注。
+  - 签名意图：输入: 扫描场景（起止/步进/检波方式）/ 输出: 扫描图谱+结论段 / 错误: 计划空（起止颠倒）→SweepError。
+  - 调用方：build_report；run_demo
+  - tested 策略：自有单测
+  - 核验命令：测试: emc_sweep
+  - **plan_frequency_sweep** [L1|新增]
+    - 职责：扫描计划纯函数：起止/步进/驻留→有序扫描点表（含检波方式与带宽标注），支持对数/线性两种刻度。
+    - 签名意图：输入: 起止频率+步进+刻度 / 输出: 扫描点表 / 错误: 起止非法→SweepError。
+    - 调用方：run_emc_sweep
+    - tested 策略：上游覆盖: run_emc_sweep
+    - 核验命令：上游覆盖: run_emc_sweep
+
+## 功能块 build_gain_calibration ← R36
+
+（R36：发射端增益标定表——标定流程+存储、单调性检查、非单调拒用、【待实测】占位。）
+
+- **build_gain_calibration** [L0|新增]
+  - 职责：标定流程编排：逐增益档注入已知信号→读实际功率（仪表/监测通道）→check_monotonicity 校验→存储标定表文件（频率点×增益档→功率）；实测数据缺失时生成【待实测】占位表（禁止预写数字）。
+  - 签名意图：输入: 标定测量序列（或占位请求）/ 输出: 标定表文件 / 错误: 样本不足/非单调→CalibrationError（拒用）。
+  - 调用方：lookup_jsr（表来源）；set_channel_attenuation（表来源）；CLI 标定入口
+  - tested 策略：自有单测
+  - 核验命令：测试: gain_calibration
+  - **check_monotonicity** [L1|新增]
+    - 职责：单调性纯函数：增益档→功率序列非降校验（容差参数化），返回逐点违例列表。
+    - 签名意图：输入: (档,功率) 序列+容差 / 输出: 违例列表 / 错误: 不抛出（结果由上层转拒用）。
+    - 调用方：build_gain_calibration
+    - tested 策略：上游覆盖: build_gain_calibration
+    - 核验命令：上游覆盖: build_gain_calibration
+
+## 功能块 calibrate_leakage ← R37
+
+（R37：监测通道回校与自漏扣除——固定几何一次标定、扣除后监测统计、未扣除标注。）
+
+- **calibrate_leakage** [L0|新增]
+  - 职责：自漏标定与扣除：固定几何下测 CH1→CH2 耦合系数（频点→耦合 dB 表）存档；监测统计应用扣除（无标定表时标注"未扣除"继续）；回校监测通道增益漂移。
+  - 签名意图：输入: 标定会话数据（或扣除请求+监测值）/ 输出: 耦合表/扣除后统计 / 错误: 标定数据不足→CalibrationWarn+未扣除标注。
+  - 调用方：compute_spectrum_stats（扣除出口）；capture_monitor_spectrum
+  - tested 策略：自有单测
+  - 核验命令：测试: leak_calibration
+
+## 功能块 compensate_link_power ← R38
+
+（R38：全链路补偿计算器——公式(6) P_actual=P_measured+L_link+C_ant、无表频点标注。）
+
+- **compensate_link_power** [L0|新增]
+  - 职责：公式(6) 补偿：对频点 f 取测量功率+load_calibration_table（L_link 线损表+C_ant 天线系数表）代数和得真实功率；频点无表→结果标"不可信（无补偿表）"；一期覆盖 2.4G/5.8G，全频段表随远期标定扩展。
+  - 签名意图：输入: (f, P_measured) 序列+补偿表 / 输出: P_actual 序列+可信度标记 / 错误: 表损坏→CalibrationError；表缺失→全部标不可信（不阻塞）。
+  - 调用方：run_emc_radiation_sim；compute_spectrum_stats；build_report（功率口径）
+  - tested 策略：自有单测
+  - 核验命令：测试: link_compensation
+
+## 功能块 open_sim_siggen ← R39 [P1]
+
+（R39：1433D 信号源模拟后端——1MHz–20GHz、0.5dB 分辨率/1ppm 仿真口径、插槽接入。）
+
+- **open_sim_siggen** [L0|新增]
+  - 职责：1433D 仿真后端（注册名 sim_siggen_1433d）：SCPI 等价参数面（频率 1MHz–20GHz/功率/调制样式），仿真读数口径（0.5dB 分辨率/1ppm/相噪指标仿真相位噪声模型）；超仿真模型域返回标注。
+  - 签名意图：输入: SCPI 等价参数 / 输出: 仿真波形/读数 / 错误: 超域→SimError（附模型有效域）。
+  - 调用方：manage_backend_registry（注册）；create_visa_driver（命令映射共用）
+  - tested 策略：自有单测
+  - 核验命令：测试: sim_1433d
+
+## 功能块 open_sim_analyzer ← R40 [P1]
+
+（R40：RSA513A 频谱仪模拟后端——DPX 级监测、≥13.6GHz、±1.5dB 仿真口径、对标表1 规格。）
+
+- **open_sim_analyzer** [L0|新增]
+  - 职责：RSA513A 仿真后端（注册名 sim_rsa513a）：观测参数面（频率上限 13.6GHz/RBW/VBW/DPX 帧），仿真谱读数（幅度不确定度 ±1.5dB 仿真模型），规格对标表1 声明；与真实监测流接口兼容。
+  - 签名意图：输入: 观测参数 / 输出: 仿真谱数据 / 错误: 超域→SimError。
+  - 调用方：manage_backend_registry（注册）；run_emc_sweep（可配执行仪表）
+  - tested 策略：自有单测
+  - 核验命令：测试: sim_rsa513a
+
+## 功能块 open_sim_mixer ← R41 [P1]
+
+（R41：13GHz 混频扩展模拟——f_RF=f_LO+f_IF 变换+镜像抑制+本振稳定度→相噪口径。）
+
+- **open_sim_mixer** [L0|新增]
+  - 职责：13GHz 混频扩展仿真后端：upconvert_with_image_rejection 执行上变频（f_RF=f_LO+f_IF）与镜像抑制（腔体滤波等效模型），本振稳定度参数→输出相噪口径；串接 sim 信号源/分析仪演示 13GHz 全链。
+  - 签名意图：输入: IF/LO 参数 / 输出: RF 仿真流+相噪口径 / 错误: 镜像抑制超域→SimError（标注）。
+  - 调用方：manage_backend_registry（注册）；open_sim_siggen/open_sim_analyzer（串接）
+  - tested 策略：自有单测
+  - 核验命令：测试: sim_mixer13g
+  - **upconvert_with_image_rejection** [L1|新增]
+    - 职责：单次上变频纯函数：IF+LO→RF（含镜像分量幅度按抑制比残留），输出频谱标注。
+    - 签名意图：输入: IF 频率/功率+LO+抑制比 / 输出: RF 频率/功率+镜像残留 / 错误: 参数非正→ValueError。
+    - 调用方：open_sim_mixer
+    - tested 策略：上游覆盖: open_sim_mixer
+    - 核验命令：上游覆盖: open_sim_mixer
+
+## 功能块 open_sim_emi_receiver ← R42 [P1]
+
+（R42：EMI 接收机模拟后端——1kHz–3GHz、CISPR 口径读数、-150dBm/Hz 底噪仿真。）
+
+- **open_sim_emi_receiver** [L0|新增]
+  - 职责：EMI 接收机仿真后端（注册名 sim_emi_receiver）：CISPR 式读数（峰值/准峰值/平均值检波），频段 1kHz–3GHz、底噪 -150dBm/Hz 仿真口径；供 R33–R35 与独立 EMC 支路演示；所有读数带"模拟"标记。
+  - 签名意图：输入: 测量参数（频率/检波/带宽）/ 输出: CISPR 式读数 / 错误: 超域→SimError。
+  - 调用方：manage_backend_registry（注册）；run_emc_conduction_sim/run_emc_sweep
+  - tested 策略：自有单测
+  - 核验命令：测试: sim_emi_receiver
+
+## 功能块 open_sim_attenuator ← R43 [P1]
+
+（R43：程控衰减器模拟后端——≥60dB 量程/纳秒级档仿真、与 R12 同接口可替换。）
+
+- **open_sim_attenuator** [L0|新增]
+  - 职责：程控衰减器仿真后端：≥60dB 量程、档位粒度与切换时延仿真（纳秒级口径），实现与 set_channel_attenuation 相同的接口（粗档插件可替换），支撑 0–10km 全量程距离模拟演示。
+  - 签名意图：输入: 衰减请求（dB/档位）/ 输出: 实达衰减+切换时延 / 错误: 超量程→AttenuationError。
+  - 调用方：set_channel_attenuation（可替换粗档）；manage_backend_registry
+  - tested 策略：自有单测
+  - 核验命令：测试: sim_attenuator
+
+## 功能块 run_demo ← R44
+
+（R44：一键命令编排器——单命令串联主链、参数化后端/场景、分阶段退出码、异常先停发射。）
 
 - **run_demo** [L0|新增]
-  - 职责：编排：选短场景（quick=合成链路+mock 或真实后端按可用性）→execute_scenario→（可选）predict_style 小样本→build_report；返回报告路径，退出码即成败。
-  - 签名意图：输入: {quick} / 输出: report.md 路径 / 错误: 任一环节失败→返回失败并保留现场 run 目录。
-  - 调用方：程序入口（demo 命令）、serve_console（演示按钮）
-  - tested 策略：自有单测（quick 合成路径）
-  - 核验命令：测试: R8 demo --quick（一条命令退出码 0+report 生成+数字可溯源）——继承 R8 验收方式
+  - 职责：CLI 总入口（`demo` 命令）：load_scenario→guard_compliance→autodetect_backend→resolve_clock_reference→manage_run 内 execute_scenario（基线→步进→采集→失效→出结果）→build_report→verify_report_traceability→update_ledger（可选）；退出码 0/1/2 语义贯通；任何异常经 stop_transmit_safely 收尾。
+  - 签名意图：输入: CLI 参数（场景路径/后端/选项）/ 输出: 运行目录+摘要行+退出码 / 错误: 校验失败=2；运行失败=1（均已停发射）。
+  - 调用方：CLI 入口；CI（sim 全流程验收）
+  - tested 策略：自有单测
+  - 核验命令：测试: demo_pipeline
+  - **execute_scenario** [L1|新增]
+    - 职责：单场景执行阶段函数：在 manage_run 上下文内按场景类型分派（gb42590/自定义梯度/距离演变/EMC）编排各功能块，产出统一运行结果对象供报告与台账消费。
+    - 签名意图：输入: 运行上下文+场景 / 输出: 运行结果对象 / 错误: 各阶段异常透传（上下文保证停发射）。
+    - 调用方：run_demo；serve_console（启动运行）
+    - tested 策略：上游覆盖: run_demo
+    - 核验命令：上游覆盖: run_demo
 
-## 功能块 build_report ← R8
+## 功能块 build_report ← R45
 
-（块引言：R8 自动报告。run 目录→report.md：场景/标定表/三元曲线/失效电平表/识别样例+固定仪器局限声明；一切数字取自本 run 产物。）
+（R45：报告生成器——三元曲线/失效电平表/监测谱/识别/EMC 段+口径脚注+≥5 频点图谱位、缺项标"缺"。）
 
 - **build_report** [L0|新增]
-  - 职责：读 run 目录全部产物→绘图（三元曲线）→汇总失效电平表→（有模型则附识别样例）→生成 report.md（含固定声明：非 CISPR 测量接收机、GB 42590 §5.11 方法学预研、EN 300 328 传导等效口径）；数字仅引用本 run 实测。
-  - 签名意图：输入: run 目录 / 输出: report.md 路径（+figs） / 错误: 产物缺失→缺什么报什么。
-  - 调用方：execute_scenario, run_demo, 程序入口（report 命令）
-  - tested 策略：自有单测（合成 run 夹具）
-  - 核验命令：测试: R8 报告（report 生成+内嵌图有效+数字溯源抽查）——继承 R8 验收方式
-  - **plot_triple_curves** [L1|新增]
-    - 职责：KPI CSV→标准三图（PER-vs-JSR、吞吐/时延-vs-JSR、失效事件时间线）PNG 落 figs/。
-    - 签名意图：输入: kpi.csv 路径, 输出目录 / 输出: PNG 路径列表 / 错误: 数据不足以成图→跳过该图并说明。
+  - 职责：报告总装：由运行目录组装 report.md+网页视图——plot_triple_curves 图谱、失效电平表、compare_failure_boundaries 结论、监测谱图、predict_style 识别段、EMC 段（如启用）、render_disclaimer_sections 口径脚注、assemble_frequency_plots 频点图谱位（≥5 位，一期按实有频点如实标注）；数字全部来自本 run 数据（R46 校验对象）。
+  - 签名意图：输入: 运行目录+结果对象 / 输出: report.md+图集+网页段 / 错误: 产物缺失→该段标"缺项"不虚构。
+  - 调用方：run_demo；serve_console（报告中心）
+  - tested 策略：自有单测
+  - 核验命令：测试: report_builder
+  - **render_disclaimer_sections** [L1|新增]
+    - 职责：脚注组装：调用 make_disclaimer_block 按报告上下文（后端/时钟/口径选择）拼装完整声明区（PER 口径/非 CISPR/屏蔽盒/仅自建链路/GB 42590 预研定位/数字纪律说明）。
+    - 签名意图：输入: 报告上下文 / 输出: 声明区 markdown / 错误: 上下文字段缺失→补"未记录"。
     - 调用方：build_report
-    - tested 策略：自有单测
-    - 核验命令：测试: test_plot_triple_curves（三图产出）
+    - tested 策略：上游覆盖: build_report
+    - 核验命令：上游覆盖: build_report
+  - **assemble_frequency_plots** [L1|新增]
+    - 职责：频点图谱位组装：收集多频点（2.4G 各信道/5.8G 监测段）图谱，保证报告含 ≥5 个图谱位（不足如实标注缺哪些频点）。
+    - 签名意图：输入: 多频点图谱数据 / 输出: 图谱区段+计数 / 错误: 无任何频点→空段标注。
+    - 调用方：build_report
+    - tested 策略：上游覆盖: build_report
+    - 核验命令：上游覆盖: build_report
 
-## 功能块 create_instrument_backend ← R9
+## 功能块 verify_report_traceability ← R46
 
-（块引言：R9 插件式扩展层·仪表插槽。全平台仪表访问的唯一入口：按配置返回干扰源/分析仪后端对象，接口固定（set_style/set_power_db/on/off、get_spectrum）。B210 为首个实现；未来 SCPI 仪表=PyVISA 新实现同接口注册进来；mock 后端供测试与无硬件演示。**可扩展性硬约束的落点**：新仪表=新后端实现，场景格式与执行器主体零改动——三插槽分布：仪表=本工厂，链路=start_dut_source，样式=synthesize_style 注册表。）
+（R46：报告数字溯源校验——每个关键数字回溯数据文件行级引用、不一致即失败。）
 
-- **create_instrument_backend** [L0|新增]
-  - 职责：后端工厂——按名称（b210/pyvisa/mock）构造并返回 (干扰源对象, 分析仪对象)；对象实现固定接口；未知名称或驱动不可用（如未装 UHD/PyVISA）→构造失败并给出可操作提示。
-  - 签名意图：输入: 后端名, {设备参数} / 输出: (干扰源, 分析仪) 对象对 / 错误: 未知后端/驱动缺失/设备打开失败→异常含提示。
-  - 调用方：generate_jamming, calibrate_power, execute_scenario, run_demo
-  - tested 策略：自有单测（mock 后端；b210 分支在无驱动环境下验证"失败提示"路径）
-  - 核验命令：测试: R9 双证（mock 后端跑通同一场景卡=执行器不感知具体仪表；三类插槽注册与替换接口测试）——继承 R9 验收方式
+- **verify_report_traceability** [L0|新增]
+  - 职责：溯源校验：extract_report_numbers 抽取报告关键数字→逐个回查 runs 数据文件（kpi/events/monitor）同值存在→不一致列差异并失败；通过则报告页盖"数字可溯源"标记。
+  - 签名意图：输入: report.md+运行目录 / 输出: 校验报告（通过/差异清单）/ 错误: 数字无出处→TraceError（列出数字与位置）。
+  - 调用方：run_demo（报告后置步骤）
+  - tested 策略：自有单测
+  - 核验命令：测试: report_traceability
+  - **extract_report_numbers** [L1|新增]
+    - 职责：从 markdown 报告抽取带上下文的关键数字（电平/PER/JSR/F1 等）与所在行号，供回查。
+    - 签名意图：输入: report.md 文本 / 输出: 数字条目列表（值/类型/行号）/ 错误: 不抛出。
+    - 调用方：verify_report_traceability
+    - tested 策略：上游覆盖: verify_report_traceability
+    - 核验命令：上游覆盖: verify_report_traceability
 
-## 功能块 serve_console ← R10
+## 功能块 serve_console ← R47
 
-（块引言：R10 Web 操控台。本地服务+浏览器单页：驾驶舱（选卡/滑杆/开始-暂停-急停）+实时仪表盘+场景卡片一键测+历史对比+报告中心；WS 实时推送；急停端点直接触发 EstopManager；后端异常→全局告警+自动急停。无头自检覆盖服务/健康/心跳/急停四点。）
+（R47：Web 服务与 API——FastAPI+WS、场景 CRUD/启动急停/状态流/报告列表、非法请求 400 指错。）
 
 - **serve_console** [L0|新增]
-  - 职责：构建并启动操控台服务（REST 端点：健康/场景清单/开始/停止/急停/历史/报告/演示；WS：kpi/事件/状态推送；静态单页托管）；内部调用 execute_scenario/run_demo 复用编排；急停=立即停发射的硬通道；自检模式完成四点检查后退出。
-  - 签名意图：输入: {host, port, selftest} / 输出: 服务运行（或自检退出码） / 错误: 端口占用/依赖缺失→异常；运行中异常→告警+自动急停。
-  - 调用方：程序入口（ui 命令、自检脚本）
-  - tested 策略：自有单测（自检模式，TestClient 无头）
-  - 核验命令：测试: R10 自检（服务起/健康 200/WS 心跳/急停生效）+人工零代码走查——继承 R10 验收方式
+  - 职责：Web 服务入口：create_console_app 构建 FastAPI 应用（场景 CRUD、run 启动/急停、状态与实时流端点、报告列表、清单完成度代理端点）+静态页面托管+WS 连接管理；uvicorn 拉起；非法请求 400 带字段级指错。
+  - 签名意图：输入: 服务配置（端口/运行根目录）/ 输出: 运行中的服务 / 错误: 端口占用→ServiceError。
+  - 调用方：CLI 入口（start 脚本）
+  - tested 策略：自有单测（API 合约+急停端点）
+  - 核验命令：测试: console_api
+  - **create_console_app** [L1|新增]
+    - 职责：纯工厂：组装路由/WS hub/静态资源/异常处理为 ASGI 应用（可测试性：不绑端口）。
+    - 签名意图：输入: 依赖注入（运行器/实时流源）/ 输出: FastAPI 实例 / 错误: 依赖缺失→AppError。
+    - 调用方：serve_console
+    - tested 策略：上游覆盖: serve_console
+    - 核验命令：上游覆盖: serve_console
 
-## 功能块 bridge_to_sitl ← R11 [P1]
+## 功能块 render_console_pages ← R48
 
-（块引言：R11 SITL 链路退化注入预研（姊妹项目联动，单向输出）。把实测 PER-功率台阶映射为 ArduPilot SITL 丢包/时延注入，产出联调记录。）
+（R48：操控台前端——Vue3 CDN+Canvas 页面、场景卡/状态/报告中心/清单入口、断线提示重连。）
 
-- **bridge_to_sitl** [L0|新增|P1]
-  - 职责：读 run 的 KPI 台阶→换算为注入时间线→经 pymavlink 注入 SITL→验证 SITL 日志出现对应链路质量变化→联调截图与记录入 run 目录。
-  - 签名意图：输入: run 目录, SITL 地址 / 输出: 无（产物入 run 目录） / 错误: SITL 不可达→报错留待人工。
-  - 调用方：程序入口（sitl_bridge 命令）
-  - tested 策略：自有单测（mock SITL）
-  - 核验命令：测试: R11 联调（SITL 日志台阶对应+截图入档）——继承 R11 验收方式
+- **render_console_pages** [L0|新增]
+  - 职责：前端页面产出：单文件 HTML+Vue3(CDN)+Canvas 页面（无 Node 构建）——场景卡片、滑杆调参、后端/链路/时钟状态区、报告中心列表、清单完成度入口；build_scenario_cards 由场景目录渲染卡片数据；WS 断线横幅+自动重连。
+  - 签名意图：输入: 场景目录+配置 / 输出: 静态页面资产 / 错误: 场景目录空→空态页面（不报错）。
+  - 调用方：serve_console（静态托管）
+  - tested 策略：自有单测（关键元素 smoke）
+  - 核验命令：测试: console_ui
+  - **build_scenario_cards** [L1|新增]
+    - 职责：把场景文件目录转为卡片数据（名称/描述/样式标签/风险级/推荐后端），供前端渲染。
+    - 签名意图：输入: 场景文件列表 / 输出: 卡片数据列表 / 错误: 单个场景损坏→跳过并在卡片列表标注。
+    - 调用方：render_console_pages
+    - tested 策略：上游覆盖: render_console_pages
+    - 核验命令：上游覆盖: render_console_pages
 
-## 功能块 animate_link_state ← R12 [P1]
+## 功能块 push_realtime_kpi ← R49
 
-（块引言：R12 2D 示意动画（非重点，不阻塞验收）。链路光带变色/断裂、干扰波纹随实测/合成数据驱动；有余力再做，R10 验收不含动画硬项。）
+（R49：实时 KPI 曲线与急停——WS 推送端到端 <500ms 目标、急停本地直达先停发射、积压降频。）
 
-- **animate_link_state** [L0|新增|P1]
-  - 职责：订阅样本流→驱动 Canvas 场景状态机（光带颜色/断裂按 PER 阈值分级；波纹形态按样式映射）；提供演示模式（合成 jam_profile 播放）。
-  - 签名意图：输入: 样本流（或演示档案）, 画布 / 输出: 动画状态（与 KPI 数值联动） / 错误: 数据断流→保持末态并标注。
-  - 调用方：serve_console（前端引入）
-  - tested 策略：上游覆盖: serve_console（联动一致性为人工判据）
-  - 核验命令：上游覆盖: serve_console——继承 R12 验收方式（若实现：演示模式联动判据三要素）
-
----
-
-## 产出前自检（双向拦截假完成）
-
-- **矩阵正向**：R1–R12 每条至少一个顶层函数负责 ✓（R7/R8 各两入口=各自两条验收命令；R9 三插槽分布：create_instrument_backend+start_dut_source+synthesize_style）。
-- **矩阵反向 + 树**：全部 27 个函数均有调用链抵达程序入口 ✓（parse_serial_line→start_dut_source→collect_dut_samples→入口；共享函数调用方各标 3–5 个顶层；无死代码）。
-- **单一功能转变**：逐块复核 ✓——每块职责只做一件事；"发射+归档"是同一转变的两面（一次受控注入的完整产出），未再出现复合不相干转变。
-- **函数总数 27 > 20 → 预警**（已向用户呈现，见门口报告；收缩选项待用户裁决）。
-
-
----
-
-## 演进轮一增量块（R13–R16，2026-10-03；受影响旧块以 [改造] 说明目标态，旧块原文未动）
-
-## 功能块 launch_console ← R13
-
-（块引言：产品最后一公里的入口件——双击即用。start.sh/start.bat 与 scripts/launch.py 的核心：起操控台服务、自动打开浏览器、失败给可操作提示；--selfcheck 自检模式供验收。）
-
-- **launch_console** [L0|新增]
-  - 职责：以子进程/线程启动操控台服务（复用 serve_console），等待 /api/health 就绪后用系统默认浏览器打开操控台地址；端口被占/依赖缺失→打印可操作提示（装依赖/换端口）退出非 0；--selfcheck 只验证"服务起+健康检查过+URL 打印"不起浏览器，返回退出码。
-  - 签名意图：输入: {host, port, selfcheck, no_browser} / 输出: 退出码（0=成功拉起） / 错误: 服务起不来→提示后非 0 退出。
-  - 调用方：程序入口（scripts/launch.py；start.sh/start.bat 包装）
-  - tested 策略：自有单测（selfcheck 路径，无头）
-  - 核验命令：测试: R13 启动器自检（start.sh --selfcheck rc=0，URL 打印）——继承 R13 验收方式
-
-## 功能块 build_mid_material ← R16
-
-（块引言：中期材料编译线。docs/build.py 的核心：定位最新 run 目录→汇编失效电平表/三元曲线/识别指标/仪器局限声明为 Markdown 材料稿；数字仅引自 runs 产物与 metrics.json。）
-
-- **build_mid_material** [L0|新增]
-  - 职责：扫描 runs/ 取最新完整 run（含 report.md 与 steps.jsonl）→读取失效电平/步进记录/识别指标（train_report.md 若在）→按模板生成材料稿（含图相对链接、固定仪器局限声明、数字来源注记）；--final 走同模板加深版（结题轮用）。任何稿内数字必须能在所引 run 产物中找到，否则生成失败并指明。
-  - 签名意图：输入: {mode: mid|final, runs_dir, out_path} / 输出: 材料稿路径 / 错误: 无可用 run/数字溯源失败→非 0 退出并列出失败数字。
-  - 调用方：程序入口（docs/build.py）
-  - tested 策略：自有单测（夹具 run 目录）
-  - 核验命令：测试: R16 编译（build.py --mid 产 mid_draft.md+数字溯源断言）——继承 R16 验收方式
-
-## 增量子函数块
-
-- **render_static_pages** [L1|新增]（挂 serve_console 子树，R13）
-  - 职责：操控台静态页渲染——/reports 报告中心（历史 run 列表+单报告 Markdown→HTML 渲染，复用既有 /api/runs 与 /api/runs/{name}/report 数据）与 /help 快速上手页（零术语：五步走查流程+急停说明）。
-  - 签名意图：输入: HTTP 请求（路径参数 run 名） / 输出: HTML 响应 / 错误: run 不存在→404 页。
-  - 调用方：serve_console
-  - tested 策略：上游覆盖: serve_console
-  - 核验命令：上游覆盖: serve_console——继承 R13 验收（零代码走查含"点开历史报告"）
-- **register_cjk_font**（shared 增，R13）
-  - 职责：把仓库内置 OFL 中文字体注册进 matplotlib（font_manager），幂等；注册后全平台渲染中文标签零 findfont fallback 告警。
-  - 签名意图：输入: 无（字体文件路径内定于包内资源） / 输出: 注册后的字体名 / 错误: 字体文件缺失→异常（属打包错误，立即暴露）。
-  - 调用方：plot_triple_curves, train_classifier
+- **push_realtime_kpi** [L0|新增]
+  - 职责：实时流枢纽：订阅三路数据→WS 广播 KPI/监测曲线帧；measure_refresh_latency 测端到端延迟（事件→页面可达戳）入结果 JSON（<500ms 判据）；推送积压自动降频+标注。
+  - 签名意图：输入: 实时流源+WS hub / 输出: 广播统计+延迟统计 / 错误: 无订阅者→丢弃帧计数（不报错）。
+  - 调用方：serve_console；execute_scenario（运行时挂载）
   - tested 策略：自有单测
-  - 核验命令：测试: R13 字体测试（渲染三图断言无 fallback 告警）
-- **scaled_criteria** [L1|新增]（挂 execute_scenario 子树，R14）
-  - 职责：纯函数——按速度因子返回同步缩放后的判据（sustain_s/disconnect_s 除以倍速，等效真实时间口径；safety 顶不动）与倍率信息（供写 run 目录 speed.json）。
-  - 签名意图：输入: 判据对象, speed: float / 输出: (缩放后判据, {speed, note}) / 错误: speed<=0→ValueError。
-  - 调用方：execute_scenario
+  - 核验命令：测试: realtime_console
+  - **measure_refresh_latency** [L1|新增]
+    - 职责：延迟测量：给事件帧盖发送戳，收到页面回执（或模拟订阅者回执）算端到端延迟分布。
+    - 签名意图：输入: 帧戳流 / 输出: 延迟统计（P50/P95/超阈率）/ 错误: 无回执→样本不足标记。
+    - 调用方：push_realtime_kpi
+    - tested 策略：上游覆盖: push_realtime_kpi
+    - 核验命令：上游覆盖: push_realtime_kpi
+  - **trigger_emergency_stop** [L1|新增]
+    - 职责：急停路径：先 stop_transmit_safely（不经任何队列直调）→再停场景执行→UI 广播急停事件→记录急停事件（操作来源/时刻）。
+    - 签名意图：输入: 运行上下文+来源标识 / 输出: 急停结果 / 错误: 停发射本身失败→结果标注（不再抛出，安全路径）。
+    - 调用方：serve_console（急停端点）；push_realtime_kpi
+    - tested 策略：上游覆盖: push_realtime_kpi（急停断言）+ serve_console
+    - 核验命令：上游覆盖: push_realtime_kpi
+
+## 功能块 update_ledger ← R50
+
+（R50：清单台账更新器——✅+日期+锚点写入技术支持版清单、统计节滚动、条目不存在拒、覆盖需显式。）
+
+- **update_ledger** [L0|新增]
+  - 职责：台账更新：定位清单条目（locate_ledger_row）→追加/更新「✅ 日期+实现锚点（函数/文件）」状态标注→滚动统计节计数；读测试结果自动或手动指定锚点均可；条目号不存在拒绝、已 ✅ 覆盖需显式参数。
+  - 签名意图：输入: 清单条目号+锚点（+覆盖标志）/ 输出: 更新后清单 diff 摘要 / 错误: 条目不存在→LedgerError；冲突覆盖未授权→LedgerError。
+  - 调用方：run_demo（验收后可选）；开发流程（每功能完成时）；CI（测试绿自动）
   - tested 策略：自有单测
-  - 核验命令：测试: R14（40 速国标卡 fail_levels 非空+报告脚注 grep）——继承 R14 验收
-- **apply_calibration** [L1|新增]（挂 execute_scenario 子树，R15）
-  - 职责：纯函数——读 calibration.json（存在）→对给定功率档按频点查表/内插换算后端增益并返回来源标注；文件缺省→恒等映射+"未标定"标注。
-  - 签名意图：输入: 功率档 dB, 频点 Hz, calibration 路径 / 输出: (后端增益 dB, 来源: "calibrated|identity") / 错误: 表损坏→按 identity 降级并附告警。
-  - 调用方：execute_scenario
-  - tested 策略：自有单测（有表/无表两分支）
-  - 核验命令：测试: R15（标定存在时 report 含"标定表已应用"）——继承 R15 验收
-- **resume_from** [L1|新增]（挂 execute_scenario 子树，R15）
-  - 职责：纯函数——读 run 目录 steps.jsonl 进度→返回（起跑步索引, 已完成步记录清单, kpi 追加模式标志）；无进度/已完成→(0, [], False)/完成态。
-  - 签名意图：输入: run 目录, 完整步进计划 / 输出: (start_index, done_records, finished: bool) / 错误: 进度文件损坏→从 0 重跑并记事件。
-  - 调用方：execute_scenario
-  - tested 策略：自有单测（半程夹具）
-  - 核验命令：测试: R15（半程 run 重跑 steps 总数=计划数且不重复）——继承 R15 验收
+  - 核验命令：测试: ledger_update
+  - **locate_ledger_row** [L1|新增]
+    - 职责：在《docs/全功能实现清单-技术支持版.md》中按编号精确定位条目行与状态列位置（结构感知：表格行匹配），返回行号与现状标注。
+    - 签名意图：输入: 条目编号+清单路径 / 输出: 行定位+现状 / 错误: 找不到→LedgerError（附相近条目提示）。
+    - 调用方：update_ledger；audit_ledger
+    - tested 策略：上游覆盖: update_ledger
+    - 核验命令：上游覆盖: update_ledger
 
-## 受影响旧块 [改造] 目标态（原文未动，实现期经快速通道）
+## 功能块 audit_ledger ← R51
 
-- **serve_console** [改造 ← R13]：职责在原范围内补足"报告中心页+帮助页"（经新子 render_static_pages 挂载 /reports 与 /help），其余行为不变。
-- **execute_scenario** [改造 ← R14/R15]：步进循环改为消费 scaled_criteria 判据与 apply_calibration 换算后的增益；启动时经 resume_from 断点续跑（同 run 目录续写）；倍率信息写 run 目录 speed.json。
-- **build_report** [改造 ← R14/R15]：读 run 目录 speed.json→追加"加速倍率 N×（判据同步缩放）"脚注；读标定应用状态→"标定表已应用/未标定"行。
+（R51：台账自检与注释率统计——✅ 锚点存在性核对、未完成无 ✅、注释率 ≥20% 结题轮口径。）
 
-## 演进轮一自检
-
-- 矩阵正向：R13–R16 各有顶层负责 ✓（R13=launch_console+serve_console 改造；R14/R15=execute_scenario 改造；R16=build_mid_material）。
-- 反向：launch_console→程序入口 ✓；build_mid_material→程序入口 ✓；render_static_pages→serve_console→入口 ✓；register_cjk_font 调用方两顶层 ✓；scaled_criteria/apply_calibration/resume_from→execute_scenario→入口 ✓。无死代码。
-- 单一转变：逐块复核 ✓。
-- 函数总数 27+7=34（>20 预警延续——12+4 需求口的系统广度所致，门内已两轮确认接受）。
-
-
----
-
-## 演进轮二增量块（R17–R18，2026-10-06；旧块原文未动）
-
-## 增量子函数块（挂 serve_console 子树）
-
-- **probe_device_status** [L1|新增]（R17）
-  - 职责：对平台依赖的设备做一轮状态探测并返回统一清单（单一功能转变：异构探测→同构状态清单）。电子件自动探测六项——B210（UHD 设备扫描，惰性导入）、ESP32 串口（/dev/ttyUSB* 与 ttyACM* 扫描）、NRF24（随串口固件上报判定，无固件上报=待固件）、Python 依赖（requirements 清单 import 检查）、4070 算力（/toolbox 配置或 TOOLBOX_URL 连通）、PlatformIO（which pio）；物理件三人工确认项（屏蔽箱/天线几何/供电 Hub）在清单中以 pending_manual 占位（勾选状态由前端 localStorage 持久化，不经本函数）。单项探测超时 ≤2s、单项失败只影响该项状态不抛全局异常。
-  - 签名意图：输入: 无（可选 {timeout_s}） / 输出: 条目列表 [{id, name, status: ok|missing|pending_manual|manual_ok, detail, ts}] / 错误: 无全局错误路径——单项探测异常降级为 status=missing + detail=原因（探测职责内建容错，故不设抛错分支）。
-  - 调用方：serve_console（/api_devices 端点）
-  - tested 策略：自有单测（mock 探测环境：假串口目录/假依赖）
-  - 核验命令：测试: R17——`bash fn_work/scripts/start.sh --selfcheck` 含 /api_devices 断言（rc=0、条目≥6、B210 缺失时 status=missing 不报错）——继承 R17 验收方式
-
-## 受影响旧块 [改造] 目标态（原文未动）
-
-- **serve_console** [改造 ← R17/R18]：①新增 GET /api_devices 端点（调 probe_device_status，JSON 返回）；②/_PAGE 与全部页面顶部挂载设备状态栏（绿/红/黄灯+缺件红徽标，5s 轮询+手动刷新）；③深色驾驶舱样式精修（与 render_static_pages 同一体系）。
-- **render_static_pages** [改造 ← R18]：/reports 与 /help 两页套用统一深色驾驶舱样式（卡片/按钮/间距/表格条纹/数字等宽），页顶同挂设备状态条；纯 HTML+CSS，无构建链。
-
-## 演进轮二自检
-
-- 矩阵正向：R17=probe_device_status+serve_console 改造 ✓；R18=两改造块 ✓（纯样式无新函数，职责归属明确）。
-- 反向：probe_device_status→serve_console→入口 ✓；两改造块函数已有调用链 ✓。无死代码。
-- 单一转变：probe_device_status=异构探测→同构清单（内部六项探测为同类批扫，先例 watch_links/index_dataset 同构）✓。
-- 函数总数 35（+1）——>20 预警延续（需求口已达 18 条，门内已三轮确认接受）。
-
-
----
-
-## 演进轮三增量块（R19–R20，2026-10-06；旧块原文未动）
-
-## 共享函数增（shared/）
-
-- **RuntimeFeed**（类；调用方：execute_scenario[改造], ws_stream_feed）
-  - 职责：运行数据扇入扇出缓冲（单一转变：发布端→订阅端的缓冲中转）。publish(msg dict) 入缓冲（保序、限长防爆）；snapshot() 返回最近 N 条（重连续推用）；subscribe() 返回可迭代队列（ws_stream_feed 消费）；消息三类 kpi/event/progress 透传不解析。发布端多线程安全（执行线程写、WS 线程读）。
-  - 签名意图：输入: publish=msg dict, subscribe 无参 / 输出: snapshot=最近消息列表, subscribe=消息迭代器 / 错误: 缓冲满丢最旧（不抛错，保实时性）。
+- **audit_ledger** [L0|新增]
+  - 职责：自检：扫描清单全部条目——✅ 条目的锚点代码/测试在库中真实存在、未完成条目无 ✅、统计节与实际一致；输出差异清单；退出码语义（干净=0）。
+  - 签名意图：输入: 清单路径+代码树根 / 输出: 自检报告 / 错误: 锚点失效→列差异（退出码 1）。
+  - 调用方：CI；结题轮
   - tested 策略：自有单测
-  - 核验命令：测试: R19（WS 实流断言）——继承 R19 验收方式
-- **per_response_model**（调用方：start_dut_source[改造], serve_console[改造,/api/preview]）
-  - 职责：功率→PER 响应的唯一模型函数（单一转变）：给定注入功率与失效基准，返回该强度下链路丢包预估——合成链路实测与滑杆预览共用同一函数，保证"预览=实测口径"。
-  - 签名意图：输入: power_db: float, fail_power_db: float, base_per: float=0.0 / 输出: per 估算（0–1） / 错误: 参数非法（fail_power_db 无界）→ValueError。
+  - 核验命令：测试: ledger_audit
+  - **count_comment_ratio** [L1|新增]
+    - 职责：代码注释率统计：扫源码树（排除生成物/第三方）计注释行占比，输出分模块明细与总率（≥20% 目标口径）。
+    - 签名意图：输入: 代码树根 / 输出: 注释率报告 / 错误: 无可统计文件→空报告标注。
+    - 调用方：audit_ledger；结题轮
+    - tested 策略：上游覆盖: audit_ledger
+    - 核验命令：上游覆盖: audit_ledger
+
+## 功能块 guard_compliance ← R52
+
+（R52：合规红线校验器——功率上限 ≤0dBm 量级+可审计豁免、频段白名单、屏蔽盒提示、仅自建链路声明、不可跳过。）
+
+- **guard_compliance** [L0|新增]
+  - 职责：红线总闸：对任意场景/配置依次 check_power_cap（功率上限+豁免审计记录）、check_band_whitelist（2.4G/5.8G 法定频段）、环境与对象声明检查（屏蔽盒提示标志、仅自建链路声明）；任何一关失败即拒（无跳过路径）；load_scenario 前置调用，console 场景保存亦调用。
+  - 签名意图：输入: 场景/配置对象 / 输出: 通过（含声明清单）/ 错误: 超限→ComplianceError（指明条款：功率/频段/声明缺失，不可忽略）。
+  - 调用方：load_scenario；serve_console；run_demo
   - tested 策略：自有单测
-  - 核验命令：测试: R20（滑杆预览联动断言）——继承 R20 验收方式
+  - 核验命令：测试: compliance_guard
+  - **check_power_cap** [L1|新增]
+    - 职责：功率上限纯校验：配置功率 ≤0dBm 量级上限（默认值+显式豁免记录审计条目），返回违例或豁免审计号。
+    - 签名意图：输入: 功率配置+豁免凭证（可空）/ 输出: 通过/违例/豁免审计 / 错误: 不抛出（结果由总闸转拒）。
+    - 调用方：guard_compliance
+    - tested 策略：上游覆盖: guard_compliance
+    - 核验命令：上游覆盖: guard_compliance
+  - **check_band_whitelist** [L1|新增]
+    - 职责：频段白名单纯校验：目标频段 ⊆ 2.4G/5.8G 无人机法定频段（2400–2483.5/5725–5829MHz），返回违例频段。
+    - 签名意图：输入: 频段配置 / 输出: 通过/违例清单 / 错误: 不抛出。
+    - 调用方：guard_compliance；load_scenario（经总闸）
+    - tested 策略：上游覆盖: guard_compliance
+    - 核验命令：上游覆盖: guard_compliance
 
-## 功能块 ws_stream_feed ← R19（serve_console 子树）
+  - **check_env_declarations** [L1|新增]
+    - 职责：环境与对象声明纯校验：场景必须含屏蔽盒环境确认标志与仅自建链路声明两个必填字段，缺失即违例清单。
+    - 签名意图：输入: 场景声明字段 / 输出: 通过/违例清单 / 错误: 不抛出（结果由总闸转拒）。
+    - 调用方：guard_compliance
+    - tested 策略：上游覆盖: guard_compliance
+    - 核验命令：上游覆盖: guard_compliance
 
-- **ws_stream_feed** [L1|新增]
-  - 职责：RuntimeFeed→WebSocket 帧流（单一转变：缓冲→网络帧）。连接即发 snapshot（重连续推）；随后订阅增量、节流合并 ≤10Hz 后逐帧发送；空闲无消息时定时发 {type:"idle"} 心跳；断连自动摘除不抛全局错。
-  - 签名意图：输入: WebSocket 连接, RuntimeFeed 实例 / 输出: 无（持续发送直到断连） / 错误: 发送失败→静默退出该连接。
-  - 调用方：serve_console（/ws 端点改由本函数承载）
-  - tested 策略：上游覆盖: serve_console（TestClient WS 集成断言）
-  - 核验命令：上游覆盖: serve_console——继承 R19 验收方式（WS 3s 内 ≥5 条 kpi 且非常数）
+## 功能块 bridge_to_sitl ← R53 [P1]
 
-## 受影响旧块 [改造] 目标态（原文未动）
+（R53：SITL 链路退化注入桥——PER 台阶→ArduPilot SITL 丢包/时延注入、无 SITL 跳过不阻塞。）
 
-- **execute_scenario** [改造 ← R19]：新增可选入参 feed（kw，缺省 None 不影响既有行为）；步进循环内向 feed 发 progress（步进序号/总步数/样式/功率/计时）与 event（injection/fail/gap）；采集回调内向 feed 发 kpi（每样本一帧）。不改变任何既有落盘与判定行为。
-- **serve_console** [改造 ← R19/R20]：①/ws 端点改由 ws_stream_feed 承载（替换常量占位推送）；②新增 GET /api/preview?power_db=&fail_power_db=（调 shared.per_response_model，返回预估 per 与响应曲线采样点）；③前端挂载交互四件（canvas 双曲线/进度卡/事件时间线/滑杆预览，原生 DOM，零 CDN）；④/run 启动时创建 RuntimeFeed 传入 execute_scenario 并注册到 WS。
-- **start_dut_source** [改造 ← R20]：FakeDutSource 的功率响应计算改为调用 shared.per_response_model（行为等价，口径唯一化）。
+- **bridge_to_sitl** [L0|新增]
+  - 职责：把实测结果桥接 SITL：读运行结果 PER–电平台阶→map_per_to_injection 生成注入计划→经 pymavlink/SITL 参数通道实施链路丢包/时延注入；SITL 不在位/失联→跳过+标注（安全断开），不阻塞主流程。
+  - 签名意图：输入: 运行结果+SITL 连接配置 / 输出: 注入会话报告 / 错误: SITL 失联→SitlWarn+安全断开（不抛出）。
+  - 调用方：run_demo（可选拓展步）；CLI 独立入口
+  - tested 策略：自有单测
+  - 核验命令：测试: sitl_bridge
+  - **map_per_to_injection** [L1|新增]
+    - 职责：映射纯函数：PER–电平台阶→SITL 链路丢包率/时延参数表（分段线性+饱和）。
+    - 签名意图：输入: 台阶数据+映射参数 / 输出: 注入参数表 / 错误: 台阶空→空表标注。
+    - 调用方：bridge_to_sitl
+    - tested 策略：上游覆盖: bridge_to_sitl
+    - 核验命令：上游覆盖: bridge_to_sitl
 
-## 演进轮三自检
+## 功能块 run_rl_policy ← R54 [P1]
 
-- 矩阵正向：R19=RuntimeFeed+ws_stream_feed+两改造 ✓；R20=per_response_model+两改造 ✓。
-- 反向：RuntimeFeed→execute_scenario→入口 与 ws_stream_feed→serve_console→入口 ✓；per_response_model→两调用方→入口 ✓。无死代码。
-- 单一转变：三新块各自一个转变（缓冲中转/功率→PER/缓冲→网络帧）✓。
-- 函数总数 38（+3）——>20 预警延续（需求口 20 条，门内已四轮确认接受）。
+（R54：RL 干扰策略器——D3QN 反向用作调度策略、sim 在环小闭环、不收敛回退固定策略。）
 
+- **run_rl_policy** [L0|新增]
+  - 职责：RL 策略闭环：在 sim 环境（open_sim_backend+simulate_link_degradation）内以 D3QN 学习样式/功率调度（状态=链路 KPI+监测谱摘要，动作=样式/档位），训练与执行分离；不收敛→fallback_fixed_strategy 回退（如实记录训练曲线）；仅 sim 在环，不做开放辐射。
+  - 签名意图：输入: 训练配置+环境工厂 / 输出: 策略模型+训练曲线+回退标记 / 错误: 环境异常→PolicyError（终止训练）。
+  - 调用方：CLI 入口；run_demo（策略场景，可选）
+  - tested 策略：自有单测（一轮冒烟+回退路径）
+  - 核验命令：测试: rl_policy
+  - **fallback_fixed_strategy** [L1|新增]
+    - 职责：固定策略回退：按场景给定的样式/梯度序列执行（不学习），保证策略场景永有可执行路径。
+    - 签名意图：输入: 场景 / 输出: 动作序列 / 错误: 场景非法→PolicyError。
+    - 调用方：run_rl_policy
+    - tested 策略：上游覆盖: run_rl_policy
+    - 核验命令：上游覆盖: run_rl_policy
 
----
+## 功能块 run_rff_pipeline ← R55 [P1]
 
-## 演进轮四增量块（R21，2026-10-06；旧块原文未动）
+（R55：RFF 指纹识别管道——自采+公开集子集、轻量模型训练、部署模拟、分组 CV 同口径。）
 
-## 增量子函数块（挂 serve_console 子树）
-
-- **collect_dashboard** [L1|新增]（R21）
-  - 职责：聚合 runs/ 与模型产物 → 仪表盘四组数据（单一转变：盘上产物→仪表盘数据包）。①latest：最新含 report 的 run——场景名（scenario.yaml）、失效电平表（steps.jsonl failed 步）、样本数（kpi 行数）、曲线缩略图相对路径（figs/*.png）、加速/标定脚注（speed.json/calibration_state.json）；②history：全部 run 列表（目录名/mtime/失效数）；③model：最新 train_report 的 Macro-F1 与 dataset_index 的录制数/分组数（缺则空值）；④capability：样式库数（注册表）、场景卡数（scenarios/*.yaml）、插件槽数（仪表/链路/样式=3）、累计 run 数。无 runs → {"empty": true}（前端据此触发 seed）。数字一律取自产物文件，不做任何前端可显示的编造。
-  - 签名意图：输入: runs_dir（缺省 "runs"） / 输出: dict 四组+empty 标记 / 错误: 单项产物缺失→该项空值不抛错（聚合职责内建容错）。
-  - 调用方：serve_console（/api/dashboard 端点）
-  - tested 策略：自有单测（夹具 runs 目录）
-  - 核验命令：测试: R21——/api/dashboard 形状断言+数字可溯源（卡内数字出现在所引 run 产物）+seed_demo 后非空——继承 R21 验收方式
-
-## 受影响旧块 [改造] 目标态（原文未动）
-
-- **serve_console** [改造 ← R21]：①新增 GET /api/dashboard（调 collect_dashboard）；②新增 POST /api/seed_demo（后台线程复用 run_demo(quick=True) 生成演示数据，期间 dashboard 返回 empty=true 的过渡态由前端显示"演示数据生成中"）；③首页改仪表盘网格布局：四卡容器（latest/history+对比 canvas/model/capability）+合成数据角标（latest 卡固定标"合成数据"当 speed≠1 或统一按 runs 来源标注）+无数据自动触发 seed_demo 一次。
-
-## 演进轮四自检
-
-- 矩阵正向：R21=collect_dashboard+serve_console 改造 ✓。反向：collect_dashboard→serve_console→入口 ✓。无死代码。
-- 单一转变：collect_dashboard=产物→数据包聚合（批扫先例同构）✓。
-- 函数总数 39（+1）——>20 预警延续（需求口 21 条，门内已五轮确认接受）。
+- **run_rff_pipeline** [L0|新增]
+  - 职责：RFF 全管道：数据准备（自采 SigMF+公开集子集适配）→特征/轻量模型训练（蒸馏口径：参数量/时延实测入报告）→grouped_cv_evaluate 同口径评测→部署模拟（本地推理端点）；数据不足拒训。
+  - 签名意图：输入: 数据集配置+训练超参 / 输出: 模型+评测报告+实测数字 / 错误: 数据不足→TrainError。
+  - 调用方：CLI 入口；二期交付演示
+  - tested 策略：自有单测（管道 smoke+无泄漏断言）
+  - 核验命令：测试: rff_pipeline
