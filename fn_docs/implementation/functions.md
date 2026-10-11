@@ -32,7 +32,7 @@
 | read_b210_rx_stream | B5 | wired 10-11 | 12 passed；溢出熔断+惰性 | 5ec4459 |
 | open_b210_backend | B5 | wired 10-11 | 26 passed 含真机 open/close；注入传输适配 | 14aef7a |
 | exchange_scpi | B5 | wired 10-11 | 20 passed；四类解析+Timeout 重试 | 14ceea2 |
-| create_visa_driver | B5 | wired 10-11 | 19 passed；三型号映射+注入会话 | pending |
+| create_visa_driver | B5 | wired 10-11 | 19 passed；三型号映射+注入会话 | cb4c63a |
 | probe_uhd_devices | B6 | stub 10-11 | 上游覆盖: autodetect_backend | — |
 | autodetect_backend | B6 | stub 10-11 | pytest -k backend_autodetect | — |
 | probe_gpsdo_status | B6 | stub 10-11 | 上游覆盖: resolve_clock_reference | — |
