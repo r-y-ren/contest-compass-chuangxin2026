@@ -358,7 +358,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] set_channel_attenuation · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k channel_ladder -q 2>&1 | tail -1 → 15 passed, 1299 deselected in 1.31s (10-11)
 - [x] set_channel_attenuation · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b8.py 2>/dev/null | grep -q '衰减下发' && echo 顶层实跑通过 → 顶层实跑通过 (10-11)
 - [x] set_channel_attenuation · 清单进位 — 证据: bash -c grep -q '| set_channel_attenuation | B8 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] set_channel_attenuation · commit — 预告: fn(set_channel_attenuation): wired 含四文档变更
+- [x] set_channel_attenuation · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(set_channel_attenuation)' && echo commit在案 → commit在案 (10-11)
 
 ## B8 批间门
 - [ ] B8 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）

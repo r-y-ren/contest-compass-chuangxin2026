@@ -18,3 +18,4 @@
 | 10-11 | B6+ | 双审：三轴过门（3 观察）+对抗 中6低8 → 13 项修复+23 回归；Ruling⑨（R29 口径回写） | 723 全库绿；真机 get_clock_source='internal' 时基链可达 |
 | 10-11 | B7 | check_style_params, gen_tone, gen_sweep, gen_chirp（波1）, gen_bandlimited_noise, gen_partial_band, gen_pulse, compose_jamming（波2） | 1108 全库绿；六样式签名探针；Ruling⑩ 两处裁定 |
 | 10-11 | B7+ | 双审：三轴过门（2 观察）+对抗 中5低7 → 12 项修复+82 回归；Ruling⑪ | 1190 全库绿 |
+| 10-11 | B8 | append_event, lookup_style_recipe, plan_attenuator_combo（波1）, synthesize_style, switch_style, set_channel_attenuation（波2） | 1314 全库绿；三顶层探针（装配谱峰/切换 6ms/衰减下发+事件）；Ruling⑫ |
