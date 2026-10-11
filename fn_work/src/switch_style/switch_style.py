@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import time
 
-from src.synthesize_style.synthesize_style import synthesize_style
+from src.synthesize_style.synthesize_style import (
+    COMPOSITE_STYLE,
+    synthesize_style,
+)
 
 from .lookup_style_recipe import StyleError, lookup_style_recipe
 
@@ -24,7 +27,9 @@ def switch_style(ctx: dict, style_name: str, params: dict | None = None) -> dict
             'iq'（complex64 ndarray）/ 'meta'（synthesize_style 的 meta）/
             'style'（规范小写样式名）/ 'prepared_at'（time.time() 纪元秒）/
             'switch_ms'（perf_counter 差，毫秒））；
-        style_name: 目标样式名 str（六类在册样式，大小写不敏感）；
+        style_name: 目标样式名 str（六类在册样式，大小写不敏感；或合成模式
+            'composite'——B8低#6：不走配方注册表，要求 params 显式给
+            'fs' 与 'components'，合成语义完全交给 synthesize_style）；
         params: 合成参数 dict | None——None 视为空 dict（由配方 defaults
             补齐，如 chirp/sweep 等 defaults 自带 fs 即可直接合成）；
             非 None 时与 {'style': style_name} 合并（显式值优先，但
@@ -34,10 +39,11 @@ def switch_style(ctx: dict, style_name: str, params: dict | None = None) -> dict
          'prepared': True, 'samples': int（iq 样本数）}。
     错误:
         ValueError——ctx 非 dict（或 params 非 dict/None）；
-        StyleError——①样式名未注册（lookup_style_recipe 附在册清单）；
-        ②合成失败（数值域越红线如 power_dbm>0 / 缺必填参数等）。两种失败
-        均发生在写 ctx 之前：ctx['current_style'] 保持旧值原对象不变，
-        绝无部分写。
+        StyleError——①样式名未注册（lookup_style_recipe 附在册清单；
+        'composite' 不查册、跳过配方查找直接合成）；②合成失败（数值域越
+        红线如 power_dbm>0 / 缺必填参数 / composite 缺 fs 或 components 等，
+        由 synthesize_style 判定）。两种失败均发生在写 ctx 之前：
+        ctx['current_style'] 保持旧值原对象不变，绝无部分写。
     """
     if not isinstance(ctx, dict):
         raise ValueError(
@@ -51,7 +57,14 @@ def switch_style(ctx: dict, style_name: str, params: dict | None = None) -> dict
         )
 
     # ① 配方校验（未注册名 → StyleError 附在册清单；此时尚未动 ctx）。
-    lookup_style_recipe(style_name)
+    # composite 是合成模式而非在册配方（B8低#6）：跳过查找直接走 synthesize，
+    # components/fs 等语义校验全部交给 synthesize_style。
+    is_composite = (
+        isinstance(style_name, str)
+        and style_name.strip().lower() == COMPOSITE_STYLE
+    )
+    if not is_composite:
+        lookup_style_recipe(style_name)
 
     # ② 预合成：成功才产出就绪实例（iq+meta），perf_counter 差计切换耗时 ms。
     synth_params: dict = dict(params) if params else {}

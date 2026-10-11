@@ -2,7 +2,8 @@
 
 择优规则（文档化）：
 - 候选全集 = {粗档旁路(0), 粗档接入(coarse_db)} × fine_steps_db 各档位；细档实际值优先取
-  cal_table[档位]（测量值），缺键按标称并标注 fine_from='nominal'。
+  cal_table[档位]（测量值），缺键按标称并标注 fine_from='nominal'；cal_table 键与档位列表
+  完全不匹配（0 键命中）→ 结果另附 'cal_unused': True（部分命中不标，B8低#5）。
 - 取 |residual_db| 最小者胜（残差最小者优先）；跨态平手选粗档接入（'in'）；同态平手按
   fine_steps_db 列表序靠前者胜（升序列即较小档位/正残差欠衰减）。经验法则
   "target ≥ coarse_db/2 用粗档"被残差最优先涵盖并在细档更优时被修正（如 16.5dB）。
@@ -93,6 +94,10 @@ def plan_attenuator_combo(
     candidates: list[tuple[float, str]] = [resolve(step) for step in fine_steps]
     max_fine_actual = max((actual for actual, _ in candidates), default=0.0)
 
+    # B8低#5：cal_table 键与档位列表完全不匹配（0 键命中——如步进/口径错表）→
+    # 结果如实标注 'cal_unused': True（静默全回退标称易掩盖用错标定表）；部分命中不标。
+    cal_unused = bool(cal) and not any(source == "calibrated" for _, source in candidates)
+
     # ---- 不可达：超出 粗档最大 + 细档实际最大（按实际值判域顶）→ None ----
     if target > coarse_db + max_fine_actual:
         return None
@@ -116,7 +121,7 @@ def plan_attenuator_combo(
         coarse_state, coarse_value, chosen = "bypass", 0.0, bypass_best
     _, fine_actual, fine_from, fine_step = chosen
     achieved = coarse_value + fine_actual
-    return {
+    result = {
         "coarse": coarse_state,
         "coarse_db": coarse_value,
         "fine_step_db": fine_step,
@@ -125,3 +130,6 @@ def plan_attenuator_combo(
         "residual_db": target - achieved,  # 正=欠衰减
         "fine_from": fine_from,
     }
+    if cal_unused:
+        result["cal_unused"] = True  # 标定表整体未用上（0 键命中档位列表）
+    return result

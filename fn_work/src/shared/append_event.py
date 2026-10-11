@@ -37,19 +37,37 @@ class EventWriteError(RuntimeError):
         self.path = path
 
 
-def _sanitize_nonfinite(value):
+def _sanitize_nonfinite(value, _visited: set | None = None):
     """递归把 float NaN/±Inf 规整为占位字符串（与 append_run_log 同套口径）。
 
-    容器逐层规整且不改动原容器；其余类型原样返回（交 json.dumps 的 default=str 兜底）。
+    容器逐层规整且不改动原容器；其余类型原样返回（交 json.dumps 的 default=str
+    兜底）。B8高#1：自引用/相互引用的容器（循环引用）在此拦截——沿当前递归
+    路径记已访问容器 id 集合（出栈即移除：同层共享引用/DAG 放行，仅真环拒），
+    遇重复 id 抛 ValueError，由 append_event 统一包装为 EventWriteError，
+    绝不让 RecursionError 逃逸。
     """
     if isinstance(value, float) and not math.isfinite(value):
         if math.isnan(value):
             return NAN_TOKEN
         return NEG_INF_TOKEN if value < 0 else INF_TOKEN
-    if isinstance(value, dict):
-        return {_sanitize_nonfinite(k): _sanitize_nonfinite(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_sanitize_nonfinite(v) for v in value]
+    if isinstance(value, (dict, list, tuple)):
+        if _visited is None:
+            _visited = set()
+        if id(value) in _visited:
+            raise ValueError(
+                f"事件含循环引用（容器 {type(value).__name__} 自引用/相互引用，"
+                f"id={id(value)} 在递归路径上重复出现）"
+            )
+        _visited.add(id(value))
+        try:
+            if isinstance(value, dict):
+                return {
+                    _sanitize_nonfinite(k, _visited): _sanitize_nonfinite(v, _visited)
+                    for k, v in value.items()
+                }
+            return [_sanitize_nonfinite(v, _visited) for v in value]
+        finally:
+            _visited.discard(id(value))  # 出栈：仅拦真环，DAG 共享引用放行
     return value
 
 
@@ -76,7 +94,8 @@ def append_event(run_dir: str, event: dict) -> dict:
     规整为占位字符串（allow_nan=False，行内绝不出现非严格 JSON 字面量）；单行
     JSON 追加+即时 flush（行级落盘，崩溃不丢已写行）；入参 event 不被原地修改，
     返回值为该行的逐字段等价重新解析结果（与文件内容一致）。run_dir 无效
-    （不存在/非目录）或写/序列化失败→EventWriteError（含路径与原因）。
+    （不存在/非目录）、写/序列化失败或事件含循环引用（自引用/相互引用容器）→
+    EventWriteError（含路径与原因）。
     """
     if not isinstance(event, dict):
         raise EventWriteError(
@@ -91,10 +110,12 @@ def append_event(run_dir: str, event: dict) -> dict:
     owner = _owner_dir(run_dir)
     path = os.path.join(owner, EVENTS_FILENAME)
 
-    line_dict = _sanitize_nonfinite(dict(event))  # 规整落在浅拷贝上：入参不被原地修改
-    line_dict["ts"] = int(time.monotonic() * 1000)  # 单调钟毫秒：三路对齐基准
-    line_dict["wallclock"] = datetime.now().isoformat(timespec="milliseconds")  # 人读墙钟
+    # B8高#1：消毒+盖戳+序列化同一 try——循环引用（消毒 ValueError）与不可序列化
+    # 键等病态事件统一包装 EventWriteError（含路径与原因），RecursionError 不逃逸。
     try:
+        line_dict = _sanitize_nonfinite(dict(event))  # 规整落在浅拷贝上：入参不被原地修改
+        line_dict["ts"] = int(time.monotonic() * 1000)  # 单调钟毫秒：三路对齐基准
+        line_dict["wallclock"] = datetime.now().isoformat(timespec="milliseconds")  # 人读墙钟
         line = json.dumps(line_dict, ensure_ascii=False, default=str, allow_nan=False)
     except Exception as exc:  # noqa: BLE001 - 循环引用/不可序列化键等病态事件
         raise EventWriteError(f"事件序列化失败 {type(exc).__name__}: {exc}", path) from exc

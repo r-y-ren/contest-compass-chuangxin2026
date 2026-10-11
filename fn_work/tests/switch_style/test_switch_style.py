@@ -148,3 +148,81 @@ def test_styles_switch_ctx_style_equals_requested_name():
     # 大小写不敏感请求：落位为规范小写名，与 meta 同口径。
     result_ci = switch_style(ctx, "CHIRP", {"bandwidth_hz": 10e3, "n_samples": 512, "fs": 1e6})
     assert ctx["current_style"]["style"] == result_ci["style"] == "chirp"
+
+
+# ---- B8低#4/#6 回归：tone 缺省可切 / composite 可达 ----
+
+
+def test_defect_b8_tone_params_none_switchable():
+    """switch_style(ctx, 'tone', None) 成功：tone defaults 已补 fs（B8低#4），
+    仅凭配方缺省即可预合成切换。"""
+    ctx: dict = {}
+    result = switch_style(ctx, "tone", None)
+    ready = ctx["current_style"]
+    assert result["prepared"] is True and result["style"] == "tone"
+    assert result["samples"] == 4096  # defaults n_samples
+    assert ready["meta"]["params"]["fs"] == 1e6
+    assert ready["meta"]["params"]["freq_offset_hz"] == 1e5
+
+
+@pytest.mark.parametrize("style", sorted(_SIX_STYLE_PARAMS))
+def test_defect_b8_all_six_styles_params_none_switchable(style):
+    """六样式 params=None 全部可切：iq 非空 complex64（各样式 defaults 自带 fs）。"""
+    ctx: dict = {}
+    result = switch_style(ctx, style, None)
+    ready = ctx["current_style"]
+    assert result["prepared"] is True
+    assert ready["style"] == result["style"] == style
+    assert isinstance(ready["iq"], np.ndarray) and ready["iq"].dtype == np.complex64
+    assert ready["iq"].size > 0
+    assert ready["meta"]["params"]["fs"] > 0
+
+
+def test_defect_b8_switch_composite_success():
+    """switch_style 切 'composite' 成功（B8低#6）：跳过配方查找直接合成，
+    ctx 就绪实例 style='composite'，meta 带 components_meta。"""
+    ctx: dict = {"current_style": None}
+    result = switch_style(
+        ctx,
+        "composite",
+        {
+            "fs": 1e6,
+            "components": [
+                {"style": "tone", "freq_offset_hz": 20e3, "n_samples": 512},
+                {"style": "tone", "freq_offset_hz": -20e3, "n_samples": 512},
+            ],
+        },
+    )
+    ready = ctx["current_style"]
+    assert set(ready) == _READY_KEYS  # 写入形状与其他样式同构（恰五键）
+    assert result["style"] == ready["style"] == "composite"
+    assert result["samples"] == 512
+    assert ready["meta"]["style"] == "composite"
+    assert ready["meta"]["n_components"] == 2
+    assert len(ready["meta"]["components_meta"]) == 2
+
+
+def test_defect_b8_switch_composite_missing_components_styleerror():
+    """switch_style 切 'composite' 缺 components → StyleError（由 synthesize_style
+    判定），ctx['current_style'] 保持旧值原对象不变。"""
+    old_ready = {"style": "tone", "iq": np.zeros(4, dtype=np.complex64), "meta": {}}
+    ctx: dict = {"current_style": old_ready}
+    with pytest.raises(StyleError) as ei:
+        switch_style(ctx, "composite", {"fs": 1e6})
+    assert "components" in str(ei.value)
+    assert ctx["current_style"] is old_ready
+    assert set(ctx) == {"current_style"}  # 失败路径不新增任何键
+
+
+def test_defect_b8_switch_composite_case_insensitive():
+    """composite 请求大小写不敏感：'COMPOSITE' 与小写同路径（模式分支同口径）。"""
+    ctx: dict = {}
+    result = switch_style(
+        ctx,
+        "  COMPOSITE  ",
+        {"fs": 1e6, "components": [
+            {"style": "tone", "freq_offset_hz": 1e3, "n_samples": 64}
+        ]},
+    )
+    assert result["style"] == "composite"
+    assert ctx["current_style"]["style"] == "composite"

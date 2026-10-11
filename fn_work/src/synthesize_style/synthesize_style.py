@@ -12,12 +12,16 @@ from .check_style_params import check_style_params
 from .compose_jamming import compose_jamming
 from src.switch_style.lookup_style_recipe import StyleError, lookup_style_recipe
 
-__all__ = ["COMPOSITE_STYLE", "synthesize_style"]
+__all__ = ["COMPOSITE_STYLE", "DEFAULT_COMPOSITE_MAX_DEPTH", "synthesize_style"]
 
 # 合成模式样式名（大小写不敏感）：注册为 synthesize_style 的合成模式而非配方——
 # 不走 RECIPES（无 defaults/required），由本函数分支处理 components 逐分量递归合成
 # 后经 compose_jamming 叠加。即使有人 register_recipe 注册了同名配方，模式分支优先。
 COMPOSITE_STYLE = "composite"
+
+#: composite 递归深度上限缺省（B8中#2）：顶层 composite 记深度 1，嵌套逐层 +1，
+#: 超过上限 → StyleError（防病态深嵌套耗尽栈/内存；可经 composite_max_depth 调）。
+DEFAULT_COMPOSITE_MAX_DEPTH = 8
 
 
 @lru_cache(maxsize=None)
@@ -41,18 +45,25 @@ def _require_positive_fs(name: str, value: object) -> float:
 
 
 def _copy_params(params: dict) -> dict:
-    """合并后参数副本：浅拷贝；'components' 列表再深一层（list 与各分量 dict 均拷贝），
-    保证改写 meta['params'] 不回染调用方原始 params。"""
-    copied = dict(params)
-    components = copied.get("components")
-    if isinstance(components, list):
-        copied["components"] = [
-            dict(comp) if isinstance(comp, dict) else comp for comp in components
-        ]
-    return copied
+    """合并后参数深副本（B8中#3）：递归拷 dict/list/tuple 容器层（叶值共享——
+    标量与 ndarray 等引用不变），保证改写 meta['params']（含嵌套 components、
+    列表参数）不回染调用方原始 params——浅拷仅护顶层键，嵌套容器仍共享可回染。"""
+    def _copy(value):
+        if isinstance(value, dict):
+            return {_copy(k): _copy(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [_copy(v) for v in value]
+        if isinstance(value, tuple):
+            return tuple(_copy(v) for v in value)
+        return value
+
+    return _copy(params)
 
 
-def synthesize_style(params: dict) -> tuple[np.ndarray, dict]:
+def synthesize_style(
+    params: dict,
+    composite_max_depth: int = DEFAULT_COMPOSITE_MAX_DEPTH,
+) -> tuple[np.ndarray, dict]:
     """六类样式合成总入口：校验→配方分派→生成器出 IQ（composite 模式递归合成）。
 
     输入:
@@ -69,6 +80,10 @@ def synthesize_style(params: dict) -> tuple[np.ndarray, dict]:
             - 'components'：仅 style='composite' 时生效——非空
               list[分量 params dict]，每分量递归本函数合成（分量未显式给
               'fs' 时继承顶层 fs）。
+        composite_max_depth: composite 递归深度上限（B8中#2，缺省
+            DEFAULT_COMPOSITE_MAX_DEPTH=8）：顶层 composite 记深度 1、嵌套
+            逐层 +1，超限 → StyleError（文案附当前深度与上限）；对六类配方
+            样式无影响。
 
     输出:
         (iq, meta)：iq 为 complex64 一维 ndarray；meta = {'style'（规范小写名）,
@@ -85,7 +100,8 @@ def synthesize_style(params: dict) -> tuple[np.ndarray, dict]:
         未注册样式（附在册清单）；④合并后 required 缺参（附缺参名列表）或
         缺 'fs'；⑤生成器防御纵深域错（如 bandwidth>fs/2 物理域，归一为
         StyleError）；⑥composite：components 非法 / 分量递归合成失败（附
-        来源分量序号）/ compose_jamming 合成失败（如各分量 iq 长度不一致）。
+        来源分量序号）/ 递归深度超 composite_max_depth（文案附当前深度与
+        上限）/ compose_jamming 合成失败（如各分量 iq 长度不一致）。
     """
     if not isinstance(params, dict):
         raise StyleError(
@@ -104,7 +120,7 @@ def synthesize_style(params: dict) -> tuple[np.ndarray, dict]:
         )
     key = style_name.strip().lower()
     if key == COMPOSITE_STYLE:
-        return _synthesize_composite(params)
+        return _synthesize_composite(params, composite_max_depth, depth=1)
     return _synthesize_recipe_style(key, params)
 
 
@@ -162,14 +178,21 @@ def _synthesize_recipe_style(key: str, params: dict) -> tuple[np.ndarray, dict]:
     meta = {
         "style": key,
         "n_samples": int(iq.size),
-        "params": dict(merged),  # 副本：调用方与注册表均不受改写影响
+        "params": _copy_params(merged),  # 深副本：调用方与注册表均不受改写影响（B8中#3）
     }
     meta.update(gen_meta)
     return iq, meta
 
 
-def _synthesize_composite(params: dict) -> tuple[np.ndarray, dict]:
+def _synthesize_composite(
+    params: dict,
+    composite_max_depth: int = DEFAULT_COMPOSITE_MAX_DEPTH,
+    depth: int = 1,
+) -> tuple[np.ndarray, dict]:
     """composite 合成模式（不走配方）：分量递归合成 → compose_jamming 叠加。
+
+    B8中#2：depth 记当前 composite 嵌套深度（顶层 1、嵌套逐层 +1），超过
+    composite_max_depth → StyleError（文案附当前深度与上限），防病态深嵌套。
 
     分量参数中的 'freq_offset_hz' / 'phase_rad' 取出传给 compose_jamming 作
     合成级 Δf_k / θ_k（缺省 0.0）。注意 'freq_offset_hz' 在 tone 分量上双重
@@ -177,6 +200,11 @@ def _synthesize_composite(params: dict) -> tuple[np.ndarray, dict]:
     生成频率 + 合成级频偏（对噪声/脉冲等分量则仅作合成级频偏，其生成器无同名
     形参，经签名过滤自然不入生成器）。
     """
+    if depth > composite_max_depth:
+        raise StyleError(
+            f"composite 递归深度超限：当前深度 {depth} 超上限 {composite_max_depth}"
+            f"（可用 synthesize_style 的 composite_max_depth 参数调整）"
+        )
     if "fs" not in params:
         raise StyleError(
             "composite 合成模式顶层必含 'fs'（采样率，数值>0）：当前缺失"
@@ -210,8 +238,22 @@ def _synthesize_composite(params: dict) -> tuple[np.ndarray, dict]:
             )
         effective = dict(comp)  # 不改写调用方分量 dict
         effective.setdefault("fs", fs)  # 分量未显式给采样率 → 继承顶层 fs
+        # 嵌套 composite 直入合成分支并 depth+1（经公共入口会重置深度记账，
+        # 失去上限约束）；其余样式走公共入口（校验/配方路径完整复用）。
+        comp_style = comp.get("style")
+        nested_composite = (
+            isinstance(comp_style, str)
+            and comp_style.strip().lower() == COMPOSITE_STYLE
+        )
         try:
-            iq_k, meta_k = synthesize_style(effective)  # 递归合成（允许嵌套 composite）
+            if nested_composite:
+                iq_k, meta_k = _synthesize_composite(
+                    effective, composite_max_depth, depth + 1
+                )
+            else:
+                iq_k, meta_k = synthesize_style(
+                    effective, composite_max_depth=composite_max_depth
+                )
         except StyleError as exc:
             raise StyleError(
                 f"composite 分量[{idx}]（style={comp.get('style')!r}）"

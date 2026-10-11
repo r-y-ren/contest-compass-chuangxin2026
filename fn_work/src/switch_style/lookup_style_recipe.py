@@ -29,7 +29,9 @@ class StyleError(Exception):
 RECIPES: dict[str, dict] = {
     "tone": {
         "generator": gen_tone,
-        "defaults": {"freq_offset_hz": 1e3, "n_samples": 4096},
+        # B8低#4：补 fs 缺省（与 sweep/chirp 等同域 1e6，freq_offset_hz 取同频域
+        # 合理默认 1e5）——六样式 params=None 均可经 defaults 直接合成切换。
+        "defaults": {"freq_offset_hz": 1e5, "n_samples": 4096, "fs": 1e6},
         "required": ["freq_offset_hz", "n_samples"],
     },
     "sweep": {

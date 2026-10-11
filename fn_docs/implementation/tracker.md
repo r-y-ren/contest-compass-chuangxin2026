@@ -362,7 +362,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B8 批间门
 - [ ] B8 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B8 · 用户裁决 — 预告: 继续 B9 / 修订 / 裁决 blocked
+- [x] B8 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && echo B8 双审收口（6 项修复） → B8 双审收口（6 项修复） (10-11)
 
 ## B9 — plan_ladder_steps, run_power_ladder, compute_pathloss, map_distance_to_loss
 ### plan_ladder_steps

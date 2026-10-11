@@ -23,7 +23,7 @@ _SIX = ("tone", "sweep", "chirp", "bandlimited_noise", "partial_band", "pulse")
 _EXPECTED = {
     "tone": (
         gen_tone,
-        {"freq_offset_hz", "n_samples"},
+        {"freq_offset_hz", "n_samples", "fs"},  # B8低#4：补 fs 缺省（1e6）
         ["freq_offset_hz", "n_samples"],
     ),
     "sweep": (
@@ -151,7 +151,7 @@ def test_returned_recipe_is_copy_registry_untouched():
     recipe["extra"] = "x"
     again = lookup_style_recipe("TONE")
     assert again["generator"] is gen_tone
-    assert set(again["defaults"]) == {"freq_offset_hz", "n_samples"}
+    assert set(again["defaults"]) == {"freq_offset_hz", "n_samples", "fs"}
     assert again["required"] == ["freq_offset_hz", "n_samples"]
     assert set(again) == {"generator", "defaults", "required"}
     assert _recipe_sandbox() == before
@@ -260,3 +260,27 @@ def test_register_stores_copy_caller_mutation_isolated(restore_registry):
     assert looked["generator"] is gen_tone
     assert looked["defaults"] == {"freq_offset_hz": 2e3, "n_samples": 128}
     assert looked["required"] == ["freq_offset_hz", "n_samples"]
+
+
+# ---------------------------------------------------------------------------
+# B8低#4 回归：tone 配方 defaults 补 fs——六样式 defaults 全携 fs 可缺省合成
+# ---------------------------------------------------------------------------
+
+
+def test_defect_b8_tone_defaults_carry_fs_and_domain_valid_freq():
+    """tone defaults 含 fs=1e6（有限正数）且 freq_offset_hz 取同频域合理默认
+    1e5（整包直调生成器过域）。"""
+    defaults = lookup_style_recipe("tone")["defaults"]
+    assert defaults["fs"] == 1e6
+    assert defaults["freq_offset_hz"] == 1e5
+    iq = gen_tone(**defaults)
+    assert iq.dtype == np.complex64 and len(iq) == defaults["n_samples"]
+
+
+def test_defect_b8_all_six_recipe_defaults_carry_fs():
+    """六样式 defaults 全部携带 fs → 任何样式均可仅凭 defaults 缺省合成
+    （switch_style params=None 的前置条件）。"""
+    for name in _SIX:
+        defaults = lookup_style_recipe(name)["defaults"]
+        assert "fs" in defaults, name
+        assert defaults["fs"] > 0, name

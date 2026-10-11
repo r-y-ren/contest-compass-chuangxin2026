@@ -186,12 +186,23 @@ def test_styles_synth_unregistered_style_error_lists_roster():
 
 
 def test_styles_synth_missing_style_or_fs_rejected():
-    """params 必含 'style' 与 'fs'：tone 无 fs 缺省可继承 → 缺 fs 即 StyleError。"""
+    """params 必含 'style'；'fs' 缺拒——B8低#4 后六基础样式 defaults 均自带 fs，
+    故缺 fs 用无 fs 缺省的扩展样式触发（新口径）。"""
     with pytest.raises(StyleError):
         synthesize_style({"freq_offset_hz": 10.0, "n_samples": 64, "fs": 100.0})
-    with pytest.raises(StyleError) as ei:
-        synthesize_style({"style": "tone", "freq_offset_hz": 10.0, "n_samples": 64})
-    assert "fs" in str(ei.value)
+    register_recipe(
+        "no_fs_style",
+        {"generator": gen_tone, "defaults": {"freq_offset_hz": 10.0},
+         "required": ["freq_offset_hz", "n_samples"]},
+    )
+    try:
+        with pytest.raises(StyleError) as ei:
+            synthesize_style(
+                {"style": "no_fs_style", "freq_offset_hz": 10.0, "n_samples": 64}
+            )
+        assert "fs" in str(ei.value)
+    finally:
+        RECIPES.pop("no_fs_style", None)
 
 
 # ---- composite 合成模式 ----
@@ -291,3 +302,97 @@ def test_styles_synth_power_dbm_recorded_not_scaling():
     assert meta_a["params"]["power_dbm"] == -30.0
     assert meta_b["params"]["power_dbm"] == -90.0
     assert "power_dbm" not in meta_c["params"]
+
+
+# ---- B8中#2 回归：composite 递归深度上限（默认 8，composite_max_depth 可调）----
+
+
+def _composite_chain(depth: int, leaf_n: int = 64) -> dict:
+    """构造 depth 层 composite 嵌套（最内层 tone）的合成参数。"""
+    inner: dict = {"style": "tone", "freq_offset_hz": 1e3, "n_samples": leaf_n}
+    for _ in range(depth):
+        inner = {"style": "composite", "fs": 1e6, "components": [inner]}
+    return inner
+
+
+def test_defect_b8_composite_depth_9_rejected_with_depth_and_limit():
+    """深度 9（超默认上限 8）→ StyleError，文案含当前深度 9 与上限 8。"""
+    with pytest.raises(StyleError) as ei:
+        synthesize_style(_composite_chain(9))
+    msg = str(ei.value)
+    assert "深度" in msg and "9" in msg and "8" in msg  # 当前深度与上限均可见
+    assert "上限" in msg
+
+
+def test_defect_b8_composite_depth_5_passes():
+    """深度 5（≤上限 8）→ 正常合成：complex64 非空，meta 为 composite 链。"""
+    iq, meta = synthesize_style(_composite_chain(5))
+    assert iq.dtype == np.complex64 and iq.size == 64
+    assert meta["style"] == "composite" and meta["n_components"] == 1
+    # 逐层下钻 components_meta：5 层 composite 全部到场
+    node = meta
+    for _ in range(4):  # 最内层 composite 的 components_meta 是 tone
+        node = node["components_meta"][0]
+        assert node["style"] == "composite"
+    assert node["components_meta"][0]["style"] == "tone"
+
+
+def test_defect_b8_composite_max_depth_adjustable():
+    """上限可调：composite_max_depth=3 时深度 4 拒（文案附新上限），深度 3 过。"""
+    with pytest.raises(StyleError) as ei:
+        synthesize_style(_composite_chain(4), composite_max_depth=3)
+    assert "4" in str(ei.value) and "3" in str(ei.value)
+    iq, meta = synthesize_style(_composite_chain(3), composite_max_depth=3)
+    assert iq.size == 64 and meta["style"] == "composite"
+
+
+def test_defect_b8_composite_depth_limit_at_exact_boundary():
+    """边界恰在限上：默认上限 8，深度 8 通过、9 拒（> 才拒，= 不拒）。"""
+    iq, _ = synthesize_style(_composite_chain(8))
+    assert iq.size == 64
+    with pytest.raises(StyleError):
+        synthesize_style(_composite_chain(9))
+
+
+# ---- B8中#3 回归：meta['params'] 深拷贝——嵌套 components/列表改写不回染 ----
+
+
+def test_defect_b8_nested_composite_params_deepcopy_no_caller_pollution():
+    """嵌套 composite：改写 meta['params'] 深层 components 不回染调用方原始
+    params（浅拷仅护顶层，嵌套分量 dict 仍共享可回染——本例锁死该路径）。"""
+    params = _composite_chain(2)  # composite > composite > tone
+    snapshot = {
+        "outer": params["components"][0],
+        "inner_freq": params["components"][0]["components"][0]["freq_offset_hz"],
+    }
+    iq, meta = synthesize_style(params)
+    # 改写 meta 深层（外层分量列表与内层 tone 分量的键）
+    meta["params"]["components"].append({"style": "tone"})
+    meta["params"]["components"][0]["components"][0]["freq_offset_hz"] = 999.0
+    assert params["components"][0] is snapshot["outer"]  # 对象身份未换
+    assert len(params["components"]) == 1  # 列表未回染
+    assert snapshot["inner_freq"] == 1e3  # 嵌套分量键未回染
+
+
+def test_defect_b8_mutable_list_param_deepcopy_registry_untouched():
+    """可变列表参数改写：配方 defaults 携带 list 值（经合并入 meta['params']），
+    改写该列表既不回染调用方也不污染注册表 defaults。"""
+    register_recipe(
+        "list_default_style",
+        {"generator": gen_tone,
+         "defaults": {"freq_offset_hz": 1e3, "n_samples": 64, "taps": [1.0, 2.0]},
+         "required": ["freq_offset_hz", "n_samples"]},
+    )
+    try:
+        params = {"style": "list_default_style", "fs": 1e6}
+        caller_taps = RECIPES["list_default_style"]["defaults"]["taps"]
+        iq, meta = synthesize_style(params)
+        meta["params"]["taps"].append(999.0)  # 改写 meta 内列表
+        meta["params"]["taps"][0] = -1.0
+        assert caller_taps == [1.0, 2.0]  # 注册表 defaults 列表未被回染
+        assert params.get("taps") is None  # 调用方原参不含、更不受染
+        # 再合成仍是原配方口径
+        iq2, meta2 = synthesize_style({"style": "list_default_style", "fs": 1e6})
+        assert np.array_equal(iq, iq2) and meta2["params"]["taps"] == [1.0, 2.0]
+    finally:
+        RECIPES.pop("list_default_style", None)

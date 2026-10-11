@@ -183,3 +183,50 @@ def test_domain_shape_errors_raise_value_error(domain):
 def test_cal_table_shape_errors_raise_value_error(cal):
     with pytest.raises(ValueError):
         plan_attenuator_combo(35.0, cal_table=cal)
+
+
+# ---- B8低#5 回归：cal_table 键与档位列表完全不匹配 → cal_unused 标注 ----
+
+
+def test_defect_b8_cal_table_total_mismatch_flagged_cal_unused():
+    """键完全不匹配（0 键命中档位列表，如 0.5 步进的表配 1dB 步进域）→
+    结果附 'cal_unused': True，择档全按标称回退（fine_from='nominal'）。"""
+    result = plan_attenuator_combo(35.0, cal_table={0.5: 0.4, 1.5: 1.6})
+    assert result["cal_unused"] is True
+    assert result["fine_from"] == "nominal"  # 未命中任何标定键
+    assert result["fine_step_db"] == 5.0
+    assert result["fine_actual_db"] == 5.0
+    assert result["residual_db"] == 0.0  # 择档数值与无标定表一致
+
+
+def test_defect_b8_cal_table_total_mismatch_int_keys_vs_fractional_steps():
+    """错口径表（0.25 档键对 0.5 步进域）同样 0 命中 → cal_unused 标注，
+    择档回退标称。"""
+    half_db = {
+        "coarse_db": 30.0,
+        "fine_steps_db": [i * 0.5 for i in range(41)],
+        "fine_granularity_db": 0.5,
+    }
+    result = plan_attenuator_combo(35.0, domain=half_db, cal_table={4.25: 4.2, 5.75: 6.0})
+    assert result["cal_unused"] is True
+    assert result["fine_step_db"] == 5.0  # 5.0 标称档
+    assert result["fine_actual_db"] == 5.0
+
+
+def test_defect_b8_cal_table_partial_match_not_flagged():
+    """部分命中（≥1 键命中）→ 不标 cal_unused（既有口径不变：命中档用标定值，
+    缺键档回退标称）。"""
+    result = plan_attenuator_combo(35.0, cal_table={5.0: 5.3, 0.5: 0.4})
+    assert "cal_unused" not in result
+    assert result["fine_from"] == "calibrated"
+    assert result["fine_actual_db"] == pytest.approx(5.3)
+
+
+def test_defect_b8_no_cal_table_no_flag():
+    """无标定表（None）与全命中均不产生 cal_unused 键（返回形状不增键）。"""
+    plain = plan_attenuator_combo(35.0)
+    assert "cal_unused" not in plain
+    full_cal = {float(step): float(step) for step in range(21)}
+    all_hit = plan_attenuator_combo(35.0, cal_table=full_cal)
+    assert "cal_unused" not in all_hit
+    assert all_hit["fine_from"] == "calibrated"

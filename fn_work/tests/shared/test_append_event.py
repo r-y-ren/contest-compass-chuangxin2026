@@ -207,3 +207,51 @@ def test_pathlike_run_dir_accepted(tmp_path):
     returned = append_event(tmp_path, {"type": "x"})
     assert returned["type"] == "x"
     assert (tmp_path / mod.EVENTS_FILENAME).exists()
+
+
+# ---- B8高#1 回归：循环引用 → EventWriteError（RecursionError 不逃逸）----
+
+
+def test_defect_b8_self_referencing_dict_raises_eventwriteerror(tmp_path):
+    """自引用 dict（event['self'] = event）→EventWriteError（非 RecursionError
+    逃逸），消毒阶段即拦截，不落半行。"""
+    event = {"type": "inject_start", "level_dbm": -10.0}
+    event["self"] = event  # 自引用
+    with pytest.raises(EventWriteError) as ei:
+        append_event(str(tmp_path), event)
+    assert "循环引用" in ei.value.reason  # 原因可读
+    assert ei.value.path.endswith(mod.EVENTS_FILENAME)
+    target = tmp_path / mod.EVENTS_FILENAME
+    assert (not target.exists()) or target.stat().st_size == 0  # 失败不留半截
+
+
+def test_defect_b8_mutually_referencing_dicts_raises_eventwriteerror(tmp_path):
+    """相互引用 a↔b（经嵌套键成环）→EventWriteError，同样不逃 RecursionError。"""
+    a: dict = {"name": "a"}
+    b: dict = {"name": "b", "partner": a}
+    a["partner"] = b  # a↔b 成环
+    with pytest.raises(EventWriteError) as ei:
+        append_event(str(tmp_path), {"type": "pair", "left": a})
+    assert "循环引用" in ei.value.reason
+    assert not (tmp_path / mod.EVENTS_FILENAME).exists()
+
+
+def test_defect_b8_self_referencing_list_raises_eventwriteerror(tmp_path):
+    """自引用 list（arr 追加自身）→EventWriteError 统一包装，不逃 RecursionError。"""
+    arr: list = [1.0, 2.0]
+    arr.append(arr)  # 自引用列表
+    with pytest.raises(EventWriteError) as ei:
+        append_event(str(tmp_path), {"type": "ladder", "steps": arr})
+    assert "循环引用" in ei.value.reason
+    assert not (tmp_path / mod.EVENTS_FILENAME).exists()
+
+
+def test_defect_b8_shared_but_acyclic_reference_still_accepted(tmp_path):
+    """对照（防误伤）：同层共享同一子 dict（DAG 非环）仍正常落盘——只拦真环。"""
+    shared = {"gain_db": 12}
+    returned = append_event(
+        str(tmp_path), {"type": "dup", "x": shared, "y": shared}
+    )
+    line = _read_lines(tmp_path)[0]
+    assert line["x"] == line["y"] == {"gain_db": 12}
+    assert returned == line
