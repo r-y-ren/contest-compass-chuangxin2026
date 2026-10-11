@@ -28,8 +28,8 @@
 | read_sigmf_timeline | B4 | wired 10-11 | 16 passed；三 datatype 手写解析 | 88c288b |
 | open_replay_backend | B4 | wired 10-11 | 13 passed；急切校验+no_tx 语义 | e2853ca |
 | configure_b210_channels | B5 | wired 10-11 | 23 passed；域校验+回读容差+NaN 拒 | c782435 |
-| write_b210_tx_stream | B5 | wired 10-11 | 11 passed；欠载熔断+元素规整 | pending |
-| read_b210_rx_stream | B5 | stub 10-11 | 上游覆盖: open_b210_backend | — |
+| write_b210_tx_stream | B5 | wired 10-11 | 11 passed；欠载熔断+元素规整 | f36dddc |
+| read_b210_rx_stream | B5 | wired 10-11 | 12 passed；溢出熔断+惰性 | pending |
 | open_b210_backend | B5 | stub 10-11 | pytest -k backend_b210 | — |
 | exchange_scpi | B5 | stub 10-11 | 上游覆盖: create_visa_driver | — |
 | create_visa_driver | B5 | stub 10-11 | pytest -k visa_slot | — |
