@@ -70,10 +70,19 @@ def _open_explicit(explicit, factory, meta, open_params: dict) -> tuple[object, 
 def _autodetect_via_probe(open_params: dict) -> tuple[object, dict]:
     """自动路径：探测→在位且无 error 尝试 b210；不可用降级 sim（探测依据入选择记录）。"""
     probe = probe_uhd_devices()
-    if not probe.get("available") or probe.get("error"):
-        # 探测不可用：available False（无设备段/工具缺失/超时）或探测带 error（退出码
-        # 非零等）——均不碰真机，降级 sim；原因进 selection['reason'] 供报告贯通。
-        reason = probe.get("error") or "no_device"
+    devices = probe.get("devices") or []
+    if probe.get("error"):
+        # 探测带 error（退出码非零/超时等）——不碰真机，降级 sim；原因进 selection['reason']。
+        reason = probe.get("error")
+    elif not probe.get("available"):
+        reason = "no_device"
+    elif not devices:
+        # 矛盾态（B6 低#10）：available=True 但 devices==[]——探测结果自相矛盾，
+        # 按不可用降级 sim（不碰真机），reason='probe_inconsistent' 供报告贯通。
+        reason = "probe_inconsistent"
+    else:
+        reason = None
+    if reason is not None:
         _LOGGER.warning("后端决策：自动探测不可用（%s），降级 sim", reason)
         backend = open_sim_backend(open_params)
         return backend, {

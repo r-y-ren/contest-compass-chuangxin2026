@@ -265,8 +265,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] index_dataset · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(index_dataset)' && echo commit在案 → commit在案 (10-11)
 
 ## B6 批间门
-- [ ] B6 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B6 · 用户裁决 — 预告: 继续 B7 / 修订 / 裁决 blocked
+- [x] B6 · 评审三轴 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && grep -q 'Ruling: B6 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && echo 三轴过门+Ruling⑨在案 → 三轴过门+Ruling⑨在案 (10-11)
+- [x] B6 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && echo B6 双审收口（13 项修复） → B6 双审收口（13 项修复） (10-11)
 
 ## B7 — check_style_params, gen_tone, gen_sweep, gen_chirp, gen_bandlimited_noise, gen_partial_band, gen_pulse, compose_jamming
 ### check_style_params
@@ -874,4 +874,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B4 记账 commit 用 git add -A fn_work 把整波代码扫进首个函数提交（abd0680），后续六函数 wired 提交为零代码变更（B1 Ruling②同型） — led() 记账脚本收 add 范围太宽 — 证据链歧义（git log 仍可溯源，functions.md 哈希正确指向各自提交） — B5 起记账 commit 只 add 本函数 src/tests 两路径+batches 变更记录 Ruling⑥ (10-11)
 - Ruling: B5 双审收口——①configure 签名意图对齐「越域 ValueError 先行/设备异常 BackendError」（Ruling③式）；②rx 溢出语义现为熔断 fail-loud（规格写告警事件，B8 append_event 到位时评估是否降级为告警） — 三轴观察+对抗修复 — 无 — responsibility.md 一处+batches 变更记录 Ruling⑦ (10-11)
 - Ruling: B6 两处规约歧义取舍——①make_spectrogram frames 公式按具体期望值 7 落地为 1+ceil((N-nfft)/hop)（尾帧补零计入，skipped 仅整段不足一窗）；②index_dataset 读路径 IO 失败归 IndexWriteError、仅非法 JSON/结构错触发自动 rebuild（防 IndexFormatError 短路写失败口径） — 子代理实现时申报（规约文本自相矛盾/两口径冲突） — 无（语义更精确，测试固化） — batches 变更记录 Ruling⑧ (10-11)
+- Ruling: B6 双审收口——①R29 空输入口径回写 responsibility（空→跳段不抛，SpectrogramError 类全库不存在按实现口径修正）；②对抗 中6低7 全修复（stderr 污染/NaN 静默/帧规模上限/rebuild 毒化/真机时基鸭子接口+fail-closed/矛盾态降级/CLI 重试）；修复触 autodetect_backend.py 一处（低#10 落点唯一，子代理申报） — 三轴观察+对抗 — 无 — responsibility.md 一处+batches Ruling⑨ (10-11)
 

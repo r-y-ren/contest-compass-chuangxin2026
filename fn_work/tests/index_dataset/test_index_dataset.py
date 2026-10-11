@@ -1,5 +1,6 @@
 """index_dataset 行为用例：验收 slug=dataset_index（register/query/rebuild/list + 损坏自愈）。"""
 import json
+import logging
 import os
 
 import pytest
@@ -196,3 +197,71 @@ def test_dataset_index_register_total_counts_up(tmp_path):
     index_path = str(tmp_path / "index.json")
     assert index_dataset("register", record=_record(), index_path=index_path)["total"] == 1
     assert index_dataset("register", record=_record(run_id="r2"), index_path=index_path)["total"] == 2
+
+
+# ---- B6 对抗审查缺陷回归 ----
+
+
+def test_defect_b6_4_dirty_run_skipped_without_short_circuit(tmp_path):
+    """中#4：脏 run（NaN/inf 频点、非 str 字段）计 skipped 不短路 rebuild——
+    排序在脏 run 之后的合法 run 照常入索引。"""
+    runs_root = tmp_path / "runs"
+    _make_run(runs_root, "20260101-000000", result={"freq_mhz": float("nan")})  # NaN 频点
+    _make_run(runs_root, "20260102-000000", result={"backend": 123})  # backend 非 str
+    _make_run(runs_root, "20260103-000000", result={"freq_mhz": float("inf")})  # inf 频点
+    _make_run(runs_root, "20260104-000000", result={"style": ""})  # 空串按脏口径拒
+    _make_run(runs_root, "20260105-000000", result={"freq_mhz": 2450.0, "backend": "b210"})
+    index_path = str(tmp_path / "index.json")
+    out = index_dataset("rebuild", index_path=index_path, runs_root=str(runs_root))
+    assert out == {"rebuilt": 1, "skipped": 4}  # 逐条跳过且不短路
+    listed = index_dataset("list", index_path=index_path)
+    assert [e["run_id"] for e in listed["entries"]] == ["20260105-000000"]
+    # 落盘无 NaN：脏频点不再混入 allow_nan=False 的持久化路径
+    assert "NaN" not in index_path_file_text(index_path)
+
+
+def index_path_file_text(index_path: str) -> str:
+    with open(index_path, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def test_defect_b6_4_read_path_selfheal_validates_each_entry(tmp_path):
+    """中#4：读路径自愈 rebuild 同样逐条校验——脏 run 被剔除，合法 run 可查。"""
+    runs_root = tmp_path / "runs"
+    _make_run(runs_root, "20260101-000000", result={"freq_mhz": float("nan")})
+    _make_run(runs_root, "20260102-000000", result={"backend": "replay"})
+    index_path = tmp_path / "index.json"
+    index_path.write_text("{bad-json", encoding="utf-8")
+    out = index_dataset(
+        "query", query={"backend": "replay"}, index_path=str(index_path), runs_root=str(runs_root)
+    )
+    assert out["matched"] == 1
+    assert out["entries"][0]["run_id"] == "20260102-000000"
+    data = json.loads(index_path_file_text(str(index_path)))  # 自愈落盘同样无脏条目
+    assert [e["run_id"] for e in data["entries"]] == ["20260102-000000"]
+
+
+def test_defect_b6_7_read_path_rebuild_warns_and_persists(tmp_path, caplog):
+    """低#7：读路径自动 rebuild 记一条 warning（含 index_path 与重建计数）并落盘
+    重建结果（修复磁盘损坏态，二次读不再触发重建）。"""
+    runs_root = tmp_path / "runs"
+    _make_run(runs_root, "20260101-080000", result={"backend": "b210"})
+    _make_run(runs_root, "20260102-080000", result={"backend": "b210"})
+    index_path = tmp_path / "index.json"
+    index_path.write_text("<<<损坏>>>", encoding="utf-8")
+    with caplog.at_level(logging.WARNING, logger="src.index_dataset.index_dataset"):
+        out = index_dataset("list", index_path=str(index_path), runs_root=str(runs_root))
+    assert out["total"] == 2
+    rebuild_warnings = [r for r in caplog.records if "自动重建" in r.getMessage()]
+    assert len(rebuild_warnings) == 1  # 恰一条
+    message = rebuild_warnings[0].getMessage()
+    assert str(index_path) in message  # 含 index_path
+    assert "重建 2 条" in message  # 含重建计数
+    healed = json.loads(index_path_file_text(str(index_path)))  # 落盘修复磁盘损坏态
+    assert healed["version"] == 1
+    assert len(healed["entries"]) == 2
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="src.index_dataset.index_dataset"):
+        again = index_dataset("list", index_path=str(index_path), runs_root=str(runs_root))
+    assert again["total"] == 2
+    assert not [r for r in caplog.records if "自动重建" in r.getMessage()]  # 二次读直接命中落盘索引

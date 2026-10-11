@@ -15,3 +15,4 @@
 | 10-11 | B5 | configure_b210_channels, write_b210_tx_stream, read_b210_rx_stream, exchange_scpi（波1）, open_b210_backend, create_visa_driver（波2） | 574 全库绿；B210 真机在位（31B92DD）实开实测；Ruling⑥ per-fn commit 生效 |
 | 10-11 | B5+ | 双审：三轴过门（2 观察）+对抗 中3低9 → 12 项全修复（BackendError 契约族/空转熔断/真机域对齐/校验边角），24 回归 | 602 全库绿（含真机）；Ruling⑦ 留痕 |
 | 10-11 | B6 | probe_uhd_devices, probe_gpsdo_status, make_spectrogram, query_dataset（波1）, autodetect_backend, resolve_clock_reference, index_dataset（波2） | 699 全库绿；真机 auto→b210 实开；Ruling⑧ 两处歧义取舍 |
+| 10-11 | B6+ | 双审：三轴过门（3 观察）+对抗 中6低8 → 13 项修复+23 回归；Ruling⑨（R29 口径回写） | 723 全库绿；真机 get_clock_source='internal' 时基链可达 |

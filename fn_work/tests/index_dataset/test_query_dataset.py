@@ -162,3 +162,19 @@ def test_no_match_returns_empty_entries_and_groups():
     assert result["batch_groups"] == {}
     assert result["matched"] == 0
     assert result["total"] == 6
+
+
+# ---- B6 对抗审查缺陷回归 ----
+
+
+def test_defect_b6_8_reversed_ranges_raise_query_error():
+    """低#8：区间反序（lo>hi）→ QueryError（调用方笔误显式拒收，不再空结果静默）。"""
+    with pytest.raises(QueryError, match="反序"):
+        query_dataset(_sample_index(), {"freq_range": (2500.0, 2400.0)})
+    with pytest.raises(QueryError, match="反序"):
+        query_dataset(_sample_index(), {"date_range": ("2026-10-11", "2026-10-01")})
+    with pytest.raises(QueryError, match="freq_range"):  # 消息定位到出错字段
+        query_dataset(_sample_index(), {"freq_range": (900.0, 433.0)})
+    # 等端点退化区间（闭区间单点）合法
+    assert query_dataset(_sample_index(), {"freq_range": (2450.0, 2450.0)})["matched"] == 1
+    assert query_dataset(_sample_index(), {"date_range": ("2026-10-01", "2026-10-01")})["matched"] == 2

@@ -126,13 +126,28 @@ def test_falsy_string_sensor_values(raw):
 
 
 def test_first_readable_sensor_in_sequence_wins():
-    gpgga = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47"
-    backend = FakeBackend(sensors={"gps_gpgga": gpgga})
+    # 真 uhd 口径的 gps_gpgga 传感器对象（自带 to_bool，由探测侧解析真值）：
+    # gps_locked 缺（KeyError 记 reason）→ 序列推进到 gpgga，其结论胜出。
+    class GpggaSensor:
+        def to_bool(self):
+            return True
+
+    backend = FakeBackend(sensors={"gps_gpgga": GpggaSensor()})
     result = probe_gpsdo_status(backend)
     assert result["available"] is True
     assert result["gps_locked"] is True
     assert result["sensors_read"] == ["gps_gpgga"]
     assert "gps_locked" in result["reason"]  # 序列探测中被跳过的传感器记入 reason
+
+
+def test_raw_gpgga_sentence_fail_closed_unrecognized():
+    # B6 中#6 后契约：无 to_bool 的裸 NMEA 语句不在词汇表内 → fail-closed 记假
+    # （不再按非空字符串真值回退），reason 标注 'unrecognized_sensor_value'。
+    gpgga = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47"
+    result = probe_gpsdo_status(FakeBackend(sensors={"gps_gpgga": gpgga}))
+    assert result["gps_locked"] is False
+    assert result["available"] is False
+    assert "unrecognized_sensor_value" in result["reason"]
 
 
 def test_missing_time_source_leaves_none():
@@ -163,3 +178,57 @@ def test_clock_source_failure_accumulates_in_reason():
     assert result["clock_source"] is None
     assert "get_clock_source" in result["reason"]
     assert "RuntimeError" in result["reason"]
+
+
+# ---- B6 对抗审查缺陷回归 ----
+
+
+def test_defect_b6_6_fail_closed_sensor_value_parsing():
+    """中#6：真值解析 fail-closed——to_bool 优先；未识别读数一律 False + reason
+    标注 'unrecognized_sensor_value'（不再按真值回退假报锁定）。"""
+    # 传感器对象有 to_bool()（uhd sensor_value 口径）→ 用之
+    class ToBoolSensor:
+        def to_bool(self):
+            return True
+
+    result = probe_gpsdo_status(FakeBackend(sensors={"gps_locked": ToBoolSensor()}))
+    assert result["gps_locked"] is True
+    assert result["available"] is True
+    assert result["reason"] is None  # to_bool 结论被采信，无失败记录
+
+    # to_bool() 自身抛异常 → 按未识别 fail-closed
+    class BoomToBoolSensor:
+        def to_bool(self):
+            raise RuntimeError("boom")
+
+    result = probe_gpsdo_status(FakeBackend(sensors={"gps_locked": BoomToBoolSensor()}))
+    assert result["gps_locked"] is False
+    assert result["available"] is False
+    assert "unrecognized_sensor_value" in result["reason"]
+
+    # 无 to_bool 的非布尔对象：str() 后词汇表——命中则按词汇表，未识别 fail-closed
+    class StringySensor:
+        def __str__(self):
+            return "locked"
+
+    result = probe_gpsdo_status(FakeBackend(sensors={"gps_locked": StringySensor()}))
+    assert result["gps_locked"] is True
+    assert result["available"] is True
+
+    class OpaqueSensor:
+        def __str__(self):
+            return "maybe?"
+
+    result = probe_gpsdo_status(FakeBackend(sensors={"gps_locked": OpaqueSensor()}))
+    assert result["gps_locked"] is False  # 不再按 bool(raw) 默认真值回退
+    assert result["available"] is False
+    assert "unrecognized_sensor_value" in result["reason"]
+
+    # 未识别字符串同理 False（裸 NMEA 语句等非空未知串不再算锁定）
+    result = probe_gpsdo_status(FakeBackend(sensors={"gps_locked": "probably locked?"}))
+    assert result["gps_locked"] is False
+    assert result["available"] is False
+    assert result["reason"] == (
+        "sensor gps_locked value not recognized (unrecognized_sensor_value): 'probably locked?'"
+    )
+    assert result["sensors_read"] == ["gps_locked"]  # 读数事实仍在，仅真值按 fail-closed

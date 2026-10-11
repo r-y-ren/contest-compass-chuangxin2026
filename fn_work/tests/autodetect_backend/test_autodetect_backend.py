@@ -164,6 +164,31 @@ def test_backend_autodetect_auto_devices_but_error_falls_back(monkeypatch):
     assert selection["reason"] == "exit_1"
 
 
+# ---- B6 对抗审查缺陷回归 ----
+
+
+def test_defect_b6_10_probe_inconsistent_falls_back_sim(monkeypatch):
+    """低#10：probe available=True 但 devices==[]（矛盾态）→ 按不可用降级 sim，
+    reason='probe_inconsistent'，不碰真机（open_b210_backend 不得被调）。"""
+    probe = {
+        "devices": [],
+        "raw": "-- some banner without device section",
+        "available": True,
+        "error": None,
+        "retried": True,
+    }
+    monkeypatch.setattr(ad_module, "probe_uhd_devices", lambda: probe)
+    monkeypatch.setattr(
+        ad_module, "open_b210_backend", lambda p: pytest.fail("矛盾态不得尝试打开真机")
+    )
+    backend, selection = autodetect_backend(None)
+    assert isinstance(backend, SimBackend)
+    assert selection["backend"] == "sim"
+    assert selection["decision"] == "auto_fallback"
+    assert selection["reason"] == "probe_inconsistent"
+    assert selection["probe"] is probe
+
+
 def test_backend_autodetect_params_passthrough_to_b210(monkeypatch):
     # auto 探测命中路径：params 原样透传 open_b210_backend（None 时透传空 dict）。
     monkeypatch.setattr(ad_module, "probe_uhd_devices", lambda: _PROBE_HIT)

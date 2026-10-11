@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from src.make_spectrogram import make_spectrogram as spec_mod
 from src.make_spectrogram.make_spectrogram import make_spectrogram
 
 
@@ -156,3 +157,63 @@ def test_spectrogram_preview_png_optional(tmp_path):
         assert tmp_path.joinpath("spec.png").exists()
     out_empty = make_spectrogram([], preview_png=str(tmp_path / "empty.png"))  # 空谱图渲染失败也不抛
     assert out_empty["spec"].shape == (0, 0)
+
+
+# ---- B6 对抗审查缺陷回归 ----
+
+
+def test_defect_b6_2_nan_inf_rejected_with_position_and_count():
+    """中#2：IQ 含 NaN/inf → ValueError（含首个坏样本位置与计数）——脏数据显式拒收。"""
+    x = _noise(64, 41)
+    x[7] = np.nan  # 坏样本一：实部 NaN
+    x[23] = complex(1.0, np.inf)  # 坏样本二：仅虚部 inf 同样算非有限
+    with pytest.raises(ValueError) as ei:
+        make_spectrogram(x, 8, 4)
+    message = str(ei.value)
+    assert "位置 7" in message  # 首个坏样本位置
+    assert "2/64" in message  # 计数/总数
+    assert "非有限" in message
+
+
+def test_defect_b6_2_dirty_input_coercion_paths_also_checked():
+    """中#2：list/(I,Q) 二元组等规整路径产出的 NaN 同样被拒；段短于窗长也不静默跳过脏数据。"""
+    with pytest.raises(ValueError, match="非有限"):
+        make_spectrogram([1.0, float("nan"), 2.0], 8, 4)
+    with pytest.raises(ValueError, match="非有限"):
+        make_spectrogram([(float("inf"), 0.0), (1.0, 1.0)], 8, 4)
+    with pytest.raises(ValueError, match="非有限"):  # 段长 < 窗长：先拒脏再谈跳过
+        make_spectrogram([1.0, float("nan"), 2.0], 256)
+    clean = make_spectrogram([1.0, 2.0, 3.0], 256)  # 干净短段照常走 skipped 口径
+    assert clean["skipped"] == 1
+
+
+def test_defect_b6_3_frame_scale_cap_rejects_before_heavy_alloc(monkeypatch):
+    """中#3：frames*nfft > 2**26 → ValueError（提示减小样本/加大 hop），先于大分配。"""
+    stft_calls = []
+
+    def fake_stft(x, nfft, hop):
+        stft_calls.append((nfft, hop))
+        return np.zeros((nfft // 2 + 1, 1), dtype=np.float32), 1
+
+    monkeypatch.setattr(spec_mod, "_stft_power", fake_stft)
+    nfft = 2 ** 16
+    x = np.zeros(nfft + 1024, dtype=np.complex128)  # hop=1 → frames=1025 → 1025*65536 > 2**26
+    with pytest.raises(ValueError) as ei:
+        make_spectrogram(x, nfft, 1)
+    message = str(ei.value)
+    assert "67108864" in message or "2**26" in message  # 上限标注
+    assert "hop" in message  # 处置建议
+    assert stft_calls == []  # 拒收发生在重型分帧/FFT 之前
+
+
+def test_defect_b6_3_frame_scale_boundary_exact_cap_allowed(monkeypatch):
+    """中#3：frames*nfft == 2**26 恰在上限（严格大于才拒）——边界内不误伤。"""
+    monkeypatch.setattr(
+        spec_mod,
+        "_stft_power",
+        lambda x, nfft, hop: (np.zeros((nfft // 2 + 1, 1), dtype=np.float32), 1),
+    )
+    nfft = 2 ** 16
+    x = np.zeros(nfft + 1023, dtype=np.complex128)  # hop=1 → frames=1024 → 1024*65536 == 2**26
+    out = make_spectrogram(x, nfft, 1)
+    assert out["skipped"] == 0  # 未被上限拒收，正常出谱

@@ -10,6 +10,8 @@ __all__ = ["make_spectrogram"]
 _MIN_NFFT = 8
 _MAX_NFFT = 2 ** 16
 _DB_FLOOR = 1e-12
+# 帧规模上限（B6 中#3）：frames*nfft（约 6700 万元素）——超限拒收而非巨型分配。
+_MAX_SPEC_ELEMENTS = 2 ** 26
 
 
 def _hann(n: int) -> np.ndarray:
@@ -140,7 +142,9 @@ def make_spectrogram(
     - 段长（含空输入）不足一个窗长：``spec`` 为 (0,0) 空数组、frames=0、skipped=1；
     - 元素规整：接受 list/tuple/ndarray，实数按 +0j，(I,Q) 浮点二元组转 complex。
 
-    :raises ValueError: nfft<8 或 nfft>2**16；hop<1 或 hop>=nfft。
+    :raises ValueError: nfft<8 或 nfft>2**16；hop<1 或 hop>=nfft；
+        IQ 含 NaN/inf（消息含首个坏样本位置与计数）；
+        frames*nfft > 2**26 帧规模超上限（提示减小样本数或加大 hop）。
     """
     nfft_i = int(nfft)
     if nfft_i < _MIN_NFFT or nfft_i > _MAX_NFFT:
@@ -153,11 +157,29 @@ def make_spectrogram(
     n = int(x.size)
     freq_bins = nfft_i // 2 + 1
 
+    # B6 中#2：脏 IQ 显式拒收（NaN/inf 污染整谱且 dB 压缩后不可辨）——与库内
+    # isfinite 先例同口径（configure_b210_channels/_validate_record 均非有限即拒）。
+    if not np.isfinite(x).all():
+        bad = ~np.isfinite(x)
+        raise ValueError(
+            f"IQ 含非有限值（NaN/inf）: 首个坏样本位置 {int(bad.argmax())}，"
+            f"共 {int(bad.sum())}/{n} 个样本非有限"
+        )
+
     if n < nfft_i:
         spec = np.zeros((0, 0), dtype=np.float32)
         frames = 0
         skipped = 1
     else:
+        # B6 中#3：帧规模上限先行（frames 口径与 _stft_power 同式）——超限拒收，
+        # 防止 frames*nfft 巨型索引矩阵/谱矩阵一击撑爆内存。
+        frames = 1 + int(np.ceil((n - nfft_i) / hop_i))
+        if frames * nfft_i > _MAX_SPEC_ELEMENTS:
+            raise ValueError(
+                f"谱图帧规模超上限: frames={frames} × nfft={nfft_i} = "
+                f"{frames * nfft_i} > {_MAX_SPEC_ELEMENTS}（2**26）——"
+                "请减小样本数或加大 hop（或分块处理）"
+            )
         spec, frames = _stft_power(x, nfft_i, hop_i)
         skipped = 0
         if to_db:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import re
@@ -17,6 +18,8 @@ __all__ = [
     "QueryError",
     "query_dataset",
 ]
+
+_LOGGER = logging.getLogger(__name__)
 
 #: 索引文件 schema 版本（结构不符即视为损坏，触发自动重建）
 _INDEX_VERSION = 1
@@ -83,25 +86,41 @@ def _validate_record(record: object) -> dict:
 
 
 def _entry_from_run(run_id: str, run_dir: str, result: dict) -> dict:
-    """从 runs/<id>/result.json 提取可得字段；date 缺失补运行目录名前缀日期（YYYYMMDD）。"""
+    """从 runs/<id>/result.json 提取可得字段；date 缺失补运行目录名前缀日期（YYYYMMDD）。
+
+    字段校验与 _validate_record 同口径（B6 中#4）：freq_mhz 在且非 None 须为有限
+    数值（int/float 非 bool）；backend/style/jsr_db/batch_key/date 在且非 None 须为
+    非空 str。脏 run 抛 IndexEntryError，由 _scan_runs 记 skipped（不短路 rebuild，
+    读路径自愈重建同样逐条校验）；None 视同未提供（rebuild 的可得字段缺省口径）。
+    """
     entry: dict = {
         "run_id": run_id,
         "path": os.path.join(run_dir, "recordings"),
         "failed": result.get("status") != "done",
     }
-    for field in ("backend", "style", "jsr_db", "batch_key"):
-        value = result.get(field)
-        if isinstance(value, str) and value:
-            entry[field] = value
+    for field in ("backend", "style", "jsr_db", "batch_key", "date"):
+        if field not in result:
+            continue
+        value = result[field]
+        if value is None:
+            continue
+        if not isinstance(value, str) or not value:
+            raise IndexEntryError(
+                f"run {run_id!r} 的 result.json 字段 {field!r} "
+                f"须为非空 str 或缺省，得到 {value!r}"
+            )
+        entry[field] = value
     if "status" in result:
         entry["status"] = result["status"]
     freq = result.get("freq_mhz")
-    if _is_number(freq):
+    if freq is not None:
+        if not _is_number(freq) or not math.isfinite(freq):
+            raise IndexEntryError(
+                f"run {run_id!r} 的 result.json 字段 'freq_mhz' "
+                f"须为有限数值（int/float 非 bool），得到 {freq!r}"
+            )
         entry["freq_mhz"] = freq
-    date = result.get("date")
-    if isinstance(date, str) and date:
-        entry["date"] = date
-    else:
+    if "date" not in entry:  # result 无有效 date → 补运行目录名前缀日期
         matched = _DIR_DATE_RE.match(run_id)
         if matched:
             entry["date"] = matched.group(1)  # runs/<YYYYMMDD-HHMMSS>/ → 'YYYYMMDD'
@@ -112,7 +131,9 @@ def _scan_runs(runs_root: str) -> tuple[list, int]:
     """扫描 runs_root 下各 run 目录重建索引条目，返回 (entries, skipped)。
 
     有效 run：recordings 目录存在 + result.json 可读且为 dict；
-    result.json 缺失/损坏/非 dict、或缺 recordings 目录 → skipped 计数后跳过。
+    result.json 缺失/损坏/非 dict、recordings 目录缺、或字段脏
+    （_entry_from_run 校验不过，如 freq_mhz=NaN/backend 非 str）→ skipped
+    计数后跳过（B6 中#4：逐条跳过，不短路整个 rebuild）。
     runs_root 不存在/不是目录 → 空索引 (0, 0)；runs 根下的杂项文件不算 run 也不计 skipped。
     """
     if not os.path.isdir(runs_root):
@@ -136,7 +157,10 @@ def _scan_runs(runs_root: str) -> tuple[list, int]:
         if not isinstance(result, dict):
             skipped += 1
             continue
-        entries.append(_entry_from_run(name, run_dir, result))
+        try:
+            entries.append(_entry_from_run(name, run_dir, result))
+        except IndexEntryError:
+            skipped += 1  # 脏 run：计数后跳过，不短路 rebuild
     return entries, skipped
 
 
@@ -152,9 +176,24 @@ def _persist(index_path: str, entries: list) -> None:
 
 
 def _recover_or_fail(index_path: str, runs_root: str, reason: str) -> list:
-    """索引损坏后的读路径自愈：runs_root 可用则现场重建（读路径不落盘），否则 IndexFormatError。"""
+    """索引损坏后的读路径自愈（B6 低#7）：runs_root 可用则现场重建——重建事实记
+    warning（含 index_path 与重建计数）并落盘重建结果（修复磁盘损坏态，下次读
+    直接命中落盘索引）；落盘失败仅再记 warning、读路径继续用内存重建（不阻塞）。
+    runs_root 不可用则 IndexFormatError。
+    """
     if os.path.isdir(runs_root):
-        entries, _skipped = _scan_runs(runs_root)
+        entries, skipped = _scan_runs(runs_root)
+        try:
+            _persist(index_path, entries)
+        except IndexWriteError as exc:
+            _LOGGER.warning("索引自愈结果落盘失败（读路径继续用内存重建）: %s", exc)
+        _LOGGER.warning(
+            "索引损坏自动重建并落盘: %s（原因: %s；重建 %d 条，跳过 %d 个 run）",
+            index_path,
+            reason,
+            len(entries),
+            skipped,
+        )
         return entries
     raise IndexFormatError(f"索引文件损坏且无法自动重建（runs_root 不可用: {runs_root!r}）: {reason}")
 

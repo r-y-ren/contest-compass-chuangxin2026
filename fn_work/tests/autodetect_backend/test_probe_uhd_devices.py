@@ -132,3 +132,118 @@ def test_real_machine_device_present():
     assert isinstance(first["index"], int)
     assert first["serial"], "B210 在位应带 serial"
     assert "-- UHD Device" in result["raw"]
+
+
+# ---- B6 对抗审查缺陷回归 ----
+
+
+def _patch_run_seq(monkeypatch, results):
+    """按序替换 subprocess.run：results 每项为 (stdout, stderr, returncode) 或异常；
+    顺带记录 time.sleep 调用（重试间隔断言用），测试内不做真实 sleep。"""
+    calls = []
+    sleeps: list[float] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        item = results.pop(0)
+        if isinstance(item, BaseException):
+            raise item
+        stdout, stderr, returncode = item
+        return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr=stderr)
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.time, "sleep", lambda s: sleeps.append(s))
+    return calls, sleeps
+
+
+def test_defect_b6_1_stderr_not_parsed_as_device_fields(monkeypatch):
+    """中#1：设备字段只出自 stdout——stderr 里的 serial:/product: 行不得冒充设备字段。"""
+    stdout = "-- UHD Device 0\nDevice Address:\n"
+    stderr = "    serial: FAKE123\n    product: B210\n    type: b200\n"
+    _patch_run_seq(monkeypatch, [(stdout, stderr, 0)])
+    result = probe_uhd_devices()
+    assert result["devices"] == [{"index": 0, "serial": None, "product": None, "type": None}]
+    assert "FAKE123" in result["raw"]  # stderr 原文只进 raw 摘要
+
+    # stderr 含完整伪设备段（含 "-- UHD Device" 头）也不得计台
+    _patch_run_seq(
+        monkeypatch,
+        [
+            ("No UHD Devices Found\n", "-- UHD Device 7\n    serial: FAKE123\n    type: b200\n", 0),
+            ("No UHD Devices Found\n", "", 0),  # 首次空段触发一次重试
+        ],
+    )
+    result = probe_uhd_devices()
+    assert result["devices"] == []
+    assert result["available"] is False
+
+
+def test_defect_b6_13_giant_stdout_truncated_in_raw(monkeypatch):
+    """低#13：stdout 超 20000 字符截尾（头 200 + 尾 4000）——防 raw 巨型贯通 selection；
+    设备解析仍用完整 stdout 不受截断影响。"""
+    stdout = "-- UHD Device 0\n" + "x" * 22000 + "\n    serial: ABC123\n    type: b200\n"
+    _patch_run_seq(monkeypatch, [(stdout, "", 0)])
+    result = probe_uhd_devices()
+    assert result["devices"][0]["serial"] == "ABC123"  # 解析用完整 stdout
+    assert result["devices"][0]["type"] == "b200"
+    raw = result["raw"]
+    assert len(raw) < 10000  # 头 200 + 标注 + 尾 4000 的有界摘要
+    assert "stdout 截断" in raw
+    assert raw.startswith("-- UHD Device 0")  # 头部保留
+    assert "ABC123" in raw  # 尾部覆盖设备字段段
+
+
+def test_defect_b6_14_retry_once_when_empty_then_success(monkeypatch):
+    """低#14：首跑空设备段 → 0.5s 后重试一次；重试命中以末次为准，'retried': True。"""
+    _patch_run_seq(monkeypatch, [("", "", 0), (TWO_DEVICE_OUTPUT, "", 0)])
+    result = probe_uhd_devices()
+    assert result["retried"] is True
+    assert len(result["devices"]) == 2
+    assert result["available"] is True
+    assert result["error"] is None
+
+
+def test_defect_b6_14_retry_interval_is_half_second(monkeypatch):
+    """低#14：重试间隔 0.5s（消解 USB 枚举 flake 的等待窗口）。"""
+    _, sleeps = _patch_run_seq(monkeypatch, [("", "", 0), ("", "", 0)])
+    probe_uhd_devices()
+    assert sleeps == [0.5]
+
+
+def test_defect_b6_14_both_attempts_empty_returns_no_device(monkeypatch):
+    """低#14：两次都空才按 no_device 口径返回（available False、error None、retried True）。"""
+    calls, _ = _patch_run_seq(monkeypatch, [("-- No devices found\n", "", 0), ("", "", 0)])
+    result = probe_uhd_devices()
+    assert result["devices"] == []
+    assert result["available"] is False
+    assert result["error"] is None
+    assert result["retried"] is True
+    assert len(calls) == 2  # 恰好两次，不再三连
+
+
+def test_defect_b6_14_retry_on_nonzero_exit_then_success(monkeypatch):
+    """低#14：CLI 失败（非零退出）同样重试一次；末次成功则 error 清零。"""
+    _patch_run_seq(monkeypatch, [("", "usb device busy\n", 1), (TWO_DEVICE_OUTPUT, "", 0)])
+    result = probe_uhd_devices()
+    assert result["error"] is None
+    assert result["available"] is True
+    assert result["retried"] is True
+
+
+def test_defect_b6_14_no_retry_on_first_success(monkeypatch):
+    """低#14：首跑命中不重试（retried False、单次调用）。"""
+    calls, sleeps = _patch_run_seq(monkeypatch, [(TWO_DEVICE_OUTPUT, "", 0)])
+    result = probe_uhd_devices()
+    assert result["retried"] is False
+    assert len(calls) == 1
+    assert sleeps == []
+
+
+def test_defect_b6_14_no_retry_on_binary_missing(monkeypatch):
+    """低#14：binary_missing 为确定性缺失，不重试（retried False、单次调用）。"""
+    calls, sleeps = _patch_run_seq(monkeypatch, [FileNotFoundError(2, "uhd_find_devices")])
+    result = probe_uhd_devices()
+    assert result["error"] == "binary_missing"
+    assert result["retried"] is False
+    assert len(calls) == 1
+    assert sleeps == []

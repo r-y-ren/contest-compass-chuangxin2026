@@ -760,7 +760,7 @@
 
 - **make_spectrogram** [L0|新增]
   - 职责：IQ 段→谱图数组（STFT，窗长/重叠/频率轴参数化），训练与推理共用同一实现保证分布一致；段长不足跳过并计数；可输出 PNG 预览。
-  - 签名意图：输入: IQ 数组+参数 / 输出: 谱图数组（dB）+跳段计数 / 错误: 输入空→SpectrogramError。
+  - 签名意图：输入: IQ 数组+参数 / 输出: 谱图数组（dB）+跳段计数 / 错误: 参数域错（nfft/hop）→ValueError；IQ 含非有限值→ValueError（含位置计数）；输入空→空谱(0,0)+skipped=1（不抛）。
   - 调用方：train_classifier；grouped_cv_evaluate；predict_style
   - tested 策略：自有单测
   - 核验命令：测试: spectrogram

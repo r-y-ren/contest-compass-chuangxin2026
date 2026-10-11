@@ -31,7 +31,8 @@ def _sort_key(entry: dict) -> tuple:
 
 
 def _pair(value, field: str, check, kind: str) -> tuple:
-    """区间条件形状校验：必须为 (x, y) 二元 list/tuple 且两端点通过 check。"""
+    """区间条件形状校验：必须为 (x, y) 二元 list/tuple 且两端点通过 check；
+    反序（lo > hi）按调用方笔误拒收（B6 低#8）。"""
     if (
         not isinstance(value, (list, tuple))
         or len(value) != 2
@@ -39,7 +40,12 @@ def _pair(value, field: str, check, kind: str) -> tuple:
         or not check(value[1])
     ):
         raise QueryError(f"{field} 条件必须为 ({kind}, {kind}) 二元组，得到 {value!r}")
-    return value[0], value[1]
+    lo, hi = value[0], value[1]
+    if lo > hi:
+        raise QueryError(
+            f"{field} 区间反序（lo > hi）: ({lo!r}, {hi!r})——应为 (lo, hi) 升序闭区间"
+        )
+    return lo, hi
 
 
 def _compile_checks(conditions) -> list:
@@ -109,8 +115,10 @@ def query_dataset(index: list, conditions: dict | None = None) -> dict:
 
     conditions 多条件 AND，支持字段：
     - style: str 或 list[str]（列表内 OR）；条目缺 style 不命中；
-    - freq_range: (lo, hi) 数值闭区间；条目 freq_mhz 缺失/None/非数值（含 bool）不命中；
-    - date_range: (lo, hi) 日期字符串闭区间（字典序比较）；条目 date 非 str 不命中；
+    - freq_range: (lo, hi) 数值闭区间（反序 lo>hi → QueryError）；条目 freq_mhz
+      缺失/None/非数值（含 bool）不命中；
+    - date_range: (lo, hi) 日期字符串闭区间（字典序比较，反序 lo>hi → QueryError）；
+      条目 date 非 str 不命中；
     - backend: str 精确相等；
     - failed: bool（条目缺失 failed 记 False）；
     - batch_key: str 与生效批次键相等。

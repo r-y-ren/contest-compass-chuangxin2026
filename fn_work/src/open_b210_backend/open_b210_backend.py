@@ -60,6 +60,11 @@ _PROBE_SUMMARY_MAX = 300
 # probe_b210_available 模块级缓存：None=未探测（测试可 monkeypatch 本变量重置）。
 _PROBE_CACHE: bool | None = None
 
+# 主板下标（B210 单主板）。真 uhd 绑定（4.x）get_clock_source/get_time_source 无
+# mboard 缺省参（set_* 有 ALL_MBOARDS 缺省），读取须显式传 0；注入鸭子句柄多为
+# 零参口径——适配顺序：先带 mboard 调用，TypeError 再按零参回退。
+_MBOARD_INDEX = 0
+
 
 def _as_real(key: str, raw: object) -> float:
     """数值参数统一校验：bool 拒收（布尔频率/增益几乎必为配置笔误），非数/非有限→ValueError。"""
@@ -351,6 +356,70 @@ class B210Backend:
         设备时间戳）；max_blocks 非法由 read_b210_rx_stream 调用即抛 ValueError。
         """
         return list(read_b210_rx_stream(self._rx_stream, max_blocks))
+
+    def get_mboard_sensor(self, name: str):
+        """读主板传感器（透传 device.get_mboard_sensor，B6 中#5 鸭子方法）。
+
+        传感器缺/设备读失败 → None（不抛）：resolve_clock_reference.probe_gpsdo_status
+        的序列探测把 None 按未锁定 fail-closed 处理；真 uhd sensor_value 对象自带
+        to_bool()，由探测侧解析真值。
+        """
+        getter = getattr(self.device, "get_mboard_sensor", None)
+        if not callable(getter):
+            return None
+        try:
+            return getter(name)
+        except Exception:  # 传感器缺（UHD LookupError/RuntimeError 等）→ None
+            return None
+
+    def get_clock_source(self):
+        """读时钟源（透传 device.get_clock_source）；缺方法/调用失败 → BackendError（含原文）。"""
+        return self._read_source("get_clock_source")
+
+    def get_time_source(self):
+        """读时间源（透传 device.get_time_source）；缺方法/调用失败 → BackendError（含原文）。"""
+        return self._read_source("get_time_source")
+
+    def set_clock_source(self, source: str) -> None:
+        """设时钟源（透传 device.set_clock_source）；异常上抛（BackendError 包装含原文，
+        __cause__ 保留），由调用方（resolve_clock_reference 驯服路径）处理降级。"""
+        self._set_source("set_clock_source", source)
+
+    def set_time_source(self, source: str) -> None:
+        """设时间源（透传 device.set_time_source）；异常上抛（BackendError 包装含原文，
+        __cause__ 保留），由调用方（resolve_clock_reference 驯服路径）处理降级。"""
+        self._set_source("set_time_source", source)
+
+    def _read_source(self, method_name: str):
+        """源读取透传：缺方法/底层异常统一 BackendError（消息含方法名与 UHD 原文）。
+
+        真 uhd 绑定 get_*_source 须显式 mboard 下标（见 _MBOARD_INDEX 注释）——
+        先带下标调用，注入鸭子句柄零参口径按 TypeError 回退重试。
+        """
+        getter = getattr(self.device, method_name, None)
+        if not callable(getter):
+            raise BackendError(f"B210 设备句柄缺 {method_name}: {self.device!r}")
+        try:
+            try:
+                return getter(_MBOARD_INDEX)
+            except TypeError:
+                return getter()  # 零参鸭子句柄（回退后仍异常则并入下方统一包装）
+        except Exception as exc:
+            raise BackendError(
+                f"B210 {method_name} 失败: {type(exc).__name__}: {exc}"
+            ) from exc
+
+    def _set_source(self, method_name: str, source) -> None:
+        """源设置透传：缺方法/底层异常统一 BackendError（消息含方法名、参数与 UHD 原文）。"""
+        setter = getattr(self.device, method_name, None)
+        if not callable(setter):
+            raise BackendError(f"B210 设备句柄缺 {method_name}: {self.device!r}")
+        try:
+            setter(source)
+        except Exception as exc:
+            raise BackendError(
+                f"B210 {method_name}({source!r}) 失败: {type(exc).__name__}: {exc}"
+            ) from exc
 
     def capabilities(self) -> dict:
         """能力元数据（每次返回新 dict，调用方篡改不回写实例与注册表）。"""

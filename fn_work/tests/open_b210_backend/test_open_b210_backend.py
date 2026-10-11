@@ -13,6 +13,7 @@ from src.open_b210_backend.open_b210_backend import (
     open_b210_backend,
     probe_b210_available,
 )
+from src.resolve_clock_reference.resolve_clock_reference import resolve_clock_reference
 
 # uhd_find_devices 有真机时的输出样例（在位标记 '-- UHD Device'）。
 _DEVICE_PRESENT_OUTPUT = (
@@ -426,4 +427,133 @@ def test_backend_b210_real_hardware_open_and_close():
         assert applied["ch1_tx"]["freq_hz"] == pytest.approx(100e6, abs=1.0)
         assert applied["ch2_rx"]["freq_hz"] == pytest.approx(100e6, abs=1.0)
         assert backend.configure_report["clock_ref"] == "internal"
+    assert backend.closed
+
+
+# ---- B6 对抗审查缺陷回归（中#5 GPSDO/时钟源鸭子方法，注入传输用例 + 真机只读一例）----
+
+
+class _SensorDevice(FakeDevice):
+    """FakeDevice 加主板传感器/时钟源读写：传感器缺抛 LookupError（真 uhd 口径）；
+    源读取签名带 mboard 下标（对齐真 uhd 4.x 绑定 get_*_source 无缺省参的口径）。"""
+
+    def __init__(self, sensors=None):
+        super().__init__()
+        # FakeDevice.__init__ 会给 set_clock_source/set_time_source 挂实例级通用
+        # setter（写 _store）——弹出以让本类的源读写实现生效。
+        self.__dict__.pop("set_clock_source", None)
+        self.__dict__.pop("set_time_source", None)
+        self._sensors = dict(sensors or {})
+        self.source_calls: list[tuple[str, object]] = []
+        self._sources = {"clock": "internal", "time": "internal"}
+
+    def get_mboard_sensor(self, name):
+        if name not in self._sensors:
+            raise LookupError(f"unknown sensor: {name}")
+        return self._sensors[name]
+
+    def get_clock_source(self, mboard=0):
+        return self._sources["clock"]
+
+    def get_time_source(self, mboard=0):
+        return self._sources["time"]
+
+    def set_clock_source(self, source, mboard=None):
+        self.source_calls.append(("set_clock_source", source))
+        self._sources["clock"] = source
+
+    def set_time_source(self, source, mboard=None):
+        self.source_calls.append(("set_time_source", source))
+        self._sources["time"] = source
+
+
+def test_defect_b6_5_b210_duck_methods_passthrough_injected():
+    """中#5：get_mboard_sensor/get·set_clock·time_source 透传——传感器缺→None，
+    源读写经设备生效。"""
+    device = _SensorDevice(sensors={"gps_locked": True})
+    backend = _open_with(FakeTransport(device=device))
+    assert backend.get_mboard_sensor("gps_locked") is True  # 透传
+    assert backend.get_mboard_sensor("no_such_sensor") is None  # 传感器缺 → None（不抛）
+    assert backend.get_clock_source() == "internal"
+    assert backend.get_time_source() == "internal"
+    backend.set_clock_source("external")
+    backend.set_time_source("external")
+    assert backend.get_clock_source() == "external"  # 透传下发后回读生效
+    assert backend.get_time_source() == "external"
+    assert ("set_clock_source", "external") in device.source_calls
+    assert ("set_time_source", "external") in device.source_calls
+
+
+def test_defect_b6_5_b210_missing_device_methods():
+    """中#5：设备句柄缺源读取方法 → BackendError（非 AttributeError 裸穿）；
+    缺 get_mboard_sensor → None（探测侧按无 GPS 能力处理）。"""
+    backend = _open_with(FakeTransport(), clock_ref=None)  # FakeDevice 无源方法
+    with pytest.raises(BackendError, match="get_clock_source"):
+        backend.get_clock_source()
+    with pytest.raises(BackendError, match="get_time_source"):
+        backend.get_time_source()
+    assert backend.get_mboard_sensor("gps_locked") is None
+
+
+def test_defect_b6_5_b210_setter_exceptions_propagate_backend_error():
+    """中#5：set_* 透传异常上抛（BackendError 包装含 UHD 原文，__cause__ 保留），
+    由调用方（驯服路径）处理降级。"""
+
+    class BoomSetDevice(_SensorDevice):
+        def set_time_source(self, source):
+            raise RuntimeError("UHD: refusing time source")
+
+    backend = _open_with(FakeTransport(device=BoomSetDevice()), clock_ref=None)
+    with pytest.raises(BackendError) as ei:
+        backend.set_time_source("gpsdo")
+    message = str(ei.value)
+    assert "set_time_source" in message
+    assert "refusing time source" in message
+    assert isinstance(ei.value.__cause__, RuntimeError)
+
+
+def test_defect_b6_5_b210_backend_feeds_resolve_clock_reference():
+    """中#5 端到端：B210Backend 鸭子方法使 resolve_clock_reference 的 gpsdo/external
+    探测与驯服在本后端可达——未锁定降 software、锁定驯服 gpsdo、外接源 external。"""
+    # 传感器未锁定 → software 降级（basis 带探测事实）
+    backend = _open_with(FakeTransport(device=_SensorDevice(sensors={"gps_locked": False})), clock_ref=None)
+    decision = resolve_clock_reference(backend)
+    assert decision["clock_ref"] == "software"
+    assert decision["basis"]["gps_locked"] is False
+    assert decision["basis"]["clock_source"] == "internal"
+
+    # 传感器锁定 → 经鸭子 setter 驯服 gpsdo
+    device = _SensorDevice(sensors={"gps_locked": True})
+    backend = _open_with(FakeTransport(device=device), clock_ref=None)
+    decision = resolve_clock_reference(backend)
+    assert decision["clock_ref"] == "gpsdo"
+    assert decision["discipline_applied"] is True
+    assert ("set_clock_source", "gpsdo") in device.source_calls
+    assert ("set_time_source", "gpsdo") in device.source_calls
+
+    # 无 GPS 传感器（缺→None→fail-closed 未锁定）但外接时钟源 → external 时基
+    device = _SensorDevice(sensors={})
+    device._sources["clock"] = "external"
+    backend = _open_with(FakeTransport(device=device), clock_ref=None)
+    decision = resolve_clock_reference(backend)
+    assert decision["clock_ref"] == "external"
+
+
+@pytest.mark.skipif(not _IS_B210_PRESENT, reason="B210 不在位")
+def test_defect_b6_5_b210_real_hardware_clock_source_readonly():
+    """中#5 真机只读一例：get_clock_source 可读且应为 'internal'（开箱不传
+    clock_ref，全程不下发时钟/时间源命令，仅读取）。"""
+    with open_b210_backend(
+        {
+            "transport": "uhd_py",
+            "freq_hz": 100e6,
+            "sample_rate": 1e6,
+            "tx_gain_db": 0.0,
+        }
+    ) as backend:
+        clock = backend.get_clock_source()
+        assert isinstance(clock, str) and clock
+        assert clock == "internal"  # B210 缺省时钟源
+        time_source = backend.get_time_source()
+        assert isinstance(time_source, str) and time_source
     assert backend.closed
