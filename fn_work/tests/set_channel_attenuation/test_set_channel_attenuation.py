@@ -1,6 +1,214 @@
-"""set_channel_attenuation 骨架占位：验收 slug=channel_ladder；行为用例于 fn-implement 阶段填充。"""
-from src.set_channel_attenuation.set_channel_attenuation import set_channel_attenuation
+"""set_channel_attenuation 对抗测试：验收 slug=channel_ladder（请求→组合映射、下发鸭子形态、
+越界拒绝附可达域、事件落盘严格 JSON、纯计算模式、标定口径注入、返回键集）。"""
+from __future__ import annotations
+
+import json
+from unittest.mock import Mock
+
+import pytest
+
+import src.set_channel_attenuation.set_channel_attenuation as sa_module
+from src.set_channel_attenuation.set_channel_attenuation import (
+    AttenuationError,
+    set_channel_attenuation,
+)
+
+_COMBO_KEYS = {
+    "coarse",
+    "coarse_db",
+    "fine_step_db",
+    "fine_actual_db",
+    "achieved_db",
+    "residual_db",
+    "fine_from",
+}
 
 
-def test_channel_ladder_skeleton():
-    assert callable(set_channel_attenuation)
+def _reject_constant(name: str) -> None:
+    """严格解析哨兵：行内出现 NaN/Infinity/-Infinity 字面量即判失败。"""
+    raise ValueError(f"非法 JSON 字面量: {name}")
+
+
+def _read_events(run_dir) -> list[dict]:
+    """逐行严格读回 events.jsonl（parse_constant 拒绝非标准字面量）。"""
+    raw = (run_dir / "events.jsonl").read_text(encoding="utf-8")
+    return [json.loads(line, parse_constant=_reject_constant) for line in raw.splitlines()]
+
+
+def test_channel_ladder_35db_dispatches_set_attenuation_and_logs_event(tmp_path):
+    """① 35dB→粗档接入+细档 5：set_attenuation 以实达全量 35.0 下发，事件含 target/combo。"""
+    backend = Mock(spec=["set_attenuation"])
+    result = set_channel_attenuation({"backend": backend, "run_dir": str(tmp_path)}, 35.0)
+    backend.set_attenuation.assert_called_once_with(35.0)
+    assert result["coarse"] == "in" and result["coarse_db"] == 30.0
+    assert result["fine_step_db"] == 5.0 and result["achieved_db"] == 35.0
+    assert result["residual_db"] == 0.0
+    assert result["applied"] is True and result["applied_via"] == "set_attenuation"
+    (event,) = _read_events(tmp_path)
+    assert event["type"] == "attenuation" and event["target_db"] == 35.0
+    assert event["coarse"] == "in" and event["achieved_db"] == 35.0 and event["applied"] is True
+
+
+def test_channel_ladder_set_tx_gain_fallback_receives_negated_fine_step(tmp_path):
+    """② 仅 set_tx_gain 形态：细档 5 以软件增益 -5.0 下发（粗档手调两态经事件记录）。"""
+    backend = Mock(spec=["set_tx_gain"])
+    result = set_channel_attenuation({"backend": backend, "run_dir": str(tmp_path)}, 35.0)
+    backend.set_tx_gain.assert_called_once_with(-5.0)
+    assert result["applied"] is True and result["applied_via"] == "set_tx_gain"
+    (event,) = _read_events(tmp_path)
+    assert event["applied"] is True and event["fine_step_db"] == 5.0
+
+
+def test_channel_ladder_both_duck_methods_prefers_set_attenuation_exclusive(tmp_path):
+    """③ 双鸭子并存：择 set_attenuation(全量实达)且互斥——不再调 set_tx_gain 防细档重复计。"""
+    backend = Mock(spec=["set_attenuation", "set_tx_gain"])
+    set_channel_attenuation({"backend": backend, "run_dir": str(tmp_path)}, 12.0)
+    backend.set_attenuation.assert_called_once_with(12.0)  # 旁路+细档 12（|12−12|=0 < |12−30|）
+    backend.set_tx_gain.assert_not_called()
+
+
+def test_channel_ladder_no_backend_marks_applied_false_but_still_logs(tmp_path):
+    """④ backend 缺→applied False + reason no_backend；事件仍是测量真值照记。"""
+    result = set_channel_attenuation({"run_dir": str(tmp_path)}, 35.0)
+    assert result["applied"] is False and result["reason"] == "no_backend"
+    assert "applied_via" not in result
+    (event,) = _read_events(tmp_path)
+    assert event["applied"] is False and event["reason"] == "no_backend"
+    assert event["target_db"] == 35.0 and event["achieved_db"] == 35.0  # 组合仍完整落盘
+    # 对拍：backend 存在但两鸭子方法皆缺——与无 backend 同口径 no_backend
+    methodless = Mock(spec=[])
+    result2 = set_channel_attenuation(
+        {"backend": methodless, "run_dir": str(tmp_path)}, 35.0
+    )
+    assert result2["applied"] is False and result2["reason"] == "no_backend"
+
+
+def test_channel_ladder_run_dir_none_pure_computation_skips_event(monkeypatch, tmp_path):
+    """⑤ run_dir 缺省 None→纯计算模式：不触事件写（append_event 被调即失败哨兵）。"""
+    def _fail(*args, **kwargs):  # noqa: ANN001 - 哨兵：纯计算模式绝不应触事件
+        raise AssertionError("纯计算模式不应调用 append_event")
+
+    monkeypatch.setattr(sa_module, "append_event", _fail)
+    backend = Mock(spec=["set_tx_gain"])
+    result = set_channel_attenuation({"backend": backend}, 20.0)
+    assert result["applied"] is True and result["achieved_db"] == 20.0
+    assert not (tmp_path / "events.jsonl").exists()  # 任何位置均未落盘
+    assert set(result) == _COMBO_KEYS | {"applied", "applied_via"}
+
+
+def test_channel_ladder_unreachable_46db_attenuation_error_with_reachable_domain(tmp_path):
+    """⑥ 46dB 超细档截断域（粗 30+细顶 10=40）→AttenuationError 附可达域，且未下发未落事件。"""
+    backend = Mock(spec=["set_attenuation"])
+    domain = {"coarse_db": 30.0, "fine_steps_db": [float(s) for s in range(0, 11)]}
+    with pytest.raises(AttenuationError) as excinfo:
+        set_channel_attenuation(
+            {"backend": backend, "run_dir": str(tmp_path)}, 46.0, domain=domain
+        )
+    assert excinfo.value.reachable_max_db == 40.0
+    assert excinfo.value.coarse_top_db == 30.0 and excinfo.value.fine_top_db == 10.0
+    assert "可达域" in str(excinfo.value) and "40" in str(excinfo.value)
+    backend.set_attenuation.assert_not_called()
+    assert not (tmp_path / "events.jsonl").exists()  # 拒绝先于下发与落盘
+
+
+def test_channel_ladder_inf_target_is_unreachable_not_valueerror():
+    """⑥b +inf 视为超域→AttenuationError（默认域顶 30+20=50），非 ValueError。"""
+    with pytest.raises(AttenuationError) as excinfo:
+        set_channel_attenuation({}, float("inf"))
+    assert excinfo.value.reachable_max_db == 50.0
+    with pytest.raises(ValueError) as excinfo2:
+        set_channel_attenuation({}, float("nan"))
+    assert not isinstance(excinfo2.value, AttenuationError)
+
+
+def test_channel_ladder_cal_from_ctx_equals_direct_cal_table(tmp_path):
+    """⑦ ctx['attenuator_cal'] 与 cal_table 直传等价：细档按标定实际值（30+4.6=34.6）。"""
+    ctx_cal = {"backend": Mock(spec=["set_attenuation"]), "run_dir": str(tmp_path),
+               "attenuator_cal": {5.0: 4.6}}
+    via_ctx = set_channel_attenuation(ctx_cal, 35.0)
+    via_param = set_channel_attenuation(
+        {"backend": Mock(spec=["set_attenuation"]), "run_dir": str(tmp_path)},
+        35.0,
+        cal_table={5.0: 4.6},
+    )
+    assert via_ctx["fine_from"] == "calibrated" and via_ctx["fine_actual_db"] == 4.6
+    assert via_ctx["achieved_db"] == 34.6 and via_ctx["residual_db"] == pytest.approx(0.4)
+    for key in _COMBO_KEYS | {"applied", "applied_via"}:
+        assert via_ctx[key] == via_param[key]
+    # 直传优先于 ctx：直传 {5.0: 5.2} 时 ctx 表不得生效
+    override = set_channel_attenuation(
+        {"attenuator_cal": {5.0: 4.6}}, 35.0, cal_table={5.0: 5.2}
+    )
+    assert override["fine_actual_db"] == 5.2 and override["fine_from"] == "calibrated"
+
+
+def test_channel_ladder_domain_param_forwarded_to_planner():
+    """⑦b domain 参数化透传：细档含 16.5 档时残差归零（默认整数档只能到 0.5）。"""
+    default_result = set_channel_attenuation({}, 16.5)
+    assert default_result["residual_db"] == pytest.approx(0.5)  # 默认档 16（列表序平手胜）
+    exact = set_channel_attenuation({}, 16.5, domain={"fine_steps_db": [0.0, 16.5]})
+    assert exact["residual_db"] == 0.0 and exact["fine_step_db"] == 16.5
+    assert exact["coarse"] == "bypass"  # 16.5 < 30−16.5 → 旁路态残差更小
+
+
+def test_channel_ladder_event_jsonl_strict_parse_shape_and_stamps(tmp_path):
+    """⑧ 事件 JSONL 严格解析（拒 NaN/Inf 字面量）：type/target/combo/applied+双时间戳。"""
+    set_channel_attenuation({"backend": Mock(spec=["set_attenuation"]), "run_dir": str(tmp_path)}, 35.0)
+    (event,) = _read_events(tmp_path)
+    assert event["type"] == "attenuation"
+    assert set(event) == _COMBO_KEYS | {
+        "type", "target_db", "applied", "ts", "wallclock",
+    }
+    assert isinstance(event["ts"], int)  # 单调钟毫秒
+    assert isinstance(event["wallclock"], str) and "T" in event["wallclock"]  # ISO8601
+    assert all(isinstance(event[k], (int, float)) for k in
+               ("target_db", "coarse_db", "fine_step_db", "fine_actual_db",
+                "achieved_db", "residual_db"))  # 数值字段不落占位串
+
+
+def test_channel_ladder_invalid_targets_raise_valueerror():
+    """⑨ target 域错 ValueError 透传：NaN/负数/bool/字符串均拒绝。"""
+    for bad in (float("nan"), -1.0, True, "35"):
+        with pytest.raises(ValueError) as excinfo:
+            set_channel_attenuation({}, bad)
+        assert not isinstance(excinfo.value, AttenuationError)
+
+
+def test_channel_ladder_two_targets_event_order_and_monotonic_ts(tmp_path):
+    """⑩ 两档切换：35dB（in）→10dB（bypass）事件顺序保持且 ts 单调不降。"""
+    ctx = {"run_dir": str(tmp_path)}
+    first = set_channel_attenuation(ctx, 35.0)
+    second = set_channel_attenuation(ctx, 10.0)
+    events = _read_events(tmp_path)
+    assert len(events) == 2
+    assert events[0]["target_db"] == 35.0 and events[0]["coarse"] == "in"
+    assert events[1]["target_db"] == 10.0 and events[1]["coarse"] == "bypass"
+    assert events[0]["ts"] <= events[1]["ts"]
+    assert events[0]["coarse_db"] == first["coarse_db"]  # 事件行与返回组合逐字段一致
+    assert events[1]["achieved_db"] == second["achieved_db"] == 10.0
+
+
+def test_channel_ladder_return_keyset_per_path(tmp_path):
+    """⑪ 返回结构键集：成功=combo+applied+applied_via；未下发=combo+applied+reason。"""
+    ok = set_channel_attenuation(
+        {"backend": Mock(spec=["set_tx_gain"]), "run_dir": str(tmp_path)}, 0.0
+    )
+    assert set(ok) == _COMBO_KEYS | {"applied", "applied_via"}
+    assert ok["coarse"] == "bypass" and ok["fine_step_db"] == 0.0 and ok["achieved_db"] == 0.0
+    denied = set_channel_attenuation({"run_dir": str(tmp_path)}, 0.0)
+    assert set(denied) == _COMBO_KEYS | {"applied", "reason"}
+
+
+def test_channel_ladder_invalid_run_dir_event_write_error_after_dispatch(tmp_path):
+    """⑫ run_dir 无效→EventWriteError 透传（测量真值），且下发先于事件已生效。"""
+    backend = Mock(spec=["set_attenuation"])
+    bad_dir = tmp_path / "no_such_dir"
+    with pytest.raises(sa_module.EventWriteError):
+        set_channel_attenuation({"backend": backend, "run_dir": str(bad_dir)}, 35.0)
+    backend.set_attenuation.assert_called_once_with(35.0)  # 下发已发生，错误不吞副作用
+
+
+def test_channel_ladder_non_dict_ctx_rejected():
+    """⑫b ctx 形状错（非 dict）→ValueError（与 domain/cal_table 形状错同族）。"""
+    with pytest.raises(ValueError, match="ctx"):
+        set_channel_attenuation([("backend", None)], 35.0)  # type: ignore[arg-type]
