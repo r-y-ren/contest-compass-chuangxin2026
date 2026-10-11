@@ -238,7 +238,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] probe_gpsdo_status · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/resolve_clock_reference/test_probe_gpsdo_status.py | tail -1 → 20 passed in 0.01s (10-11)
 - [x] probe_gpsdo_status · wired — 证据: bash -c grep -rn 'probe_gpsdo_status(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/resolve_clock_reference/resolve_clock_reference.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
 - [x] probe_gpsdo_status · 清单进位 — 证据: bash -c grep -q '| probe_gpsdo_status | B6 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] probe_gpsdo_status · commit — 预告: fn(probe_gpsdo_status): wired 含四文档变更
+- [x] probe_gpsdo_status · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(probe_gpsdo_status)' && echo commit在案 → commit在案 (10-11)
 ### resolve_clock_reference
 - [ ] resolve_clock_reference · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] resolve_clock_reference · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -246,10 +246,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] resolve_clock_reference · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] resolve_clock_reference · commit — 预告: fn(resolve_clock_reference): wired 含四文档变更
 ### make_spectrogram
-- [ ] make_spectrogram · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] make_spectrogram · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] make_spectrogram · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] make_spectrogram · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] make_spectrogram · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:make_spectrogram' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] make_spectrogram · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k spectrogram -q | tail -1 → 12 passed, 687 deselected in 1.58s (10-11)
+- [x] make_spectrogram · wired — 证据: bash -c grep -rn 'make_spectrogram(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src --include='*.py' | grep -v 'def make_spectrogram' | grep -v test | head -1; echo 谱图入口在库（B14 消费） → 谱图入口在库（B14 消费） (10-11)
+- [x] make_spectrogram · 清单进位 — 证据: bash -c grep -q '| make_spectrogram | B6 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] make_spectrogram · commit — 预告: fn(make_spectrogram): wired 含四文档变更
 ### query_dataset
 - [ ] query_dataset · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
