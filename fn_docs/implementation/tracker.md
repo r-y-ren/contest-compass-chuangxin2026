@@ -88,7 +88,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] compensate_link_power · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k link_compensation -q | tail -1 → 11 passed, 212 deselected in 0.08s (10-11)
 - [x] compensate_link_power · wired — 证据: bash -c python3 /tmp/scaffold/probe_b2.py | grep -q 'compensate=-35.4dB' && echo 顶层实跑通过 → 顶层实跑通过 (10-11)
 - [x] compensate_link_power · 清单进位 — 证据: bash -c grep -q 'compensate_link_power | B2 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] compensate_link_power · commit — 预告: fn(compensate_link_power): wired 含四文档变更
+- [x] compensate_link_power · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(compensate_link_power): wired' && echo commit在案 → commit在案 (10-11)
 
 ## B2 批间门
 - [ ] B2 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）

@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B2 | load_calibration_table, lookup_jsr, check_monotonicity, build_gain_calibration, calibrate_leakage, compensate_link_power | 标定/补偿四树 wired（jsr_calibration/gain_calibration/leak_calibration/link_compensation） | 标定+共享标定表 |
-| B3 | stop_transmit_safely, create_run_workspace, append_run_log, finalize_run, manage_run | manage_run wired：三路径八件套+先停发射（run_lifecycle） | 运行骨架+共享停发射 |
+| ▶ B3 | stop_transmit_safely, create_run_workspace, append_run_log, finalize_run, manage_run | manage_run wired：三路径八件套+先停发射（run_lifecycle） | 运行骨架+共享停发射 |
 | B4 | register_backend, lookup_backend, manage_backend_registry, loopback_sim_stream, open_sim_backend, read_sigmf_timeline, open_replay_backend | registry wired（slot_registry）；sim/replay 环回绿（backend_sim/backend_replay） | 后端族① |
 | B5 | configure_b210_channels, write_b210_tx_stream, read_b210_rx_stream, open_b210_backend, exchange_scpi, create_visa_driver | open_b210 在位实测/不在位 skip（backend_b210）；visa 往返（visa_slot） | 后端族② |
 | B6 | probe_uhd_devices, autodetect_backend, probe_gpsdo_status, resolve_clock_reference, make_spectrogram, query_dataset, index_dataset | autodetect 三态绿（backend_autodetect）；时钟/谱图/索引 wired | 探测与工具族 |
@@ -31,3 +30,5 @@
 | 10-11 | Ruling①重排 22→21 批 | shared 四函数从独立 B1 移入首个调用方批次（wired 步需真实调用点：load_calibration_table→B2、stop_transmit_safely→B3、append_event→B8、make_disclaimer_block→B16）；批内顺序改自底向上（子先顶后）。原因：独立 shared 批内五步的 wired 不可合规达成。代价：无（函数总数与验收点不变） |
 | 10-11 | Ruling②基线时序留痕 | 基线 429ae52 打在 B1 三叶子实现之后，叶实现被基线吞入——三个叶子 wired commit（88caee7/7fa737c/cee4b01）为零代码变更；终态正确、哈希与消息对应，代码真值在基线内 |
 | 10-11 | Ruling③签名意图对齐 | guard_compliance 错误字段 ComplianceError→不抛出 rejected 返回式（与 R52 需求及实现一致，评审规格轴指出后当场对齐 fn-divide 文档） |
+| 10-11 | Ruling④表格式 | build_gain_calibration 写 flat JSON（顶层=entries）——与 loader 顶层键校验兼容，placeholder 语义在 loader 视图；子代理实现时申报 |
+
