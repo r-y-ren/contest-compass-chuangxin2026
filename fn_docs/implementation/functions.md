@@ -16,8 +16,8 @@
 | calibrate_leakage | B2 | wired 10-11 | 10 passed；顶层实跑 subtract 未扣除路径 | 3fc2907 |
 | compensate_link_power | B2 | wired 10-11 | 11 passed；公式(6) 实跑 -35.4dB 断言 | 1adffb9 |
 | stop_transmit_safely | B3 | wired 10-11 | 18 passed；调用点 manage_run.py | 64db422 |
-| create_run_workspace | B3 | wired 10-11 | 10 passed；八件套骨架 | pending |
-| append_run_log | B3 | stub 10-11 | 上游覆盖: manage_run | — |
+| create_run_workspace | B3 | wired 10-11 | 10 passed；八件套骨架 | 21438d9 |
+| append_run_log | B3 | wired 10-11 | 11 passed；行级落盘+环形缓冲降级 | pending |
 | finalize_run | B3 | stub 10-11 | 上游覆盖: manage_run | — |
 | manage_run | B3 | stub 10-11 | pytest -k run_lifecycle | — |
 | register_backend | B4 | stub 10-11 | 上游覆盖: manage_backend_registry | — |
