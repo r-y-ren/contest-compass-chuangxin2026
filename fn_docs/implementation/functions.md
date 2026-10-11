@@ -10,10 +10,10 @@
 | check_env_declarations | B1 | wired 10-11 | pytest → 7 passed；调用点 guard_compliance.py | cee4b01 |
 | guard_compliance | B1 | wired 10-11 | pytest -k compliance_guard → 7 passed；目录 40 passed；实跑三条款拒 | 15e55eb |
 | load_calibration_table | B2 | wired 10-11 | 16 passed；调用点 lookup_jsr.py:83 + compensate_link_power.py:78 | 74fc657 |
-| lookup_jsr | B2 | wired 10-11 | 11 passed；顶层实跑状态机四态 | pending |
+| lookup_jsr | B2 | wired 10-11 | 11 passed；顶层实跑状态机四态 | 8d36398 |
 | check_monotonicity | B2 | wired 10-11 | 34 passed；调用点 build_gain_calibration.py | 3ddcd27 |
 | build_gain_calibration | B2 | wired 10-11 | 16 新用例（目录 50）；建表→loader 读回集成 | pending |
-| calibrate_leakage | B2 | tested 10-11 | pytest -k leak_calibration → 10 passed | 3fc2907 |
+| calibrate_leakage | B2 | wired 10-11 | 10 passed；顶层实跑 subtract 未扣除路径 | 3fc2907 |
 | compensate_link_power | B2 | wired 10-11 | 11 passed；公式(6) 实跑 -35.5dB 断言 | pending |
 | stop_transmit_safely | B3 | stub 10-11 | 上游覆盖: manage_run | — |
 | create_run_workspace | B3 | stub 10-11 | 上游覆盖: manage_run | — |

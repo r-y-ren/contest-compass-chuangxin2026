@@ -64,7 +64,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] lookup_jsr · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k jsr_calibration -q | tail -1 → 11 passed, 212 deselected in 0.08s (10-11)
 - [x] lookup_jsr · wired — 证据: bash -c python3 /tmp/scaffold/probe_b2.py | grep -q 'lookup_jsr=missing_table' && echo 顶层实跑通过 → 顶层实跑通过 (10-11)
 - [x] lookup_jsr · 清单进位 — 证据: bash -c grep -q 'lookup_jsr | B2 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] lookup_jsr · commit — 预告: fn(lookup_jsr): wired 含四文档变更
+- [x] lookup_jsr · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(lookup_jsr): wired' && echo commit在案 → commit在案 (10-11)
 ### check_monotonicity
 - [x] check_monotonicity · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:check_monotonicity' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
 - [x] check_monotonicity · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/build_gain_calibration/test_check_monotonicity.py | tail -1 → 34 passed in 0.02s (10-11)
@@ -72,16 +72,16 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] check_monotonicity · 清单进位 — 证据: bash -c grep -q 'check_monotonicity | B2 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [x] check_monotonicity · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(check_monotonicity): tested' && echo commit在案 → commit在案 (10-11)
 ### build_gain_calibration
-- [ ] build_gain_calibration · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] build_gain_calibration · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] build_gain_calibration · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] build_gain_calibration · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] build_gain_calibration · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:build_gain_calibration' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] build_gain_calibration · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k gain_calibration -q | tail -1 → 50 passed, 173 deselected in 0.09s (10-11)
+- [x] build_gain_calibration · wired — 证据: bash -c python3 /tmp/scaffold/probe_b2.py | grep -q 'build_gain=建表2点' && echo 顶层实跑通过 → 顶层实跑通过 (10-11)
+- [x] build_gain_calibration · 清单进位 — 证据: bash -c grep -q 'build_gain_calibration | B2 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] build_gain_calibration · commit — 预告: fn(build_gain_calibration): wired 含四文档变更
 ### calibrate_leakage
 - [x] calibrate_leakage · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:calibrate_leakage' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
 - [x] calibrate_leakage · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k leak_calibration -q | tail -1 → 10 passed, 178 deselected in 0.07s (10-11)
 - [x] calibrate_leakage · wired — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && PYTHONPATH=. python3 -c "from src.calibrate_leakage.calibrate_leakage import calibrate_leakage as c; r=c(request={'table_path':'/nonexistent.json','measured_db':-30.0,'freq_mhz':2450.0}); print('顶层实跑:', r['mode'], r.get('corrected_db'), r.get('note'))" → 顶层实跑: subtract None 未扣除（无标定表） (10-11)
-- [ ] calibrate_leakage · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] calibrate_leakage · 清单进位 — 证据: bash -c grep -q 'calibrate_leakage | B2 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [x] calibrate_leakage · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(calibrate_leakage): tested' && echo commit在案 → commit在案 (10-11)
 ### compensate_link_power
 - [ ] compensate_link_power · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
