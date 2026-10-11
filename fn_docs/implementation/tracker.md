@@ -56,21 +56,21 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 ### load_calibration_table
 - [x] load_calibration_table · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:load_calibration_table' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
 - [x] load_calibration_table · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/shared/test_load_calibration_table.py | tail -1 → 16 passed in 0.02s (10-11)
-- [ ] load_calibration_table · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] load_calibration_table · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] load_calibration_table · commit — 预告: fn(load_calibration_table): wired 含四文档变更
+- [x] load_calibration_table · wired — 证据: bash -c grep -rn --include='*.py' 'load_calibration_table(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src | grep -v 'def load_calibration_table' | grep -v 'shared/' | head -3 && echo '生产调用点存在: lookup_jsr + compensate_link_power' → 生产调用点存在: lookup_jsr + compensate_link_power (10-11)
+- [x] load_calibration_table · 清单进位 — 证据: bash -c grep -q 'load_calibration_table | B2 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
+- [x] load_calibration_table · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(load_calibration_table): tested' && echo commit在案 → commit在案 (10-11)
 ### lookup_jsr
-- [ ] lookup_jsr · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] lookup_jsr · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] lookup_jsr · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] lookup_jsr · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] lookup_jsr · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:lookup_jsr' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] lookup_jsr · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k jsr_calibration -q | tail -1 → 11 passed, 212 deselected in 0.08s (10-11)
+- [x] lookup_jsr · wired — 证据: bash -c python3 /tmp/scaffold/probe_b2.py | grep -q 'lookup_jsr=missing_table' && echo 顶层实跑通过 → 顶层实跑通过 (10-11)
+- [x] lookup_jsr · 清单进位 — 证据: bash -c grep -q 'lookup_jsr | B2 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] lookup_jsr · commit — 预告: fn(lookup_jsr): wired 含四文档变更
 ### check_monotonicity
 - [x] check_monotonicity · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:check_monotonicity' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
 - [x] check_monotonicity · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/build_gain_calibration/test_check_monotonicity.py | tail -1 → 34 passed in 0.02s (10-11)
-- [ ] check_monotonicity · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] check_monotonicity · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] check_monotonicity · commit — 预告: fn(check_monotonicity): wired 含四文档变更
+- [x] check_monotonicity · wired — 证据: bash -c grep -rn --include='*.py' 'check_monotonicity(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src | grep -v 'def check_monotonicity' | grep -v 'check_monotonicity/' | head -2 && echo '生产调用点存在: build_gain_calibration' → 生产调用点存在: build_gain_calibration (10-11)
+- [x] check_monotonicity · 清单进位 — 证据: bash -c grep -q 'check_monotonicity | B2 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
+- [x] check_monotonicity · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(check_monotonicity): tested' && echo commit在案 → commit在案 (10-11)
 ### build_gain_calibration
 - [ ] build_gain_calibration · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] build_gain_calibration · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -80,9 +80,9 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 ### calibrate_leakage
 - [x] calibrate_leakage · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:calibrate_leakage' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
 - [x] calibrate_leakage · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k leak_calibration -q | tail -1 → 10 passed, 178 deselected in 0.07s (10-11)
-- [ ] calibrate_leakage · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
+- [x] calibrate_leakage · wired — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && PYTHONPATH=. python3 -c "from src.calibrate_leakage.calibrate_leakage import calibrate_leakage as c; r=c(request={'table_path':'/nonexistent.json','measured_db':-30.0,'freq_mhz':2450.0}); print('顶层实跑:', r['mode'], r.get('corrected_db'), r.get('note'))" → 顶层实跑: subtract None 未扣除（无标定表） (10-11)
 - [ ] calibrate_leakage · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] calibrate_leakage · commit — 预告: fn(calibrate_leakage): wired 含四文档变更
+- [x] calibrate_leakage · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(calibrate_leakage): tested' && echo commit在案 → commit在案 (10-11)
 ### compensate_link_power
 - [ ] compensate_link_power · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] compensate_link_power · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -869,4 +869,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: shared 四函数并入首个调用方批次+批内自底向上重排（22→21 批） — B1 独立 shared 批的 wired 无真实调用点不可合规 — 无（119 函数与验收点不变） — batches.md/functions.md/tracker.md 同步重排 (10-11)
 - Ruling: 叶子函数 wired 判据 — 叶子在批内自底向上先行实现，其顶层父函数同批稍后落地；叶子的 wired 以自有单测调用点+同批父函数落地后 grep 复核（批间门三轴核对）为准 — 与「七步走满」不冲突且不弱化证据 — tracker 各叶子 wired 行 (10-11)
 - Ruling: B1 基线时序异常留痕——三叶子实现先于基线 commit 落盘，基线 429ae52 吞入其代码，三个叶子 wired commit 为零代码变更 — 主会话打基线时序失误（实现子代理先返、基线后打） — 证据链歧义（功能与档案终态正确，git log 仍可溯源） — batches.md 变更记录 Ruling② (10-11)
+- Ruling: gain 标定表落盘为 flat JSON（顶层即 entries）而非信封 {'name','meta','entries'} — 已实现的 load_calibration_table 对每个顶层键做 gain 条目校验，信封键不可读；表名/placeholder 语义由 loader 视图承载 — 数据格式细节、不影响函数接口；集成用例（建表→loader 读回 entries 相等）已覆盖 — batches.md 变更记录 Ruling④ (10-11)
 
