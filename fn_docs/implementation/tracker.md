@@ -226,7 +226,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] probe_uhd_devices · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/autodetect_backend/test_probe_uhd_devices.py | tail -1 → 9 passed in 0.52s (10-11)
 - [x] probe_uhd_devices · wired — 证据: bash -c grep -rn 'probe_uhd_devices(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/autodetect_backend/autodetect_backend.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
 - [x] probe_uhd_devices · 清单进位 — 证据: bash -c grep -q '| probe_uhd_devices | B6 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] probe_uhd_devices · commit — 预告: fn(probe_uhd_devices): wired 含四文档变更
+- [x] probe_uhd_devices · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(probe_uhd_devices)' && echo commit在案 → commit在案 (10-11)
 ### autodetect_backend
 - [ ] autodetect_backend · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] autodetect_backend · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -234,10 +234,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] autodetect_backend · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] autodetect_backend · commit — 预告: fn(autodetect_backend): wired 含四文档变更
 ### probe_gpsdo_status
-- [ ] probe_gpsdo_status · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] probe_gpsdo_status · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] probe_gpsdo_status · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] probe_gpsdo_status · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] probe_gpsdo_status · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:probe_gpsdo_status' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] probe_gpsdo_status · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/resolve_clock_reference/test_probe_gpsdo_status.py | tail -1 → 20 passed in 0.01s (10-11)
+- [x] probe_gpsdo_status · wired — 证据: bash -c grep -rn 'probe_gpsdo_status(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/resolve_clock_reference/resolve_clock_reference.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
+- [x] probe_gpsdo_status · 清单进位 — 证据: bash -c grep -q '| probe_gpsdo_status | B6 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] probe_gpsdo_status · commit — 预告: fn(probe_gpsdo_status): wired 含四文档变更
 ### resolve_clock_reference
 - [ ] resolve_clock_reference · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
