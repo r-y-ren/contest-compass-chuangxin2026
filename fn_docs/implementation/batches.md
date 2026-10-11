@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B1 | check_power_cap, check_band_whitelist, check_env_declarations, guard_compliance | guard_compliance wired：三查拒超限场景（compliance_guard） | 红线先行 |
-| B2 | load_calibration_table, lookup_jsr, check_monotonicity, build_gain_calibration, calibrate_leakage, compensate_link_power | 标定/补偿四树 wired（jsr_calibration/gain_calibration/leak_calibration/link_compensation） | 标定+共享标定表 |
+| ▶ B2 | load_calibration_table, lookup_jsr, check_monotonicity, build_gain_calibration, calibrate_leakage, compensate_link_power | 标定/补偿四树 wired（jsr_calibration/gain_calibration/leak_calibration/link_compensation） | 标定+共享标定表 |
 | B3 | stop_transmit_safely, create_run_workspace, append_run_log, finalize_run, manage_run | manage_run wired：三路径八件套+先停发射（run_lifecycle） | 运行骨架+共享停发射 |
 | B4 | register_backend, lookup_backend, manage_backend_registry, loopback_sim_stream, open_sim_backend, read_sigmf_timeline, open_replay_backend | registry wired（slot_registry）；sim/replay 环回绿（backend_sim/backend_replay） | 后端族① |
 | B5 | configure_b210_channels, write_b210_tx_stream, read_b210_rx_stream, open_b210_backend, exchange_scpi, create_visa_driver | open_b210 在位实测/不在位 skip（backend_b210）；visa 往返（visa_slot） | 后端族② |
