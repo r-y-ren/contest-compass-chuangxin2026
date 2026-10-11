@@ -211,3 +211,61 @@ def test_start_end_methods_optional():
         "invalid_zeroed": 0,
     }
     assert [len(c) for c in handle.chunks] == [2, 1]
+
+
+# ---- B5 对抗审查缺陷回归（低#4 chunk_size 正 int / 低#5 start 异常 end 兜底）----
+
+
+def test_defect_b5_4_chunk_size_rejects_bool_float_and_non_int():
+    """低#4：chunk_size 须正 int——bool/float/str/None 一律 ValueError，且先于 start()。"""
+    for bad in (True, 4.5, 4096.0, "4096", None, -3):
+        stream = FakeStream()
+        with pytest.raises(ValueError, match="chunk_size"):
+            write_b210_tx_stream(stream, [[1j]], chunk_size=bad)
+        assert stream.events == []  # 校验先于 start()，不触碰句柄
+    # 正 int 照常（bool 之外的 int 子类语义不受影响）
+    assert write_b210_tx_stream(FakeStream(), [[1j, 2j]], chunk_size=1)["blocks"] == 2
+
+
+def test_defect_b5_5_start_exception_end_still_attempted():
+    """低#5：start() 抛异常 → finally 仍兜底尽力 end()（突发终止不丢）。"""
+
+    class StartBoomStream(FakeStream):
+        def start(self):
+            self.events.append("start")
+            raise RuntimeError("start: stream not configured")
+
+    stream = StartBoomStream()
+    with pytest.raises(RuntimeError, match="stream not configured"):
+        write_b210_tx_stream(stream, [[1j]])
+    assert stream.events == ["start", "end"]  # end() 兜底已调
+    assert stream.chunks == []  # start 失败后不进入发送
+
+
+def test_defect_b5_5_start_exception_without_end_logs_skipped_end(caplog):
+    """低#5：start() 抛异常且句柄无 end() → 记 skipped_end 日志（不静默丢突发终止）。"""
+
+    class NoEndStream:
+        def __init__(self):
+            self.calls: list[str] = []
+
+        def start(self):
+            self.calls.append("start")
+            raise RuntimeError("start boom")
+
+        def send(self, chunk):  # pragma: no cover - start 失败不应触达 send
+            raise AssertionError("send 不应被调用")
+
+    handle = NoEndStream()
+    with caplog.at_level("WARNING"):
+        with pytest.raises(RuntimeError, match="start boom"):
+            write_b210_tx_stream(handle, [[1j]])
+    assert any("skipped_end" in r.getMessage() for r in caplog.records)
+
+
+def test_defect_b5_5_end_attempted_on_send_failure_path():
+    """低#5（返回/异常路径 end 尽力）：send 失败路径 end() 已有兜底——固化回归。"""
+    stream = FakeStream(send_results=[RuntimeError("send boom")])
+    with pytest.raises(BackendError, match="send boom"):
+        write_b210_tx_stream(stream, [[1j]], chunk_size=4)
+    assert stream.events == ["start", "send", "end"]

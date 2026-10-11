@@ -48,6 +48,7 @@ class VisaDriver:
         self._model = model
         self._resource = resource
         self._commands = MODELS[model]
+        self._closed = False
 
     @property
     def model(self) -> str:
@@ -73,7 +74,8 @@ class VisaDriver:
         Args:
             command_key: MODELS[model] 中的命令键；未知键 → DriverError（列可用键）。
             expect: 应答类型，透传 exchange_scpi（'float'/'int'/'str'/'bool'）。
-            args: 模板参数（如 {'mhz': 2450}）；模板缺参 → DriverError（指明缺哪个）。
+            args: 模板参数（如 {'mhz': 2450}）；模板缺参/格式化失败 → DriverError
+                （指明缺哪个，或含模板原文与 args 键）。
             timeout_s / retry: 透传 exchange_scpi 的超时预算与 Timeout 重试次数。
 
         Returns:
@@ -92,6 +94,14 @@ class VisaDriver:
                 f"命令键 {command_key!r} 模板 {template!r} 缺少参数（缺 {exc}，"
                 f"收到 args={args!r}）"
             ) from exc
+        except (IndexError, ValueError, TypeError) as exc:
+            # str.format 全类失败兜底：位置占位缺参（IndexError）/非法格式说明符
+            # （ValueError）/值不支持说明符（TypeError）——统一 DriverError 含模板与 args 键。
+            raise DriverError(
+                f"命令键 {command_key!r} 模板 {template!r} 格式化失败"
+                f"（args 键: {sorted((args or {}).keys())}）: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
         return exchange_scpi(self._session, command, expect, timeout_s=timeout_s, retry=retry)
 
     def raw_exchange(
@@ -106,10 +116,24 @@ class VisaDriver:
         return exchange_scpi(self._session, cmd, expect, timeout_s=timeout_s, retry=retry)
 
     def close(self) -> None:
-        """关闭底层会话：会话鸭子提供 close 才调用（FakeSession/sim 会话可不带）。"""
+        """关闭底层会话（幂等，_closed 守卫）：会话鸭子提供 close 才调用（FakeSession/
+        sim 会话可不带）。
+
+        共享会话提示：close 作用于底层会话本身——若该会话被多个持有者共享（sim 注册表
+        复用同一会话等场景），关闭可能影响其他共享者，实际关闭前记一条 warning 提示。
+        """
+        if self._closed:
+            return None
+        self._closed = True
         closer = getattr(self._session, "close", None)
         if callable(closer):
+            _LOGGER.warning(
+                "VisaDriver.close 关闭会话（resource=%s）：会话可能被其他持有者共享，"
+                "关闭将同时影响它们",
+                self._resource,
+            )
             closer()
+        return None
 
 
 def _open_pyvisa_session(resource: str):

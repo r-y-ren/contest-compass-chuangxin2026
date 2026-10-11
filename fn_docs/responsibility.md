@@ -293,7 +293,7 @@
   - 核验命令：测试: backend_b210
   - **configure_b210_channels** [L1|新增]
     - 职责：向 UHD 下发双通道参数（中心频率/增益/采样率/带宽/天线选择）并回读校验（回读偏差超容差报错），含 GPSDO/PPS 时钟源配置。
-    - 签名意图：输入: 设备句柄+参数集 / 输出: 回读确认的参数集 / 错误: 参数越硬件域或回读不符→BackendError。
+    - 签名意图：输入: 设备句柄+参数集 / 输出: 回读确认的参数集 / 错误: 参数越域→ValueError（域校验先行零副作用）；下发异常或回读不符→BackendError（含 UHD 原文）。
     - 调用方：open_b210_backend
     - tested 策略：上游覆盖: open_b210_backend
     - 核验命令：上游覆盖: open_b210_backend

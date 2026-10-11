@@ -45,18 +45,21 @@ def write_b210_tx_stream(
           可选，缺方法跳过：start() 发送前调用，end() 结束后调用且异常吞掉记录
           （含欠载熔断/send 失败路径，finally 兜底）；iq_blocks IQ 块迭代器（每块
           为 Sequence，元素 complex / (I,Q) 二元组直接规整，裸实数与其他垃圾元素
-          置 0j 并计数）；chunk_size 分块大小（默认 4096）；underrun_limit 欠载
+          置 0j 并计数）；chunk_size 分块大小（默认 4096，须为正 int）；underrun_limit 欠载
           累计阈值（默认 3，某块 sent < len(chunk) 记一次欠载，累计超过阈值即
           BackendError）；on_progress 热更新回调，每块下发后以累计已发样本数调用
           （回调异常吞掉记录，不影响发送）。
     输出: {'samples_sent': 累计已发样本数, 'blocks': 已下发分块数（send 调用次数）,
           'underruns': 欠载次数, 'invalid_zeroed': 规整为 0j 的元素数}。
-    错误: chunk_size<=0→ValueError（先于 start()，不触碰句柄）；send 抛异常→
-          BackendError 包装透传（原异常挂 __cause__）；欠载累计超过 underrun_limit
-          →BackendError。
+    错误: chunk_size 非正 int（bool/float/str 等拒收）→ValueError（先于 start()，
+          不触碰句柄）；start()/send 抛异常→send 包装 BackendError 透传（原异常挂
+          __cause__，start 原样上抛）；欠载累计超过 underrun_limit →BackendError。
+          start() 抛异常时 finally 仍兜底尽力 end()（句柄无 end 记 skipped_end 日志）；
+          返回/异常路径 end() 均尽力调用、异常吞掉记录。
     """
-    if chunk_size <= 0:
-        raise ValueError(f"chunk_size 必须为正整数，收到: {chunk_size!r}")
+    # 正 int 才收：bool 是 int 子类（True==1 会被当合法块大小）、float 隐式截断掩盖笔误。
+    if isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size <= 0:
+        raise ValueError(f"chunk_size 必须为正整数（int，bool/float 拒收），收到: {chunk_size!r}")
 
     samples_sent = 0
     blocks = 0
@@ -64,9 +67,12 @@ def write_b210_tx_stream(
     invalid_zeroed = 0
 
     start = getattr(stream_handle, "start", None)
-    if callable(start):
-        start()
+    end = getattr(stream_handle, "end", None)
+    start_ok = False
     try:
+        if callable(start):
+            start()
+            start_ok = True
         for block in iq_blocks:
             for offset in range(0, len(block), chunk_size):
                 chunk: list[complex] = []
@@ -103,7 +109,8 @@ def write_b210_tx_stream(
                             exc,
                         )
     finally:
-        end = getattr(stream_handle, "end", None)
+        # 返回/异常路径（含 start() 抛异常）end() 均尽力兜底；句柄无 end 可调且 start
+        # 已失败时显式记 skipped_end——不静默丢掉突发终止。
         if callable(end):
             try:
                 end()
@@ -111,6 +118,10 @@ def write_b210_tx_stream(
                 _LOGGER.warning(
                     "end() 异常（吞掉，不影响返回）: %s: %s", type(exc).__name__, exc
                 )
+        elif callable(start) and not start_ok:
+            _LOGGER.warning(
+                "skipped_end: start() 抛异常且流句柄无可调用的 end()，突发终止未发出"
+            )
 
     return {
         "samples_sent": samples_sent,

@@ -263,3 +263,127 @@ def test_partial_channel_params_record_missing_keys_skipped():
     assert result["applied"] == {"ch1_tx": {"freq_hz": 100_000_000.0}}
     assert result["clock_ref"] is None
     assert dev.set_calls == {"set_tx_freq": 100_000_000.0}
+
+
+# ---- B5 对抗审查缺陷回归（中#1 setter 异常契约 / 中#3 域校验对齐真机 /
+# ---- 低#6 未知键记 skipped / 低#7 skipped 语义拆分 unverified）----
+
+
+def test_defect_b5_1_setter_exception_wrapped_backend_error_with_cause():
+    """中#1：setter 抛 UHD 异常 → BackendError（含原文与方法名），__cause__ 保留。"""
+    dev = FakeDevice()
+
+    def boom(value):
+        raise RuntimeError("UHD RuntimeError: assert failed: 0.0 < freq")
+
+    dev.set_tx_freq = boom
+    with pytest.raises(BackendError) as excinfo:
+        configure_b210_channels(dev, _full_params())
+    msg = str(excinfo.value)
+    assert "ch1_tx.freq_hz" in msg
+    assert "set_tx_freq" in msg
+    assert "UHD RuntimeError" in msg  # UHD 原文并入消息
+    assert isinstance(excinfo.value.__cause__, RuntimeError)  # 原因链保留
+
+
+def test_defect_b5_1_getter_exception_wrapped_backend_error():
+    """中#1：getter 抛异常同样入 BackendError 契约（非裸穿 AttributeError/RuntimeError）。"""
+    dev = FakeDevice()
+
+    def boom():
+        raise RuntimeError("UHD io fault on get_tx_gain")
+
+    dev.get_tx_gain = boom
+    with pytest.raises(BackendError) as excinfo:
+        configure_b210_channels(dev, _full_params())
+    msg = str(excinfo.value)
+    assert "ch1_tx.gain_db" in msg
+    assert "get_tx_gain" in msg
+    assert "UHD io fault" in msg
+    assert isinstance(excinfo.value.__cause__, RuntimeError)
+
+
+def test_defect_b5_3_tx_antenna_whitelist_only_tx_rx():
+    """中#3：tx 天线白名单 {'TX/RX'}——'RX2'/'RX1'/'TX' 一律域校验期即拒（零设备副作用）。"""
+    for bad in ("RX2", "RX1", "TX"):
+        dev = FakeDevice()
+        params = _full_params()
+        params["ch1_tx"]["antenna"] = bad
+        with pytest.raises(ValueError, match="antenna"):
+            configure_b210_channels(dev, params)
+        assert dev.set_calls == {}
+
+
+def test_defect_b5_3_rx_antenna_whitelist_tx_rx_or_rx2_rejects_rx1():
+    """中#3：rx 天线白名单 {'TX/RX','RX2'}——'RX1' 已移除（非真机端口名）。"""
+    result = configure_b210_channels(FakeDevice(), _full_params())  # 默认 rx 用 RX2：合法
+    assert result["applied"]["ch2_rx"]["antenna"] == "RX2"
+    dev = FakeDevice()
+    params = _full_params()
+    params["ch2_rx"]["antenna"] = "RX1"
+    with pytest.raises(ValueError, match="antenna"):
+        configure_b210_channels(dev, params)
+    assert dev.set_calls == {}
+    # 'TX/RX' 同时在收发白名单（双工共用端口）
+    params["ch2_rx"]["antenna"] = "TX/RX"
+    assert configure_b210_channels(dev, params)["applied"]["ch2_rx"]["antenna"] == "TX/RX"
+
+
+def test_defect_b5_3_rx_gain_cap_76_tx_gain_cap_89_75():
+    """中#3：增益上界按通道分设——rx 0–76 / tx 0–89.75（80dB 对 rx 拒、对 tx 域内）。"""
+    dev = FakeDevice()
+    params = _full_params()
+    params["ch2_rx"]["gain_db"] = 76.0  # 恰 rx 上界：合法
+    result = configure_b210_channels(dev, params)
+    assert result["applied"]["ch2_rx"]["gain_db"] == pytest.approx(76.0)
+
+    dev2 = FakeDevice()
+    params2 = _full_params()
+    params2["ch2_rx"]["gain_db"] = 80.0  # rx 上界 76 外（虽在旧统一域 89.75 内）→ ValueError
+    with pytest.raises(ValueError, match="gain_db"):
+        configure_b210_channels(dev2, params2)
+    assert dev2.set_calls == {}
+
+    dev3 = FakeDevice()
+    params3 = _full_params()
+    params3["ch1_tx"]["gain_db"] = 89.75  # tx 上界 89.75：合法
+    result3 = configure_b210_channels(dev3, params3)
+    assert result3["applied"]["ch1_tx"]["gain_db"] == pytest.approx(89.75)
+
+
+def test_defect_b5_6_unknown_subkey_and_top_level_key_recorded_skipped():
+    """低#6：通道 cfg 未知子键与顶层未知键各记 skipped（':unknown_key' 后缀），不炸不阻断。"""
+    dev = FakeDevice()
+    params = {
+        "ch1_tx": {"freq_hz": 100_000_000.0, "freq_mhz": 2450.0},
+        "ch2_rx": {"agc": True},
+        "agc_mode": "fast",
+    }
+    result = configure_b210_channels(dev, params)
+    assert "ch1_tx.freq_mhz:unknown_key" in result["skipped"]
+    assert "ch2_rx.agc:unknown_key" in result["skipped"]
+    assert "agc_mode:unknown_key" in result["skipped"]
+    # 已知键照常下发：未知键不阻断既有参数
+    assert dev.set_calls["set_tx_freq"] == 100_000_000.0
+    assert result["applied"]["ch1_tx"]["freq_hz"] == 100_000_000.0
+    # 未知键不进 applied / unverified
+    assert "freq_mhz" not in result["applied"]["ch1_tx"]
+    assert result["unverified"] == []
+
+
+def test_defect_b5_7_getter_missing_unverified_with_applied_dispatched_value():
+    """低#7：setter 在 getter 缺 → 已下发未确认记 unverified（非 skipped），applied 记下发值。"""
+    dev = FakeDevice(missing=("get_tx_freq",))
+    params = _full_params()
+    result = configure_b210_channels(dev, params)
+    assert "ch1_tx.freq_hz:get_tx_freq" in result["unverified"]
+    assert "ch1_tx.freq_hz:get_tx_freq" not in result["skipped"]  # 语义拆分：不再混入 skipped
+    assert dev.set_calls["set_tx_freq"] == params["ch1_tx"]["freq_hz"]  # 确已下发
+    assert result["applied"]["ch1_tx"]["freq_hz"] == params["ch1_tx"]["freq_hz"]  # 记下发值
+    # 其余参数正常回读确认：不进 unverified
+    assert "ch1_tx.gain_db" not in [s.split(":")[0] for s in result["unverified"]]
+    # 对照：setter 缺（未下发）仍走 skipped
+    dev2 = FakeDevice(missing=("set_tx_freq",))
+    result2 = configure_b210_channels(dev2, params)
+    assert "ch1_tx.freq_hz:set_tx_freq" in result2["skipped"]
+    assert "freq_hz" not in result2["applied"]["ch1_tx"]

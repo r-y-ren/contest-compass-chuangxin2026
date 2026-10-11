@@ -151,3 +151,50 @@ def test_set_command_skips_read():
     assert sess.read_calls == 0
     assert sess.written == [":OUTP ON"]
     assert out["raw"] == "" and out["value"] == ""
+
+
+# ---- B5 对抗审查缺陷回归（低#10 retry 参数校验 / 低#11 read None 与空应答标注）----
+
+
+@pytest.mark.parametrize("bad", [-1, 1.5, True, "2", None])
+def test_defect_b5_10_retry_validation_eager_before_session(bad):
+    """低#10：retry 负数/非 int/bool → ValueError（调用即抛，先于任何会话调用）。"""
+    sess = FakeSession(["1\n"])
+    with pytest.raises(ValueError, match="retry"):
+        exchange_scpi(sess, ":VOLT?", "int", retry=bad)
+    assert sess.write_calls == 0
+    # 边界：0 与正 int 合法
+    assert exchange_scpi(FakeSession(["7\n"]), ":VOLT?", "int", retry=0)["value"] == 7
+
+
+def test_defect_b5_11_read_none_driver_error_instrument_no_answer():
+    """低#11：read() 返回 None → DriverError（'仪器无应答'），不把 None 解析成 'None'。"""
+
+    class NoneReadSession(FakeSession):
+        def read(self):
+            self.read_calls += 1
+            return None
+
+    sess = NoneReadSession()
+    with pytest.raises(DriverError, match="仪器无应答"):
+        exchange_scpi(sess, "*IDN?", "str")
+    assert sess.write_calls == 1 and sess.read_calls == 1  # 写读都发生过，失败定性在应答
+
+
+def test_defect_b5_11_empty_str_response_annotated_empty_response():
+    """低#11：expect='str' 空应答返回 '' 且附 empty_response=True 标注；其余口径不动。"""
+    sess = FakeSession([""])
+    out = exchange_scpi(sess, "*IDN?", "str")
+    assert out["raw"] == "" and out["value"] == ""
+    assert out["empty_response"] is True
+    # 纯空白应答同样视为无内容：标注照附
+    blank = exchange_scpi(FakeSession(["   \n"]), "*IDN?", "str")
+    assert blank["value"] == "" and blank["empty_response"] is True
+    # 有内容的查询不带标注
+    assert "empty_response" not in exchange_scpi(FakeSession(["ACME\n"]), "*IDN?", "str")
+    # 非查询命令（不读回，raw 本就 ''）不带标注
+    assert "empty_response" not in exchange_scpi(FakeSession(), ":OUTP ON")
+    # float/int/bool 空应答仍走解析失败 DriverError（既有拒收口径不动）
+    for expect in ("float", "int", "bool"):
+        with pytest.raises(DriverError):
+            exchange_scpi(FakeSession([""]), ":VOLT?", expect)

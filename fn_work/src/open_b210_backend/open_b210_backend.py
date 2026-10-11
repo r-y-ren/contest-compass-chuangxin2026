@@ -22,13 +22,19 @@ __all__ = [
 
 _LOGGER = logging.getLogger(__name__)
 
-# 注册名与能力域（与 lookup_backend 别名表 b210 -> b210 同源；freq 70MHz-6GHz、增益 0-89.75dB）。
+# 注册名与能力域（与 lookup_backend 别名表 b210 -> b210 同源；freq 70MHz-6GHz）。
 _BACKEND_NAME = "b210"
 _FREQ_RANGE_MHZ: tuple[float, float] = (70.0, 6000.0)
 _FREQ_MIN_HZ, _FREQ_MAX_HZ = 70e6, 6e9
-_GAIN_MIN_DB, _GAIN_MAX_DB = 0.0, 89.75
+# 增益域按收/发分设（对齐 B210 真机 dB 上限，与 configure_b210_channels 同口径）：
+# TX 0–89.75，RX 0–76。
+_TX_GAIN_RANGE_DB: tuple[float, float] = (0.0, 89.75)
+_RX_GAIN_RANGE_DB: tuple[float, float] = (0.0, 76.0)
 _CLOCK_REFS = frozenset({"internal", "external", "gpsdo"})
-_ANTENNA_WHITELIST = frozenset({"TX/RX", "RX2", "RX1", "TX"})
+# 天线白名单按收/发分设（对齐 B210 真机端口）：tx 仅 TX/RX；rx TX/RX 或 RX2。
+# 'RX1'/'TX' 非真机端口名，自白名单移除（真机 UHD 会以 LookupError 拒绝）。
+_TX_ANTENNA_WHITELIST = frozenset({"TX/RX"})
+_RX_ANTENNA_WHITELIST = frozenset({"TX/RX", "RX2"})
 
 # 传输名白名单：str 须落此二名；非 str 一律按注入传输对象（鸭子接口 make_device/
 # make_tx_stream/make_rx_stream，测试/模拟用）。
@@ -355,7 +361,7 @@ class B210Backend:
             "freq_range_mhz": tuple(_FREQ_RANGE_MHZ),
             "freq_hz": self.freq_hz,
             "sample_rate_hz": self.sample_rate,
-            "tx_gain_range_db": (_GAIN_MIN_DB, _GAIN_MAX_DB),
+            "tx_gain_range_db": _TX_GAIN_RANGE_DB,
             "clock_ref": self.clock_ref,
             "transport": self.transport_name,
         }
@@ -376,11 +382,11 @@ class B210Backend:
         return None
 
 
-def _validate_antenna(key: str, raw: object) -> str:
-    """天线参数域校验：str 且在白名单 {'TX/RX','RX2','RX1','TX'}。"""
-    if not isinstance(raw, str) or raw not in _ANTENNA_WHITELIST:
+def _validate_antenna(key: str, raw: object, whitelist: frozenset) -> str:
+    """天线参数域校验：str 且在通道白名单（tx {'TX/RX'} / rx {'TX/RX','RX2'}，真机口径）。"""
+    if not isinstance(raw, str) or raw not in whitelist:
         raise ValueError(
-            f"{key} 非法: {raw!r}（白名单: {sorted(_ANTENNA_WHITELIST)}）"
+            f"{key} 非法: {raw!r}（{key.split('_')[0]} 白名单: {sorted(whitelist)}）"
         )
     return raw
 
@@ -396,9 +402,11 @@ def open_b210_backend(params: dict) -> B210Backend:
       - device_args: str（缺省 'type=b200'，MultiUSRP 打开参数串）；
       - freq_hz: 中心频率 Hz（缺省 2.4e9，域 70e6–6e9，域外 ValueError）；
       - sample_rate: 采样率 Hz（缺省 1e6，须为正）；tx_gain_db: 发射增益 dB（缺省 0，
-        域 0–89.75，域外 ValueError）；rx_gain_db: 监测增益 dB（可缺，给出时域同上）；
+        域 0–89.75，域外 ValueError）；rx_gain_db: 监测增益 dB（可缺，给出时域 0–76）；
       - tx_bandwidth_hz / rx_bandwidth_hz: 带宽 Hz（缺省取 sample_rate，须为正）；
-      - tx_antenna（缺省 'TX/RX'）/ rx_antenna（缺省 'RX2'）: 白名单 {'TX/RX','RX2','RX1','TX'}；
+      - tx_antenna（缺省 'TX/RX'，白名单 {'TX/RX'}）/ rx_antenna（缺省 'RX2'，白名单
+        {'TX/RX','RX2'}）: 按收/发分设，对齐 B210 真机端口（'RX1'/'TX' 非真机端口名，
+        已移除）；
       - clock_ref: 'internal'|'external'|'gpsdo'|缺省不设。
     输出: B210Backend 实例（start_tx 经 write_b210_tx_stream、read_samples 经
       read_b210_rx_stream、参数下发经 configure_b210_channels——报告存
@@ -450,16 +458,18 @@ def open_b210_backend(params: dict) -> B210Backend:
     if sample_rate <= 0:
         raise ValueError(f"sample_rate 须为正数，得到 {sample_rate!r}")
     tx_gain_db = _as_real("tx_gain_db", params.get("tx_gain_db", _DEFAULT_TX_GAIN_DB))
-    if not _GAIN_MIN_DB <= tx_gain_db <= _GAIN_MAX_DB:
+    tx_gain_min, tx_gain_max = _TX_GAIN_RANGE_DB
+    if not tx_gain_min <= tx_gain_db <= tx_gain_max:
         raise ValueError(
-            f"tx_gain_db 超出增益域 [{_GAIN_MIN_DB:g}, {_GAIN_MAX_DB:g}] dB: {tx_gain_db!r}"
+            f"tx_gain_db 超出增益域 [{tx_gain_min:g}, {tx_gain_max:g}] dB: {tx_gain_db!r}"
         )
     rx_gain_raw = params.get("rx_gain_db")
     if rx_gain_raw is not None:
         rx_gain = _as_real("rx_gain_db", rx_gain_raw)
-        if not _GAIN_MIN_DB <= rx_gain <= _GAIN_MAX_DB:
+        rx_gain_min, rx_gain_max = _RX_GAIN_RANGE_DB
+        if not rx_gain_min <= rx_gain <= rx_gain_max:
             raise ValueError(
-                f"rx_gain_db 超出增益域 [{_GAIN_MIN_DB:g}, {_GAIN_MAX_DB:g}] dB: {rx_gain!r}"
+                f"rx_gain_db 超出增益域 [{rx_gain_min:g}, {rx_gain_max:g}] dB: {rx_gain!r}"
             )
     tx_bandwidth = _as_real(
         "tx_bandwidth_hz", params.get("tx_bandwidth_hz", sample_rate)
@@ -471,8 +481,12 @@ def open_b210_backend(params: dict) -> B210Backend:
     )
     if rx_bandwidth <= 0:
         raise ValueError(f"rx_bandwidth_hz 须为正数，得到 {rx_bandwidth!r}")
-    tx_antenna = _validate_antenna("tx_antenna", params.get("tx_antenna", _DEFAULT_TX_ANTENNA))
-    rx_antenna = _validate_antenna("rx_antenna", params.get("rx_antenna", _DEFAULT_RX_ANTENNA))
+    tx_antenna = _validate_antenna(
+        "tx_antenna", params.get("tx_antenna", _DEFAULT_TX_ANTENNA), _TX_ANTENNA_WHITELIST
+    )
+    rx_antenna = _validate_antenna(
+        "rx_antenna", params.get("rx_antenna", _DEFAULT_RX_ANTENNA), _RX_ANTENNA_WHITELIST
+    )
     clock_ref = params.get("clock_ref")
     if clock_ref is not None and (
         not isinstance(clock_ref, str) or clock_ref not in _CLOCK_REFS

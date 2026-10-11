@@ -72,15 +72,18 @@ def exchange_scpi(
         expect: 应答类型 ``'float'``/``'int'``/``'str'``（缺省）/``'bool'``；
             未知取值 → ValueError。bool 映射：``'1'/'ON'``→True，``'0'/'OFF'``→False。
         timeout_s: 预算超时秒数（参数化记录，不做真实打断）。
-        retry: Timeout 类失败后的额外重试次数（0=不重试）。
+        retry: Timeout 类失败后的额外重试次数（0=不重试）；非负 int（bool 拒收），
+            否则 → ValueError。
 
     Returns:
         ``{'raw': read 原文（未 strip）, 'value': 类型化值, 'elapsed_ms': int 毫秒}``；
-        非查询命令 raw/value 为 ``''``。
+        非查询命令 raw/value 为 ``''``。查询命令空应答（read 回空串/纯空白）且
+        expect='str' 时附 ``'empty_response': True`` 标注（value 仍为 ``''``）。
 
     Raises:
-        ValueError: command 非 str/为空，或 expect 未知。
-        DriverError: 会话读写失败、应答解析失败、Timeout 重试耗尽（含 __cause__）。
+        ValueError: command 非 str/为空，expect 未知，或 retry 非非负 int。
+        DriverError: 会话读写失败、read() 返回 None（仪器无应答）、应答解析失败、
+            Timeout 重试耗尽（含 __cause__）。
     """
     if not isinstance(command, str) or not command.strip():
         raise ValueError(
@@ -88,6 +91,8 @@ def exchange_scpi(
         )
     if expect not in _EXPECT_KINDS:
         raise ValueError(f"expect 须为 {'/'.join(_EXPECT_KINDS)} 之一，收到 {expect!r}")
+    if isinstance(retry, bool) or not isinstance(retry, int) or retry < 0:
+        raise ValueError(f"retry 须为非负 int（bool 拒收），收到 {retry!r}")
 
     needs_read = command.rstrip().endswith("?")
     started = time.monotonic()
@@ -105,9 +110,16 @@ def exchange_scpi(
                 ) from exc
             last_exc = exc
             continue
+        if needs_read and raw is None:
+            # read() 无应答（部分会话超时/断链以 None 而非异常表达）——定性失败，不参与重试。
+            raise DriverError(f"仪器无应答 (command={command!r})：read() 返回 None")
         elapsed_ms = int((time.monotonic() - started) * 1000)
         # 解析失败即 DriverError 直接上抛，不占用重试名额（重试仅针对 Timeout 类会话异常）。
-        return {"raw": raw, "value": _parse_answer(raw, expect), "elapsed_ms": elapsed_ms}
+        result = {"raw": raw, "value": _parse_answer(raw, expect), "elapsed_ms": elapsed_ms}
+        if needs_read and expect == "str" and result["value"] == "":
+            # 空应答标注：'str' 缺省口径回 ''，调用方可据 empty_response 区分"仪表确认但无内容"
+            result["empty_response"] = True
+        return result
     raise DriverError(
         f"SCPI 交互 Timeout 重试耗尽 (command={command!r}, retry={retry}, "
         f"timeout_s={timeout_s}): {last_exc!r}"

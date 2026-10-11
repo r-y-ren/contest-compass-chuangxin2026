@@ -1,7 +1,8 @@
 """create_visa_driver 对抗测试：注入会话+命令映射格式化往返、query_id 往返、未知型号回退
 generic+warning（caplog）、model 非法类型→ValueError、pyvisa 缺失→DriverError 含安装提示、
-资源打开失败含仪器原文、pyvisa 成功路径接线、close/raw_exchange 透传、模板缺参→DriverError
-指明参数、emi_receiver 映射存在性、expect=float 透传、未知命令键、model/resource 只读。"""
+资源打开失败含仪器原文、pyvisa 成功路径接线、close 幂等透传+共享会话 warning、
+raw_exchange 透传、模板缺参/格式化全类异常→DriverError 指明参数、emi_receiver 映射存在性、
+expect=float 透传、未知命令键、model/resource 只读。"""
 from __future__ import annotations
 
 import builtins
@@ -152,8 +153,52 @@ def test_visa_slot_close_passthrough_and_safe_without_close():
     drv = create_visa_driver("sim://a", "1433d", session=spied)
     drv.close()
     drv.close()
-    assert spied.close_calls == 2  # 透传到会话的 close
+    assert spied.close_calls == 1  # 幂等（_closed 守卫）：会话 close 只打一次（B5 低#9 新口径）
     create_visa_driver("sim://b", "generic", session=FakeSession()).close()  # 无 close 不炸
+
+
+# ---- B5 对抗审查缺陷回归（低#8 format 全类异常 / 低#9 close 幂等+共享会话 warning）----
+
+
+def test_defect_b5_8_format_full_exception_classes_wrapped_driver_error(monkeypatch):
+    """低#8：str.format IndexError/ValueError/TypeError 全类 → DriverError（含模板与 args 键）。"""
+    sess = FakeSession()
+    drv = create_visa_driver("sim://x", "1433d", session=sess)
+    cases = [
+        ("FREQ {0} MHz", {"mhz": 2450}),  # IndexError：位置占位但只给了关键字参数
+        ("FREQ {mhz:z} MHz", {"mhz": 2450}),  # ValueError：非法格式说明符 'z'
+        ("FREQ {mhz:>s} MHz", {"mhz": 2450}),  # TypeError：int 不支持 's' 说明符
+    ]
+    for idx, (template, args) in enumerate(cases):
+        key = f"bad_spec_{idx}"
+        monkeypatch.setitem(MODELS["1433d"], key, template)
+        with pytest.raises(DriverError) as excinfo:
+            drv.exchange(key, args=args)
+        msg = str(excinfo.value)
+        assert template in msg, template  # 模板原文入消息
+        assert "mhz" in msg, template  # args 键入消息
+        assert sess.written == []  # 格式化失败不得碰会话
+
+
+def test_defect_b5_9_close_idempotent_guard_and_shared_session_warning(caplog):
+    """低#9：close 幂等（重复调用只关一次）且关闭共享会话前记 warning 提示。"""
+    spied = CloseSpySession(["IDN\n"])
+    drv = create_visa_driver("sim://shared", "1433d", session=spied)
+    with caplog.at_level(logging.WARNING):
+        drv.close()
+        drv.close()
+        drv.close()
+    assert spied.close_calls == 1  # _closed 守卫：只第一次真正作用到会话
+    shared_warnings = [r for r in caplog.records if "共享" in r.getMessage()]
+    assert len(shared_warnings) == 1  # warning 恰一条（幂等下不重复打扰）
+    assert "sim://shared" in shared_warnings[0].getMessage()
+    # 无 close 方法的会话：幂等同样成立、不炸、无 warning
+    plain = create_visa_driver("sim://plain", "generic", session=FakeSession())
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        plain.close()
+        plain.close()
+    assert not [r for r in caplog.records if "共享" in r.getMessage()]
 
 
 def test_visa_slot_raw_exchange_passthrough():

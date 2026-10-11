@@ -162,3 +162,78 @@ def test_overflow_on_empty_block_counts_and_clean_empty_resets():
     )
     out = list(read_b210_rx_stream(FakeRecv(script), max_blocks=12))
     assert len(out) == 12  # 12 个非空块全部产出（空块跳过不产出）
+
+
+# ---- B5 对抗审查缺陷回归（中#2 RX 空转封顶 / 低#12 partial_meta + len() 判空）----
+
+
+def test_defect_b5_2_idle_breaker_default_200_trips_on_201st_empty_block():
+    """中#2：连续空块默认阈 200——第 201 块熔断，消息含空转计数与"RX 无数据"提示。"""
+    fake = FakeRecv([empty_blk()] * 201)
+    with pytest.raises(BackendError) as excinfo:
+        list(read_b210_rx_stream(fake))
+    msg = str(excinfo.value)
+    assert "201" in msg and "idle_limit=200" in msg  # 空转计数与阈值入消息
+    assert "RX 无数据" in msg and "增益/天线/频率" in msg  # 排障提示文案
+    assert fake.calls and len(fake.calls) == 201  # 第 201 次 recv 即熔断，不再空转
+    # 恰 200 块不熔断：随后有数据应正常产出（">" 语义）
+    fake2 = FakeRecv([empty_blk()] * 200 + [blk(0)])
+    out = list(read_b210_rx_stream(fake2, max_blocks=1))
+    assert out[0]["ts"] == 0 and len(out[0]["samples"]) == 3
+
+
+def test_defect_b5_2_idle_limit_parameterized_and_eagerly_validated():
+    """中#2：idle_limit 参数化；非法取值（负数/bool）调用即抛 ValueError，不读首块。"""
+    for bad in (-1, True, 1.5):
+        fake = FakeRecv([blk(0)])
+        with pytest.raises(ValueError, match="idle_limit"):
+            read_b210_rx_stream(fake, idle_limit=bad)
+        assert fake.calls == []
+    fake = FakeRecv([empty_blk()] * 4)
+    with pytest.raises(BackendError, match="RX 无数据"):
+        list(read_b210_rx_stream(fake, idle_limit=3))  # 第 4 个连续空块熔断
+
+
+def test_defect_b5_2_idle_counter_resets_on_data_block():
+    """中#2：连续语义——携带样本的块清零空转计数，两段 3 空块（阈 3）不熔断。"""
+    script = [empty_blk()] * 3 + [blk(0)] + [empty_blk()] * 3 + [blk(1)]
+    out = list(read_b210_rx_stream(FakeRecv(script), max_blocks=2, idle_limit=3))
+    assert [b["ts"] for b in out] == [0, 1]
+
+
+def test_defect_b5_12_missing_meta_keys_defaults_with_partial_meta_flag():
+    """低#12：recv dict 缺 'ts'/'overflow' → 缺省值兜底 + 产出块标注 partial_meta=True。"""
+    script = [
+        {"samples": [1j, 2j]},  # overflow 与 ts 全缺
+        {"samples": [3j], "ts": 9},  # 仅缺 overflow
+        {"samples": [4j], "overflow": True},  # 仅缺 ts
+    ]
+    out = list(read_b210_rx_stream(FakeRecv(script), max_blocks=3))
+    assert out[0]["overflow"] is False  # 缺省
+    assert out[0]["device_ts"] is None  # 缺省
+    assert out[0]["partial_meta"] is True
+    assert out[1]["overflow"] is False
+    assert out[1]["device_ts"] == 9  # 在的键如实透传
+    assert out[1]["partial_meta"] is True
+    assert out[2]["overflow"] is True
+    assert out[2]["device_ts"] is None
+    assert out[2]["partial_meta"] is True
+    # 键全的块不附 partial_meta（缺省不静默，但完整块不加噪声键）
+    (full_block,) = list(read_b210_rx_stream(FakeRecv([blk(0)]), max_blocks=1))
+    assert "partial_meta" not in full_block
+
+
+def test_defect_b5_12_numpy_samples_emptiness_judged_by_len():
+    """低#12：samples 判空用 len()——numpy 数组 not 真值判定会 ValueError 直接炸。"""
+    np = pytest.importorskip("numpy")
+    arr = np.array([1 + 1j, 2 + 2j], dtype=np.complex64)
+    empty_arr = np.array([], dtype=np.complex64)
+    script = [
+        {"samples": arr, "overflow": False, "ts": 1},
+        {"samples": empty_arr, "overflow": False, "ts": 2},
+        {"samples": arr, "overflow": False, "ts": 3},
+    ]
+    out = list(read_b210_rx_stream(FakeRecv(script), max_blocks=2))
+    assert len(out) == 2  # 空数组按 len()==0 跳过不炸、不产出
+    assert out[0]["samples"] == [1 + 1j, 2 + 2j]
+    assert out[1]["ts"] == 1  # 第二个非空块占产出序号 1

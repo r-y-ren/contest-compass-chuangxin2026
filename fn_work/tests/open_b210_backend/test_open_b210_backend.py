@@ -345,6 +345,53 @@ def test_backend_b210_configure_readback_failure_propagates():
     assert "回读不符" in str(ei.value)
 
 
+# ---- B5 对抗审查缺陷回归（中#1 configure 调用点异常契约 / 中#3 open 侧域校验同步）----
+
+
+def test_defect_b5_1_open_configure_setter_exception_wrapped_backend_error():
+    """中#1：configure 调用点随 configure_b210_channels 自然入契约——setter 异常 →
+    BackendError（含 UHD 原文），不再裸穿 RuntimeError 出 open。"""
+    device = FakeDevice()
+
+    def boom(value):
+        raise RuntimeError("UHD LookupError: 100e6 out of range")
+
+    device.set_tx_freq = boom
+    with pytest.raises(BackendError) as ei:
+        _open_with(FakeTransport(device=device))
+    msg = str(ei.value)
+    assert "set_tx_freq" in msg and "UHD LookupError" in msg
+    assert isinstance(ei.value.__cause__, RuntimeError)
+
+
+def test_defect_b5_3_open_side_gain_domains_split_tx_rx():
+    """中#3（open 侧同步）：rx_gain_db 域 0–76（对齐真机 RX 上限），tx 0–89.75 不变。"""
+    with pytest.raises(ValueError, match="rx_gain_db"):
+        _open_with(FakeTransport(), rx_gain_db=80.0)  # 80 在旧统一域 89.75 内、超新 RX 上界
+    transport = FakeTransport()
+    with pytest.raises(ValueError, match="tx_gain_db"):
+        _open_with(transport, tx_gain_db=90.0)
+    assert transport.device_args_seen == "__never__"  # 域校验先于设备打开
+    backend = _open_with(FakeTransport(), rx_gain_db=76.0)  # 恰上界合法
+    assert backend.configure_report["applied"]["ch2_rx"]["gain_db"] == pytest.approx(76.0)
+
+
+def test_defect_b5_3_open_side_antenna_whitelists_split_tx_rx():
+    """中#3（open 侧同步）：tx_antenna 白名单 {'TX/RX'}、rx_antenna {'TX/RX','RX2'}。"""
+    for bad_overrides, needle in (
+        ({"tx_antenna": "RX2"}, "tx_antenna"),  # RX2 是收端口专属
+        ({"tx_antenna": "RX1"}, "tx_antenna"),  # 'RX1' 已移除
+        ({"rx_antenna": "RX1"}, "rx_antenna"),  # 'RX1' 已移除
+        ({"rx_antenna": "TX"}, "rx_antenna"),  # 'TX' 已移除
+    ):
+        with pytest.raises(ValueError, match=needle):
+            _open_with(FakeTransport(), **bad_overrides)
+    # 合法组合照常开箱：rx 也可选 TX/RX（双工共用端口）
+    backend = _open_with(FakeTransport(), rx_antenna="TX/RX", tx_antenna="TX/RX")
+    assert isinstance(backend, B210Backend)
+    assert backend.configure_report["applied"]["ch2_rx"]["antenna"] == "TX/RX"
+
+
 def test_backend_b210_probe_available_caches_cli_result(monkeypatch):
     """probe_b210_available：CLI 结果缓存生效，refresh 强制重探。"""
     monkeypatch.setattr(b210_module, "_PROBE_CACHE", None)
