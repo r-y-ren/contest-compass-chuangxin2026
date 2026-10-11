@@ -29,9 +29,9 @@
 | open_replay_backend | B4 | wired 10-11 | 13 passed；急切校验+no_tx 语义 | e2853ca |
 | configure_b210_channels | B5 | wired 10-11 | 23 passed；域校验+回读容差+NaN 拒 | c782435 |
 | write_b210_tx_stream | B5 | wired 10-11 | 11 passed；欠载熔断+元素规整 | f36dddc |
-| read_b210_rx_stream | B5 | wired 10-11 | 12 passed；溢出熔断+惰性 | pending |
+| read_b210_rx_stream | B5 | wired 10-11 | 12 passed；溢出熔断+惰性 | 5ec4459 |
 | open_b210_backend | B5 | stub 10-11 | pytest -k backend_b210 | — |
-| exchange_scpi | B5 | stub 10-11 | 上游覆盖: create_visa_driver | — |
+| exchange_scpi | B5 | wired 10-11 | 20 passed；四类解析+Timeout 重试 | pending |
 | create_visa_driver | B5 | stub 10-11 | pytest -k visa_slot | — |
 | probe_uhd_devices | B6 | stub 10-11 | 上游覆盖: autodetect_backend | — |
 | autodetect_backend | B6 | stub 10-11 | pytest -k backend_autodetect | — |
