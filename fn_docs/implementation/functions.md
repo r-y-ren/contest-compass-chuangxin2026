@@ -37,8 +37,8 @@
 | autodetect_backend | B6 | stub 10-11 | pytest -k backend_autodetect | — |
 | probe_gpsdo_status | B6 | wired 10-11 | 20 passed；传感器序列探测 | d4cbdf9 |
 | resolve_clock_reference | B6 | stub 10-11 | pytest -k clocking | — |
-| make_spectrogram | B6 | wired 10-11 | 12 passed；纯 numpy STFT | pending |
-| query_dataset | B6 | stub 10-11 | 上游覆盖: index_dataset | — |
+| make_spectrogram | B6 | wired 10-11 | 12 passed；纯 numpy STFT | 5a2f4d9 |
+| query_dataset | B6 | wired 10-11 | 15 passed；AND 过滤+批次分组 | pending |
 | index_dataset | B6 | stub 10-11 | pytest -k dataset_index | — |
 | check_style_params | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
 | gen_tone | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
