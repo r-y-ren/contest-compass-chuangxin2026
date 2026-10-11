@@ -12,26 +12,36 @@ _MISSING_TABLE_NOTE = "先运行 build_gain_calibration 生成标定表"
 
 
 def _freq_mhz(freq_hz) -> float | None:
-    """频率仅作记录口径（Hz→MHz）：非法/非有限记 None，不参与 gain 表查询。"""
+    """频率仅作记录口径（Hz→MHz）：非法/非有限/超出 float 可表示范围（超大 int）
+    一律记 None，不参与 gain 表查询，绝不抛出。"""
     if isinstance(freq_hz, bool) or not isinstance(freq_hz, (int, float)):
         return None
-    value = float(freq_hz) / 1e6
+    try:
+        value = float(freq_hz) / 1e6
+    except OverflowError:
+        return None
     return value if math.isfinite(value) else None
 
 
 def _is_valid_signal(value) -> bool:
-    """链路信号功率必须为有限非 bool 数值，否则 JSR 减法无意义。"""
+    """链路信号功率必须为有限非 bool 数值（含可转 float），否则 JSR 减法无意义。"""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
-    return math.isfinite(value)
+    try:
+        return math.isfinite(float(value))
+    except OverflowError:
+        return False
 
 
 def _parse_step(value) -> float | None:
-    """档位归一为数值：bool 与不可解析对象（None/容器/未知档名）不算数值档。"""
+    """档位归一为数值：bool 与不可解析对象（None/容器/未知档名/超出 float 范围）不算数值档。"""
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        number = float(value)
+        try:
+            number = float(value)
+        except OverflowError:
+            return None
     elif isinstance(value, str):
         try:
             number = float(value.strip())

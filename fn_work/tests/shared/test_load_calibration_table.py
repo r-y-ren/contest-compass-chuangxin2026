@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
 
@@ -167,3 +168,50 @@ def test_entries_read_only(tmp_path):
     with pytest.raises(TypeError):
         view["entries"]["low"]["power_dbm"] = 99.0
     assert view["entries"]["low"]["power_dbm"] == -5.0
+
+
+# ---------------------------------------------------------------------------
+# B2 对抗审查缺陷回归（高#5/中#8 + 超大表值）
+# ---------------------------------------------------------------------------
+
+def _deep_json_text(layers: int = 50000) -> str:
+    """构造 layers 层深嵌套 JSON 数组文本（'[[[…]]]'）。"""
+    return "[" * layers + "]" * layers
+
+
+def test_defect_b2_deeply_nested_json_rejected(tmp_path):
+    """高#5：50000 层深嵌套 JSON → CalibrationError（RecursionError 捕获或结构不符兜底），不裸抛。"""
+    cfg, cal = _cfg_with_dir(tmp_path)
+    (cal / "link_loss.json").write_text(_deep_json_text(), encoding="utf-8")
+    with pytest.raises(CalibrationError):
+        load_calibration_table("link_loss", cfg)
+
+
+def test_defect_b2_recursion_depth_json_rejected(tmp_path):
+    """高#5 主路径：超过解析递归上限的深嵌套 JSON → RecursionError 被捕获转 CalibrationError。
+
+    深度取递归上限的 150 倍以保证触发 RecursionError；若环境解析器不递归
+    （完全迭代解析），则由「顶层应为 JSON 对象」兜底拒绝——两条路径均为 CalibrationError。
+    """
+    cfg, cal = _cfg_with_dir(tmp_path)
+    (cal / "gain.json").write_text(_deep_json_text(sys.getrecursionlimit() * 150), encoding="utf-8")
+    with pytest.raises(CalibrationError):
+        load_calibration_table("gain", cfg)
+
+
+def test_defect_b2_gain_numeric_equivalent_keys_rejected(tmp_path):
+    """中#8：gain 表 '20' 与 '20.0' 同表（数值等价重复）→ CalibrationError（与频点侧归一检测一致）。"""
+    cfg, cal = _cfg_with_dir(tmp_path)
+    (cal / "gain.json").write_text(
+        '{"20": {"power_dbm": 0.0}, "20.0": {"power_dbm": 5.0}}', encoding="utf-8"
+    )
+    with pytest.raises(CalibrationError, match="数值等价"):
+        load_calibration_table("gain", cfg)
+
+
+def test_defect_b2_huge_int_table_value_rejected(tmp_path):
+    """同族加固：JSON 内 400 位超大整数值 → CalibrationError（视为损坏），不抛 OverflowError。"""
+    cfg, cal = _cfg_with_dir(tmp_path)
+    (cal / "link_loss.json").write_text('{"2400": 1' + "0" * 400 + "}", encoding="utf-8")
+    with pytest.raises(CalibrationError, match="超大"):
+        load_calibration_table("link_loss", cfg)

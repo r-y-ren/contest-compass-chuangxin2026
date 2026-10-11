@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 
 from .check_monotonicity import check_monotonicity
@@ -59,13 +60,33 @@ def _violation_summary(violation: dict) -> str:
     )
 
 
+def _step_number(key: str) -> float | None:
+    """档位键字符串的数值归一：可解析为有限数值则返回其值，否则 None（纯标签档）。
+
+    超出 float 表示范围的超大数值字符串（如 400 位整数）float() 解析为 inf，归 None 按标签档处理。
+    """
+    try:
+        number = float(key)
+    except ValueError:
+        return None
+    return number if math.isfinite(number) else None
+
+
 def _write_table(out_path: str, entries: dict) -> None:
-    """写出表 JSON（目录自动创建）；序列化确定性保证同输入幂等重建。"""
+    """写出表 JSON（目录自动创建）；序列化确定性保证同输入幂等重建。
+
+    out_path 指向已存在目录（IsADirectoryError）→ CalibrationError（文案含路径）。
+    """
     parent = os.path.dirname(os.path.abspath(out_path))
     os.makedirs(parent, exist_ok=True)
-    with open(out_path, "w", encoding="utf-8") as fh:
-        json.dump(entries, fh, ensure_ascii=False, indent=2)
-        fh.write("\n")
+    try:
+        with open(out_path, "w", encoding="utf-8") as fh:
+            json.dump(entries, fh, ensure_ascii=False, indent=2)
+            fh.write("\n")
+    except IsADirectoryError as exc:
+        raise CalibrationError(
+            f"增益标定表输出路径不可写（已存在目录）: {out_path}"
+        ) from exc
 
 
 def build_gain_calibration(measurements: list | None = None) -> dict:
@@ -73,10 +94,12 @@ def build_gain_calibration(measurements: list | None = None) -> dict:
 
     输入 measurements 为真实标定测量序列 [{'gain_step': …, 'power_dbm': float}, …]：
     序列化为 (档位, 功率) 点后经 check_monotonicity 校验（容差 0，严格非降），
-    违例非空或形状错（含 NaN/inf/bool 功率）→ CalibrationError 拒用（文案含违例
-    摘要；形状错单独文案）；样本 <2 点 → CalibrationError（样本不足）。任一测点
+    违例非空或形状错（含 NaN/inf/bool/超出 float 范围的超大数值功率）→
+    CalibrationError 拒用（文案含违例摘要；形状错单独文案）；样本 <2 点 →
+    CalibrationError（样本不足）。档位序列化去重含数值等价检测——'20'、'20.0'
+    与 20 视为同档，重复即 CalibrationError（文案注明两档位表示）。任一测点
     字典可额外携带 'out_path' 键指定表输出路径（缺省 'fn_work/calibrations/
-    gain.json'，目录自动创建）。
+    gain.json'，目录自动创建；out_path 指向已存在目录 → CalibrationError）。
 
     measurements 为 None → 生成【待实测】占位表（entries={}，placeholder=True，
     无任何预写数字，写默认路径——占位请求不携带测点，故无 out_path 来源）。
@@ -120,6 +143,7 @@ def build_gain_calibration(measurements: list | None = None) -> dict:
         )
 
     entries: dict = {}
+    numeric_seen: dict[float, str] = {}
     for index, (step, power) in enumerate(points):
         key = str(step)
         if not key:
@@ -131,12 +155,20 @@ def build_gain_calibration(measurements: list | None = None) -> dict:
                 f"增益标定样本形状非法：档位重复 {key!r}"
                 f"（第 {index} 个测点与此前测点 str(gain_step) 冲突）"
             )
+        number = _step_number(key)
+        if number is not None and number in numeric_seen:
+            raise CalibrationError(
+                f"增益标定样本形状非法：档位数值等价重复 {numeric_seen[number]!r} 与 {key!r}"
+                f"（数值同为 {number:g}，第 {index} 个测点；防同档双写与最近邻匹配摆动）"
+            )
         try:
             entries[key] = {"power_dbm": float(power)}
         except OverflowError:
             raise CalibrationError(
                 f"增益标定样本非法值：第 {index} 个测点功率 {power!r} 超出可表示范围"
             ) from None
+        if number is not None:
+            numeric_seen[number] = key
 
     _write_table(out_path, entries)
     return {

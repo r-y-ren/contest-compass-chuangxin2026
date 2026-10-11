@@ -91,8 +91,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] compensate_link_power · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(compensate_link_power): wired' && echo commit在案 → commit在案 (10-11)
 
 ## B2 批间门
-- [ ] B2 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B2 · 用户裁决 — 预告: 继续 B3 / 修订 / 裁决 blocked
+- [x] B2 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B2 批间评审附条件三项收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 223 passed in 0.15s (10-11)
+- [x] B2 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 -m pytest -k test_defect_b2 -q | tail -1 → 24 passed, 223 deselected in 0.11s (10-11)
 
 ## B3 — stop_transmit_safely, create_run_workspace, append_run_log, finalize_run, manage_run
 ### stop_transmit_safely

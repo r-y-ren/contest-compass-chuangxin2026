@@ -188,3 +188,38 @@ def test_link_compensation_single_point_table_exact_ok_else_extrapolated(tmp_pat
     assert out[1]["confidence"] == "extrapolated"
     assert out[1]["l_link"] == pytest.approx(1.5)
     assert out[1]["c_ant"] == pytest.approx(2.5)
+
+
+# ---------------------------------------------------------------------------
+# B2 对抗审查缺陷回归（高#3/#5）
+# ---------------------------------------------------------------------------
+
+def test_defect_b2_huge_int_freq_or_measurement_invalid(tmp_path):
+    """高#3：10**400 超大 int 频点/测量值 → confidence='invalid'（p_actual=None），不抛 OverflowError。"""
+    cfg, cal = _cfg_with_dir(tmp_path)
+    _write_table(cal, "link_loss", {"2400": 1.0})
+    _write_table(cal, "antenna", {"2400": 2.0})
+    out = compensate_link_power(
+        [(10**400, -40.0), (2400, 10**400), (2400, -40.0)], cfg
+    )
+    assert out[0]["confidence"] == "invalid"
+    assert out[0]["freq_mhz"] is None
+    assert out[0]["p_actual"] is None
+    assert out[1]["confidence"] == "invalid"
+    assert out[1]["p_measured"] is None
+    assert out[1]["p_actual"] is None
+    assert out[2]["confidence"] == "ok"  # 非法点不污染邻点
+    assert out[2]["p_actual"] == pytest.approx(-37.0)
+
+
+def test_defect_b2_deeply_nested_tables_no_table(tmp_path):
+    """高#5 下游：50000 层深嵌套标定表 → CalibrationError 转该表缺表（no_table），不抛。"""
+    cfg, cal = _cfg_with_dir(tmp_path)
+    deep = "[" * 50000 + "]" * 50000
+    (cal / "link_loss.json").write_text(deep, encoding="utf-8")
+    (cal / "antenna.json").write_text(deep, encoding="utf-8")
+    out = compensate_link_power([(2400, -40.0)], cfg)
+    assert out[0]["confidence"] == "no_table"
+    assert out[0]["l_link"] is None
+    assert out[0]["c_ant"] is None
+    assert out[0]["p_actual"] == pytest.approx(-40.0)

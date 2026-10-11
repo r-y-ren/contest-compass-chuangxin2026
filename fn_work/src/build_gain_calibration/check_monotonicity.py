@@ -9,12 +9,18 @@ def _is_finite_real(value: object) -> bool:
 
     int 天然有限（不经过 float 转换，天文数字也不抛 OverflowError），
     bool 是 int 的子类但语义上是开关而非量值，故显式排除。
+    超出 float 表示范围的超大 int 由此处的 _as_float 兜底按形状错拒收。
     """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
     if isinstance(value, float):
         return math.isfinite(value)
     return True
+
+
+def _as_float(value: int | float) -> float:
+    """把已通过有限实数判定的量值转为 float；超大 int 触发 OverflowError 由调用方按形状错处理。"""
+    return float(value)
 
 
 def _shape(detail: str) -> list[dict]:
@@ -34,16 +40,20 @@ def check_monotonicity(points: list, tolerance_db: float = 0.0) -> list:
     prev_power_dbm（前点功率）、drop_db（降幅=前点-本点）。
 
     不抛异常：形状错（points 非序列/空序列/元素非二元组/功率非有限实数或为
-    bool/容差非法）返回单条违例 {error: 'shape', detail: ...} 并短路。
+    bool/容差非法或为负/功率超出 float 可表示范围）返回单条违例
+    {error: 'shape', detail: ...} 并短路。
     """
     if not _is_finite_real(tolerance_db):
         return _shape(f"容差 tolerance_db 应为有限实数，实际为 {tolerance_db!r}")
+    if tolerance_db < 0:  # -0.0 < 0 为 False，按 0 对待不违例
+        return _shape(f"容差 tolerance_db 须为非负数，实际为 {tolerance_db!r}")
     if not isinstance(points, (list, tuple)):
         return _shape(f"points 应为 (档位, 功率) 序列，实际为 {type(points).__name__}")
     if len(points) == 0:
         return _shape("points 为空序列：单调性校验至少需要一个 (档位, 功率) 样本")
 
-    prev_power: float | None = None
+    prev_power = None
+    prev_power_float: float | None = None
     violations: list[dict] = []
     for index, item in enumerate(points):
         if not isinstance(item, (tuple, list)) or len(item) != 2:
@@ -53,8 +63,15 @@ def check_monotonicity(points: list, tolerance_db: float = 0.0) -> list:
             return _shape(
                 f"第 {index} 个元素功率应为有限实数（bool 除外），实际为 {power!r}"
             )
+        try:
+            power_float = _as_float(power)
+        except OverflowError:
+            return _shape(
+                f"第 {index} 个元素功率超出 float 可表示范围（超大数值无法比较降幅），"
+                f"实际为 {power!r}"
+            )
         if prev_power is not None:
-            drop_db = float(prev_power) - float(power)
+            drop_db = prev_power_float - power_float
             if drop_db > tolerance_db:
                 violations.append(
                     {
@@ -66,4 +83,5 @@ def check_monotonicity(points: list, tolerance_db: float = 0.0) -> list:
                     }
                 )
         prev_power = power
+        prev_power_float = power_float
     return violations

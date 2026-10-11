@@ -119,3 +119,56 @@ def test_jsr_calibration_empty_entries_unavailable(tmp_path):
     _write_gain(cal_dir, {})
     result = lookup_jsr("10", _FREQ_HZ, -30.0, config)
     assert result["status"] == "unavailable"
+
+
+# ---------------------------------------------------------------------------
+# B2 对抗审查缺陷回归（高#2/#5/中#8）
+# ---------------------------------------------------------------------------
+
+def test_defect_b2_huge_int_freq_hz_recorded_none_no_raise(tmp_path):
+    """高#2：10**400 频率仅记录语义 → freq_mhz=None 继续走查表，不抛 OverflowError。"""
+    config, cal_dir = _make_config(tmp_path)
+    _write_gain(cal_dir, {"10": {"power_dbm": -10.0}})
+    result = lookup_jsr("10", 10**400, -30.0, config)
+    assert result["status"] == "ok"
+    assert result["freq_mhz"] is None
+    assert result["jsr_db"] == -10.0 - (-30.0)
+
+
+def test_defect_b2_huge_int_signal_power_invalid_signal(tmp_path):
+    """同族（高#2/高#3 口径）：10**400 信号功率 → invalid_signal 状态机，不抛 OverflowError。"""
+    config, cal_dir = _make_config(tmp_path)
+    _write_gain(cal_dir, {"10": {"power_dbm": -10.0}})
+    result = lookup_jsr("10", _FREQ_HZ, 10**400, config)
+    assert result["status"] == "invalid_signal"
+
+
+def test_defect_b2_deeply_nested_gain_table_missing_table(tmp_path):
+    """高#5 下游：50000 层深嵌套 gain.json → missing_table（CalibrationError 转状态），不抛。"""
+    config, cal_dir = _make_config(tmp_path)
+    cal_dir.joinpath("gain.json").write_text("[" * 50000 + "]" * 50000, encoding="utf-8")
+    result = lookup_jsr("10", _FREQ_HZ, -30.0, config)
+    assert result["status"] == "missing_table"
+
+
+def test_defect_b2_numeric_equivalent_keys_table_missing_table(tmp_path):
+    """中#8 下游：含 '20'+'20.0' 数值等价键的 gain.json 被 loader 拒收 → missing_table。"""
+    config, cal_dir = _make_config(tmp_path)
+    cal_dir.joinpath("gain.json").write_text(
+        json.dumps({"20": {"power_dbm": 0.0}, "20.0": {"power_dbm": 5.0}}), encoding="utf-8"
+    )
+    result = lookup_jsr("20", _FREQ_HZ, -30.0, config)
+    assert result["status"] == "missing_table"
+
+
+def test_defect_b2_nearest_match_stable_across_step_representations(tmp_path):
+    """中#8 下游：合法表上 '20.0'/20.0/20/'20' 各种档位表示反复查询，命中稳定不摆动。"""
+    config, cal_dir = _make_config(tmp_path)
+    _write_gain(cal_dir, {"20": {"power_dbm": -5.0}, "30": {"power_dbm": 0.0}})
+    for step in ("20.0", 20.0, 20, "20"):
+        for _ in range(3):
+            result = lookup_jsr(step, _FREQ_HZ, -30.0, config)
+            assert result["status"] == "ok"
+            assert result["matched_gain_step"] == "20"
+            assert result["nearest"] is False
+            assert result["injected_power_dbm"] == -5.0

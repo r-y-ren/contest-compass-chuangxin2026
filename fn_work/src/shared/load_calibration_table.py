@@ -33,10 +33,14 @@ def _no_duplicate_pairs(pairs: list) -> dict:
 
 
 def _checked_number(value: object, where: str) -> int | float:
-    """数值必须为有限的非 bool 数值，否则视为损坏。"""
+    """数值必须为有限的非 bool 数值，否则视为损坏（含超出 float 表示范围的超大 int）。"""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise CalibrationError(f"{where} 期望数值，实际 {type(value).__name__}（bool 不作数值）")
-    if not math.isfinite(value):
+    try:
+        finite = math.isfinite(value)
+    except OverflowError:  # 400 位整数等超大 int 转 float 溢出
+        raise CalibrationError(f"{where} 数值超出可表示范围（超大数值视为损坏）") from None
+    if not finite:
         raise CalibrationError(f"{where} 数值非有限（NaN/inf 视为损坏）")
     return value
 
@@ -52,17 +56,36 @@ def _checked_freq_mhz(key: str, where: str) -> float:
     return freq
 
 
+def _step_number(key: str) -> float | None:
+    """gain 档位键的数值归一：可解析为有限数值则返回其值，否则 None（纯标签档）。"""
+    try:
+        number = float(key)
+    except ValueError:
+        return None
+    return number if math.isfinite(number) else None
+
+
 def _validate_entries(table_name: str, raw: dict) -> dict:
     """按表名约定校验结构并规范化 entries。
 
-    'gain'：键=档位标识（非空字符串），值={"power_dbm": float}；
+    'gain'：键=档位标识（非空字符串），值={"power_dbm": float}；档位键做数值归一
+    重复检测（与 link_loss/antenna 频点侧一致）——'20' 与 '20.0' 同表视为重复。
     'link_loss'/'antenna'：键=频点 MHz（数值字符串，规范化为 float），值=dB 数值。
     """
     entries: dict = {}
     if table_name == "gain":
+        numeric_seen: dict[float, str] = {}
         for key, value in raw.items():
             if not isinstance(key, str) or not key:
                 raise CalibrationError(f"gain 档位键必须为非空字符串，实际 {key!r}")
+            number = _step_number(key)
+            if number is not None and number in numeric_seen:
+                raise CalibrationError(
+                    f"gain 档位键数值等价重复: {key!r} 与 {numeric_seen[number]!r}"
+                    f"（数值同为 {number:g}，防最近邻匹配摆动）"
+                )
+            if number is not None:
+                numeric_seen[number] = key
             where = f"gain[{key!r}]"
             if not isinstance(value, dict):
                 raise CalibrationError(f"{where} 期望 {{'power_dbm': float}}，实际 {type(value).__name__}")
@@ -93,8 +116,9 @@ def load_calibration_table(table_name: str, config: dict, *, placeholder: bool =
 
     返回只读视图 {name, source, entries, placeholder, meta}，其中 entries 与 meta 深度只读。
     缺表时：placeholder=True → 返回【待实测】占位视图（entries 为空，禁止预写数字）；
-    placeholder=False → CalibrationError。文件损坏（非法 JSON、结构不符、NaN/inf、bool 数值、
-    重复键）、表名未知、标定目录不存在 → 一律 CalibrationError（含原因）。
+    placeholder=False → CalibrationError。文件损坏（非法 JSON、嵌套过深触发 RecursionError、
+    结构不符、NaN/inf、bool 数值、超大数值、重复键含 gain 档位数值等价重复）、表名未知、
+    标定目录不存在 → 一律 CalibrationError（含原因）。
     """
     if not isinstance(table_name, str) or table_name not in _VALID_TABLE_NAMES:
         raise CalibrationError(f"未知标定表名 {table_name!r}（合法: {'|'.join(_VALID_TABLE_NAMES)}）")
@@ -136,6 +160,8 @@ def load_calibration_table(table_name: str, config: dict, *, placeholder: bool =
         raise CalibrationError(f"标定表损坏（非法 JSON）: {path}: {exc}") from exc
     except OSError as exc:
         raise CalibrationError(f"标定表不可读: {path}: {exc}") from exc
+    except RecursionError as exc:
+        raise CalibrationError(f"标定表损坏（JSON 嵌套过深超解析递归上限）: {path}: {exc}") from exc
 
     if not isinstance(raw, dict):
         raise CalibrationError(f"标定表结构不符: 顶层应为 JSON 对象，实际 {type(raw).__name__}（{path}）")

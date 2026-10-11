@@ -24,10 +24,15 @@ class CalibrationWarn(Warning):
 
 
 def _require_finite_number(value: Any, label: str) -> float:
-    """校验 value 为有限数值（拒绝 bool/字符串/NaN/Inf），返回 float。"""
+    """校验 value 为有限数值（拒绝 bool/字符串/NaN/Inf/超出 float 表示范围的超大数值），返回 float。"""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{label} 必须为数值，实际类型为 {type(value).__name__}")
-    number = float(value)
+    try:
+        number = float(value)
+    except OverflowError:
+        raise ValueError(
+            f"{label} 必须为有限数值，实际超出 float 可表示范围（超大数值）: {value!r}"
+        ) from None
     if not math.isfinite(number):
         raise ValueError(f"{label} 必须为有限数值，实际为 {number}")
     return number
@@ -57,7 +62,10 @@ def _validate_points(raw_points: Any) -> list[dict]:
 
 
 def _write_table(out_path: str, table: list[dict], sufficient: bool) -> None:
-    """把标定表写为 JSON；样本不足时以 status=insufficient 标注。"""
+    """把标定表写为 JSON；样本不足时以 status=insufficient 标注。
+
+    out_path 指向已存在目录（IsADirectoryError）→ ValueError（保持声明通道，文案含路径）。
+    """
     parent = os.path.dirname(os.path.abspath(out_path))
     os.makedirs(parent, exist_ok=True)
     payload = {
@@ -68,8 +76,11 @@ def _write_table(out_path: str, table: list[dict], sufficient: bool) -> None:
         "coupling_unit": "dB",
         "table": table,
     }
-    with open(out_path, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False, indent=2)
+    try:
+        with open(out_path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False, indent=2)
+    except IsADirectoryError as exc:
+        raise ValueError(f"out_path 指向已存在目录，无法写出标定表: {out_path}") from exc
 
 
 def _calibrate_session(session_data: Any) -> dict:

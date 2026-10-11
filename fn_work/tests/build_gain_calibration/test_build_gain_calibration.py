@@ -216,3 +216,51 @@ def test_gain_calibration_default_out_path_under_cwd(tmp_path, monkeypatch):
     expected = tmp_path / "fn_work" / "calibrations" / "gain.json"
     assert result["table_path"] == os.path.join("fn_work", "calibrations", "gain.json")
     assert json.loads(expected.read_text(encoding="utf-8")) == _MONOTONE_FIVE_ENTRIES
+
+
+# ---------------------------------------------------------------------------
+# B2 对抗审查缺陷回归（高#1/#6/中#8）
+# ---------------------------------------------------------------------------
+
+def test_defect_b2_huge_int_power_rejected_via_calibration_error(tmp_path):
+    """高#1 连带：10**400 功率经 check_monotonicity 形状违例进入 CalibrationError 通道（守卫恢复可达），不抛 OverflowError。"""
+    out = tmp_path / "gain.json"
+    poisoned = [
+        {"gain_step": "L1", "power_dbm": 0.0},
+        {"gain_step": "L2", "power_dbm": 10**400},
+    ]
+    with pytest.raises(CalibrationError, match="超大"):
+        build_gain_calibration(_with_out_path(poisoned, out))
+    assert not out.exists()
+
+
+def test_defect_b2_out_path_existing_directory_rejected(tmp_path):
+    """高#6：out_path 指向已存在目录 → CalibrationError（文案含路径），而非裸 IsADirectoryError。"""
+    out_dir = tmp_path / "as_dir"
+    out_dir.mkdir()
+    with pytest.raises(CalibrationError) as excinfo:
+        build_gain_calibration(_with_out_path(_MONOTONE_FIVE, out_dir))
+    assert str(out_dir) in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "first_step, second_step, pattern",
+    [
+        ("20", "20.0", "数值等价"),
+        (20, 20.0, "数值等价"),
+        ("20", 20, "重复"),  # str(20)=="20"：精确字符串重复通道
+    ],
+)
+def test_defect_b2_numeric_equivalent_step_labels_rejected(tmp_path, first_step, second_step, pattern):
+    """中#8：'20'/'20.0'/20 数值等价同档 → CalibrationError，文案注明两档位表示，不落表。"""
+    out = tmp_path / "gain.json"
+    duplicated = [
+        {"gain_step": first_step, "power_dbm": 0.0},
+        {"gain_step": second_step, "power_dbm": 5.0},
+    ]
+    with pytest.raises(CalibrationError, match=pattern) as excinfo:
+        build_gain_calibration(_with_out_path(duplicated, out))
+    if pattern == "数值等价":
+        message = str(excinfo.value)
+        assert "'20'" in message and "'20.0'" in message  # 两种档位表示均注明
+    assert not out.exists()

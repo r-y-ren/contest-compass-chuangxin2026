@@ -156,3 +156,35 @@ class TestBoundaries:
         # 不抛异常契约：各种垃圾输入都返回列表而非抛出。
         for bad in ([], [1, 2], [("a",)], [("a", True)], "xy", None):
             assert isinstance(check_monotonicity(bad), list)
+
+
+class TestDefectB2Regression:
+    """B2 对抗审查缺陷回归（高#1 超大 int 功率 / 低#14 负容差）：一律不抛异常、按形状违例返回。"""
+
+    def test_defect_b2_huge_int_power_returns_shape_violation(self):
+        # 10**400 级大整数功率：int→float 转换溢出须按 shape 违例返回而非 OverflowError。
+        result = check_monotonicity([("a", 1), ("b", 10**400)])
+        assert _is_shape(result)
+        assert "超大" in result[0]["detail"]
+
+    def test_defect_b2_huge_int_power_at_first_point_returns_shape_violation(self):
+        result = check_monotonicity([("a", 10**400), ("b", 2.0)])
+        assert _is_shape(result)
+        assert "超大" in result[0]["detail"]
+
+    def test_defect_b2_huge_int_powers_never_raise(self):
+        for points in ([("a", 10**400)], [("a", 10**400), ("b", 10**400)], [(1, 10**400), (2, 1)]):
+            assert isinstance(check_monotonicity(points), list)
+
+    def test_defect_b2_negative_tolerance_returns_shape_violation(self):
+        # 负容差：shape 违例且文案注明容差须非负。
+        result = check_monotonicity([("a", 1.0), ("b", 2.0)], tolerance_db=-1.0)
+        assert _is_shape(result)
+        assert "非负" in result[0]["detail"]
+
+    def test_defect_b2_negative_zero_tolerance_treated_as_zero(self):
+        # -0.0 视为 0：本身不触发形状违例；等功率不违例，微降仍按 0 容差判违例。
+        assert check_monotonicity([("a", 1.0), ("b", 1.0)], tolerance_db=-0.0) == []
+        result = check_monotonicity([("a", 1.0), ("b", 0.5)], tolerance_db=-0.0)
+        assert len(result) == 1
+        assert result[0]["drop_db"] == pytest.approx(0.5)

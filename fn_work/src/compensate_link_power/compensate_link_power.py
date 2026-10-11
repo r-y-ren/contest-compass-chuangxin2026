@@ -19,15 +19,23 @@ _INVALID = "invalid"
 _TABLE_FIELDS = (("link_loss", "l_link"), ("antenna", "c_ant"))
 
 
-def _is_valid_number(value: object) -> bool:
-    """有限非 bool 数值（频点/测量值/表值的统一合法性口径）。"""
-    return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
+def _to_finite_float(value: object) -> float | None:
+    """数值合法性统一口径：bool/非数值/NaN/±inf/超出 float 表示范围的超大数值 → None，
+    否则返回其 float 值（先 try float() 捕 OverflowError，杜绝 10**400 级 int 击穿不抛出契约）。"""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _make_ladder(entries: object) -> tuple[list[float], list[float]] | None:
     """entries（频点 MHz→dB）规范化为升序 (freqs, values) 平行列表；无可信条目 → None（视同缺表）。
 
-    显式传入的 entries 未经文件加载校验，此处逐条剔除非法键值（bool/NaN/inf/非数值，数值字符串键宽容解析）。
+    显式传入的 entries 未经文件加载校验，此处逐条剔除非法键值
+    （bool/NaN/inf/非数值/超出 float 范围，数值字符串键宽容解析）。
     """
     pairs: dict[float, float] = {}
     if isinstance(entries, Mapping):  # 兼容文件加载返回的 MappingProxyType 只读视图
@@ -37,9 +45,11 @@ def _make_ladder(entries: object) -> tuple[list[float], list[float]] | None:
                     key = float(key)
                 except ValueError:
                     continue
-            if not _is_valid_number(key) or not _is_valid_number(value):
+            key_f = _to_finite_float(key)
+            value_f = _to_finite_float(value)
+            if key_f is None or value_f is None:
                 continue
-            pairs.setdefault(float(key), float(value))
+            pairs.setdefault(key_f, value_f)
     if not pairs:
         return None
     freqs = sorted(pairs)
@@ -86,21 +96,21 @@ def _resolve_ladders(config: dict, tables: dict | None) -> dict:
 
 
 def _compensate_point(item: object, ladders: dict) -> dict:
-    """单点补偿：非法点标 invalid；公式(6) P_actual=P_measured+L_link+C_ant（缺失项不计入）。"""
+    """单点补偿：非法点（含超大 int 频点/测量值）标 invalid；公式(6) P_actual=P_measured+L_link+C_ant（缺失项不计入）。"""
     freq = p_measured = None
     if isinstance(item, (tuple, list)) and len(item) == 2:
         freq, p_measured = item
-    freq_ok = _is_valid_number(freq)
-    p_ok = _is_valid_number(p_measured)
+    freq_f = _to_finite_float(freq)
+    p_f = _to_finite_float(p_measured)
     point = {
-        "freq_mhz": float(freq) if freq_ok else None,
-        "p_measured": float(p_measured) if p_ok else None,
+        "freq_mhz": freq_f,
+        "p_measured": p_f,
         "l_link": None,
         "c_ant": None,
         "p_actual": None,
         "confidence": _INVALID,
     }
-    if not freq_ok or not p_ok:
+    if freq_f is None or p_f is None:
         return point
 
     statuses: list[str] = []
@@ -143,7 +153,7 @@ def compensate_link_power(measurements: list, config: dict, tables: dict | None 
     - 'extrapolated'：任一在表频点区间外 → 该表取最近端点值；
     - 'no_table'：任一表缺失/【待实测】占位/损坏（CalibrationError）→ 该表贡献记 None，
       p_actual=测量值+已知项（未知项不计）；
-    - 'invalid'：频点或测量值非法（NaN/inf/bool/非二元组）→ p_actual=None，不抛出。
+    - 'invalid'：频点或测量值非法（NaN/inf/bool/非二元组/超出 float 表示范围的超大数值）→ p_actual=None，不抛出。
     空序列 → []。
     """
     try:

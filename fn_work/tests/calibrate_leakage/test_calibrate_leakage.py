@@ -180,3 +180,66 @@ def test_leak_calibration_nonpositive_freq_rejected(tmp_path):
                 "out_path": str(tmp_path / "zero_freq.json"),
             }
         )
+
+
+# ---------------------------------------------------------------------------
+# B2 对抗审查缺陷回归（高#4/#7）
+# ---------------------------------------------------------------------------
+
+_VALID_THREE_POINTS = [
+    {"freq_mhz": 100.0, "coupling_db": -30.0},
+    {"freq_mhz": 200.0, "coupling_db": -20.0},
+    {"freq_mhz": 300.0, "coupling_db": -10.0},
+]
+
+
+def test_defect_b2_huge_int_coupling_valueerror(tmp_path):
+    """高#4：10**400 耦合值 → ValueError（保持声明通道，文案注明超大数值），不抛 OverflowError、不落表。"""
+    table_path = tmp_path / "huge.json"
+    with pytest.raises(ValueError, match="超大") as excinfo:
+        calibrate_leakage(
+            session_data={
+                "points": [
+                    {"freq_mhz": 100.0, "coupling_db": -30.0},
+                    {"freq_mhz": 200.0, "coupling_db": 10**400},
+                    {"freq_mhz": 300.0, "coupling_db": -20.0},
+                ],
+                "out_path": str(table_path),
+            }
+        )
+    assert "有限" in str(excinfo.value)  # 与既有有限数值文案口径一致
+    assert not table_path.exists()
+
+
+def test_defect_b2_huge_int_freq_and_measured_valueerror(tmp_path):
+    """高#4 同族：10**400 频点（会话模式）与 10**400 measured_db（扣除请求）→ ValueError，不抛 OverflowError。"""
+    with pytest.raises(ValueError):
+        calibrate_leakage(
+            session_data={
+                "points": [
+                    {"freq_mhz": 10**400, "coupling_db": -30.0},
+                    {"freq_mhz": 200.0, "coupling_db": -20.0},
+                    {"freq_mhz": 300.0, "coupling_db": -10.0},
+                ],
+                "out_path": str(tmp_path / "huge_freq.json"),
+            }
+        )
+    with pytest.raises(ValueError):
+        calibrate_leakage(
+            request={
+                "table_path": str(tmp_path / "no_such.json"),
+                "measured_db": 10**400,
+                "freq_mhz": 150.0,
+            }
+        )
+
+
+def test_defect_b2_session_out_path_directory_valueerror(tmp_path):
+    """高#7：会话模式 out_path 指向已存在目录 → ValueError（文案含路径），而非裸 IsADirectoryError。"""
+    out_dir = tmp_path / "adir"
+    out_dir.mkdir()
+    with pytest.raises(ValueError) as excinfo:
+        calibrate_leakage(
+            session_data={"points": _VALID_THREE_POINTS, "out_path": str(out_dir)}
+        )
+    assert str(out_dir) in str(excinfo.value)
