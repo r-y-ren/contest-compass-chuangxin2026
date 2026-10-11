@@ -19,7 +19,7 @@
 | create_run_workspace | B3 | wired 10-11 | 10 passed；八件套骨架 | 21438d9 |
 | append_run_log | B3 | wired 10-11 | 11 passed；行级落盘+环形缓冲降级 | 1180b83 |
 | finalize_run | B3 | wired 10-11 | 18 passed；result.json+missing 清单 | b77903d |
-| manage_run | B3 | wired 10-11 | 12 passed；实跑 done+停发射+八件套 | pending |
+| manage_run | B3 | wired 10-11 | 12 passed；实跑 done+停发射+八件套 | 6156e9b |
 | register_backend | B4 | stub 10-11 | 上游覆盖: manage_backend_registry | — |
 | lookup_backend | B4 | stub 10-11 | 上游覆盖: manage_backend_registry | — |
 | manage_backend_registry | B4 | stub 10-11 | pytest -k slot_registry | — |

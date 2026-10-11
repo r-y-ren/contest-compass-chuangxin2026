@@ -124,7 +124,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] manage_run · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k run_lifecycle -q | tail -1 → 12 passed, 303 deselected in 0.11s (10-11)
 - [x] manage_run · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b3.py | grep -q 'done+停发射' && echo 顶层实跑通过 → 顶层实跑通过 (10-11)
 - [x] manage_run · 清单进位 — 证据: bash -c grep -q '| manage_run | B3 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] manage_run · commit — 预告: fn(manage_run): wired 含四文档变更
+- [x] manage_run · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(manage_run)' && echo commit在案 → commit在案 (10-11)
 
 ## B3 批间门
 - [ ] B3 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
