@@ -18,6 +18,10 @@ _ALLOWED_METHOD_NAMES: frozenset[str] = frozenset(
     name for names in CONTRACT_METHODS.values() for name in names
 )
 
+# 保留路由名（小写口径）：lookup_backend 永不把它解析到注册表（交 autodetect_backend
+# 决策），注册侧一并直接拒绝——杜绝登记一个永远查不到的"幽灵后端"。
+_RESERVED_NAME = "auto"
+
 
 class BackendError(Exception):
     """后端注册错误：名称非法 / 工厂不可调用 / meta 缺 caps / 契约形式检查不过 / 重名未授权。"""
@@ -104,9 +108,11 @@ def register_backend(
     （必含 caps: {'tx': bool, 'rx': bool, 'freq_range_mhz': (lo, hi)}）；override
     显式授权覆盖重名；method_names 实例方法名清单（None 缺省跳过契约检查，检查
     延迟到首次实例化）。
-    输出: {'registered': True, 'replaced': bool}（replaced=True 仅出现在 override 覆盖）。
-    错误: BackendError——名称非法（空/非 str）/工厂不可调用/meta 缺 caps/契约形式
-    检查不过（未约定方法名、声明能力缺方法）/重名且未显式 override。
+    输出: {'registered': True, 'replaced': bool}（replaced=True 仅出现在 override 覆盖，
+    含大小写变体覆盖——旧规范名键一并让位，不产生双键）。
+    错误: BackendError——名称非法（空/非 str/保留名 'auto'，大小写不敏感，override
+    也不放行）/工厂不可调用/meta 缺 caps/契约形式检查不过（未约定方法名、声明能力
+    缺方法）/重名且未显式 override（重名按大小写不敏感口径：'SIM' 与 'sim' 冲突）。
     所有校验先于注册表写入：失败路径不产生任何登记（无半写状态）。
     """
     name = _check_name(name)
@@ -114,10 +120,20 @@ def register_backend(
     caps = _check_meta(meta)
     if method_names is not None:
         _check_contract(method_names, caps)
-    replaced = name in REGISTRY
+    lowered = name.lower()
+    if lowered == _RESERVED_NAME:
+        raise BackendError(
+            f"名称非法: {name!r} 为保留名（'auto' 交 autodetect_backend 决策路由），"
+            "不允许注册（override 亦不放行）"
+        )
+    existing = next((key for key in REGISTRY if key.lower() == lowered), None)
+    replaced = existing is not None
     if replaced and not override:
         raise BackendError(
-            f"重名: 后端 {name!r} 已注册，覆盖须显式 override=True（已注册: {sorted(REGISTRY)}）"
+            f"重名: 后端 {name!r} 与已注册 {existing!r} 冲突（大小写不敏感口径），"
+            f"覆盖须显式 override=True（已注册: {sorted(REGISTRY)}）"
         )
+    if existing is not None:
+        del REGISTRY[existing]  # 大小写变体覆盖：旧键让位，避免同名异键双查歧义
     REGISTRY[name] = {"factory": factory, "meta": meta}
     return {"registered": True, "replaced": replaced}

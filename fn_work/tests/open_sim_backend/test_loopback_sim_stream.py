@@ -167,3 +167,26 @@ def test_clamped_annotation_present_on_every_block():
     assert out[1][1]["clamped"] == expected_clamp  # 真实块带标注
     assert out[1][0] == pytest.approx([100j])  # 夹紧后 ×100
     assert [m["rx_ts"] for _, m in out] == [0, 1]
+
+
+def test_noise_and_leak_overflow_clamped_not_raised():
+    """⑬ 对抗：noise_dbm=4000 / lo_leak_db=10000 会让预推导 10**x 溢出——按上界夹紧
+    （noise→30dBm、leak→60dB）并标注 clamped，不抛 OverflowError，样本保持有限。"""
+    blocks = [[1 + 0j, 1 + 0j]]
+    out = _collect(loopback_sim_stream(blocks, {"noise_dbm": 4000.0, "lo_leak_db": 10000.0}))
+    (rx, meta), = out
+    assert meta["clamped"]["noise_dbm"] == {"from": 4000.0, "to": 30.0}
+    assert meta["clamped"]["lo_leak_db"] == {"from": 10000.0, "to": 60.0}
+    # 夹紧后：噪声 sigma=sqrt(1/2)（30dBm=1W、I/Q 各半），泄漏 DC=RMS×10**(60/20)=1000
+    assert all(math.isfinite(s.real) and math.isfinite(s.imag) for s in rx)
+    for s in rx:
+        assert s.real == pytest.approx(1000.0, abs=10.0)  # DC 主导，噪声 ±~7σ 内
+        assert abs(s.imag) < 10.0  # 虚轴只剩 ±sqrt(1/2) 量级噪声
+
+
+def test_noise_leak_at_bounds_not_clamped():
+    """⑭ 恰在边界（noise=30dBm、leak=60dB）不夹紧：clamped 不含对应键。"""
+    out = _collect(loopback_sim_stream([[1 + 0j]], {"noise_dbm": 30.0, "lo_leak_db": 60.0}))
+    (rx, meta), = out
+    assert "clamped" not in meta
+    assert math.isfinite(rx[0].real) and math.isfinite(rx[0].imag)

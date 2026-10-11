@@ -9,9 +9,12 @@ import os
 import struct
 from typing import Iterator
 
+# BackendError 单一事实源在注册表包（本包原先的本地定义已删除）：本模块 re-export
+# 同一类——注册表侧调用方 `except BackendError` 能直接接住回放文件的错误，
+# 外部 `from ...read_sigmf_timeline import BackendError` 的既有用法不破坏。
+from src.manage_backend_registry.register_backend import BackendError
 
-class BackendError(Exception):
-    """回放后端错误：SigMF 录制对文件缺失/字段缺/数据截断/时间轴断裂/datatype 不支持。"""
+__all__ = ["BackendError", "read_sigmf_timeline"]
 
 
 # datatype → (struct 解包码, 每复样本字节数, 满量程缩放；None=浮点原值不缩放)
@@ -20,6 +23,16 @@ _DATATYPES = {
     "ci16_le": ("<2h", 4, 32767.0),
     "ci8_le": ("<2b", 2, 127.0),
 }
+
+
+def _reject_nonfinite_literal(literal: str) -> float:
+    """json.load 的 parse_constant 回调：NaN/Infinity/-Infinity 字面量一律拒。
+
+    比逐字段后查更彻底——任何位置（含未来新增字段）的非有限字面量都在解析期即抛
+    ValueError，由外层统一转 BackendError。（注意 parse_constant 只覆盖这三个常量
+    字面量，普通数值溢出如 1e999 仍走各字段自身的域校验。）
+    """
+    raise ValueError(f"元数据含非有限数字字面量: {literal}")
 
 
 def _field(obj: dict, name: str):
@@ -39,8 +52,8 @@ def read_sigmf_timeline(sigmf_pair: str, block_size: int = 65536) -> Iterator[di
     输入: sigmf_pair=.sigmf-meta 路径（.sigmf-data 同名替换后缀）、block_size=每块样本数。
     输出: 生成器，逐块 dict：{'samples': list[complex], 'sample_start': int,
           'time_s': sample_start/sample_rate, 'annotations': 覆盖该块的标注原对象列表}。
-    错误: BackendError（meta/data 文件缺失、元数据损坏或缺字段、datatype 不支持、
-          声明 num_samples 与实际字节数不符、captures 非升序即时间轴断裂）；
+    错误: BackendError（meta/data 文件缺失、元数据损坏/含 NaN|Infinity 字面量或缺字段、
+          datatype 不支持、声明 num_samples 与实际字节数不符、captures 非升序即时间轴断裂）；
           block_size<=0 → ValueError。所有校验在调用时即刻执行（首块前报错）。
     """
     if block_size <= 0:
@@ -59,8 +72,9 @@ def read_sigmf_timeline(sigmf_pair: str, block_size: int = 65536) -> Iterator[di
 
     try:
         with open(meta_path, "r", encoding="utf-8") as fh:
-            meta = json.load(fh)
-    except (OSError, ValueError) as exc:  # ValueError 覆盖 JSONDecodeError/UnicodeDecodeError
+            # parse_constant 拒 NaN/Infinity/-Infinity 字面量（sample_rate=NaN 等在此即拒）
+            meta = json.load(fh, parse_constant=_reject_nonfinite_literal)
+    except (OSError, ValueError) as exc:  # ValueError 覆盖 JSONDecodeError/UnicodeDecodeError/非有限字面量
         raise BackendError(f"SigMF 元数据不可解析: {meta_path}: {exc}") from exc
     if not isinstance(meta, dict):
         raise BackendError("SigMF 元数据根必须是 JSON 对象")

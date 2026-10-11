@@ -204,3 +204,37 @@ def test_backend_sim_start_tx_invalid_effects_value_error():
     with pytest.raises(ValueError):
         be.start_tx([[1 + 0j] * 4], effects="gain_db=-6")
     assert be.read_samples() == []
+
+
+def test_backend_sim_start_tx_bad_effects_atomic_rejection():
+    # 用例17: 发射中 start_tx 非法 effects → 原子拒绝：校验先于 stop_tx/清缓冲，
+    # 旧流残余保留、streaming 不变，旧源照常续读
+    be = open_sim_backend({"tx_gain_db": 0})
+    be.start_tx([[5 + 0j] * 4 for _ in range(10)])
+    first = be.read_samples()  # 泵入 4 块、弹出 1 块 → 缓冲余 3 块旧流残余
+    assert first and abs(first[0][0][0]) == 5.0
+    with pytest.raises(ValueError):
+        be.start_tx([[1 + 0j] * 4], effects={"noise_dbm": "loud"})  # 非法 effects
+    assert be.streaming is True  # 旧发射登记态不受坏 effects 影响
+    residual = _drain(be)
+    assert len(residual) == 9  # 3 块残余 + 旧源剩余 6 块（共 10，已弹 1）
+    assert all(abs(b[0]) == 5.0 for b, _ in residual)  # 全是旧流，无半途换流
+    assert not be.read_samples()
+
+
+def test_backend_sim_source_exception_clears_streaming_immediately():
+    # 用例18: 源生成器第 3 块抛异常：异常上抛且 streaming 即时转 False（不虚报），
+    # 已变换入缓冲的 2 块残余仍可续读
+    def flaky_source():
+        yield [1 + 0j] * 4
+        yield [2 + 0j] * 4
+        raise RuntimeError("source boom")
+
+    be = open_sim_backend({})
+    be.start_tx(flaky_source(), effects={})
+    with pytest.raises(RuntimeError, match="source boom"):
+        be.read_samples()  # 泵送（target=4）途中源异常冒出
+    assert be.streaming is False  # 即时撤销（而非等下一次 read 才自愈）
+    residual = _drain(be)
+    assert [abs(b[0]) for b, _ in residual] == [1.0, 2.0]  # 已入缓冲残余照常可读
+    assert not be.read_samples()

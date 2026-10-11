@@ -201,3 +201,53 @@ def test_backend_replay_speed_wallclock_annotation_without_sleep(tmp_path):
     assert b1["time_s"] == 1 / 1000
     assert b0["wallclock_s"] == 0.0
     assert b1["wallclock_s"] == (1 / 1000) / 4.0
+
+
+def test_backend_replay_registered_in_registry_lookup_and_instantiate(tmp_path):
+    # 集成: import open_sim_backend 与 open_replay_backend 两模块后，lookup('replay')
+    # 可取回自注册工厂（import 期 override=True 幂等），并按注册表惯例（单 params dict）
+    # 实例化出可读的 ReplayBackend
+    import src.open_sim_backend.open_sim_backend  # noqa: F401 —— 两后端共存注册互不干扰
+    from src.manage_backend_registry.lookup_backend import lookup_backend
+
+    factory, meta = lookup_backend("replay")
+    assert callable(factory)
+    assert meta["kind"] == "replay"
+    assert meta["caps"] == {"tx": False, "rx": True}
+    assert set(meta["params"]) == {"sigmf_path", "speed", "block_size"}  # 参数形状已注明
+    meta_path = _write_pair(
+        tmp_path, num_samples=2, samples_bytes=_cf32_bytes((1.0, 0.0), (0.0, 1.0))
+    )
+    inst = factory({"sigmf_path": meta_path, "speed": 2.0, "block_size": 1})
+    assert isinstance(inst, ReplayBackend)
+    b0, b1 = inst.read_samples(), inst.read_samples()
+    assert b0["samples"] == [1.0 + 0j] and b0["wallclock_s"] == 0.0
+    assert b1["wallclock_s"] == (1 / 2_000_000) / 2.0  # speed=2 透传生效
+    # speed/block_size 可缺省（按 meta['params'] 注明的缺省值）
+    inst2 = factory({"sigmf_path": meta_path})
+    caps = inst2.capabilities()
+    assert caps["speed"] == 1.0 and caps["block_size"] == 65536
+
+
+def test_backend_replay_speed_non_finite_or_bool_rejected(tmp_path):
+    # 对抗：speed=inf/-inf/NaN/bool 一律 ValueError（与 sim 侧数值口径一致），
+    # 且校验先于文件打开（路径不存在 + speed=inf 仍是 ValueError 非 BackendError）
+    meta = _write_pair(tmp_path, num_samples=1, samples_bytes=_cf32_bytes((1.0, 1.0)))
+    for bad in (float("inf"), float("-inf"), float("nan"), True, False):
+        with pytest.raises(ValueError):
+            open_replay_backend(meta, speed=bad)
+    with pytest.raises(ValueError):
+        open_replay_backend(str(tmp_path / "nope.sigmf-meta"), speed=float("inf"))
+
+
+def test_backend_replay_error_registry_side_except_catches(tmp_path):
+    # 对抗：BackendError 单源——模块侧与注册表侧同一类；注册表侧 except 能接住
+    # replay 文件错误（文件缺失），issubclass 同源成立
+    from src.manage_backend_registry.register_backend import BackendError as RegistryError
+    from src.open_replay_backend.open_replay_backend import BackendError as ReplayError
+
+    assert ReplayError is RegistryError
+    assert issubclass(ReplayError, RegistryError)
+    missing = str(tmp_path / "missing.sigmf-meta")
+    with pytest.raises(RegistryError):
+        open_replay_backend(missing)  # 注册表调用方用同一 except 即可接住

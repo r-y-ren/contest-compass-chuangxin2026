@@ -11,3 +11,4 @@
 | 10-11 | B3+ | 批间评审附 1 低危观察（降级缓冲→log_degraded 链不完整）→ wind_down 缓冲重放+滞留补正（manage_run 内最小侵入，不改 finalize） | 317 全库绿；重放/滞留两例新覆盖 |
 | 10-11 | B3+ | 用户裁决二轮对抗审查：高2（跨运行缓冲污染/幂等跨运行失效跳停发射）中5（KI 安全路径/收尾兜底/终态冲突/NaN 字面量/回退序列化器回滚）低2 → 全修复+16 回归 | 333 全库绿；高危两项实测复测 PASS |
 | 10-11 | B4 | register_backend, lookup_backend, loopback_sim_stream, read_sigmf_timeline（波1）, manage_backend_registry, open_sim_backend, open_replay_backend（波2） | 451 全库绿；注册表链探针（lookup sim→实例化→环回样本保真） |
+| 10-11 | B4+ | 双审（三轴+对抗）：三轴附条件（replay 未自注册）+对抗 高1中4低4 → 九项全修复（replay 注册/BackendError 单源/溢出夹紧/NaN 拒/原子拒绝/大小写口径/streaming/speed/测试隔离），14 回归；Ruling⑥ 记账范围 | 465 全库绿；lookup(replay) 生产链路恢复 |

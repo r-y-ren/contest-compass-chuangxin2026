@@ -251,3 +251,29 @@ def test_unprefixed_keys_accepted(tmp_path):
     (b,) = read_sigmf_timeline(str(meta_path))
     assert b["samples"] == [1.0 + 1.0j]
     assert b["time_s"] == 0.0
+
+
+def test_nonfinite_number_literals_rejected_at_parse(tmp_path):
+    # 对抗：NaN/Infinity/-Infinity 字面量（如 sample_rate=NaN）在 json 解析期即拒
+    # （parse_constant），不进入逐字段校验，更不会把 NaN 传播进 time_s——BackendError
+    for i, literal in enumerate(("NaN", "Infinity", "-Infinity")):
+        meta_path = tmp_path / f"nf{i}.sigmf-meta"
+        (tmp_path / f"nf{i}.sigmf-data").write_bytes(b"\x00" * 8)
+        meta_path.write_text(
+            '{"global": {"core:datatype": "cf32_le", "core:sample_rate": '
+            + literal
+            + ', "core:num_samples": 1}, "captures": [{"core:sample_start": 0}],'
+            ' "annotations": []}',
+            encoding="utf-8",
+        )
+        with pytest.raises(BackendError):
+            read_sigmf_timeline(str(meta_path))
+
+
+def test_backend_error_single_source_identity():
+    # 对抗：本模块导出的 BackendError 与注册表侧为同一类（单一事实源）——
+    # issubclass 同源成立，注册表调用方 except BackendError 能接住回放文件错误
+    from src.manage_backend_registry.register_backend import BackendError as RegistryError
+
+    assert BackendError is RegistryError
+    assert issubclass(BackendError, RegistryError)

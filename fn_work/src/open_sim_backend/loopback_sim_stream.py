@@ -9,6 +9,11 @@ from collections.abc import Iterable, Iterator, Sequence
 # 仿真域夹紧边界：增益上限 40dB——纯软件仿真里更高增益只会把幅值指数放大成非物理量，
 # 与负延迟同属"越仿真域"：不硬报错（保持流可用），夹紧到边界并附 clamped 标注供审计。
 _GAIN_DB_MAX = 40.0
+# 噪声功率上界 30dBm（=1W）：更大 dBm 会让预推导 10**((x-30)/10) 直接 OverflowError
+# 且非物理——与增益同口径：夹紧到边界并标注，统一不让 OverflowError 逃逸。
+_NOISE_DBM_MAX = 30.0
+# LO 泄漏上界 60dB（幅度比 ×1000）：更大比值同样让预推导 10**(x/20) 溢出——夹紧标注。
+_LEAK_DB_MAX = 60.0
 
 # effects 支持的键；未知键忽略（为上游 open_sim_backend 的参数演进留前向兼容）。
 _K_DELAY = "delay_blocks"
@@ -48,8 +53,14 @@ def _parse_effects(effects: object) -> dict:
 
     raw_noise = effects.get(_K_NOISE)
     noise_dbm = None if raw_noise is None else _as_real(_K_NOISE, raw_noise)
+    if noise_dbm is not None and noise_dbm > _NOISE_DBM_MAX:
+        clamped[_K_NOISE] = {"from": noise_dbm, "to": _NOISE_DBM_MAX}
+        noise_dbm = _NOISE_DBM_MAX
     raw_leak = effects.get(_K_LEAK)
     lo_leak_db = None if raw_leak is None else _as_real(_K_LEAK, raw_leak)
+    if lo_leak_db is not None and lo_leak_db > _LEAK_DB_MAX:
+        clamped[_K_LEAK] = {"from": lo_leak_db, "to": _LEAK_DB_MAX}
+        lo_leak_db = _LEAK_DB_MAX
 
     return {
         "delay_blocks": delay,
@@ -80,9 +91,10 @@ def loopback_sim_stream(
       - delay_blocks: int ≥ 0，先产出该数量空占位块再吐真实块（因果保持，rx_ts 连续）；
         负值夹紧为 0 并在每块 meta['clamped'] 标注。
       - gain_db: float，幅度乘 10**(gain_db/20)（负值即衰减）；> 40dB 夹紧为 40dB 并标注。
-      - noise_dbm: float|None，叠加复高斯噪声（功率按 dBm→W 换算，I/Q 各半），None 不加。
+      - noise_dbm: float|None，叠加复高斯噪声（功率按 dBm→W 换算，I/Q 各半），None 不加；
+        > 30dBm 夹紧为 30dBm 并在每块 meta['clamped'] 标注（上界处预推导不会溢出）。
       - lo_leak_db: float|None，加 DC 泄漏单音（模拟发射本振自漏）：幅度 = 本块有效样本
-        RMS × 10**(lo_leak_db/20)；空块无 RMS 参考，不加。
+        RMS × 10**(lo_leak_db/20)；空块无 RMS 参考，不加；> 60dB 夹紧为 60dB 并标注。
 
     meta 每块必有: {'rx_ts': 单调块序号（从 0）, 'n_samples': 样本数, 'src_index': 来源
     TX 块号（延迟占位块为 None）}；条件字段: 'placeholder'=True（延迟占位块）、'clamped'

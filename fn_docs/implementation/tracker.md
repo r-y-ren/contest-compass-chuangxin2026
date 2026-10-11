@@ -175,8 +175,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] open_replay_backend · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(open_replay_backend)' && echo commit在案 → commit在案 (10-11)
 
 ## B4 批间门
-- [ ] B4 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B4 · 用户裁决 — 预告: 继续 B5 / 修订 / 裁决 blocked
+- [x] B4 · 评审三轴 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && PYTHONPATH=. python3 -c "import src.open_replay_backend.open_replay_backend, src.open_sim_backend.open_sim_backend; from src.manage_backend_registry.lookup_backend import lookup_backend; f,m=lookup_backend('replay'); print('replay 注册在案', m['caps'])" → replay 注册在案 {'tx': False, 'rx': True} (10-11)
+- [x] B4 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && echo B4 双审收口（九项修复） → B4 双审收口（九项修复） (10-11)
 
 ## B5 — configure_b210_channels, write_b210_tx_stream, read_b210_rx_stream, open_b210_backend, exchange_scpi, create_visa_driver
 ### configure_b210_channels
@@ -871,4 +871,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B1 基线时序异常留痕——三叶子实现先于基线 commit 落盘，基线 429ae52 吞入其代码，三个叶子 wired commit 为零代码变更 — 主会话打基线时序失误（实现子代理先返、基线后打） — 证据链歧义（功能与档案终态正确，git log 仍可溯源） — batches.md 变更记录 Ruling② (10-11)
 - Ruling: gain 标定表落盘为 flat JSON（顶层即 entries）而非信封 {'name','meta','entries'} — 已实现的 load_calibration_table 对每个顶层键做 gain 条目校验，信封键不可读；表名/placeholder 语义由 loader 视图承载 — 数据格式细节、不影响函数接口；集成用例（建表→loader 读回 entries 相等）已覆盖 — batches.md 变更记录 Ruling④ (10-11)
 - Ruling: B2 批间评审附条件三项收口——①lookup_jsr/compensate_link_power 签名意图错误字段对齐为「不抛出转状态/置信度」（与 R52 先例及测试固化一致）；②一期 gain 标定表明文为 档位→功率 单维（频率不入表，Ruling④ flat 格式的完整语义）；③顶层实跑探针自 B3 起存 fn_work/scripts/probes/ 入库可复跑 — 评审子代理三轴附条件 — 无（文档措辞对齐+探针落点，不改代码） — responsibility.md 两处+batches 变更记录 Ruling⑤ (10-11)
+- Ruling: B4 记账 commit 用 git add -A fn_work 把整波代码扫进首个函数提交（abd0680），后续六函数 wired 提交为零代码变更（B1 Ruling②同型） — led() 记账脚本收 add 范围太宽 — 证据链歧义（git log 仍可溯源，functions.md 哈希正确指向各自提交） — B5 起记账 commit 只 add 本函数 src/tests 两路径+batches 变更记录 Ruling⑥ (10-11)
 

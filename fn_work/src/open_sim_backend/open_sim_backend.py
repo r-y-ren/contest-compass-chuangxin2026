@@ -63,7 +63,8 @@ class SimBackend:
       → 内部 RX 缓冲（deque）→ read_samples 弹出。
 
     能力方法在正常使用下自身不抛（stop 幂等、空闲读返回 []、增益越界夹紧）；
-    start_tx 的 effects 校验委托 loopback_sim_stream 急切执行（非法 effects 在调用点 ValueError）。
+    start_tx 的 effects 校验委托 loopback_sim_stream 急切执行且先于任何状态变更
+    （非法 effects 在调用点 ValueError，原子拒绝：旧流与残余原样保留）。
     """
 
     def __init__(
@@ -108,15 +109,16 @@ class SimBackend:
         输入: iq_blocks IQ 块迭代器；effects 信道效应 dict（delay_blocks/gain_db/
         noise_dbm/lo_leak_db，None=无效应）。输出: None。
         行为: 发射中重复 start_tx → 隐式停旧流并清空残余（不抛，新流从干净缓冲开始）；
-        effects 非 dict/数值非法 → loopback_sim_stream 急切校验在此 ValueError
-        （先于任何状态变更，拒绝后实例保持非发射态）。
+        effects 非 dict/数值非法 → loopback_sim_stream 急切校验在此 ValueError——
+        原子拒绝：校验先于 stop_tx/清缓冲等一切状态变更，发射中拒绝后旧流与残余
+        原样保留（streaming 不变、旧源继续可读）。
         """
+        eff = {} if effects is None else effects
+        source = iter(iq_blocks)
+        loopback = loopback_sim_stream(self._gain_scaled(source), eff)  # 非法 effects 在此抛（先于任何状态变更）
         if self._streaming:
             self.stop_tx()
         self._rx_buffer.clear()
-        eff = {} if effects is None else effects
-        source = iter(iq_blocks)
-        loopback = loopback_sim_stream(self._gain_scaled(source), eff)  # 非法 effects 在此抛
         self._tx_source = source
         self._loopback = loopback
         self._streaming = True
@@ -145,7 +147,9 @@ class SimBackend:
 
         惰性生产：发射登记态下按需从环回生成器泵块入缓冲（每次至少泵至
         max(max_blocks, 4) 块或源耗尽）——增益热更新因此对"后续块"生效而非定格整流；
-        源耗尽自动结束生产（非错误），残余缓冲照常弹尽。max_blocks 非正整数按 1 处理（不抛）。
+        源耗尽自动结束生产（非错误），残余缓冲照常弹尽；源生成器中途异常则异常照抛、
+        发射登记态即时撤销（streaming 即刻转 False 不虚报，已入缓冲残余仍可续读）。
+        max_blocks 非正整数按 1 处理（不抛）。
         """
         if isinstance(max_blocks, bool) or not isinstance(max_blocks, numbers.Integral):
             max_blocks = 1
@@ -158,6 +162,11 @@ class SimBackend:
                 except StopIteration:
                     self._streaming = False  # 源耗尽：生产自然终止，残余仍可读
                     break
+                except Exception:
+                    # 源生成器异常：即时撤销发射登记态（不等下次 read 才自愈），
+                    # 异常照常上抛，已变换入缓冲的残余块不受影响。
+                    self._streaming = False
+                    raise
                 self._rx_buffer.append((rx_block, meta))
         out: list[tuple[list[complex], dict]] = []
         while self._rx_buffer and len(out) < max_blocks:

@@ -27,9 +27,16 @@ def _factory():
 
 
 @pytest.fixture(autouse=True)
-def _restore_registry():
-    """用例间隔离全局注册表：结束后还原，避免登记串扰其他用例。"""
+def _isolate():
+    """用例间隔离全局注册表：进入前清空、结束后按快照还原（同一 dict 对象）。
+
+    只"事后还原"不够——其他后端模块（open_sim_backend/open_replay_backend）import 期
+    会向 REGISTRY 自注册，若本文件用例在组合运行（如 pytest tests/manage_backend_registry
+    tests/open_sim_backend）时假定注册表起始为空（无 override 登记 / 拒绝后不在表断言），
+    会被预置的 'sim'/'replay' 干扰；进入前清空保证任意子集、任意顺序下都稳定。
+    """
     saved = dict(REGISTRY)
+    REGISTRY.clear()
     yield
     REGISTRY.clear()
     REGISTRY.update(saved)
@@ -128,3 +135,34 @@ def test_method_names_not_a_list_rejected():
     with pytest.raises(BackendError):
         register_backend("sim", _factory, _full_meta(), method_names="start_tx")
     assert REGISTRY == before
+
+
+def test_case_insensitive_duplicate_rejected_without_override():
+    # 用例12: 重名检查大小写不敏感：'SIM' 与已注册 'sim' 冲突，无 override 即拒、无半写
+    register_backend("sim", _factory, _full_meta(), method_names=list(TX_RX_METHODS))
+    with pytest.raises(BackendError):
+        register_backend("SIM", _factory, _full_meta(), method_names=list(TX_RX_METHODS))
+    assert "SIM" not in REGISTRY
+    assert REGISTRY["sim"]["factory"] is _factory  # 原登记不被破坏
+
+
+def test_case_variant_override_replaces_old_key():
+    # 用例13: override 授权下大小写变体覆盖：旧键让位（无双键歧义），replaced=True
+    register_backend("sim", _factory, _full_meta(), method_names=list(TX_RX_METHODS))
+    result = register_backend(
+        "Sim", _factory, _full_meta(), override=True, method_names=list(TX_RX_METHODS)
+    )
+    assert result == {"registered": True, "replaced": True}
+    assert list(REGISTRY) == ["Sim"]
+
+
+@pytest.mark.parametrize("reserved", ["auto", "AUTO", "Auto"], ids=["auto", "AUTO", "Auto"])
+def test_auto_reserved_name_rejected(reserved):
+    # 用例14: 保留名 'auto'（含大小写变体）注册直接拒（保留给 autodetect_backend 决策路由），
+    # override=True 也不放行
+    before = dict(REGISTRY)
+    with pytest.raises(BackendError):
+        register_backend(
+            reserved, _factory, _full_meta(), override=True, method_names=list(TX_RX_METHODS)
+        )
+    assert REGISTRY == before  # 拒绝路径无半写
