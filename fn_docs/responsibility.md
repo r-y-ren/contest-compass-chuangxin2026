@@ -476,7 +476,7 @@
 （R12：粗细档信道拼接——30dB 衰减器两态+软件增益细档、请求→组合映射、越界给出可达域。）
 
 - **set_channel_attenuation** [L0|新增]
-  - 职责：把目标衰减量翻译为档位组合：plan_attenuator_combo 计算（30dB 粗档接入/旁路 × 软件增益细档，标定表经 load_calibration_table）→下发后端→append_event 记录；请求超出可达范围时拒绝并返回可达域。
+  - 职责：把目标衰减量翻译为档位组合：plan_attenuator_combo 计算（30dB 粗档接入/旁路 × 软件增益细档，档位标定表由调用方直传或 ctx['attenuator_cal']（文件标定表无档位语义，不走 load_calibration_table））→下发后端→append_event 记录；请求超出可达范围时拒绝并返回可达域。
   - 签名意图：输入: 目标衰减 dB+运行上下文 / 输出: 实达衰减+档位组合 / 错误: 超可达域→AttenuationError（附可达范围）。
   - 调用方：run_power_ladder；map_distance_to_loss（间接经计划）
   - tested 策略：自有单测

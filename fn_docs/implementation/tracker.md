@@ -361,7 +361,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] set_channel_attenuation · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(set_channel_attenuation)' && echo commit在案 → commit在案 (10-11)
 
 ## B8 批间门
-- [ ] B8 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [x] B8 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B8 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 1340 passed in 11.13s (10-11)
 - [x] B8 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && echo B8 双审收口（6 项修复） → B8 双审收口（6 项修复） (10-11)
 
 ## B9 — plan_ladder_steps, run_power_ladder, compute_pathloss, map_distance_to_loss
@@ -878,4 +878,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B7 两处规约歧义裁定——①gen_chirp 对抗项「三角中点频率≈center」按形状数学不成立（u=T/2 是峰值 center+bw/2），测试改在 u=T/4、3T/4 双侧验证 ≈center 且 u=T/2 验证峰值；②compose_jamming 分量等长采用严格校验（不一致即拒列长度，不零填充） — 子代理实现时申报 — 无（语义更严） — batches 变更记录 Ruling⑩ (10-11)
 - Ruling: B7 双审收口——对抗 中5低7 全修复（IndexError 崩溃/银行家舍入空输出/NaN 喂下游/amplitude 表示域/占位元数据+seed·混叠·欠定·整型七项口径统一）；probe_b7 fs=1→100（repeat 10Hz 在 fs=1 属欠定域，修复后如法拒） — 对抗审查 — 无 — batches Ruling⑪ (10-11)
 - Ruling: B8 三处申报取舍收拢——①synthesize_style 签名微调为单参 params dict（桩三参→规约「输入 params: dict」口径，代码即真值）；②style 键不入 check_style_params 二次校验（合法性归注册表、扩展样式经本入口可达；check 的带限类 bandwidth 联动与 pulse 参数名不一致不入检）；③plan_attenuator_combo 择优规则=残差最优先（覆盖「≥半粗档用粗档」经验法则，平手选粗档/列表序，文档+测试固化） — 子代理实现申报 — 无 — batches 变更记录 Ruling⑫ (10-11)
+- Ruling: B8 双审收口——①R12 档位标定口径回写（cal_table 直传/ctx，不走文件标定表）；②对抗 高1中2低3 全修复（append_event 循环引用 RecursionError 逃逸→EventWriteError 带 DAG 放行；composite 深度上限 8+深拷贝防回染；tone defaults 补 fs 六样式全可切；cal 零命中 cal_unused 标注；switch_style composite 可达） — 三轴观察+对抗 — 无 — responsibility.md L479+batches Ruling⑬ (10-11)
 
