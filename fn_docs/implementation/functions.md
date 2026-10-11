@@ -50,9 +50,9 @@
 | compose_jamming | B7 | wired 10-11 | 34 passed；公式(1) 程序化 | 259b8e7 |
 | append_event | B8 | wired 10-11 | 21 passed；单调钟 ts+NaN 占位+显式抛 | b9f1e48 |
 | synthesize_style | B8 | stub 10-11 | pytest -k styles_synth | — |
-| lookup_style_recipe | B8 | wired 10-11 | 14 passed；六配方+扩展点 | pending |
+| lookup_style_recipe | B8 | wired 10-11 | 14 passed；六配方+扩展点 | 9d67678 |
 | switch_style | B8 | stub 10-11 | pytest -k styles_switch | — |
-| plan_attenuator_combo | B8 | stub 10-11 | 上游覆盖: set_channel_attenuation | — |
+| plan_attenuator_combo | B8 | wired 10-11 | 39 passed；残差最优先（Ruling⑫） | pending |
 | set_channel_attenuation | B8 | stub 10-11 | pytest -k channel_ladder | — |
 | plan_ladder_steps | B9 | stub 10-11 | 上游覆盖: run_power_ladder | — |
 | run_power_ladder | B9 | stub 10-11 | pytest -k power_ladder | — |
