@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B5 | configure_b210_channels, write_b210_tx_stream, read_b210_rx_stream, open_b210_backend, exchange_scpi, create_visa_driver | open_b210 在位实测/不在位 skip（backend_b210）；visa 往返（visa_slot） | 后端族② |
-| B6 | probe_uhd_devices, autodetect_backend, probe_gpsdo_status, resolve_clock_reference, make_spectrogram, query_dataset, index_dataset | autodetect 三态绿（backend_autodetect）；时钟/谱图/索引 wired | 探测与工具族 |
+| ▶ B6 | probe_uhd_devices, autodetect_backend, probe_gpsdo_status, resolve_clock_reference, make_spectrogram, query_dataset, index_dataset | autodetect 三态绿（backend_autodetect）；时钟/谱图/索引 wired | 探测与工具族 |
 | B7 | check_style_params, gen_tone, gen_sweep, gen_chirp, gen_bandlimited_noise, gen_partial_band, gen_pulse, compose_jamming | 样式八叶子单测绿（styles_synth 下层） | 样式下层（synthesize_style 子树切半①） |
 | B8 | append_event, synthesize_style, lookup_style_recipe, switch_style, plan_attenuator_combo, set_channel_attenuation | synthesize_style wired 六样式频谱断言（styles_synth）；切换<2s（styles_switch）；档位组合绿（channel_ladder） | 样式上层+信道+共享事件 |
 | B9 | plan_ladder_steps, run_power_ladder, compute_pathloss, map_distance_to_loss | 阶梯/失效即停绿（power_ladder）；L(d) 断言（pathloss_map） | 功率/距离族 |
