@@ -328,7 +328,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] append_event · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/shared/test_append_event.py | tail -1 → 21 passed in 0.03s (10-11)
 - [x] append_event · wired — 证据: bash -c grep -rn 'append_event(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/set_channel_attenuation/set_channel_attenuation.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
 - [x] append_event · 清单进位 — 证据: bash -c grep -q '| append_event | B8 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] append_event · commit — 预告: fn(append_event): wired 含四文档变更
+- [x] append_event · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(append_event)' && echo commit在案 → commit在案 (10-11)
 ### synthesize_style
 - [ ] synthesize_style · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] synthesize_style · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -336,10 +336,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] synthesize_style · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] synthesize_style · commit — 预告: fn(synthesize_style): wired 含四文档变更
 ### lookup_style_recipe
-- [ ] lookup_style_recipe · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] lookup_style_recipe · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] lookup_style_recipe · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] lookup_style_recipe · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] lookup_style_recipe · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:lookup_style_recipe' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] lookup_style_recipe · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/switch_style/test_lookup_style_recipe.py | tail -1 → 14 passed in 0.08s (10-11)
+- [x] lookup_style_recipe · wired — 证据: bash -c grep -rn 'lookup_style_recipe(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/synthesize_style/synthesize_style.py /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/switch_style/switch_style.py | head -2 && echo 生产调用点存在 → 生产调用点存在 (10-11)
+- [x] lookup_style_recipe · 清单进位 — 证据: bash -c grep -q '| lookup_style_recipe | B8 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] lookup_style_recipe · commit — 预告: fn(lookup_style_recipe): wired 含四文档变更
 ### switch_style
 - [ ] switch_style · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
