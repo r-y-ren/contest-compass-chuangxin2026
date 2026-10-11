@@ -96,10 +96,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B3 — stop_transmit_safely, create_run_workspace, append_run_log, finalize_run, manage_run
 ### stop_transmit_safely
-- [ ] stop_transmit_safely · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] stop_transmit_safely · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] stop_transmit_safely · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] stop_transmit_safely · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] stop_transmit_safely · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:stop_transmit_safely' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] stop_transmit_safely · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/shared/test_stop_transmit_safely.py | tail -1 → 18 passed in 0.02s (10-11)
+- [x] stop_transmit_safely · wired — 证据: bash -c grep -rn 'stop_transmit_safely(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/manage_run/manage_run.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
+- [x] stop_transmit_safely · 清单进位 — 证据: bash -c grep -q '| stop_transmit_safely | B3 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] stop_transmit_safely · commit — 预告: fn(stop_transmit_safely): wired 含四文档变更
 ### create_run_workspace
 - [ ] create_run_workspace · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
