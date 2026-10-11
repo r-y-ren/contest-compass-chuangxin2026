@@ -330,10 +330,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] append_event · 清单进位 — 证据: bash -c grep -q '| append_event | B8 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [x] append_event · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(append_event)' && echo commit在案 → commit在案 (10-11)
 ### synthesize_style
-- [ ] synthesize_style · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] synthesize_style · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] synthesize_style · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] synthesize_style · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] synthesize_style · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:synthesize_style' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] synthesize_style · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k styles_synth -q | tail -1 → 23 passed, 1291 deselected in 1.31s (10-11)
+- [x] synthesize_style · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b8.py | grep -q '谱峰对' && echo 顶层实跑通过（六样式装配） → 顶层实跑通过（六样式装配） (10-11)
+- [x] synthesize_style · 清单进位 — 证据: bash -c grep -q '| synthesize_style | B8 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] synthesize_style · commit — 预告: fn(synthesize_style): wired 含四文档变更
 ### lookup_style_recipe
 - [x] lookup_style_recipe · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:lookup_style_recipe' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
@@ -352,7 +352,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] plan_attenuator_combo · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/set_channel_attenuation/test_plan_attenuator_combo.py | tail -1 → 39 passed in 0.02s (10-11)
 - [x] plan_attenuator_combo · wired — 证据: bash -c grep -rn 'plan_attenuator_combo(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/set_channel_attenuation/set_channel_attenuation.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
 - [x] plan_attenuator_combo · 清单进位 — 证据: bash -c grep -q '| plan_attenuator_combo | B8 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] plan_attenuator_combo · commit — 预告: fn(plan_attenuator_combo): wired 含四文档变更
+- [x] plan_attenuator_combo · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(plan_attenuator_combo)' && echo commit在案 → commit在案 (10-11)
 ### set_channel_attenuation
 - [ ] set_channel_attenuation · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] set_channel_attenuation · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
