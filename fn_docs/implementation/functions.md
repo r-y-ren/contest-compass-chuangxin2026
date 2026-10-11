@@ -53,7 +53,7 @@
 | lookup_style_recipe | B8 | wired 10-11 | 14 passed；六配方+扩展点 | 9d67678 |
 | switch_style | B8 | wired 10-11 | 15 passed；六样式切换<2s 实测毫秒级 | dca9f74 |
 | plan_attenuator_combo | B8 | wired 10-11 | 39 passed；残差最优先（Ruling⑫） | 7af2220 |
-| set_channel_attenuation | B8 | wired 10-11 | 15 passed；鸭子下发+事件真值+可达域 | pending |
+| set_channel_attenuation | B8 | wired 10-11 | 15 passed；鸭子下发+事件真值+可达域 | 1e58df2 |
 | plan_ladder_steps | B9 | stub 10-11 | 上游覆盖: run_power_ladder | — |
 | run_power_ladder | B9 | stub 10-11 | pytest -k power_ladder | — |
 | compute_pathloss | B9 | stub 10-11 | 上游覆盖: map_distance_to_loss | — |
