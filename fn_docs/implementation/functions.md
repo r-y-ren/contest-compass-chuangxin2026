@@ -5,10 +5,10 @@
 
 | 函数 | 批次 | 状态(日期) | 核验命令+摘要 | commit |
 |---|---|---|---|---|
-| check_power_cap | B1 | wired 10-11 | pytest tests/guard_compliance/test_check_power_cap.py → 17 passed；调用点 guard_compliance.py:52 | b9c7463 |
-| check_band_whitelist | B1 | wired 10-11 | pytest → 9 passed；调用点 guard_compliance.py | ff0405c |
-| check_env_declarations | B1 | wired 10-11 | pytest → 7 passed；调用点 guard_compliance.py | 2cf5348 |
-| guard_compliance | B1 | wired 10-11 | pytest -k compliance_guard → 7 passed；目录 40 passed；实跑三条款拒 | 7cce358 |
+| check_power_cap | B1 | wired 10-11 | pytest tests/guard_compliance/test_check_power_cap.py → 17 passed；调用点 guard_compliance.py:52 | 88caee7 |
+| check_band_whitelist | B1 | wired 10-11 | pytest → 9 passed；调用点 guard_compliance.py | 7fa737c |
+| check_env_declarations | B1 | wired 10-11 | pytest → 7 passed；调用点 guard_compliance.py | cee4b01 |
+| guard_compliance | B1 | wired 10-11 | pytest -k compliance_guard → 7 passed；目录 40 passed；实跑三条款拒 | 15e55eb |
 | load_calibration_table | B2 | stub 10-11 | 上游覆盖: lookup_jsr | — |
 | lookup_jsr | B2 | stub 10-11 | pytest -k jsr_calibration | — |
 | check_monotonicity | B2 | stub 10-11 | 上游覆盖: build_gain_calibration | — |
