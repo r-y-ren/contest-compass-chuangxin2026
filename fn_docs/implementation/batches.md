@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B3 | stop_transmit_safely, create_run_workspace, append_run_log, finalize_run, manage_run | manage_run wired：三路径八件套+先停发射（run_lifecycle） | 运行骨架+共享停发射 |
-| B4 | register_backend, lookup_backend, manage_backend_registry, loopback_sim_stream, open_sim_backend, read_sigmf_timeline, open_replay_backend | registry wired（slot_registry）；sim/replay 环回绿（backend_sim/backend_replay） | 后端族① |
+| ▶ B4 | register_backend, lookup_backend, manage_backend_registry, loopback_sim_stream, open_sim_backend, read_sigmf_timeline, open_replay_backend | registry wired（slot_registry）；sim/replay 环回绿（backend_sim/backend_replay） | 后端族① |
 | B5 | configure_b210_channels, write_b210_tx_stream, read_b210_rx_stream, open_b210_backend, exchange_scpi, create_visa_driver | open_b210 在位实测/不在位 skip（backend_b210）；visa 往返（visa_slot） | 后端族② |
 | B6 | probe_uhd_devices, autodetect_backend, probe_gpsdo_status, resolve_clock_reference, make_spectrogram, query_dataset, index_dataset | autodetect 三态绿（backend_autodetect）；时钟/谱图/索引 wired | 探测与工具族 |
 | B7 | check_style_params, gen_tone, gen_sweep, gen_chirp, gen_bandlimited_noise, gen_partial_band, gen_pulse, compose_jamming | 样式八叶子单测绿（styles_synth 下层） | 样式下层（synthesize_style 子树切半①） |
