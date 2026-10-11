@@ -36,10 +36,10 @@
 | probe_uhd_devices | B6 | wired 10-11 | 9 passed 含真机；永不抛出 | 3e0d515 |
 | autodetect_backend | B6 | wired 10-11 | 18 passed 含真机 auto 实开；三态决策 | 6c12605 |
 | probe_gpsdo_status | B6 | wired 10-11 | 20 passed；传感器序列探测 | d4cbdf9 |
-| resolve_clock_reference | B6 | wired 10-11 | 13 passed；三时基+驯服降级 | pending |
+| resolve_clock_reference | B6 | wired 10-11 | 13 passed；三时基+驯服降级 | 64e4283 |
 | make_spectrogram | B6 | wired 10-11 | 12 passed；纯 numpy STFT | 5a2f4d9 |
 | query_dataset | B6 | wired 10-11 | 15 passed；AND 过滤+批次分组 | 627ca94 |
-| index_dataset | B6 | stub 10-11 | pytest -k dataset_index | — |
+| index_dataset | B6 | wired 10-11 | 14 passed；四动作+自愈 rebuild | pending |
 | check_style_params | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
 | gen_tone | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
 | gen_sweep | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
