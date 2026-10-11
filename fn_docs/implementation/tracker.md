@@ -310,12 +310,12 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] gen_pulse · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/synthesize_style/test_gen_pulse.py | tail -1 → 64 passed in 0.08s (10-11)
 - [x] gen_pulse · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b7.py | grep -q '探针全过' && echo 签名探针过（顶层 B8 装配后复检调用点） → 签名探针过（顶层 B8 装配后复检调用点） (10-11)
 - [x] gen_pulse · 清单进位 — 证据: bash -c grep -q '| gen_pulse | B7 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] gen_pulse · commit — 预告: fn(gen_pulse): wired 含四文档变更
+- [x] gen_pulse · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(gen_pulse)' && echo commit在案 → commit在案 (10-11)
 ### compose_jamming
-- [ ] compose_jamming · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] compose_jamming · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] compose_jamming · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] compose_jamming · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] compose_jamming · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:compose_jamming' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] compose_jamming · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/synthesize_style/test_compose_jamming.py | tail -1 → 34 passed in 0.10s (10-11)
+- [x] compose_jamming · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b7.py | grep -q '探针全过' && echo 签名探针过（顶层 B8 装配后复检调用点） → 签名探针过（顶层 B8 装配后复检调用点） (10-11)
+- [x] compose_jamming · 清单进位 — 证据: bash -c grep -q '| compose_jamming | B7 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] compose_jamming · commit — 预告: fn(compose_jamming): wired 含四文档变更
 
 ## B7 批间门
