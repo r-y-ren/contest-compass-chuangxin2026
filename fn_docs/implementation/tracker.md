@@ -76,7 +76,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] build_gain_calibration · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k gain_calibration -q | tail -1 → 50 passed, 173 deselected in 0.09s (10-11)
 - [x] build_gain_calibration · wired — 证据: bash -c python3 /tmp/scaffold/probe_b2.py | grep -q 'build_gain=建表2点' && echo 顶层实跑通过 → 顶层实跑通过 (10-11)
 - [x] build_gain_calibration · 清单进位 — 证据: bash -c grep -q 'build_gain_calibration | B2 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] build_gain_calibration · commit — 预告: fn(build_gain_calibration): wired 含四文档变更
+- [x] build_gain_calibration · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(build_gain_calibration): wired' && echo commit在案 → commit在案 (10-11)
 ### calibrate_leakage
 - [x] calibrate_leakage · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:calibrate_leakage' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
 - [x] calibrate_leakage · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k leak_calibration -q | tail -1 → 10 passed, 178 deselected in 0.07s (10-11)
@@ -84,10 +84,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] calibrate_leakage · 清单进位 — 证据: bash -c grep -q 'calibrate_leakage | B2 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [x] calibrate_leakage · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(calibrate_leakage): tested' && echo commit在案 → commit在案 (10-11)
 ### compensate_link_power
-- [ ] compensate_link_power · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] compensate_link_power · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] compensate_link_power · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] compensate_link_power · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] compensate_link_power · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:compensate_link_power' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] compensate_link_power · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k link_compensation -q | tail -1 → 11 passed, 212 deselected in 0.08s (10-11)
+- [x] compensate_link_power · wired — 证据: bash -c python3 /tmp/scaffold/probe_b2.py | grep -q 'compensate=-35.4dB' && echo 顶层实跑通过 → 顶层实跑通过 (10-11)
+- [x] compensate_link_power · 清单进位 — 证据: bash -c grep -q 'compensate_link_power | B2 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] compensate_link_power · commit — 预告: fn(compensate_link_power): wired 含四文档变更
 
 ## B2 批间门
