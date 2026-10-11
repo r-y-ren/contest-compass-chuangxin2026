@@ -34,11 +34,11 @@
 | exchange_scpi | B5 | wired 10-11 | 20 passed；四类解析+Timeout 重试 | 14ceea2 |
 | create_visa_driver | B5 | wired 10-11 | 19 passed；三型号映射+注入会话 | cb4c63a |
 | probe_uhd_devices | B6 | wired 10-11 | 9 passed 含真机；永不抛出 | 3e0d515 |
-| autodetect_backend | B6 | stub 10-11 | pytest -k backend_autodetect | — |
+| autodetect_backend | B6 | wired 10-11 | 18 passed 含真机 auto 实开；三态决策 | pending |
 | probe_gpsdo_status | B6 | wired 10-11 | 20 passed；传感器序列探测 | d4cbdf9 |
 | resolve_clock_reference | B6 | stub 10-11 | pytest -k clocking | — |
 | make_spectrogram | B6 | wired 10-11 | 12 passed；纯 numpy STFT | 5a2f4d9 |
-| query_dataset | B6 | wired 10-11 | 15 passed；AND 过滤+批次分组 | pending |
+| query_dataset | B6 | wired 10-11 | 15 passed；AND 过滤+批次分组 | 627ca94 |
 | index_dataset | B6 | stub 10-11 | pytest -k dataset_index | — |
 | check_style_params | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
 | gen_tone | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |

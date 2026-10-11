@@ -228,10 +228,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] probe_uhd_devices · 清单进位 — 证据: bash -c grep -q '| probe_uhd_devices | B6 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [x] probe_uhd_devices · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(probe_uhd_devices)' && echo commit在案 → commit在案 (10-11)
 ### autodetect_backend
-- [ ] autodetect_backend · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] autodetect_backend · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] autodetect_backend · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] autodetect_backend · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] autodetect_backend · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:autodetect_backend' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] autodetect_backend · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k backend_autodetect -q | tail -1 → 18 passed, 681 deselected in 3.93s (10-11)
+- [x] autodetect_backend · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b6.py 2>/dev/null | grep -q '后端=b210(probe_hit)' && echo 顶层实跑通过（真机 auto 命中） → 顶层实跑通过（真机 auto 命中） (10-11)
+- [x] autodetect_backend · 清单进位 — 证据: bash -c grep -q '| autodetect_backend | B6 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] autodetect_backend · commit — 预告: fn(autodetect_backend): wired 含四文档变更
 ### probe_gpsdo_status
 - [x] probe_gpsdo_status · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:probe_gpsdo_status' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
@@ -256,7 +256,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] query_dataset · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/index_dataset/test_query_dataset.py | tail -1 → 15 passed in 0.01s (10-11)
 - [x] query_dataset · wired — 证据: bash -c grep -rn 'query_dataset(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/index_dataset/index_dataset.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
 - [x] query_dataset · 清单进位 — 证据: bash -c grep -q '| query_dataset | B6 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] query_dataset · commit — 预告: fn(query_dataset): wired 含四文档变更
+- [x] query_dataset · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(query_dataset)' && echo commit在案 → commit在案 (10-11)
 ### index_dataset
 - [ ] index_dataset · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] index_dataset · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
