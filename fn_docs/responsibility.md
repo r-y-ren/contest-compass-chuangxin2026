@@ -883,7 +883,7 @@
 
 - **compensate_link_power** [L0|新增]
   - 职责：公式(6) 补偿：对频点 f 取测量功率+load_calibration_table（L_link 线损表+C_ant 天线系数表）代数和得真实功率；频点无表→结果标"不可信（无补偿表）"；一期覆盖 2.4G/5.8G，全频段表随远期标定扩展。
-  - 签名意图：输入: (f, P_measured) 序列+补偿表 / 输出: P_actual 序列+可信度标记 / 错误: 表损坏→CalibrationError；表缺失→全部标不可信（不阻塞）。
+  - 签名意图：输入: (f, P_measured) 序列+补偿表 / 输出: P_actual 序列+可信度标记 / 错误: 不抛出——表损坏/缺失/占位统一该表贡献 None 且 confidence='no_table'（未知项不计入 p_actual）。
   - 调用方：run_emc_radiation_sim；compute_spectrum_stats；build_report（功率口径）
   - tested 策略：自有单测
   - 核验命令：测试: link_compensation
