@@ -1,10 +1,12 @@
 """运行全生命周期：状态机+八件套工作区+先停发射收尾+结果 JSON——重写规约与签名意图详见 fn_docs/responsibility.md。"""
 from __future__ import annotations
 
+import json
+import os
 import time
 from typing import Any, Callable
 
-from .append_run_log import append_run_log
+from .append_run_log import LOG_FILENAME, append_run_log, buffered_lines
 from .create_run_workspace import RunDirError, create_run_workspace
 from .finalize_run import finalize_run
 from src.shared.stop_transmit_safely import stop_transmit_safely
@@ -56,6 +58,47 @@ def _backend_label(backend: Any) -> Any:
     return type(backend).__name__
 
 
+def _replay_buffered_log_lines(run_dir: str, lines: list[str]) -> int:
+    """把降级缓冲中的滞留日志行逐行追回 run.log，返回成功落盘条数；单行失败只计入未落盘，绝不抛出。
+
+    缓冲行本身就是已序列化的完整 JSON 行，按行原样追加即可（不经 append_run_log
+    重放——持久失败时它会再把重序列化副本压回缓冲，与原始行翻倍挤占环形缓冲，
+    且丢失原始 ts/module）。行级 flush 同 append_run_log 契约：崩溃不丢已写行。
+    """
+    written = 0
+    for line in lines:
+        try:
+            with open(os.path.join(run_dir, LOG_FILENAME), "a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
+                fh.flush()
+            written += 1
+        except Exception:  # noqa: BLE001 - 尽力而为：失败只影响落盘计数
+            continue
+    return written
+
+
+def _mark_result_log_degraded(run_dir: str, result: dict) -> None:
+    """滞留行仍存在时把 result.json 的 log_degraded 补正为 True（尽力，失败不抛）。
+
+    finalize_run 只认 run.log 缺失/句柄封存失败两个降级信号，看不到降级缓冲；
+    "磁盘恢复不了、行滞留内存而 run.log 仍在"是第三信号，只能在收尾落盘后
+    于结果 JSON 上补这一笔（重写沿用 finalize 的 JSON 排版）。
+    """
+    result_path = result.get("result_path")
+    if not isinstance(result_path, str) or not result_path:
+        result_path = os.path.join(run_dir, "result.json")
+    try:
+        with open(result_path, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        if not isinstance(payload, dict) or payload.get("log_degraded"):
+            return
+        payload["log_degraded"] = True
+        with open(result_path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False, indent=2)
+    except Exception:  # noqa: BLE001 - 补正属尽力而为，自身失败不抛
+        return
+
+
 def manage_run(
     scenario: dict,
     execute: Callable[[dict], Any],
@@ -69,7 +112,8 @@ def manage_run(
         execute: 执行回调，签名 execute(ctx)。ctx 含：
             'run_dir'（运行目录绝对路径）、'scenario'（场景引用）、'backend'（后端引用）、
             'started_at'（epoch 秒）、'open_files'（待收尾封存的句柄清单，可 append）、
-            'log'(level, message, context)（run.log 追加封装，降级契约同 append_run_log）、
+            'log'(level, message, context)（run.log 追加封装，降级契约同 append_run_log；
+                写失败的滞留行在收尾时尽力重放回 run.log，仍滞留则 result.json 标 log_degraded）、
             'set_state'(to_state)（申请一次合法迁移，非法迁移抛 LifecycleError）。
         runs_root: 运行目录基础路径（默认 'runs'，不存在则自动创建）。
         backend: 发射后端实例，收尾时传给 stop_transmit_safely（可为 None）。
@@ -147,7 +191,8 @@ def manage_run(
         _transition(final_state)
 
     def _wind_down(exit_semantics: str, error: BaseException | None) -> dict:
-        """收尾公共段：入 stopping → 先停发射（结果记入 ctx['stop_result']）→（异常补 ERROR 行）→ 终态 → finalize。"""
+        """收尾公共段：入 stopping → 先停发射（结果记入 ctx['stop_result']）→（异常补 ERROR 行）→
+        终态 → 重放降级缓冲滞留行 → finalize（仍有滞留则补正 log_degraded）。"""
         reason = "execute 回调异常" if error is not None else "正常完成"
         _enter_stopping(reason)
         stop_context: dict = {"run_dir": run_dir, "reason": reason}
@@ -163,6 +208,20 @@ def manage_run(
                 {"event": "execute_error", "error_type": type(error).__name__},
             )
         _set_final("done" if exit_semantics == "done" else "failed")
+        # 降级缓冲接入：收尾日志已全部发出，此时重放可一次性覆盖全部滞留行；
+        # 磁盘/目录恢复则落盘（链路未降级），仍有滞留则链路降级需在结果 JSON 标记
+        pending_lines = buffered_lines()
+        stranded = 0
+        if pending_lines:
+            stranded = len(pending_lines) - _replay_buffered_log_lines(run_dir, pending_lines)
+            ctx["log_pending_lines"] = stranded
+            if stranded:
+                append_run_log(  # 尽力向 run.log 留证（可能仍失败再进缓冲，接受）
+                    run_dir,
+                    "WARN",
+                    f"日志链路降级: {stranded} 行滞留内存缓冲未能落盘",
+                    {"event": "log_degraded", "stranded_lines": stranded},
+                )
         finalize_ctx: dict = {
             "run_dir": run_dir,
             "stop_result": ctx.get("stop_result"),
@@ -173,7 +232,12 @@ def manage_run(
         for optional in ("clock_ref", "alignment_error"):
             if optional in ctx:
                 finalize_ctx[optional] = ctx[optional]
-        return finalize_run(finalize_ctx, exit_semantics)
+        result = finalize_run(finalize_ctx, exit_semantics)
+        if stranded and isinstance(result, dict) and result.get("finalized"):
+            # finalize_run 看不到降级缓冲（只认 run.log 缺失/封存失败），滞留信号在收尾后补正
+            result["log_degraded"] = True
+            _mark_result_log_degraded(run_dir, result)
+        return result
 
     ctx["log"] = _log
     ctx["set_state"] = _transition

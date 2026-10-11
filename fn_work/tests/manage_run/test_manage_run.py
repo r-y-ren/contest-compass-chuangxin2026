@@ -5,6 +5,7 @@ import shutil
 
 import pytest
 
+from src.manage_run import append_run_log as append_run_log_module
 from src.manage_run.create_run_workspace import RunDirError
 from src.manage_run.manage_run import LifecycleError, manage_run
 
@@ -57,6 +58,12 @@ def log_transitions(run_dir):
 def read_result_json(run_dir):
     with open(os.path.join(run_dir, "result.json"), encoding="utf-8") as fh:
         return json.load(fh)
+
+
+@pytest.fixture(autouse=True)
+def isolated_log_buffer(monkeypatch):
+    """模块级隔离 append_run_log 的进程级降级缓冲：每个测试拿到空缓冲，测试后复原。"""
+    monkeypatch.setattr(append_run_log_module, "_BUFFER", [])
 
 
 def run_once(tmp_path, execute, backend=None):
@@ -236,3 +243,56 @@ def test_run_lifecycle_keyboard_interrupt_stops_then_reraises(tmp_path):
     result = read_result_json(holder["run_dir"])
     assert result["status"] == "failed"
     assert any(rec["level"] == "ERROR" for rec in read_run_log(holder["run_dir"]))
+
+
+def test_run_lifecycle_degraded_lines_replayed_to_run_log(tmp_path):
+    """运行中 run.log 写失败进降级缓冲 → wind_down 重放落盘：run.log 含该行且 log_degraded=False。"""
+    holder = {}
+
+    def execute(ctx):
+        holder["run_dir"] = ctx["run_dir"]
+        log_path = os.path.join(ctx["run_dir"], "run.log")
+        os.remove(log_path)
+        os.mkdir(log_path)  # run.log 变目录 → 追加失败 → 静默降级进内存缓冲
+        degraded = ctx["log"]("WARN", "磁盘满期间滞留的日志", {"stage": "mid-run"})
+        assert degraded["written"] is False and degraded["degraded"] is True
+        os.rmdir(log_path)  # 磁盘恢复：run.log 重新可写
+        with open(log_path, "w", encoding="utf-8"):
+            pass
+
+    out = run_once(tmp_path, execute)
+    assert out["status"] == "done"
+    hits = [
+        rec for rec in read_run_log(out["run_dir"]) if rec["msg"] == "磁盘满期间滞留的日志"
+    ]
+    assert len(hits) == 1  # 缓冲行重放恰好落盘一次，不重复
+    assert hits[0]["level"] == "WARN"
+    assert hits[0]["ctx"]["stage"] == "mid-run"
+    result = read_result_json(out["run_dir"])
+    assert result["log_degraded"] is False  # 重放成功：日志链路未降级
+    assert "log_degraded" not in out["result"]  # finalize 返回值未被无端注入
+
+
+def test_run_lifecycle_degraded_lines_stranded_marks_log_degraded(tmp_path):
+    """缓冲行重放仍失败（run.log 一直是目录）→ result.json 的 log_degraded 补正为 True。
+
+    该场景 run.log 存在（目录也算存在，不入 missing）且无句柄封存失败，
+    finalize_run 自身只会判 False——正是降级缓冲信号要接入的缺口。
+    """
+    holder = {}
+
+    def execute(ctx):
+        holder["run_dir"] = ctx["run_dir"]
+        log_path = os.path.join(ctx["run_dir"], "run.log")
+        os.remove(log_path)
+        os.mkdir(log_path)  # 持续占位：wind_down 的重放也失败 → 行滞留内存
+        assert ctx["log"]("ERROR", "彻底滞留的日志", None)["degraded"] is True
+
+    out = run_once(tmp_path, execute)
+    assert out["status"] == "done"
+    result = read_result_json(out["run_dir"])
+    assert result["status"] == "done"
+    assert result["missing"] == []  # 八件套齐全：降级标记并非来自缺件
+    assert result["log_degraded"] is True  # 来自滞留行信号的补正
+    assert out["result"]["log_degraded"] is True  # 返回值同步修正
+    assert append_run_log_module.buffered_lines()  # 行确实滞留在内存缓冲

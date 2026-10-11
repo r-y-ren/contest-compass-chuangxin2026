@@ -8,3 +8,4 @@
 | 10-11 | B2 | load_calibration_table, check_monotonicity, calibrate_leakage（波1 并行）, lookup_jsr, build_gain_calibration, compensate_link_power（波2 并行）；Ruling④ flat JSON | 全库 223 用例绿；三顶层实跑探针过；6 函数 wired |
 | 10-11 | B2+ | 批间用户裁决=漏洞审查后继续：对抗审查高7（异常逃逸家族：OverflowError/RecursionError/IsADirectoryError）中1（数值等价档摆动）低1（负容差）→ 全修复+24 回归；审查中子代理误删 fn_work 已 git 恢复（完整性复核 176 文件/223→247 绿） | 不抛出契约全恢复；同档数值等价去重 |
 | 10-11 | B3 | stop_transmit_safely, create_run_workspace, append_run_log, finalize_run（波1 并行）, manage_run（波2） | 315 全库绿；manage_run 实跑 done+停发射+八件套；探针入库 scripts/probes |
+| 10-11 | B3+ | 批间评审附 1 低危观察（降级缓冲→log_degraded 链不完整）→ wind_down 缓冲重放+滞留补正（manage_run 内最小侵入，不改 finalize） | 317 全库绿；重放/滞留两例新覆盖 |

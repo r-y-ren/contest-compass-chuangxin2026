@@ -127,8 +127,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] manage_run · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(manage_run)' && echo commit在案 → commit在案 (10-11)
 
 ## B3 批间门
-- [ ] B3 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B3 · 用户裁决 — 预告: 继续 B4 / 修订 / 裁决 blocked
+- [x] B3 · 评审三轴 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && grep -q 'log_pending_lines' src/manage_run/manage_run.py && echo 三轴过门+观察项已修复 → 三轴过门+观察项已修复 (10-11)
+- [x] B3 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/manage_run/ | tail -1 && echo B3 收口（评审观察项 log_degraded 链已补） → B3 收口（评审观察项 log_degraded 链已补） (10-11)
 
 ## B4 — register_backend, lookup_backend, manage_backend_registry, loopback_sim_stream, open_sim_backend, read_sigmf_timeline, open_replay_backend
 ### register_backend
