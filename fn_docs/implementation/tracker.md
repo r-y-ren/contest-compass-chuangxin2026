@@ -222,10 +222,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B6 — probe_uhd_devices, autodetect_backend, probe_gpsdo_status, resolve_clock_reference, make_spectrogram, query_dataset, index_dataset
 ### probe_uhd_devices
-- [ ] probe_uhd_devices · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] probe_uhd_devices · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] probe_uhd_devices · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] probe_uhd_devices · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] probe_uhd_devices · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:probe_uhd_devices' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] probe_uhd_devices · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/autodetect_backend/test_probe_uhd_devices.py | tail -1 → 9 passed in 0.52s (10-11)
+- [x] probe_uhd_devices · wired — 证据: bash -c grep -rn 'probe_uhd_devices(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/autodetect_backend/autodetect_backend.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
+- [x] probe_uhd_devices · 清单进位 — 证据: bash -c grep -q '| probe_uhd_devices | B6 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] probe_uhd_devices · commit — 预告: fn(probe_uhd_devices): wired 含四文档变更
 ### autodetect_backend
 - [ ] autodetect_backend · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -873,4 +873,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B2 批间评审附条件三项收口——①lookup_jsr/compensate_link_power 签名意图错误字段对齐为「不抛出转状态/置信度」（与 R52 先例及测试固化一致）；②一期 gain 标定表明文为 档位→功率 单维（频率不入表，Ruling④ flat 格式的完整语义）；③顶层实跑探针自 B3 起存 fn_work/scripts/probes/ 入库可复跑 — 评审子代理三轴附条件 — 无（文档措辞对齐+探针落点，不改代码） — responsibility.md 两处+batches 变更记录 Ruling⑤ (10-11)
 - Ruling: B4 记账 commit 用 git add -A fn_work 把整波代码扫进首个函数提交（abd0680），后续六函数 wired 提交为零代码变更（B1 Ruling②同型） — led() 记账脚本收 add 范围太宽 — 证据链歧义（git log 仍可溯源，functions.md 哈希正确指向各自提交） — B5 起记账 commit 只 add 本函数 src/tests 两路径+batches 变更记录 Ruling⑥ (10-11)
 - Ruling: B5 双审收口——①configure 签名意图对齐「越域 ValueError 先行/设备异常 BackendError」（Ruling③式）；②rx 溢出语义现为熔断 fail-loud（规格写告警事件，B8 append_event 到位时评估是否降级为告警） — 三轴观察+对抗修复 — 无 — responsibility.md 一处+batches 变更记录 Ruling⑦ (10-11)
+- Ruling: B6 两处规约歧义取舍——①make_spectrogram frames 公式按具体期望值 7 落地为 1+ceil((N-nfft)/hop)（尾帧补零计入，skipped 仅整段不足一窗）；②index_dataset 读路径 IO 失败归 IndexWriteError、仅非法 JSON/结构错触发自动 rebuild（防 IndexFormatError 短路写失败口径） — 子代理实现时申报（规约文本自相矛盾/两口径冲突） — 无（语义更精确，测试固化） — batches 变更记录 Ruling⑧ (10-11)
 
