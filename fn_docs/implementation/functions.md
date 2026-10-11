@@ -21,9 +21,9 @@
 | finalize_run | B3 | wired 10-11 | 18 passed；result.json+missing 清单 | b77903d |
 | manage_run | B3 | wired 10-11 | 12 passed；实跑 done+停发射+八件套 | 6156e9b |
 | register_backend | B4 | wired 10-11 | 15 passed；调用点 manage_backend_registry.py | abd0680 |
-| lookup_backend | B4 | wired 10-11 | 28 passed；别名+相近名提示 | pending |
+| lookup_backend | B4 | wired 10-11 | 28 passed；别名+相近名提示 | 70fa979 |
 | manage_backend_registry | B4 | stub 10-11 | pytest -k slot_registry | — |
-| loopback_sim_stream | B4 | stub 10-11 | 上游覆盖: open_sim_backend | — |
+| loopback_sim_stream | B4 | wired 10-11 | 22 passed；四效应+夹紧+种子复现 | pending |
 | open_sim_backend | B4 | stub 10-11 | pytest -k backend_sim | — |
 | read_sigmf_timeline | B4 | stub 10-11 | 上游覆盖: open_replay_backend | — |
 | open_replay_backend | B4 | stub 10-11 | pytest -k backend_replay | — |
