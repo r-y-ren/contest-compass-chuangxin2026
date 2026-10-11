@@ -27,12 +27,12 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] check_power_cap · implemented — 证据: bash -c ! grep -rn --include="*.py" -q "unimplemented:fn:check_power_cap" fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
 - [x] check_power_cap · tested — 证据: bash -c cd fn_work && python3 -m pytest -q tests/guard_compliance/test_check_power_cap.py → 17 passed in 0.01s (10-11)
 - [x] check_power_cap · wired — 证据: bash -c grep -rn --include="*.py" "check_power_cap(" fn_work/src fn_work/tests | grep -v "def check_power_cap(" | head -3 && echo 调用点存在 → 调用点存在 (10-11)
-- [ ] check_power_cap · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] check_power_cap · commit — 预告: fn(check_power_cap): wired 含四文档变更
+- [x] check_power_cap · 清单进位 — 证据: bash -c grep -q "check_power_cap | B1 | wired 10-11" fn_docs/implementation/functions.md && echo 清单已进位 → 清单已进位 (10-11)
+- [x] check_power_cap · commit — 证据: bash -c git log --format=%s | grep -q "fn(check_power_cap): wired" && echo commit在案 → commit在案 (10-11)
 ### check_band_whitelist
-- [ ] check_band_whitelist · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] check_band_whitelist · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] check_band_whitelist · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
+- [x] check_band_whitelist · implemented — 证据: bash -c ! grep -rn --include="*.py" -q "unimplemented:fn:check_band_whitelist" fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] check_band_whitelist · tested — 证据: bash -c cd fn_work && python3 -m pytest -q tests/guard_compliance/test_check_band_whitelist.py → 9 passed in 0.01s (10-11)
+- [x] check_band_whitelist · wired — 证据: bash -c grep -rn --include="*.py" "check_band_whitelist(" fn_work/src | grep -v "def check_band_whitelist(" | head -2 && echo 调用点存在 → 调用点存在 (10-11)
 - [ ] check_band_whitelist · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] check_band_whitelist · commit — 预告: fn(check_band_whitelist): wired 含四文档变更
 ### check_env_declarations
