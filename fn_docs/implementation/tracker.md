@@ -262,7 +262,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] index_dataset · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k dataset_index -q | tail -1 → 14 passed, 685 deselected in 1.25s (10-11)
 - [x] index_dataset · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b6.py 2>/dev/null | grep -q 'matched=1' && echo 顶层实跑通过（register→query 往返） → 顶层实跑通过（register→query 往返） (10-11)
 - [x] index_dataset · 清单进位 — 证据: bash -c grep -q '| index_dataset | B6 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] index_dataset · commit — 预告: fn(index_dataset): wired 含四文档变更
+- [x] index_dataset · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(index_dataset)' && echo commit在案 → commit在案 (10-11)
 
 ## B6 批间门
 - [ ] B6 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
