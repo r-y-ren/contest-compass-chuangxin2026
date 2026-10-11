@@ -14,7 +14,7 @@
 | check_monotonicity | B2 | wired 10-11 | 34 passed；调用点 build_gain_calibration.py | 3ddcd27 |
 | build_gain_calibration | B2 | wired 10-11 | 16 新用例（目录 50）；建表→loader 读回集成 | 88ebaaa |
 | calibrate_leakage | B2 | wired 10-11 | 10 passed；顶层实跑 subtract 未扣除路径 | 3fc2907 |
-| compensate_link_power | B2 | wired 10-11 | 11 passed；公式(6) 实跑 -35.5dB 断言 | pending |
+| compensate_link_power | B2 | wired 10-11 | 11 passed；公式(6) 实跑 -35.4dB 断言 | 1adffb9 |
 | stop_transmit_safely | B3 | stub 10-11 | 上游覆盖: manage_run | — |
 | create_run_workspace | B3 | stub 10-11 | 上游覆盖: manage_run | — |
 | append_run_log | B3 | stub 10-11 | 上游覆盖: manage_run | — |
