@@ -9,3 +9,4 @@
 | 10-11 | B2+ | 批间用户裁决=漏洞审查后继续：对抗审查高7（异常逃逸家族：OverflowError/RecursionError/IsADirectoryError）中1（数值等价档摆动）低1（负容差）→ 全修复+24 回归；审查中子代理误删 fn_work 已 git 恢复（完整性复核 176 文件/223→247 绿） | 不抛出契约全恢复；同档数值等价去重 |
 | 10-11 | B3 | stop_transmit_safely, create_run_workspace, append_run_log, finalize_run（波1 并行）, manage_run（波2） | 315 全库绿；manage_run 实跑 done+停发射+八件套；探针入库 scripts/probes |
 | 10-11 | B3+ | 批间评审附 1 低危观察（降级缓冲→log_degraded 链不完整）→ wind_down 缓冲重放+滞留补正（manage_run 内最小侵入，不改 finalize） | 317 全库绿；重放/滞留两例新覆盖 |
+| 10-11 | B3+ | 用户裁决二轮对抗审查：高2（跨运行缓冲污染/幂等跨运行失效跳停发射）中5（KI 安全路径/收尾兜底/终态冲突/NaN 字面量/回退序列化器回滚）低2 → 全修复+16 回归 | 333 全库绿；高危两项实测复测 PASS |

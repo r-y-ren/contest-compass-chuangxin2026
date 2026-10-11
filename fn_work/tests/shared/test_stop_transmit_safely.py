@@ -1,4 +1,5 @@
-"""stop_transmit_safely 对抗测试：两步静默、幂等/重试语义、None 后端、异常花样（BaseException 穿透）、context 透传与结构完整性。"""
+"""stop_transmit_safely 对抗测试：两步静默、幂等/重试语义（进程级+运行级 run_token）、None 后端、
+异常花样（KI/SystemExit 记录不穿透）、context 透传与结构完整性。"""
 from __future__ import annotations
 
 from datetime import datetime
@@ -124,11 +125,22 @@ def test_stop_only_backend_single_step_stopped():
 
 
 @pytest.mark.parametrize("exc", [KeyboardInterrupt, SystemExit])
-def test_base_exceptions_propagate(exc):
-    """⑦ BaseException 族（KeyboardInterrupt/SystemExit）不被捕获，必须穿透。"""
+def test_base_exceptions_recorded_not_propagated(exc):
+    """⑦ KI/SystemExit 打断 stop_tx：安全路径完整优先于信号透传——不穿透，记该步失败后
+    剩余停发射步照常执行（增益归零），最终返回 failed。"""
     be = _FakeBackend(stop_error=exc("interrupt"))
-    with pytest.raises(exc):
-        stop_transmit_safely(be)
+    result = stop_transmit_safely(be)  # 不得抛出
+    assert result["status"] == "failed"
+    assert result["steps"][0]["op"] == "stop_tx"
+    assert result["steps"][0]["ok"] is False
+    assert exc.__name__ in result["steps"][0]["detail"]
+    assert "interrupt" in result["steps"][0]["detail"]
+    assert result["steps"][1]["op"] == "set_tx_gain"  # 剩余步仍执行
+    assert result["steps"][1]["ok"] is True
+    assert be.gain_calls == [0]  # 增益归零未被信号打断
+    # 失败不登记幂等：下次调用重试全流程
+    assert stop_transmit_safely(be)["status"] == "failed"
+    assert be.stop_calls == 2
 
 
 @pytest.mark.parametrize(
@@ -206,3 +218,36 @@ def test_no_capability_backend_vacuous_stopped_and_fallback_idempotent():
     assert first["status"] == "stopped"
     assert first["steps"] == []
     assert stop_transmit_safely(be)["status"] == "already_stopped"
+
+
+def test_run_token_scoped_idempotency_across_runs():
+    """⑮ 运行级幂等：同 backend 不同 run_token 各自全流程执行（跨运行重新停发射）；
+    同 token 二次调用 already_stopped。"""
+    be = _FakeBackend()
+    assert stop_transmit_safely(be, run_token="run-A")["status"] == "stopped"
+    assert stop_transmit_safely(be, run_token="run-B")["status"] == "stopped"
+    assert be.stop_calls == 2  # B 运行重新发射后收尾实际调用 stop_tx
+    assert be.gain_calls == [0, 0]  # 增益两轮各归零一次
+    assert stop_transmit_safely(be, run_token="run-A")["status"] == "already_stopped"
+    assert stop_transmit_safely(be, run_token="run-A")["steps"] == []
+    assert be.stop_calls == 2  # already_stopped 不再触碰 backend
+
+
+def test_run_token_absent_keeps_process_level_semantics():
+    """⑯ run_token 缺省维持现状（向后兼容）：无 token 二次调用 already_stopped，
+    且不与带 token 的登记互相干扰。"""
+    be = _FakeBackend()
+    assert stop_transmit_safely(be)["status"] == "stopped"
+    assert stop_transmit_safely(be)["status"] == "already_stopped"  # 进程级幂等不变
+    assert stop_transmit_safely(be, run_token="run-X")["status"] == "stopped"  # 独立登记
+    assert be.stop_calls == 2
+    assert stop_transmit_safely(be)["status"] == "already_stopped"  # 无 token 登记仍在
+
+
+def test_run_token_fallback_hard_list_for_exotic_backend():
+    """⑰ 不可弱引用后端 + token：回退强持有列表按 (backend, token) 登记，运行级隔离同样成立。"""
+    be_a, be_b = object(), object()
+    assert stop_transmit_safely(be_a, run_token="t1")["status"] == "stopped"
+    assert stop_transmit_safely(be_a, run_token="t2")["status"] == "stopped"
+    assert stop_transmit_safely(be_a, run_token="t1")["status"] == "already_stopped"
+    assert stop_transmit_safely(be_b, run_token="t1")["status"] == "stopped"  # 对象间隔离不变

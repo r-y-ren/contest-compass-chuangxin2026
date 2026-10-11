@@ -197,7 +197,9 @@ def create_run_workspace(runs_root: str, scenario: dict) -> dict:
 
     输入: runs_root 基础目录（不存在则自动创建）、scenario 场景 dict（落盘为 scenario.yaml 副本）。
     输出: {'run_dir': 绝对路径, 'files': [八件套相对路径清单]}。
-    错误: 磁盘剩余 <100MB / 父目录不可创建不可写 / runs_root 为文件 → RunDirError。
+    错误: 磁盘剩余 <100MB / 父目录不可创建不可写 / runs_root 为文件 / 场景序列化失败
+    （回退序列化器遇 bytes/datetime 等不支持类型，异常含类型名）→ RunDirError；
+    骨架填充的任何失败都会回滚已建 run_dir（shutil.rmtree）后抛出，runs/ 下不留残骸。
     同秒冲突时以 -2、-3 后缀去重；时间戳取本地时间。
     """
     root = Path(runs_root)
@@ -228,7 +230,8 @@ def create_run_workspace(runs_root: str, scenario: dict) -> dict:
 
     try:
         _populate_workspace(run_dir, scenario)
-    except OSError as exc:
-        raise RunDirError(f"八件套骨架写入失败: {run_dir}: {exc}") from exc
+    except Exception as exc:  # noqa: BLE001 - 任何落盘失败（含序列化器 TypeError）都须回滚
+        shutil.rmtree(run_dir, ignore_errors=True)  # 回滚：不留半成品运行目录
+        raise RunDirError(f"八件套骨架写入失败: {run_dir}: {type(exc).__name__}: {exc}") from exc
 
     return {"run_dir": os.path.abspath(str(run_dir)), "files": list(WORKSPACE_FILES)}

@@ -335,3 +335,55 @@ def test_alignment_error_absent_when_not_provided(tmp_path):
 
     payload = load_result(result["result_path"])
     assert "alignment_error" not in payload
+
+
+# ---- 补充：NaN/Inf 严格 JSON（allow_nan=False + 占位规整） ----
+
+
+def test_nonfinite_values_normalized_result_strict_json(tmp_path):
+    """stop_result/alignment_error 含 float NaN/±Inf → result.json 无 NaN/Infinity
+    字面量（严格 parse_constant=raise 可解析），非有限值规整为占位字符串。"""
+    run_dir = make_workspace(tmp_path)
+    ctx = make_ctx(
+        run_dir,
+        alignment_error=float("nan"),
+        stop_result={"ok": False, "snr": float("inf"), "floor": float("-inf"),
+                     "deep": [{"v": float("nan")}]},
+        backend=float("nan"),
+    )
+    result = finalize_run(ctx, "done")
+
+    assert result["finalized"] is True
+    text = (run_dir / "result.json").read_text(encoding="utf-8")
+
+    def _reject(name):
+        raise ValueError(f"非法 JSON 字面量: {name}")
+
+    payload = json.loads(text, parse_constant=_reject)  # 严格解析不触发
+    assert payload["alignment_error"] == "__nan__"
+    assert payload["stop_result"]["snr"] == "__inf__"
+    assert payload["stop_result"]["floor"] == "-__inf__"
+    assert payload["stop_result"]["deep"] == [{"v": "__nan__"}]
+    assert payload["backend"] == "__nan__"
+
+
+# ---- 补充：时钟回拨（started_at > finished_at） ----
+
+
+def test_clock_rollback_duration_floor_and_flag(tmp_path):
+    """started_at > finished_at（时钟回拨）→ duration_ms 钳到 1 且结果标
+    clock_rollback=true；正常时序不带该键。"""
+    run_dir = make_workspace(tmp_path)
+    result = finalize_run(
+        make_ctx(run_dir, started_at=1000.0, finished_at=999.5), "done"
+    )
+    payload = load_result(result["result_path"])
+    assert payload["duration_ms"] == 1
+    assert payload["clock_rollback"] is True
+
+    result_ok = finalize_run(
+        make_ctx(run_dir, started_at=1000.0, finished_at=1000.5), "done"
+    )
+    payload_ok = load_result(result_ok["result_path"])
+    assert payload_ok["duration_ms"] >= 1
+    assert "clock_rollback" not in payload_ok  # 正常时序不加键

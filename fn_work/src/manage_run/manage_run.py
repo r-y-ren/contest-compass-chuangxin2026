@@ -5,8 +5,14 @@ import json
 import os
 import time
 from typing import Any, Callable
+from uuid import uuid4
 
-from .append_run_log import LOG_FILENAME, append_run_log, buffered_lines
+from .append_run_log import (
+    LOG_FILENAME,
+    append_run_log,
+    drain_buffered_lines,
+    restore_stranded_lines,
+)
 from .create_run_workspace import RunDirError, create_run_workspace
 from .finalize_run import finalize_run
 from src.shared.stop_transmit_safely import stop_transmit_safely
@@ -58,23 +64,41 @@ def _backend_label(backend: Any) -> Any:
     return type(backend).__name__
 
 
-def _replay_buffered_log_lines(run_dir: str, lines: list[str]) -> int:
-    """把降级缓冲中的滞留日志行逐行追回 run.log，返回成功落盘条数；单行失败只计入未落盘，绝不抛出。
+def _replay_buffered_log_lines(run_dir: str, drained: "list[tuple[str, str]]") -> int:
+    """把降级缓冲中的滞留日志行追回 run.log，返回仍滞留条数；绝不写入他运行目录。
 
-    缓冲行本身就是已序列化的完整 JSON 行，按行原样追加即可（不经 append_run_log
-    重放——持久失败时它会再把重序列化副本压回缓冲，与原始行翻倍挤占环形缓冲，
-    且丢失原始 ts/module）。行级 flush 同 append_run_log 契约：崩溃不丢已写行。
+    drain 已清空缓冲：落盘成功的行自然移除（不回缓冲）；仍失败的行立即归还——
+    归属本运行的行经 append_run_log 归还（其降级语义自然保留：写失败自动再进缓冲，
+    偶发恢复则顺势落盘），归属他运行的行原样归还缓冲（B 运行不得收编 A 运行的
+    滞留行）。缓冲行本身就是已序列化的完整 JSON 行，按行原样追加（不经
+    append_run_log 重放——重序列化会丢失原始 ts/module）。行级 flush 同契约：崩溃不丢已写行。
     """
-    written = 0
-    for line in lines:
+    stranded = 0
+    for owner_dir, line in drained:
+        if owner_dir != run_dir:
+            restore_stranded_lines([(owner_dir, line)])
+            stranded += 1
+            continue
         try:
             with open(os.path.join(run_dir, LOG_FILENAME), "a", encoding="utf-8") as fh:
                 fh.write(line + "\n")
                 fh.flush()
-            written += 1
-        except Exception:  # noqa: BLE001 - 尽力而为：失败只影响落盘计数
-            continue
-    return written
+        except Exception:  # noqa: BLE001 - 行级重放失败立即归还，绝不写入他运行目录
+            stranded += 1
+            _return_line_via_append(run_dir, line)
+    return stranded
+
+
+def _return_line_via_append(run_dir: str, line: str) -> None:
+    """把重放失败的滞留行经 append_run_log 归还缓冲（写失败自动滞留=降级语义自然保留）。
+
+    行损坏到无法解析时退回原样归还（restore_stranded_lines），尽力不丢滞留行。
+    """
+    try:
+        record = json.loads(line)
+        append_run_log(run_dir, record.get("level"), record.get("msg", line), record.get("ctx"))
+    except Exception:  # noqa: BLE001 - 归还路径尽力而为，绝不抛出
+        restore_stranded_lines([(run_dir, line)])
 
 
 def _mark_result_log_degraded(run_dir: str, result: dict) -> None:
@@ -116,21 +140,27 @@ def manage_run(
                 写失败的滞留行在收尾时尽力重放回 run.log，仍滞留则 result.json 标 log_degraded）、
             'set_state'(to_state)（申请一次合法迁移，非法迁移抛 LifecycleError）。
         runs_root: 运行目录基础路径（默认 'runs'，不存在则自动创建）。
-        backend: 发射后端实例，收尾时传给 stop_transmit_safely（可为 None）。
+        backend: 发射后端实例，收尾时传给 stop_transmit_safely（可为 None）；每次运行生成
+            独立 run_token 传入（运行级幂等）——同一 backend 跨运行复用时，每轮收尾都实际停发射。
 
     Returns:
         {'run_dir': 运行目录绝对路径, 'result': finalize_run 返回值, 'status': 'done'|'failed'}；
-        实际可达的返回 status 恒为 'done'——失败路径在停发射+落盘完成后原异常重抛，不返回。
+        正常完成返回 status='done'；execute 正常返回但回调已把状态机推至 failed 终态时，
+        采纳回调终态返回 status='failed'（result.json 同步 failed）。其余失败路径在停发射+
+        落盘完成后原异常重抛，不返回。
 
     Raises:
         RunDirError: 工作区创建失败（磁盘空间不足/父路径不可创建），退出码 1 语义，直接向上抛出。
         LifecycleError: 非法状态迁移（from-to 见异常属性）；execute 内触发时同样先收尾再透传。
         BaseException: execute 回调抛出的任何异常（含 KeyboardInterrupt/SystemExit）——
-            先入 stopping、停发射、落 ERROR 日志、finalize_run(failed)，随后原样重抛。
+            先入 stopping、停发射、落 ERROR 日志、finalize_run(failed)，随后原样重抛；
+            收尾段自身被 KI 等打断时先兜底落盘 result.json(failed) 再放行信号。
     """
     # ① 工作区：失败 → RunDirError 直接抛出（调用方以退出码 1 语义处理）
     workspace = create_run_workspace(runs_root, scenario)
     run_dir: str = workspace["run_dir"]
+    # 运行级停发射幂等令牌：同一 backend 跨运行复用时，每轮收尾都实际停发射
+    run_token = uuid4()
 
     ctx: dict = {
         "run_dir": run_dir,
@@ -139,7 +169,7 @@ def manage_run(
         "started_at": time.time(),
         "open_files": [],
     }
-    _state = {"current": "starting"}
+    _state = {"current": "starting", "visited_running": False}
 
     def _transition(to_state: str) -> str:
         """执行一次迁移并落一行 INFO 日志；非法（跳级/终态再迁/未知状态名）→ LifecycleError。"""
@@ -147,6 +177,8 @@ def manage_run(
         if to_state not in _TRANSITIONS.get(frm, frozenset()):
             raise LifecycleError(frm, to_state)
         _state["current"] = to_state
+        if to_state == "running":
+            _state["visited_running"] = True
         append_run_log(
             run_dir,
             "INFO",
@@ -190,16 +222,71 @@ def manage_run(
             return
         _transition(final_state)
 
+    def _bootstrap_after_interrupt() -> None:
+        """wind_down 被打断时的兜底：再试 finalize_run 一次；仍失败则向 run.log 直写一行，尽力不抛。"""
+        finalized = False
+        try:
+            result = finalize_run(
+                {
+                    "run_dir": run_dir,
+                    "stop_result": ctx.get("stop_result"),
+                    "open_files": ctx.get("open_files"),
+                    "started_at": ctx.get("started_at"),
+                    "backend": _backend_label(backend),
+                },
+                "failed",
+            )
+            finalized = isinstance(result, dict) and bool(result.get("finalized"))
+        except BaseException:  # noqa: BLE001 - 兜底自身绝不抛
+            finalized = False
+        if finalized:
+            return
+        try:
+            record = {
+                "ts": time.time(),
+                "level": "ERROR",
+                "event": "wind_down_interrupted",
+                "error": "收尾被打断且 finalize 兜底未落盘",
+            }
+            with open(os.path.join(run_dir, LOG_FILENAME), "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(record, ensure_ascii=False, allow_nan=False) + "\n")
+                fh.flush()
+        except BaseException:  # noqa: BLE001 - 直写兜底也失败只能吞掉
+            pass
+
     def _wind_down(exit_semantics: str, error: BaseException | None) -> dict:
-        """收尾公共段：入 stopping → 先停发射（结果记入 ctx['stop_result']）→（异常补 ERROR 行）→
-        终态 → 重放降级缓冲滞留行 → finalize（仍有滞留则补正 log_degraded）。"""
+        """收尾公共段（整体兜底）：入 stopping → 先停发射（结果记入 ctx['stop_result']）→（异常补
+        ERROR 行）→ 终态 → 重放降级缓冲滞留行 → finalize（仍有滞留则补正 log_degraded）。
+
+        收尾自身被 KI 等 BaseException 打断时先兜底（再试 finalize 一次，仍失败则向
+        run.log 直写一行），尽力把 result.json 落盘后再放行原信号。
+        """
+        try:
+            return _wind_down_steps(exit_semantics, error)
+        except BaseException:  # noqa: BLE001 - 收尾中信号也须先兜底落盘再透传
+            _bootstrap_after_interrupt()
+            raise
+
+    def _wind_down_steps(exit_semantics: str, error: BaseException | None) -> dict:
+        """收尾步骤主体（由 _wind_down 整体兜底包裹）。"""
         reason = "execute 回调异常" if error is not None else "正常完成"
         _enter_stopping(reason)
+        # done 路径未经 running（回调从未申请发射态）：自动 WARN 留痕，提示疑似漏迁移
+        if error is None and not _state["visited_running"]:
+            append_run_log(
+                run_dir,
+                "WARN",
+                "正常完成但从未进入 running 状态（未经发射即收尾）",
+                {"event": "skipped_running_state"},
+            )
         stop_context: dict = {"run_dir": run_dir, "reason": reason}
         if error is not None:
             stop_context["error"] = f"{type(error).__name__}: {error}"
-        # 铁律：任何退出路径先停发射，结果落 ctx['stop_result'] 供 finalize 记入 result.json
-        ctx["stop_result"] = stop_transmit_safely(backend, context=stop_context)
+        # 铁律：任何退出路径先停发射，结果落 ctx['stop_result'] 供 finalize 记入 result.json；
+        # run_token 为运行级幂等令牌——同 backend 复用的下一轮运行收尾仍实际停发射
+        ctx["stop_result"] = stop_transmit_safely(
+            backend, context=stop_context, run_token=run_token
+        )
         if error is not None:
             append_run_log(
                 run_dir,
@@ -208,20 +295,24 @@ def manage_run(
                 {"event": "execute_error", "error_type": type(error).__name__},
             )
         _set_final("done" if exit_semantics == "done" else "failed")
-        # 降级缓冲接入：收尾日志已全部发出，此时重放可一次性覆盖全部滞留行；
+        # 终态冲突采纳（单向）：execute 正常返回但回调已把状态机推至 failed 终态时，
+        # 收尾语义采纳回调终态——result.json status 以状态机为准（WARN 已留痕）；
+        # 反向不采纳：execute 异常时恒按 failed 收尾，回调自推 done 不改写失败事实
+        if error is None and _state["current"] == "failed":
+            exit_semantics = "failed"
+        ctx["final_status"] = exit_semantics
+        # 降级缓冲接入（运行级归属）：drain 取走并清空缓冲，只重放归属本运行的行进本
+        # run.log；他运行滞留行原样归还（绝不写入他运行目录），重放失败立即归还。
         # 磁盘/目录恢复则落盘（链路未降级），仍有滞留则链路降级需在结果 JSON 标记
-        pending_lines = buffered_lines()
-        stranded = 0
-        if pending_lines:
-            stranded = len(pending_lines) - _replay_buffered_log_lines(run_dir, pending_lines)
+        stranded = _replay_buffered_log_lines(run_dir, drain_buffered_lines())
+        if stranded:
             ctx["log_pending_lines"] = stranded
-            if stranded:
-                append_run_log(  # 尽力向 run.log 留证（可能仍失败再进缓冲，接受）
-                    run_dir,
-                    "WARN",
-                    f"日志链路降级: {stranded} 行滞留内存缓冲未能落盘",
-                    {"event": "log_degraded", "stranded_lines": stranded},
-                )
+            append_run_log(  # 尽力向 run.log 留证（可能仍失败再进缓冲，接受）
+                run_dir,
+                "WARN",
+                f"日志链路降级: {stranded} 行滞留内存缓冲未能落盘",
+                {"event": "log_degraded", "stranded_lines": stranded},
+            )
         finalize_ctx: dict = {
             "run_dir": run_dir,
             "stop_result": ctx.get("stop_result"),
@@ -256,4 +347,5 @@ def manage_run(
         _wind_down("failed", exc)
         raise
     finalize_result = _wind_down("done", None)
-    return {"run_dir": run_dir, "result": finalize_result, "status": "done"}
+    # 回调自推 failed 终态后正常返回时，status 采纳回调终态（'failed'）；正常恒为 'done'
+    return {"run_dir": run_dir, "result": finalize_result, "status": ctx.get("final_status", "done")}

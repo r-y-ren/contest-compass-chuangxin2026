@@ -115,3 +115,52 @@ def test_multiple_appends_preserve_order(tmp_path):
     entries = _read_entries(tmp_path)
     assert [e["msg"] for e in entries] == [f"m{i}" for i in range(5)]  # 顺序保持
     assert [e["level"] for e in entries] == levels  # 四级合法原样透传
+
+
+def test_nan_inf_ctx_normalized_strict_json_parsable(tmp_path):
+    """ctx 含 float NaN/±Inf（含嵌套）→ 序列化前规整为占位字符串，行内绝不出现
+    NaN/Infinity 字面量：可被严格 json.loads(parse_constant=raise) 解析。"""
+    ctx = {
+        "snr": float("nan"),
+        "peak": float("inf"),
+        "floor": float("-inf"),
+        "nested": [{"v": float("nan")}, (float("inf"),)],
+    }
+    assert append_run_log(str(tmp_path), "INFO", "nan line", ctx)["written"] is True
+    raw = (tmp_path / mod.LOG_FILENAME).read_text(encoding="utf-8").strip()
+
+    def _reject(name):
+        raise ValueError(f"非法 JSON 字面量: {name}")
+
+    entry = json.loads(raw, parse_constant=_reject)  # 严格解析不得触发
+    assert entry["ctx"]["snr"] == mod.NAN_TOKEN
+    assert entry["ctx"]["peak"] == mod.INF_TOKEN
+    assert entry["ctx"]["floor"] == mod.NEG_INF_TOKEN
+    assert entry["ctx"]["nested"] == [{"v": mod.NAN_TOKEN}, [mod.INF_TOKEN]]
+
+
+def test_degraded_line_carries_owner_and_drain_returns_and_clears(tmp_path):
+    """降级行携带归属 run_dir：drain_buffered_lines 取走并清空缓冲；
+    restore_stranded_lines 原样归还（环形上限语义同降级路径）。"""
+    bad_dir = str(tmp_path / "gone")
+    append_run_log(bad_dir, "INFO", "滞留行", {"k": 1})
+    assert len(mod.buffered_lines()) == 1
+    drained = mod.drain_buffered_lines()
+    assert len(drained) == 1
+    owner, line = drained[0]
+    assert owner == bad_dir  # 归属随行携带
+    assert json.loads(line)["msg"] == "滞留行"
+    assert mod.buffered_lines() == []  # drain 已清空
+    assert mod.drain_buffered_lines() == []  # 幂等：再 drain 为空
+    mod.restore_stranded_lines(drained)
+    assert [json.loads(l)["msg"] for l in mod.buffered_lines()] == ["滞留行"]  # 原样归还
+    assert mod.drain_buffered_lines() == [(bad_dir, line)]  # 内容逐字节一致
+
+
+def test_degraded_line_ring_cap_on_restore_drops_oldest(tmp_path, monkeypatch):
+    """restore 归还同样受 BUFFER_MAX 环形上限约束（超限丢最旧，归属序保持）。"""
+    monkeypatch.setattr(mod, "BUFFER_MAX", 2)
+    pairs = [("d1", "l1"), ("d2", "l2"), ("d3", "l3")]
+    mod.restore_stranded_lines(pairs)
+    drained = mod.drain_buffered_lines()
+    assert drained == [("d2", "l2"), ("d3", "l3")]  # 最旧 d1 被丢弃

@@ -126,3 +126,22 @@ def test_readonly_runs_root_rejected(tmp_path):
         assert list(runs_root.iterdir()) == []
     finally:
         os.chmod(runs_root, 0o755)
+
+
+def test_fallback_serializer_unsupported_key_type_rolls_back(tmp_path, monkeypatch):
+    """回退序列化器遇 bytes 键（PyYAML 缺失路径）→ RunDirError（含类型名）；
+    已建 run_dir 回滚清除，runs/ 下不留残骸。"""
+    monkeypatch.setattr(crw, "_yaml_mod", None)  # 强制手写序列化器路径
+    runs_root = tmp_path / "runs"
+    with pytest.raises(RunDirError, match="bytes"):
+        create_run_workspace(str(runs_root), {b"raw": 1})
+    assert not runs_root.exists() or list(runs_root.iterdir()) == []  # 无残留
+
+
+def test_fallback_serializer_unsupported_value_type_rolls_back(tmp_path, monkeypatch):
+    """回退序列化器遇 datetime 值 → RunDirError（含类型名），run_dir 同样回滚。"""
+    monkeypatch.setattr(crw, "_yaml_mod", None)
+    runs_root = tmp_path / "runs"
+    with pytest.raises(RunDirError, match="datetime"):
+        create_run_workspace(str(runs_root), {"when": FIXED_NOW})
+    assert not runs_root.exists() or list(runs_root.iterdir()) == []

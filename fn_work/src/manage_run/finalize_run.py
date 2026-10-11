@@ -7,6 +7,8 @@ import os
 import time
 from typing import Any
 
+from .append_run_log import INF_TOKEN, NAN_TOKEN, NEG_INF_TOKEN
+
 # 八件套产物清单：(规范名, 可接受别名元组)。检查顺序即 missing 报告顺序；
 # recordings/plots 为目录、其余为文件，存在性判定统一用 os.path.exists。
 # 场景副本落盘名约定为 scenario.yaml（兼容 scenario.yml 拼写）。
@@ -35,6 +37,24 @@ def _is_finite_real(value: object) -> bool:
     if isinstance(value, float):
         return math.isfinite(value)
     return True
+
+
+def _sanitize_nonfinite(value: Any) -> Any:
+    """递归把 float NaN/±Inf 规整为占位字符串（占位符与 append_run_log 同一套）。
+
+    result.json 统一 allow_nan=False 严格序列化：NaN/Infinity 字面量不是合法 JSON，
+    序列化前必须规整——stop_result/alignment_error/backend 等任意入口带进的
+    非有限浮点都不得让收尾落盘炸掉，也不得写进非法字面量。
+    """
+    if isinstance(value, float) and not math.isfinite(value):
+        if math.isnan(value):
+            return NAN_TOKEN
+        return NEG_INF_TOKEN if value < 0 else INF_TOKEN
+    if isinstance(value, dict):
+        return {_sanitize_nonfinite(k): _sanitize_nonfinite(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_sanitize_nonfinite(v) for v in value]
+    return value
 
 
 def _jsonable(value: object, _seen: set[int] | None = None) -> Any:
@@ -156,7 +176,9 @@ def _check_missing(run_dir: str) -> list[str]:
 def _write_run_log_line(run_dir: str, record: dict) -> bool:
     """兜底：向 run.log 追加一行结构化 JSON。成败以布尔返回，绝不抛出。"""
     try:
-        line = json.dumps(record, ensure_ascii=False, default=repr)
+        line = json.dumps(
+            _sanitize_nonfinite(record), ensure_ascii=False, default=repr, allow_nan=False
+        )
         with open(os.path.join(run_dir, _RUN_LOG_FILENAME), "a", encoding="utf-8") as fh:
             fh.write(line + "\n")
         return True
@@ -197,13 +219,15 @@ def _finalize(ctx: dict, exit_semantics: str) -> dict:
     missing = _check_missing(run_dir)
 
     # 时间口径：started_at 取 ctx（无效则空）；finished_at 优先取 ctx（便于测试注入），否则当前时刻；
-    # duration_ms 折算为毫秒整数，下限钳到 1——已收尾的运行至少经历 1ms（钟粒度），保证恒为正
+    # duration_ms 折算为毫秒整数，下限钳到 1——已收尾的运行至少经历 1ms（钟粒度），保证恒为正；
+    # started_at > finished_at（时钟回拨）时 duration_ms 取下限 1 并在结果标 clock_rollback=true
     started_at_raw = ctx.get("started_at")
     started_at = float(started_at_raw) if _is_finite_real(started_at_raw) else None
     finished_at_raw = ctx.get("finished_at")
     finished_at = float(finished_at_raw) if _is_finite_real(finished_at_raw) else time.time()
+    clock_rollback = started_at is not None and finished_at < started_at
     if started_at is not None:
-        duration_ms = max(int(round((finished_at - started_at) * 1000.0)), 1)
+        duration_ms = 1 if clock_rollback else max(int(round((finished_at - started_at) * 1000.0)), 1)
     else:
         duration_ms = None
 
@@ -224,12 +248,16 @@ def _finalize(ctx: dict, exit_semantics: str) -> dict:
     # alignment_error 仅在 ctx 提供时携带（对齐误差口径来自时钟决策，可能未测）
     if "alignment_error" in ctx:
         payload["alignment_error"] = _jsonable(ctx["alignment_error"])
+    if clock_rollback:
+        payload["clock_rollback"] = True
 
-    # ④ 写结果 JSON；写不进→尽力向 run.log 落一行后返回 finalized=False，不抛出
+    # ④ 写结果 JSON（NaN/±Inf 先规整、allow_nan=False 严格序列化）；
+    # 写不进→尽力向 run.log 落一行后返回 finalized=False，不抛出
     result_path = os.path.join(run_dir, _RESULT_FILENAME)
     try:
+        strict_payload = _sanitize_nonfinite(payload)
         with open(result_path, "w", encoding="utf-8") as fh:
-            json.dump(payload, fh, ensure_ascii=False, indent=2)
+            json.dump(strict_payload, fh, ensure_ascii=False, indent=2, allow_nan=False)
     except Exception as exc:  # noqa: BLE001 - 收尾自身失败不得向上抛
         fallback_ok = _write_run_log_line(
             run_dir,

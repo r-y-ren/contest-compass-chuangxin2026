@@ -296,3 +296,133 @@ def test_run_lifecycle_degraded_lines_stranded_marks_log_degraded(tmp_path):
     assert result["log_degraded"] is True  # 来自滞留行信号的补正
     assert out["result"]["log_degraded"] is True  # 返回值同步修正
     assert append_run_log_module.buffered_lines()  # 行确实滞留在内存缓冲
+
+
+def test_run_lifecycle_buffer_recovered_not_polluting_next_run(tmp_path):
+    """跨运行缓冲（A 降级+恢复）：A 的滞留行由 A 自己的 wind_down 落回 A 的 run.log；
+    缓冲清空，B 运行的 run.log 绝不含 A 的行。"""
+    holder = {}
+
+    def execute_a(ctx):
+        holder["a_dir"] = ctx["run_dir"]
+        log_path = os.path.join(ctx["run_dir"], "run.log")
+        os.remove(log_path)
+        os.mkdir(log_path)  # run.log 变目录 → A 运行日志降级进缓冲
+        assert ctx["log"]("WARN", "A 运行滞留行", {"run": "A"})["degraded"] is True
+        os.rmdir(log_path)  # A 恢复：A 自己收尾时重放应成功
+        with open(log_path, "w", encoding="utf-8"):
+            pass
+
+    out_a = run_once(tmp_path, execute_a)
+    assert out_a["status"] == "done"
+    assert any(rec["msg"] == "A 运行滞留行" for rec in read_run_log(holder["a_dir"]))
+    assert append_run_log_module.buffered_lines() == []  # 重放成功后缓冲已清空
+
+    out_b = run_once(tmp_path, lambda ctx: None)
+    assert out_b["run_dir"] != holder["a_dir"]
+    b_msgs = [rec["msg"] for rec in read_run_log(out_b["run_dir"])]
+    assert "A 运行滞留行" not in b_msgs  # B 的 run.log 不收编 A 的行
+    assert append_run_log_module.buffered_lines() == []  # B 运行后缓冲仍空
+
+
+def test_run_lifecycle_stranded_lines_not_absorbed_by_next_run(tmp_path):
+    """跨运行缓冲（A 持续失败）：A 的滞留行留在内存缓冲不被 B 运行收编——
+    B 的 run.log 不含 A 的行，行仍滞留缓冲且归属 A（B 的 drain 只归还不落盘）。"""
+    holder = {}
+
+    def execute_a(ctx):
+        holder["a_dir"] = ctx["run_dir"]
+        log_path = os.path.join(ctx["run_dir"], "run.log")
+        os.remove(log_path)
+        os.mkdir(log_path)  # A 的 run.log 持续是目录：A 收尾重放也失败 → 行滞留缓冲
+        assert ctx["log"]("ERROR", "A 运行彻底滞留", {"run": "A"})["degraded"] is True
+
+    out_a = run_once(tmp_path, execute_a)
+    assert out_a["status"] == "done"
+    assert append_run_log_module.buffered_lines()  # A 的行滞留内存缓冲
+
+    out_b = run_once(tmp_path, lambda ctx: None)  # B 运行目录完全健康
+    assert out_b["status"] == "done"
+    b_msgs = [rec["msg"] for rec in read_run_log(out_b["run_dir"])]
+    assert "A 运行彻底滞留" not in b_msgs  # B 不收编 A 的滞留行
+    stranded = append_run_log_module.buffered_lines()
+    assert any("A 运行彻底滞留" in line for line in stranded)  # 行仍在缓冲（归属未变）
+    # 归属仍是 A：B 的 drain 把他运行行原样归还（run_dir 字段为 A 目录）
+    drained = append_run_log_module.drain_buffered_lines()
+    try:
+        assert drained and all(owner == holder["a_dir"] for owner, _ in drained)
+    finally:
+        append_run_log_module.restore_stranded_lines(drained)  # 复原：不污染后续用例
+
+
+def test_run_lifecycle_same_backend_second_run_actually_stops(tmp_path):
+    """同一 backend 连跑两轮 manage_run：每轮独立 run_token，第二轮收尾实际调用
+    stop_tx 且增益归零（stop_result.status='stopped' 而非 'already_stopped'）。"""
+    backend = MockBackend()
+    out1 = run_once(tmp_path, lambda ctx: None, backend=backend)
+    out2 = run_once(tmp_path, lambda ctx: None, backend=backend)
+    assert backend.calls.count("stop_tx") == 2  # 两轮各实际停发射一次
+    assert backend.calls.count(("set_tx_gain", 0)) == 2
+    r1 = read_result_json(out1["run_dir"])
+    r2 = read_result_json(out2["run_dir"])
+    assert r1["stop_result"]["status"] == "stopped"
+    assert r2["stop_result"]["status"] == "stopped"  # 第二轮不是 already_stopped
+
+
+def test_run_lifecycle_ki_during_wind_down_still_finalizes(tmp_path, monkeypatch):
+    """收尾段自身被 KI 打断（停发射步抛 KI 直穿）：兜底再 finalize 一次 →
+    result.json 仍落盘（status=failed），随后 KI 继续透传（信号保留）。"""
+    import src.manage_run.manage_run as mr_module
+
+    def stop_raises_ki(backend=None, context=None, **kwargs):
+        raise KeyboardInterrupt("停发射步被打断")
+
+    monkeypatch.setattr(mr_module, "stop_transmit_safely", stop_raises_ki)
+    holder = {}
+
+    def execute(ctx):
+        holder["run_dir"] = ctx["run_dir"]
+
+    with pytest.raises(KeyboardInterrupt):
+        run_once(tmp_path, execute)
+    payload = read_result_json(holder["run_dir"])  # 兜底 finalize 已落盘
+    assert payload["status"] == "failed"
+    assert payload["exit_semantics"] == "failed"
+
+
+def test_run_lifecycle_callback_self_failed_normal_return(tmp_path):
+    """终态冲突：回调自推 failed 终态后正常返回 → wind_down 采纳回调终态，
+    result.json status=failed（run.log 的 skip_stopping/final_state_conflict WARN 保留）。"""
+    def execute(ctx):
+        ctx["set_state"]("running")
+        ctx["set_state"]("stopping")
+        ctx["set_state"]("failed")  # 回调自判失败
+
+    out = run_once(tmp_path, execute)
+    payload = read_result_json(out["run_dir"])
+    assert payload["status"] == "failed"  # 采纳回调终态，而非正常返回的 done
+    assert payload["exit_semantics"] == "failed"
+    assert out["status"] == "failed"  # 返回口径与 result.json 一致
+    events = [rec.get("ctx", {}).get("event") for rec in read_run_log(out["run_dir"])]
+    assert "skip_stopping" in events  # WARN 留痕
+    assert "final_state_conflict" in events
+
+
+def test_run_lifecycle_done_without_running_logs_skip_warning(tmp_path):
+    """done 路径未经 running（回调从未申请发射态）→ run.log 自动 WARN
+    skipped_running_state；经过 running 的运行不产生该 WARN。"""
+    out = run_once(tmp_path, lambda ctx: None)  # 未 set_state('running')
+    warns = [
+        rec
+        for rec in read_run_log(out["run_dir"])
+        if rec.get("ctx", {}).get("event") == "skipped_running_state"
+    ]
+    assert len(warns) == 1
+    assert warns[0]["level"] == "WARN"
+
+    out_ran = run_once(tmp_path, lambda ctx: ctx["set_state"]("running"))
+    assert not [
+        rec
+        for rec in read_run_log(out_ran["run_dir"])
+        if rec.get("ctx", {}).get("event") == "skipped_running_state"
+    ]
