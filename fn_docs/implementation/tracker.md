@@ -39,12 +39,12 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] check_env_declarations · implemented — 证据: bash -c ! grep -rn --include="*.py" -q "unimplemented:fn:check_env_declarations" fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
 - [x] check_env_declarations · tested — 证据: bash -c cd fn_work && python3 -m pytest -q tests/guard_compliance/test_check_env_declarations.py → 7 passed in 0.01s (10-11)
 - [x] check_env_declarations · wired — 证据: bash -c grep -rn --include="*.py" "check_env_declarations(" fn_work/src | grep -v "def check_env_declarations(" | head -2 && echo 调用点存在 → 调用点存在 (10-11)
-- [ ] check_env_declarations · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] check_env_declarations · commit — 预告: fn(check_env_declarations): wired 含四文档变更
+- [x] check_env_declarations · 清单进位 — 证据: bash -c grep -q "check_env_declarations | B1 | wired 10-11" fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
+- [x] check_env_declarations · commit — 证据: bash -c git log --format=%s | grep -q "fn(check_env_declarations): wired" && echo commit在案 → commit在案 (10-11)
 ### guard_compliance
-- [ ] guard_compliance · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] guard_compliance · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] guard_compliance · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
+- [x] guard_compliance · implemented — 证据: bash -c ! grep -rn --include="*.py" -q "unimplemented:fn:guard_compliance" fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] guard_compliance · tested — 证据: bash -c cd fn_work && python3 -m pytest -k compliance_guard -q → 7 passed, 87 deselected in 0.05s (10-11)
+- [x] guard_compliance · wired — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && PYTHONPATH=. python3 /tmp/scaffold/verify_gc_wired.py → 顶层实跑 rejected，三条款前缀齐全: ['[band]', '[declaration]', '[power]' (10-11)
 - [ ] guard_compliance · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] guard_compliance · commit — 预告: fn(guard_compliance): wired 含四文档变更
 
