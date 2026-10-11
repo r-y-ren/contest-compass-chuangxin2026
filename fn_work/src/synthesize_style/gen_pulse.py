@@ -37,10 +37,15 @@ def gen_pulse(
       with_carrier=False 脉内恒幅 ``amplitude``（实数 +0j 归一形态）。
     - 占空比由二者推导：duty = pulse_width_s*repeat_hz，须 ∈(0,1)；
       duty≥1（脉宽≥周期）物理不可能 → ValueError。
+    - 采样欠定区（B7低#9）：repeat_hz ≥ fs/2 → ValueError（每周期不足 2 样本，
+      脉位不可分辨，含两值）；duty 极小（如 1e-9）仍为合法路径。
     - 输出长度恰为 n_samples，dtype complex64；
-      meta = {'duty_cycle','pulse_width_s','repeat_hz','carrier_hz'}。
+      meta = {'duty_cycle','pulse_width_s','repeat_hz','carrier_hz'}；
+      with_carrier=False 时 carrier_hz 不参与合成 → meta['carrier_hz']=None
+      并增 'carrier_ignored': True（B7低#10，如实标注载波被忽略）。
     - 域自校验（防御纵深）：pulse_width_s/repeat_hz/carrier_hz/fs/amplitude
-      有限实数（pulse_width_s、repeat_hz、fs、amplitude 还须 >0）；
+      有限实数（pulse_width_s、repeat_hz、fs、amplitude 还须 >0；amplitude 还须
+      ∈[1e-30, 1e30]——输出 complex64 表示域，B7中#4）；
       n_samples 正 int；with_carrier 必须 bool 型——域错抛 ValueError（含参数名）。
     """
     width = _finite_real("pulse_width_s", pulse_width_s)
@@ -66,9 +71,21 @@ def gen_pulse(
     fs_hz = _finite_real("fs", fs)
     if fs_hz <= 0.0:
         raise ValueError(f"fs 必须为有限正数（>0），got {fs!r}")
+    # 采样欠定区（B7低#9）：repeat ≥ fs/2 → 每周期不足 2 样本，脉位不可分辨。
+    if repeat >= fs_hz / 2.0:
+        raise ValueError(
+            f"repeat_hz 须 < fs/2（采样欠定区拒：每周期至少 2 样本），"
+            f"got repeat_hz={repeat} ≥ fs/2={fs_hz / 2.0}"
+        )
     amp = _finite_real("amplitude", amplitude)
     if amp <= 0.0:
         raise ValueError(f"amplitude 必须为有限正数（>0），got {amplitude!r}")
+    if not 1e-30 <= amp <= 1e30:
+        raise ValueError(
+            f"amplitude 数值超界：须 1e-30 ≤ amplitude ≤ 1e30"
+            f"（输出 complex64 表示域：float32 上溢≈3.4e38/下溢≈1.2e-38，留裕量），"
+            f"got {amplitude!r}"
+        )
 
     # 全局时间轴 → 门控包络（脉内 1 / 脉间 0）→ 乘载波（相位按全局 t 连续累积）
     t = np.arange(n, dtype=np.float64) / fs_hz
@@ -88,6 +105,9 @@ def gen_pulse(
         "duty_cycle": duty,
         "pulse_width_s": width,
         "repeat_hz": repeat,
-        "carrier_hz": carrier,
+        # B7低#10：with_carrier=False 时载波不参与合成——如实置 None 并标注忽略。
+        "carrier_hz": carrier if with_carrier else None,
     }
+    if not with_carrier:
+        meta["carrier_ignored"] = True
     return iq.astype(np.complex64), meta

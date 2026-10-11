@@ -17,7 +17,7 @@ ch = gen_chirp(0.0, 0.4 * FS, 1.0, N, fs=FS)
 nz, nm = gen_bandlimited_noise(0.1 * FS, N, fs=FS)
 assert nm['flatness_db'] <= 4.0
 pb, pm = gen_partial_band(0.25, 0.8 * FS, N, fs=FS)
-pu, pum = gen_pulse(0.05, 10.0, N, fs=FS)
+pu, pum = gen_pulse(0.05, 10.0, N, fs=100.0)
 assert abs(pum['duty_cycle'] - 0.5) < 1e-9
 cj, cm = compose_jamming([{'iq': gen_tone(0.05 * FS, N)}, {'iq': gen_tone(-0.05 * FS, N), 'phase_rad': 0.0}], fs=FS)
 chk = check_style_params({'style': 'tone', 'power_dbm': -5.0})

@@ -319,8 +319,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] compose_jamming · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(compose_jamming)' && echo commit在案 → commit在案 (10-11)
 
 ## B7 批间门
-- [ ] B7 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B7 · 用户裁决 — 预告: 继续 B8 / 修订 / 裁决 blocked
+- [x] B7 · 评审三轴 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && grep -q 'Ruling: B7 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && echo 三轴过门+Ruling⑪在案 → 三轴过门+Ruling⑪在案 (10-11)
+- [x] B7 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b7.py | grep -q 探针全过 && echo B7 双审收口（12 项修复+探针新口径过） → B7 双审收口（12 项修复+探针新口径过） (10-11)
 
 ## B8 — append_event, synthesize_style, lookup_style_recipe, switch_style, plan_attenuator_combo, set_channel_attenuation
 ### append_event
@@ -876,4 +876,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B6 两处规约歧义取舍——①make_spectrogram frames 公式按具体期望值 7 落地为 1+ceil((N-nfft)/hop)（尾帧补零计入，skipped 仅整段不足一窗）；②index_dataset 读路径 IO 失败归 IndexWriteError、仅非法 JSON/结构错触发自动 rebuild（防 IndexFormatError 短路写失败口径） — 子代理实现时申报（规约文本自相矛盾/两口径冲突） — 无（语义更精确，测试固化） — batches 变更记录 Ruling⑧ (10-11)
 - Ruling: B6 双审收口——①R29 空输入口径回写 responsibility（空→跳段不抛，SpectrogramError 类全库不存在按实现口径修正）；②对抗 中6低7 全修复（stderr 污染/NaN 静默/帧规模上限/rebuild 毒化/真机时基鸭子接口+fail-closed/矛盾态降级/CLI 重试）；修复触 autodetect_backend.py 一处（低#10 落点唯一，子代理申报） — 三轴观察+对抗 — 无 — responsibility.md 一处+batches Ruling⑨ (10-11)
 - Ruling: B7 两处规约歧义裁定——①gen_chirp 对抗项「三角中点频率≈center」按形状数学不成立（u=T/2 是峰值 center+bw/2），测试改在 u=T/4、3T/4 双侧验证 ≈center 且 u=T/2 验证峰值；②compose_jamming 分量等长采用严格校验（不一致即拒列长度，不零填充） — 子代理实现时申报 — 无（语义更严） — batches 变更记录 Ruling⑩ (10-11)
+- Ruling: B7 双审收口——对抗 中5低7 全修复（IndexError 崩溃/银行家舍入空输出/NaN 喂下游/amplitude 表示域/占位元数据+seed·混叠·欠定·整型七项口径统一）；probe_b7 fs=1→100（repeat 10Hz 在 fs=1 属欠定域，修复后如法拒） — 对抗审查 — 无 — batches Ruling⑪ (10-11)
 

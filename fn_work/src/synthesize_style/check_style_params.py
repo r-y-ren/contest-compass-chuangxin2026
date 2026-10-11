@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+from numbers import Integral
 
 # 六类样式白名单；带限类（bandwidth_hz 必填）样式集合。
 STYLE_WHITELIST = frozenset(
@@ -32,8 +33,9 @@ def _is_finite_real(value: object) -> bool:
 
     bool 是 int 的子类但语义上是开关而非量值，故显式排除；
     int 天然有限（不经 float 转换，天文数字也不抛 OverflowError）。
+    整型口径（B7低#12）：接受任意 numbers.Integral（np.int64 过），bool 仍拒。
     """
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, (Integral, float)):
         return False
     if isinstance(value, float):
         return math.isfinite(value)
@@ -122,7 +124,12 @@ def check_style_params(params: dict) -> dict:
 
     if "repeats" in params:
         repeats = params["repeats"]
-        if isinstance(repeats, bool) or not isinstance(repeats, int) or repeats <= 0:
+        # 整型口径（B7低#12）：任意 Integral（np.int64）过，bool 仍拒。
+        if (
+            isinstance(repeats, bool)
+            or not isinstance(repeats, Integral)
+            or repeats <= 0
+        ):
             errors.append(f"repeats 须为正 int（拒 bool），实际值 {repeats!r}")
 
     sample_rate_hz = _real_field(params, "sample_rate_hz", errors)

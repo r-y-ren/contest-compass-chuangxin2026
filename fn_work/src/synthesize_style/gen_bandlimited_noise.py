@@ -41,13 +41,19 @@ def gen_bandlimited_noise(
       * measured_bw_hz：实际保留 bin 数 × 频率分辨率 fs/n（频域构造下即信号
         真实支撑带宽，bin 量化误差为 fs/n 量级）；
       * occupied_bw99_hz：累积功率 0.5%–99.5% 分位点频宽（99% 功率带宽）；
+        i_hi 钳位到 n-1：n_samples=1 或功率集中于频轴最顶 bin 时两分位点重合，
+        如实报 0（一般情形至少跨一个 df）；
       * flatness_db：带内 10%–90% 频段分组平均功率的最大/最小差（dB）——
         分组平均抑制周期图指数起伏，长样本（约 ≥8192 点）实测 ≤4dB 设计目标；
       * center_offset_hz / seed：回显输入。
     - 输出：complex64 ndarray，长度 n_samples，RMS 精确归一到 rms_amplitude。
-    - 域自校验（防御纵深，均抛 ValueError 含参数名）：bandwidth_hz 有限 >0 且
-      ≤fs/2（带限物理域）且 ≤56e6（红线）；n_samples 正 int（拒 bool）；
-      fs 有限 >0；center_offset_hz 有限实数（负允许）；rms_amplitude 有限 >0；
+    - 域自校验（防御纵深，均抛 ValueError 含参数名；顺序：物理域先于红线，
+      归因正确——默认 fs=1 时超 56e6 的值也会先撞 fs/2 物理域报文，如实）：
+      bandwidth_hz 有限 >0 且 ≤fs/2（带限物理域）且 ≤56e6（红线）；
+      n_samples 正 int（拒 bool）；fs 有限 >0；center_offset_hz 有限实数
+      （负允许）且 |center_offset_hz| + bandwidth_hz/2 ≤ fs/2（混叠域，含两值）；
+      rms_amplitude 有限 >0 且 ∈[1e-30, 1e30]（输出 complex64 表示域：
+      float32 上溢≈3.4e38/下溢≈1.2e-38，留两个量级裕量）；
       seed 为 int 或 None（拒 bool/浮点/字符串）。NaN/inf/bool 全拒。
     """
     bw = _finite_real("bandwidth_hz", bandwidth_hz)
@@ -61,6 +67,7 @@ def gen_bandlimited_noise(
     fs_hz = _finite_real("fs", fs)
     if fs_hz <= 0.0:
         raise ValueError(f"fs 必须为有限正数（>0），got {fs!r}")
+    # 校验顺序（B7低#8）：先物理域（bw≤fs/2）再红线（bw≤56e6），报文归因正确。
     if bw > fs_hz / 2.0:
         raise ValueError(
             f"bandwidth_hz 超带限物理域（须 ≤fs/2={fs_hz / 2.0}），got {bandwidth_hz!r}"
@@ -70,9 +77,23 @@ def gen_bandlimited_noise(
             f"bandwidth_hz 超 56MHz 红线（须 ≤{BANDWIDTH_HZ_MAX}），got {bandwidth_hz!r}"
         )
     center = _finite_real("center_offset_hz", center_offset_hz)
+    # 混叠域（B7低#7）：|center| + bw/2 ≤ fs/2，等式边界（贴 fs/2）按相对容差放行。
+    alias_edge = abs(center) + bw / 2.0
+    if alias_edge > fs_hz / 2.0 * (1.0 + 1e-9):
+        raise ValueError(
+            "center_offset_hz 超混叠域：|center_offset_hz| + bandwidth_hz/2 须 ≤ fs/2，"
+            f"got |{center}| + {bw / 2.0} = {alias_edge} > fs/2={fs_hz / 2.0}"
+        )
     rms = _finite_real("rms_amplitude", rms_amplitude)
     if rms <= 0.0:
         raise ValueError(f"rms_amplitude 必须为有限正数（>0），got {rms_amplitude!r}")
+    # 数值表示域（B7中#4）：complex64 输出幅度上下界，防 float32 上溢/下溢。
+    if not 1e-30 <= rms <= 1e30:
+        raise ValueError(
+            f"rms_amplitude 数值超界：须 1e-30 ≤ rms_amplitude ≤ 1e30"
+            f"（输出 complex64 表示域：float32 上溢≈3.4e38/下溢≈1.2e-38，留裕量），"
+            f"got {rms_amplitude!r}"
+        )
     if seed is not None and (isinstance(seed, bool) or not isinstance(seed, Integral)):
         raise ValueError(f"seed 必须为 int 或 None（拒 bool/浮点/字符串），got {seed!r}")
     seed_out = None if seed is None else int(seed)
@@ -105,7 +126,9 @@ def gen_bandlimited_noise(
     cum = np.cumsum(p_asc)
     i_lo = min(int(np.searchsorted(cum, 0.005 * total)), n - 1)
     i_hi = min(int(np.searchsorted(cum, 0.995 * total)), n - 1)
-    i_hi = max(i_hi, i_lo + 1)
+    # B7中#1：先保底跨至少一个 bin、再钳位到 n-1——n=1 与贴顶单 bin（i_lo=n-1）
+    # 时两分位点重合，如实报 0 而非越界（旧实现 max(i_hi, i_lo+1) 可达 n → IndexError）。
+    i_hi = min(max(i_hi, i_lo + 1), n - 1)
     occupied_bw99_hz = float(f_asc[i_hi] - f_asc[i_lo])
 
     # 带内平坦度：带内 bin 按频率顺序等宽分组取平均（抑制周期图指数起伏），

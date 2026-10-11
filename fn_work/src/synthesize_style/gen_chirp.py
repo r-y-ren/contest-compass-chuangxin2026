@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import math
+from numbers import Integral
 
 import numpy as np
 
@@ -57,8 +58,9 @@ def gen_chirp(
         ndarray complex64，长度 n_samples，|x| ≡ amplitude，相位跨周期连续。
     错误:
         ValueError（信息含参数名）：center/bandwidth/period/fs/amplitude 非有限实数
-        或拒 bool；bandwidth/period/fs/amplitude 非正；n_samples 非正 int（拒 bool/
-        float）；shape 不在 {'sawtooth','triangle'}。
+        或拒 bool；bandwidth/period/fs/amplitude 非正，amplitude 还须 ∈[1e-30, 1e30]
+        （输出 complex64 表示域，B7中#4）；n_samples 非正 int（拒 bool/float，接受
+        任意 Integral——np.int64 过，B7低#12）；shape 不在 {'sawtooth','triangle'}。
     """
     center = _finite_float(center_hz, "center_hz")
     bandwidth = _finite_float(bandwidth_hz, "bandwidth_hz")
@@ -74,12 +76,19 @@ def gen_chirp(
         raise ValueError(f"fs 必须为正数: {fs!r}")
     if amp <= 0.0:
         raise ValueError(f"amplitude 必须为正数: {amplitude!r}")
-    if isinstance(n_samples, bool) or not isinstance(n_samples, int) or n_samples <= 0:
+    if not 1e-30 <= amp <= 1e30:
+        raise ValueError(
+            f"amplitude 数值超界：须 1e-30 ≤ amplitude ≤ 1e30"
+            f"（输出 complex64 表示域：float32 上溢≈3.4e38/下溢≈1.2e-38，留裕量），"
+            f"got {amplitude!r}"
+        )
+    if isinstance(n_samples, bool) or not isinstance(n_samples, Integral) or n_samples <= 0:
         raise ValueError(f"n_samples 必须为正 int: {n_samples!r}")
+    n = int(n_samples)
     if not isinstance(shape, str) or shape not in _VALID_SHAPES:
         raise ValueError(f"shape 必须为 {'/'.join(_VALID_SHAPES)} 之一: {shape!r}")
 
-    t = np.arange(n_samples, dtype=np.float64) / rate
+    t = np.arange(n, dtype=np.float64) / rate
     cycles = np.floor(t / period)  # 已扫过的完整周期数 k
     u = t - cycles * period  # 周期内时间 ∈ [0, period)
     low = center - 0.5 * bandwidth  # 扫频低边沿（每周期起点）

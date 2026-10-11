@@ -20,7 +20,7 @@ def _finite_real(name: str, value: object) -> float:
 
 
 def _parse_iq(idx: int, raw: object) -> np.ndarray:
-    """分量基带波形 → complex128 一维数组（拒 bool/字符串/非数值/非一维/空）。"""
+    """分量基带波形 → complex128 一维数组（拒 bool/字符串/非数值/非一维/空/非有限）。"""
     if isinstance(raw, (bool, str, bytes)):
         raise ValueError(
             f"components[{idx}]['iq'] 必须为数值序列（实/复），got {type(raw).__name__}"
@@ -44,7 +44,10 @@ def _parse_iq(idx: int, raw: object) -> np.ndarray:
         raise ValueError(
             f"components[{idx}]['iq'] 必须为非空一维序列，got ndim={arr.ndim}, size={arr.size}"
         )
-    return arr.astype(np.complex128)
+    iq_c = arr.astype(np.complex128)
+    if not np.all(np.isfinite(iq_c)):  # B7中#3：NaN/inf 拒（与 envelope 同口径）
+        raise ValueError(f"components[{idx}]['iq'] 含非有限值（NaN/inf）")
+    return iq_c
 
 
 def _parse_envelope(idx: int, spec: object, n: int, comp: dict) -> np.ndarray:
@@ -55,6 +58,13 @@ def _parse_envelope(idx: int, spec: object, n: int, comp: dict) -> np.ndarray:
                 f"components[{idx}]['envelope'] 字符串仅支持 'constant'，got {spec!r}"
             )
         amp = _finite_real(f"components[{idx}]['amplitude']", comp.get("amplitude", 1.0))
+        # 数值表示域（B7中#4）：合成输出 complex64，幅度上下界防 float32 上溢/下溢。
+        if not 1e-30 <= amp <= 1e30:
+            raise ValueError(
+                f"components[{idx}]['amplitude'] 数值超界：须 1e-30 ≤ amplitude ≤ 1e30"
+                f"（输出 complex64 表示域：float32 上溢≈3.4e38/下溢≈1.2e-38，留裕量），"
+                f"got {comp.get('amplitude', 1.0)!r}"
+            )
         return np.full(n, amp, dtype=np.float64)
     try:
         arr = np.asarray(spec)
@@ -88,15 +98,18 @@ def _parse_envelope(idx: int, spec: object, n: int, comp: dict) -> np.ndarray:
 def compose_jamming(components: list, fs: float = 1.0) -> tuple:
     """J(t) 多源合成（公式1）：J(t) = Σ_k A_k(t)·iq_k(t)·exp(j[2πΔf_k·t + θ_k])。
 
-    - 分量 dict 键：'iq'（必填，该分量基带波形，ndarray|Sequence[complex]）；
-      'envelope'（'constant' 时 A_k 取 'amplitude' 键数值、缺省 1.0；或与 iq 等长的
-      一维实数数组 A_k(t)，须有限）；'freq_offset_hz'（Δf_k，缺省 0.0）；
+    - 分量 dict 键：'iq'（必填，该分量基带波形，ndarray|Sequence[complex]，
+      须有限——NaN/inf 拒，B7中#3）；'envelope'（'constant' 时 A_k 取 'amplitude'
+      键数值、缺省 1.0，须 ∈[1e-30, 1e30]（complex64 表示域，B7中#4）；或与 iq
+      等长的一维实数数组 A_k(t)，须有限）；'freq_offset_hz'（Δf_k，缺省 0.0）；
       'phase_rad'（θ_k，缺省 0.0）。
     - 等长校验（严格）：各分量 iq 长度必须一致（envelope 数组还须与自身 iq 等长），
       不一致 → ValueError 并列出各长度；不做零填充归整。
     - 输出：(iq: complex64 合成波形, meta: {'n_components', 'length',
       'power_share'}）；power_share 按合成前各分量平均功率 / 分量总功率，
-      总功率为 0 时占空口径 = 全 0.0 列表。
+      总功率为 0 时占空口径 = 全 0.0 列表。|freq_offset_hz| > fs/2 的分量不拒
+      （复信号口径），但 meta 增 'alias_warning': [各越界分量的等效频偏列表]
+      （折叠到 (-fs/2, fs/2]，B7低#11）。
     - 域自校验（防御纵深）：components 须非空 list 且元素为 dict；freq_offset_hz/
       phase_rad/amplitude/fs 须有限实数（拒 bool/NaN/inf）；envelope 数组须有限。
       域错统一抛 ValueError（含参数名/分量下标）。
@@ -154,7 +167,9 @@ def compose_jamming(components: list, fs: float = 1.0) -> tuple:
     total_power = float(np.sum(powers))
     if total_power > 0.0:
         power_share = [p / total_power for p in powers]
-    else:  # 全零分量：总功率 0 → 占空口径如实列 0.0
+    else:
+        # 仅可达于全零分量（总功率 0 → 占空口径如实列 0.0）；NaN/inf 分量已在
+        # _parse_iq/_parse_envelope 域校验拦截（B7中#3），不再以本分支掩饰。
         power_share = [0.0] * len(powers)
 
     meta = {
@@ -162,4 +177,13 @@ def compose_jamming(components: list, fs: float = 1.0) -> tuple:
         "length": n,
         "power_share": power_share,
     }
+    # 混叠标注（B7低#11，不拒——复信号口径）：|Δf_k| > fs/2 的分量在采样后折叠到
+    # (-fs/2, fs/2] 的等效频偏，meta 如实列出供上游提示。
+    alias_warning = [
+        ((f + fs_hz / 2.0) % fs_hz) - fs_hz / 2.0
+        for f in freqs
+        if abs(f) > fs_hz / 2.0
+    ]
+    if alias_warning:
+        meta["alias_warning"] = alias_warning
     return total.astype(np.complex64), meta

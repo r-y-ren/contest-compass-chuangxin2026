@@ -98,9 +98,14 @@ def test_offset_at_exact_boundary_allowed():
 
 
 def test_sub_bin_band_falls_back_to_nearest_bin():
-    """occ < 1 个 bin：保底距带心最近单 bin（此处 bin 0 → 纯直流恒包络）。"""
+    """occ < 1 个 bin：保底距带心最近单 bin（此处 bin 0 → 纯直流恒包络）。
+
+    B7中#5 新口径：occupied_bw_hz 如实报实测占位（单 bin 宽 fs/n），
+    并加 'fallback_bin': True 标注（标称 0.008 < df=1 不可分辨）。
+    """
     iq, meta = gen_partial_band(0.008, 1.0, 256, center_offset_hz=0.496, fs=256.0, seed=5)
-    assert meta["occupied_bw_hz"] == pytest.approx(0.008)
+    assert meta["occupied_bw_hz"] == pytest.approx(256.0 / 256)  # 单 bin 宽 fs/n
+    assert meta["fallback_bin"] is True
     assert np.max(np.abs(np.abs(iq.astype(np.complex128)) - 1.0)) < 1e-6
 
 
