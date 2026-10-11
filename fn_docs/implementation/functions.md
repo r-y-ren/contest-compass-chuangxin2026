@@ -11,9 +11,9 @@
 | guard_compliance | B1 | wired 10-11 | pytest -k compliance_guard → 7 passed；目录 40 passed；实跑三条款拒 | 15e55eb |
 | load_calibration_table | B2 | tested 10-11 | pytest tests/shared → 16 passed | 74fc657 |
 | lookup_jsr | B2 | stub 10-11 | pytest -k jsr_calibration | — |
-| check_monotonicity | B2 | tested 10-11 | pytest → 34 passed | pending |
+| check_monotonicity | B2 | tested 10-11 | pytest → 34 passed | 3ddcd27 |
 | build_gain_calibration | B2 | stub 10-11 | pytest -k gain_calibration | — |
-| calibrate_leakage | B2 | stub 10-11 | pytest -k leak_calibration | — |
+| calibrate_leakage | B2 | tested 10-11 | pytest -k leak_calibration → 10 passed | pending |
 | compensate_link_power | B2 | stub 10-11 | pytest -k link_compensation | — |
 | stop_transmit_safely | B3 | stub 10-11 | 上游覆盖: manage_run | — |
 | create_run_workspace | B3 | stub 10-11 | 上游覆盖: manage_run | — |
