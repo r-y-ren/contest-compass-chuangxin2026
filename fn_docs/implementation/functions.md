@@ -48,7 +48,7 @@
 | gen_partial_band | B7 | wired 10-11 | 66 passed；占比+带容约束 | 6d8a229 |
 | gen_pulse | B7 | wired 10-11 | 64 passed；门控+跨脉冲相位连续+fmod 加固 | 8b1a58c |
 | compose_jamming | B7 | wired 10-11 | 34 passed；公式(1) 程序化 | 259b8e7 |
-| append_event | B8 | stub 10-11 | 上游覆盖: set_channel_attenuation | — |
+| append_event | B8 | wired 10-11 | 21 passed；单调钟 ts+NaN 占位+显式抛 | pending |
 | synthesize_style | B8 | stub 10-11 | pytest -k styles_synth | — |
 | lookup_style_recipe | B8 | stub 10-11 | 上游覆盖: switch_style | — |
 | switch_style | B8 | stub 10-11 | pytest -k styles_switch | — |

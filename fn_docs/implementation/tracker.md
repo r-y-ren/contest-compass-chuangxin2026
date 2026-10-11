@@ -324,10 +324,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B8 — append_event, synthesize_style, lookup_style_recipe, switch_style, plan_attenuator_combo, set_channel_attenuation
 ### append_event
-- [ ] append_event · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] append_event · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] append_event · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] append_event · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] append_event · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:append_event' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] append_event · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/shared/test_append_event.py | tail -1 → 21 passed in 0.03s (10-11)
+- [x] append_event · wired — 证据: bash -c grep -rn 'append_event(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/set_channel_attenuation/set_channel_attenuation.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
+- [x] append_event · 清单进位 — 证据: bash -c grep -q '| append_event | B8 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] append_event · commit — 预告: fn(append_event): wired 含四文档变更
 ### synthesize_style
 - [ ] synthesize_style · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -877,4 +877,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B6 双审收口——①R29 空输入口径回写 responsibility（空→跳段不抛，SpectrogramError 类全库不存在按实现口径修正）；②对抗 中6低7 全修复（stderr 污染/NaN 静默/帧规模上限/rebuild 毒化/真机时基鸭子接口+fail-closed/矛盾态降级/CLI 重试）；修复触 autodetect_backend.py 一处（低#10 落点唯一，子代理申报） — 三轴观察+对抗 — 无 — responsibility.md 一处+batches Ruling⑨ (10-11)
 - Ruling: B7 两处规约歧义裁定——①gen_chirp 对抗项「三角中点频率≈center」按形状数学不成立（u=T/2 是峰值 center+bw/2），测试改在 u=T/4、3T/4 双侧验证 ≈center 且 u=T/2 验证峰值；②compose_jamming 分量等长采用严格校验（不一致即拒列长度，不零填充） — 子代理实现时申报 — 无（语义更严） — batches 变更记录 Ruling⑩ (10-11)
 - Ruling: B7 双审收口——对抗 中5低7 全修复（IndexError 崩溃/银行家舍入空输出/NaN 喂下游/amplitude 表示域/占位元数据+seed·混叠·欠定·整型七项口径统一）；probe_b7 fs=1→100（repeat 10Hz 在 fs=1 属欠定域，修复后如法拒） — 对抗审查 — 无 — batches Ruling⑪ (10-11)
+- Ruling: B8 三处申报取舍收拢——①synthesize_style 签名微调为单参 params dict（桩三参→规约「输入 params: dict」口径，代码即真值）；②style 键不入 check_style_params 二次校验（合法性归注册表、扩展样式经本入口可达；check 的带限类 bandwidth 联动与 pulse 参数名不一致不入检）；③plan_attenuator_combo 择优规则=残差最优先（覆盖「≥半粗档用粗档」经验法则，平手选粗档/列表序，文档+测试固化） — 子代理实现申报 — 无 — batches 变更记录 Ruling⑫ (10-11)
 
