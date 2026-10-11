@@ -44,8 +44,8 @@
 | gen_tone | B7 | wired 10-11 | 36 passed；FFT 峰 bin±1 | 13d9392 |
 | gen_sweep | B7 | wired 10-11 | 29 passed；相位连续+瞬时频率 | 0030ad2 |
 | gen_chirp | B7 | wired 10-11 | 33 passed；跨周期相位连续 | ae433a0 |
-| gen_bandlimited_noise | B7 | wired 10-11 | 58 passed；平坦度≤4dB 实测 | pending |
-| gen_partial_band | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
+| gen_bandlimited_noise | B7 | wired 10-11 | 58 passed；平坦度≤4dB 实测 | 15bc852 |
+| gen_partial_band | B7 | wired 10-11 | 66 passed；占比+带容约束 | pending |
 | gen_pulse | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
 | compose_jamming | B7 | stub 10-11 | 上游覆盖: synthesize_style | — |
 | append_event | B8 | stub 10-11 | 上游覆盖: set_channel_attenuation | — |
