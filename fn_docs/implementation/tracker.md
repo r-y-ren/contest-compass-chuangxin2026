@@ -172,7 +172,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] open_replay_backend · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k backend_replay -q | tail -1 → 13 passed, 438 deselected in 0.15s (10-11)
 - [x] open_replay_backend · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b4.py >/dev/null && grep -rn 'open_replay_backend(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src --include='*.py' | grep -v 'def open_replay_backend' | grep -v test | head -1 && echo 探针链路+注册在案 → 探针链路+注册在案 (10-11)
 - [x] open_replay_backend · 清单进位 — 证据: bash -c grep -q '| open_replay_backend | B4 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] open_replay_backend · commit — 预告: fn(open_replay_backend): wired 含四文档变更
+- [x] open_replay_backend · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(open_replay_backend)' && echo commit在案 → commit在案 (10-11)
 
 ## B4 批间门
 - [ ] B4 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
