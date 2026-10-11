@@ -49,8 +49,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] guard_compliance · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(guard_compliance): wired' && echo commit在案 → commit在案 (10-11)
 
 ## B1 批间门
-- [ ] B1 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B1 · 用户裁决 — 预告: 继续 B2 / 修订 / 裁决 blocked
+- [x] B1 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B1 基线时序异常留痕' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && echo 三轴评审过门+留痕在案 → 三轴评审过门+留痕在案 (10-11)
+- [x] B1 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/guard_compliance/ | tail -1 && grep -qc 'test_defect_' tests/guard_compliance/test_check_power_cap.py && echo 裁决执行完毕:缺陷审查2高1中3低全修复+35回归 → 裁决执行完毕:缺陷审查2高1中3低全修复+35回归 (10-11)
 
 ## B2 — load_calibration_table, lookup_jsr, check_monotonicity, build_gain_calibration, calibrate_leakage, compensate_link_power
 ### load_calibration_table

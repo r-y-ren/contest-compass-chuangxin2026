@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
+
 from src.guard_compliance.check_power_cap import check_power_cap
 
 
@@ -172,3 +174,120 @@ class TestMalformedInput:
             }
             assert result["status"] in ("pass", "violation", "waived")
             assert isinstance(result["violations"], list)
+
+
+# ---------------------------------------------------------------------------
+# 缺陷回归（对抗审查确认的触发输入，逐条锁死）
+# ---------------------------------------------------------------------------
+
+
+class TestDefect1And6IllegalPowerValues:
+    """缺陷#1/#6：NaN/±inf/bool/字符串/None 的 power_dbm 全部违例且不可豁免。
+
+    NaN 与任何上限比较恒为 False，旧实现据此放行（红线绕过）；±inf 走
+    "功率超限"路径可被豁免凭证豁免。修后统一归入形状错，先行拒绝。
+    """
+
+    @pytest.mark.parametrize(
+        "bad_power",
+        [
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+            True,
+            False,
+            "high",
+            None,
+        ],
+        ids=["nan", "inf", "-inf", "True", "False", "str", "None"],
+    )
+    def test_defect_1_illegal_power_value_is_unwaivable_violation(self, bad_power):
+        result = check_power_cap({"power_dbm": bad_power})
+        assert result["status"] == "violation"
+        assert result["waiver_audit"] is None
+        assert any("功率值非法" in v for v in result["violations"])
+        assert any("power_dbm" in v for v in result["violations"])
+
+    @pytest.mark.parametrize(
+        "bad_power",
+        [float("nan"), float("inf"), float("-inf")],
+        ids=["nan", "inf", "-inf"],
+    )
+    def test_defect_6_inf_power_not_waived_even_with_valid_waiver(self, bad_power):
+        # ±inf/NaN 属形状错，即使携带完整有效豁免凭证也不得 waived
+        result = check_power_cap({"power_dbm": bad_power}, waiver=_valid_waiver())
+        assert result["status"] == "violation"
+        assert result["waiver_audit"] is None
+        assert any("功率值非法" in v for v in result["violations"])
+
+
+class TestDefect2CapOverrideNonFinite:
+    """缺陷#2：cap_dbm=NaN/inf/+5/True → 回退默认 0.0 判定且记违例。
+
+    NaN 覆盖曾被当"合法收紧"采纳，之后任意功率与 NaN 比较恒 False →
+    全部放行。修后非法覆盖一律回退默认并记违例（文案区分"试图放松
+    红线"与"非法覆盖值"）；合法收紧 cap_dbm=-5 仍生效。
+    """
+
+    @pytest.mark.parametrize(
+        "bad_cap",
+        [float("nan"), float("inf"), 5, True],
+        ids=["nan", "inf", "+5", "True"],
+    )
+    def test_defect_2_illegal_cap_falls_back_to_default_with_violation(
+        self, bad_cap
+    ):
+        result = check_power_cap({"power_dbm": 3.0, "cap_dbm": bad_cap})
+        assert result["status"] == "violation"
+        assert result["cap_dbm"] == 0.0  # 一律回退默认 0.0 判
+        assert any("cap_dbm" in v and "非法" in v for v in result["violations"])
+        assert any("功率超限" in v for v in result["violations"])  # 按 0.0 判仍超限
+
+    def test_defect_2_nan_cap_cannot_release_any_power(self):
+        # 对抗复现：NaN 上限 + 1e9 功率，旧实现 1e9 > NaN 恒 False → pass
+        result = check_power_cap({"power_dbm": 1e9, "cap_dbm": float("nan")})
+        assert result["status"] == "violation"
+        assert result["cap_dbm"] == 0.0
+        assert any("非法" in v for v in result["violations"])
+
+    def test_defect_2_nan_cap_with_within_limit_power_still_violates(self):
+        # 功率本身合规也须暴露"非法覆盖"事实，不得静默吞掉
+        result = check_power_cap({"power_dbm": -3.0, "cap_dbm": float("nan")})
+        assert result["status"] == "violation"
+        assert result["cap_dbm"] == 0.0
+        assert any("非法覆盖值" in v for v in result["violations"])
+
+    def test_defect_2_tighter_cap_minus_5_still_takes_effect(self):
+        # 合法收紧路径不受影响：-5 上限生效
+        result = check_power_cap({"power_dbm": -7.0, "cap_dbm": -5.0})
+        assert result["status"] == "pass"
+        assert result["cap_dbm"] == -5.0
+        assert result["violations"] == []
+
+
+class TestDefect3WaiverWhitespaceValues:
+    """缺陷#3：豁免三键值为纯空白（" "/"\\t"/"\\n"）不得判有效豁免。"""
+
+    @pytest.mark.parametrize("blank", [" ", "\t", "\n"], ids=["space", "tab", "newline"])
+    def test_defect_3_whitespace_waiver_value_is_invalid(self, blank):
+        bad = {"id": "W-2026-009", "reason": blank, "approved_by": "合规负责人A"}
+        result = check_power_cap({"power_dbm": 3.0}, waiver=bad)
+        assert result["status"] == "violation"
+        assert result["waiver_audit"] is None
+        assert any("豁免凭证无效" in v for v in result["violations"])
+        assert any("功率超限" in v for v in result["violations"])
+
+    def test_defect_3_non_string_waiver_value_is_invalid(self):
+        # None/非字符串（如数字 id）同样无效
+        bad = {"id": 123, "reason": "实验室屏蔽环境科研豁免", "approved_by": "合规负责人A"}
+        result = check_power_cap({"power_dbm": 3.0}, waiver=bad)
+        assert result["status"] == "violation"
+        assert result["waiver_audit"] is None
+        assert any("豁免凭证无效" in v for v in result["violations"])
+
+    def test_defect_3_normal_waiver_still_waives(self):
+        # 正常非空白豁免仍走 waived（修复不得误伤合法豁免）
+        result = check_power_cap({"power_dbm": 3.0}, waiver=_valid_waiver())
+        assert result["status"] == "waived"
+        assert result["waiver_audit"] is not None
+        assert result["waiver_audit"]["id"] == "W-2026-001"

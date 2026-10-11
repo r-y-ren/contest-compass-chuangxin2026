@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import inspect
 
+import pytest
+
 from src.guard_compliance.guard_compliance import guard_compliance
 
 
@@ -127,3 +129,60 @@ def test_compliance_guard_no_skip_path():
         result = guard_compliance(bad)
         assert result["status"] == "rejected", f"非法配置未被拒绝: {bad!r}"
         assert result["violations"], f"拒绝原因清单为空: {bad!r}"
+
+
+# ---------------------------------------------------------------------------
+# 缺陷回归（对抗审查确认的触发输入，逐条锁死）
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad_bands", [None, "900-928", 42], ids=["None", "str", "int"])
+def test_defect_4_top_level_band_shape_violation_carries_original_value(bad_bands):
+    """缺陷#4：bands 整体形状错时，总闸顶层违例文案必须携带原值 repr。"""
+    cfg = _legal_config()
+    cfg["bands"] = bad_bands
+    result = guard_compliance(cfg)
+    assert result["status"] == "rejected"
+    assert result["checks"]["band"]["status"] == "violation"
+    band_violations = [v for v in result["violations"] if v.startswith("[band]")]
+    assert band_violations, "缺 [band] 条款违例"
+    assert any(repr(bad_bands) in v for v in band_violations)
+
+
+def test_defect_4_long_original_value_repr_truncated_to_60_chars():
+    """缺陷#4：超长原值的 repr 截断到 60 字符（携带但不无限长）。"""
+    cfg = _legal_config()
+    cfg["bands"] = int("9" * 100)  # repr 为 100 位数字，无引号干扰
+    result = guard_compliance(cfg)
+    band_violations = [v for v in result["violations"] if v.startswith("[band]")]
+    assert band_violations
+    assert "9" * 60 in band_violations[0]  # 前 60 字符保留
+    assert "9" * 61 not in band_violations[0]  # 第 61 位起截断
+
+
+def test_defect_1_nan_power_rejected_end_to_end():
+    """端到端：NaN 功率过总闸 → rejected 且 [power] 条款在，其余条款不背锅。"""
+    cfg = _legal_config()
+    cfg["power"] = {"power_dbm": float("nan")}
+    result = guard_compliance(cfg)
+    assert result["status"] == "rejected"
+    assert result["checks"]["power"]["status"] == "violation"
+    assert result["checks"]["power"]["waiver_audit"] is None
+    assert any(
+        v.startswith("[power]") and "功率值非法" in v for v in result["violations"]
+    )
+    assert not any(v.startswith("[band]") for v in result["violations"])
+    assert not any(v.startswith("[declaration]") for v in result["violations"])
+
+
+def test_defect_6_inf_power_with_valid_waiver_still_rejected_end_to_end():
+    """端到端：±inf 功率即使携带完整豁免凭证也不得 waived（形状错不可豁免）。"""
+    cfg = _legal_config()
+    cfg["power"] = {"power_dbm": float("inf"), "waiver": _valid_waiver()}
+    result = guard_compliance(cfg)
+    assert result["status"] == "rejected"
+    assert result["checks"]["power"]["status"] == "violation"
+    assert result["waiver_audits"] == []  # 不得透传任何豁免审计条目
+    assert any(
+        v.startswith("[power]") and "功率值非法" in v for v in result["violations"]
+    )
