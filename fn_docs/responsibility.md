@@ -1103,7 +1103,7 @@
 
 - **guard_compliance** [L0|新增]
   - 职责：红线总闸：对任意场景/配置依次 check_power_cap（功率上限+豁免审计记录）、check_band_whitelist（2.4G/5.8G 法定频段）、环境与对象声明检查（屏蔽盒提示标志、仅自建链路声明）；任何一关失败即拒（无跳过路径）；load_scenario 前置调用，console 场景保存亦调用。
-  - 签名意图：输入: 场景/配置对象 / 输出: 通过（含声明清单）/ 错误: 超限→ComplianceError（指明条款：功率/频段/声明缺失，不可忽略）。
+  - 签名意图：输入: 场景/配置对象 / 输出: 通过（含声明清单）/ 错误: 不抛出——超限→status='rejected' 携带条款清单（功率/频段/声明，不可跳过）。
   - 调用方：load_scenario；serve_console；run_demo
   - tested 策略：自有单测
   - 核验命令：测试: compliance_guard

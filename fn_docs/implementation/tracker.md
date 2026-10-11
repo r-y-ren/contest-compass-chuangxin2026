@@ -45,8 +45,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] guard_compliance · implemented — 证据: bash -c ! grep -rn --include="*.py" -q "unimplemented:fn:guard_compliance" fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
 - [x] guard_compliance · tested — 证据: bash -c cd fn_work && python3 -m pytest -k compliance_guard -q → 7 passed, 87 deselected in 0.05s (10-11)
 - [x] guard_compliance · wired — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && PYTHONPATH=. python3 /tmp/scaffold/verify_gc_wired.py → 顶层实跑 rejected，三条款前缀齐全: ['[band]', '[declaration]', '[power]' (10-11)
-- [ ] guard_compliance · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] guard_compliance · commit — 预告: fn(guard_compliance): wired 含四文档变更
+- [x] guard_compliance · 清单进位 — 证据: bash -c grep -q 'guard_compliance | B1 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
+- [x] guard_compliance · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | grep -q 'fn(guard_compliance): wired' && echo commit在案 → commit在案 (10-11)
 
 ## B1 批间门
 - [ ] B1 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
@@ -868,3 +868,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 - Ruling: shared 四函数并入首个调用方批次+批内自底向上重排（22→21 批） — B1 独立 shared 批的 wired 无真实调用点不可合规 — 无（119 函数与验收点不变） — batches.md/functions.md/tracker.md 同步重排 (10-11)
 - Ruling: 叶子函数 wired 判据 — 叶子在批内自底向上先行实现，其顶层父函数同批稍后落地；叶子的 wired 以自有单测调用点+同批父函数落地后 grep 复核（批间门三轴核对）为准 — 与「七步走满」不冲突且不弱化证据 — tracker 各叶子 wired 行 (10-11)
+- Ruling: B1 基线时序异常留痕——三叶子实现先于基线 commit 落盘，基线 429ae52 吞入其代码，三个叶子 wired commit 为零代码变更 — 主会话打基线时序失误（实现子代理先返、基线后打） — 证据链歧义（功能与档案终态正确，git log 仍可溯源） — batches.md 变更记录 Ruling② (10-11)
+
