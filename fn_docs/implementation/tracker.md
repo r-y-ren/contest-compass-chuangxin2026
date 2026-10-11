@@ -112,12 +112,12 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] append_run_log · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/manage_run/test_append_run_log.py | tail -1 → 11 passed in 0.02s (10-11)
 - [x] append_run_log · wired — 证据: bash -c grep -rn 'append_run_log(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/manage_run/manage_run.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
 - [x] append_run_log · 清单进位 — 证据: bash -c grep -q '| append_run_log | B3 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
-- [ ] append_run_log · commit — 预告: fn(append_run_log): wired 含四文档变更
+- [x] append_run_log · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(append_run_log)' && echo commit在案 → commit在案 (10-11)
 ### finalize_run
-- [ ] finalize_run · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] finalize_run · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] finalize_run · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] finalize_run · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] finalize_run · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:finalize_run' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-11)
+- [x] finalize_run · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/manage_run/test_finalize_run.py | tail -1 → 18 passed in 0.03s (10-11)
+- [x] finalize_run · wired — 证据: bash -c grep -rn 'finalize_run(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/manage_run/manage_run.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-11)
+- [x] finalize_run · 清单进位 — 证据: bash -c grep -q '| finalize_run | B3 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-11)
 - [ ] finalize_run · commit — 预告: fn(finalize_run): wired 含四文档变更
 ### manage_run
 - [ ] manage_run · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
