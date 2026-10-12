@@ -4,7 +4,7 @@
 numpy FFT 功率谱（dB），以块级 dict 流式产出 bin 行列表；enforce_bandwidth_limit
 在采集参数处实施 56MHz 边界（分段计划+受限口径附首块 meta）；ctx/params 提供
 泄漏标定表时按频点扣除自漏（calibrate_leakage 的读表/插值语义，生成器生命
-周期内表只读一次；表缺/无效不扣并标注 False）。
+周期内表只读一次；表缺/无效/空表不扣并标注 False，空表另附 leak_note）。
 """
 from __future__ import annotations
 
@@ -41,7 +41,9 @@ def _load_coupling_table(table_path: str | None):
     """按路径单次加载泄漏标定表（复用 calibrate_leakage 的读表/校验/插值件）。
 
     生成器生命周期内只读一次文件；表路径空/文件缺失/结构无效 → None（不扣除，
-    不抛——与 calibrate_leakage 扣除请求的容错口径一致）。
+    不抛——与 calibrate_leakage 扣除请求的容错口径一致）。空表（合法 JSON、
+    零测点，标定会话 points=[] 可真实产出）按原样返回空列表，由调用方按
+    「无有效表」处理。
     """
     if not table_path or not os.path.isfile(table_path):
         return None
@@ -78,7 +80,9 @@ def capture_monitor_spectrum(
           段中心+fftshift(fftfreq(nfft, 1/设备带宽))，受限计划的收窄末段按段实际
           span 等比缩放，功率=10*log10(|FFT|²/nfft)；max_bins 截断保低频端）,
           'overflow': 流块溢出标志透传, 'leak_corrected':
-          本块任一 bin 完成自漏扣除（表缺/无效→False 不抛）, 'invalid_blocks_so_far':
+          本块任一 bin 完成自漏扣除（表缺/无效/空表→False 不抛；空表另附
+          'leak_note': 'empty_table'，对齐 calibrate_leakage 空表 corrected=None+
+          note 语义）, 'invalid_blocks_so_far':
           迄今含 NaN/不可解析 IQ 而跳过的块计数}；首块另附 'plan'=enforce_bandwidth_limit
           全量计划（segments/limited/note，受限口径入 meta）。
     错误: 参数/计划错（target_band 缺失或形状非法、nfft/max_bins 非正整数、
@@ -161,6 +165,13 @@ def _iter_monitor_blocks(
     axis_by_segment: dict[int, np.ndarray] = {}
     # 泄漏标定表单次读入（生成器生命周期内复用；缺/无效 → None 不扣除）。
     coupling_table = _load_coupling_table(table_path)
+    leak_note: str | None = None
+    if coupling_table is not None and not coupling_table:
+        # 空标定表（合法 JSON、零测点，标定会话 points=[] 可真实产出）：按「无
+        # 有效表」处理——不扣不抛（对齐 calibrate_leakage 空表 corrected=None+
+        # note 语义），块级标注 empty_table。
+        coupling_table = None
+        leak_note = "empty_table"
 
     invalid_so_far = 0  # 含 NaN/不可解析 IQ 的跳过块累计（透传到后续产出块 meta）
     block_index = 0     # 产出块序号（跳过块不占号；驱动段轮转与 ts 兜底）
@@ -231,6 +242,8 @@ def _iter_monitor_blocks(
             "leak_corrected": leak_corrected,
             "invalid_blocks_so_far": invalid_so_far,
         }
+        if leak_note is not None:
+            block_out["leak_note"] = leak_note  # 空表标注（有表可扣时不出现）
         if block_index == 0:
             block_out["plan"] = plan  # 分段计划+受限口径只附首块
         yield block_out

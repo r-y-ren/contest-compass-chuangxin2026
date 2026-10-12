@@ -4,7 +4,7 @@ import math
 import numpy as np
 import pytest
 
-from src.calibrate_leakage.calibrate_leakage import calibrate_leakage
+from src.calibrate_leakage.calibrate_leakage import CalibrationWarn, calibrate_leakage
 from src.capture_monitor_spectrum.capture_monitor_spectrum import (
     MonitorError,
     capture_monitor_spectrum,
@@ -110,6 +110,27 @@ def test_monitor_capture_leakage_table_missing_marks_false_no_raise(tmp_path):
         capture_monitor_spectrum(None, [_block(_tone_samples())], {"target_band": BAND_SINGLE, "nfft": 64})
     )[0]
     assert blocks[0]["bins"] == baseline["bins"]
+
+
+def test_monitor_capture_leakage_table_empty_no_deduct_no_raise(tmp_path):
+    """空标定表（标定会话 points=[] 真实产出 "table": []）→不抛不扣：
+    leak_corrected=False、bins 与无表基线一致，块 meta 附 leak_note='empty_table'。"""
+    table_path = tmp_path / "leak_empty.json"
+    with pytest.raises(CalibrationWarn):  # 0 点 < 3：表已写出（insufficient）并抛警告
+        calibrate_leakage(session_data={"points": [], "out_path": str(table_path)})
+    params = {
+        "target_band": BAND_SINGLE,
+        "nfft": 64,
+        "leakage_table_path": str(table_path),
+    }
+    blocks = list(capture_monitor_spectrum(None, [_block(_tone_samples())], params))
+    assert blocks[0]["leak_corrected"] is False
+    assert blocks[0]["leak_note"] == "empty_table"
+    baseline = list(
+        capture_monitor_spectrum(None, [_block(_tone_samples())], {"target_band": BAND_SINGLE, "nfft": 64})
+    )[0]
+    assert blocks[0]["bins"] == baseline["bins"]
+    assert "leak_note" not in baseline  # 有表可扣/无表时不出现空表标注
 
 
 def test_monitor_capture_nan_block_skipped_and_counted():

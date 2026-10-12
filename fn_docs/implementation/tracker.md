@@ -478,7 +478,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] normalize_kpi · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k kpi_model -q 2>&1 | tail -1 → 20 passed, 1772 deselected in 1.33s (10-12)
 - [x] normalize_kpi · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b11.py | grep -q '三源贯通' && echo 顶层实跑通过（三源归一） → 顶层实跑通过（三源归一） (10-12)
 - [x] normalize_kpi · 清单进位 — 证据: bash -c grep -q '| normalize_kpi | B11 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] normalize_kpi · commit — 预告: fn(normalize_kpi): wired 含四文档变更
+- [x] normalize_kpi · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(normalize_kpi)' && echo commit在案 → commit在案 (10-12)
 
 ## B11 批间门
 - [ ] B11 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）

@@ -15,7 +15,9 @@
   （'flatness_db' 已带前缀保持原名，'pass'→'flatness_pass' 等）；
 - 自漏扣除：window 含 'leakage_table_path' 时按频点扣除（corrected = measured_db
   + coupling_db，calibrate_leakage 的读表/插值语义；每次调用表只读一次），
-  扣除后谱进统计；表缺失/无效 → 读数原样保留且 'leak_corrected'=False（不抛）；
+  扣除后谱进统计；表缺失/无效/空表 → 读数原样保留且 'leak_corrected'=False
+  （不抛；空表——合法 JSON、零测点——另附 'leak_note': 'empty_table'，对齐
+  calibrate_leakage 空表 corrected=None+note 语义）；
 - 底噪口径：无 reference（缺省/None）→ mode='power_only'，只出
   {'p_total_db': 全谱线和, 'peak_db'/'peak_at_mhz', 'noise_floor_db': 全谱
   20 分位（近似底噪）, 'available': bool, 'mode', 'note':
@@ -62,15 +64,19 @@ def _parse_bin(entry) -> tuple[float | None, float | None]:
     return freq, power_db
 
 
-def _apply_leakage_correction(bins: list, table_path: str) -> tuple[list, bool]:
-    """逐频点自漏扣除 → (扣除后 bins, leak_corrected)；标定表每次调用只读一次。
+def _apply_leakage_correction(bins: list, table_path: str) -> tuple[list, bool, str | None]:
+    """逐频点自漏扣除 → (扣除后 bins, leak_corrected, leak_note)；表每次调用只读一次。
 
     仅对可扣除的 bin（dict、频率有限且 >0、power_db 有限实数）尝试扣除：
     corrected = measured_db + coupling(freq)（calibrate_leakage 扣除请求的读表/
     插值语义，表单次读入后逐频点插值复用）；表缺失/无效（读表失败）→ 读数
-    原样保留。leak_corrected = 至少一个可扣 bin 且全部扣除成功（标定表按
-    路径整体生效/失效，逐 bin 不偏科）。输入 bins 不被原地改动。
+    原样保留。空表（合法 JSON、零测点，标定会话 points=[] 可真实产出）→ 同按
+    「无有效表」处理：不扣不抛（对齐 calibrate_leakage 空表 corrected=None+
+    note 语义）并返回 leak_note='empty_table'，否则 leak_note=None。
+    leak_corrected = 至少一个可扣 bin 且全部扣除成功（标定表按路径整体生效/
+    失效，逐 bin 不偏科）。输入 bins 不被原地改动。
     """
+    leak_note: str | None = None
     if os.path.isfile(table_path):
         try:
             coupling_table = _leakage_impl._load_table(table_path)
@@ -78,6 +84,9 @@ def _apply_leakage_correction(bins: list, table_path: str) -> tuple[list, bool]:
             coupling_table = None
     else:
         coupling_table = None
+    if coupling_table is not None and not coupling_table:
+        coupling_table = None  # 空表按无有效表处理：不扣不抛，附 empty_table 标注
+        leak_note = "empty_table"
     corrected_bins: list = []
     n_attempted = 0
     n_corrected = 0
@@ -98,7 +107,7 @@ def _apply_leakage_correction(bins: list, table_path: str) -> tuple[list, bool]:
         else:
             n_corrected += 1
             corrected_bins.append({"freq_mhz": freq, "power_db": corrected})
-    return corrected_bins, n_attempted > 0 and n_corrected == n_attempted
+    return corrected_bins, n_attempted > 0 and n_corrected == n_attempted, leak_note
 
 
 def _percentile(sorted_values: list[float], fraction: float) -> float:
@@ -214,7 +223,8 @@ def compute_spectrum_stats(window: dict, reference: dict | None = None) -> dict:
         reference: window 未携带 'reference' 键时的兜底参考参数（同上形状）。
     输出:
         基础行 {'timestamp_ms', 'mode': 'full'|'power_only',
-        'leak_corrected': bool, 'invalid_bins': int}；
+        'leak_corrected': bool, 'invalid_bins': int}（空标定表另附
+        'leak_note': 'empty_table'，其余情形不出现该键）；
         full 模式追加 **estimate_snr 结果（snr_db/p_*_db/n_*_bins/available/
         degenerate/reason 等）、**flatness_ 前缀平坦度块、'jsr_db'（反演或
         signal_power 交叉口径）与 'jsr_source'；
@@ -238,15 +248,17 @@ def compute_spectrum_stats(window: dict, reference: dict | None = None) -> dict:
 
     table_path = window.get("leakage_table_path")
     if table_path is not None and str(table_path).strip():
-        spec_bins, leak_corrected = _apply_leakage_correction(bins, str(table_path))
+        spec_bins, leak_corrected, leak_note = _apply_leakage_correction(bins, str(table_path))
     else:
-        spec_bins, leak_corrected = bins, False
+        spec_bins, leak_corrected, leak_note = bins, False, None
 
     row: dict = {
         "timestamp_ms": timestamp_ms,
         "leak_corrected": leak_corrected,
         "invalid_bins": sum(1 for entry in spec_bins if _parse_bin(entry)[0] is None),
     }
+    if leak_note is not None:
+        row["leak_note"] = leak_note  # 空表标注（有表可扣/无表时不出现）
 
     if not isinstance(reference, dict):
         # ③ 底噪口径：无参考 → 仅功率统计并标注

@@ -14,7 +14,7 @@ import math
 import pytest
 
 from src.compute_spectrum_stats.compute_spectrum_stats import compute_spectrum_stats
-from src.calibrate_leakage.calibrate_leakage import calibrate_leakage
+from src.calibrate_leakage.calibrate_leakage import CalibrationWarn, calibrate_leakage
 
 FREQS_MHZ = [i * 0.5 for i in range(41)]  # 0.0 .. 20.0，步进 0.5
 NOISE_FLOOR_DB = -100.0
@@ -279,6 +279,23 @@ def test_spectrum_stats_missing_leakage_table_not_corrected(tmp_path, wifi_windo
 
     assert missing["leak_corrected"] is False
     assert missing == raw
+
+
+def test_spectrum_stats_empty_leakage_table_not_corrected(tmp_path, wifi_window):
+    """空标定表（标定会话 points=[] 真实产出 "table": []）：不抛不扣
+    （leak_corrected=False），统计与无表调用一致，行附 leak_note='empty_table'。"""
+    table_path = tmp_path / "empty_table.json"
+    with pytest.raises(CalibrationWarn):  # 0 点 < 3：表已写出（insufficient）并抛警告
+        calibrate_leakage(session_data={"points": [], "out_path": str(table_path)})
+
+    empty = compute_spectrum_stats({**wifi_window, "leakage_table_path": str(table_path)})
+    raw = compute_spectrum_stats(dict(wifi_window))
+
+    assert empty["leak_corrected"] is False
+    assert empty["leak_note"] == "empty_table"
+    assert "leak_note" not in raw  # 有表可扣/无表时不出现空表标注
+    # 除 leak_note 标注外，统计结果与无表调用完全一致（读数原样保留）
+    assert {k: v for k, v in empty.items() if k != "leak_note"} == raw
 
 
 # ------------------------------------------------------------- 退化与形状错
