@@ -402,10 +402,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] enforce_bandwidth_limit · 清单进位 — 证据: bash -c grep -q '| enforce_bandwidth_limit | B10 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] enforce_bandwidth_limit · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(enforce_bandwidth_limit)' && echo commit在案 → commit在案 (10-12)
 ### capture_monitor_spectrum
-- [ ] capture_monitor_spectrum · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] capture_monitor_spectrum · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] capture_monitor_spectrum · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] capture_monitor_spectrum · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] capture_monitor_spectrum · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:capture_monitor_spectrum' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] capture_monitor_spectrum · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k monitor_capture -q 2>&1 | tail -1 → 16 passed, 1615 deselected in 1.35s (10-12)
+- [x] capture_monitor_spectrum · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b10.py | grep -q '2438.1MHz' && echo 顶层实跑通过（谱峰定位） → 顶层实跑通过（谱峰定位） (10-12)
+- [x] capture_monitor_spectrum · 清单进位 — 证据: bash -c grep -q '| capture_monitor_spectrum | B10 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] capture_monitor_spectrum · commit — 预告: fn(capture_monitor_spectrum): wired 含四文档变更
 ### estimate_snr
 - [x] estimate_snr · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:estimate_snr' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
@@ -418,7 +418,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] check_flatness · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/compute_spectrum_stats/test_check_flatness.py | tail -1 → 26 passed in 0.02s (10-12)
 - [x] check_flatness · wired — 证据: bash -c grep -rn 'check_flatness(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/compute_spectrum_stats/compute_spectrum_stats.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] check_flatness · 清单进位 — 证据: bash -c grep -q '| check_flatness | B10 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] check_flatness · commit — 预告: fn(check_flatness): wired 含四文档变更
+- [x] check_flatness · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(check_flatness)' && echo commit在案 → commit在案 (10-12)
 ### compute_spectrum_stats
 - [ ] compute_spectrum_stats · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] compute_spectrum_stats · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
