@@ -522,10 +522,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B13 — check_failure, record_failure_level, execute_gb42590_protocol, compare_failure_boundaries, build_curve_frames, plot_triple_curves
 ### check_failure
-- [ ] check_failure · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] check_failure · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] check_failure · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] check_failure · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] check_failure · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:check_failure' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] check_failure · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/execute_gb42590_protocol/test_check_failure.py | tail -1 → 18 passed in 0.01s (10-12)
+- [x] check_failure · wired — 证据: bash -c grep -rn 'check_failure(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/execute_gb42590_protocol/execute_gb42590_protocol.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] check_failure · 清单进位 — 证据: bash -c grep -q '| check_failure | B13 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] check_failure · commit — 预告: fn(check_failure): wired 含四文档变更
 ### record_failure_level
 - [ ] record_failure_level · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
