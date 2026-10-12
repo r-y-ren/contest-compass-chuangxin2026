@@ -31,9 +31,14 @@ def dispatch_remote_training(task_package: dict, *, dry_run: bool = False) -> di
     task_package 形状：{'code_root': str（训练代码目录，须存在）, 'data_paths': [str]（非空）,
     'hyperparams': dict, 'entrypoint': str（模块.函数）, 'runner': str = 'remote-compute'}。
 
-    - runner='remote-compute'：先形状校验（ValueError），再环境发现 runner——shutil.which 命中
+    - runner='remote-compute'：先形状校验（ValueError；code_root 相对路径先
+      os.path.abspath 规范化再校验并入包），再环境发现 runner——shutil.which 命中
       即用；未命中再以 [runner, '--version'] 探活 5s，探活失败（异常/超时/非零退出）抛
       RemoteError（含「远程算力不可达——确认 remote-compute 可执行或改 where='local'」）。
+    - hyperparams 序列化预检（B14 中#1）：json.dumps 试探——真派发路径失败即抛
+      RemoteError（含「hyperparams 含不可序列化对象」与 TypeError 原文，先于探活
+      快速失败）；dry_run 同样探测但不抛，package_summary 附 'serializable': bool
+      如实标注（False 不放行绿灯，CI 验收可据此拒收）。
     - dry_run=True：完全不调 subprocess（runner_found 仅以 shutil.which 判定，CI 无工具时
       如实报 False 不抛出），返回 {'dispatched': False, 'dry_run': True, 'runner_found': bool,
       'package_summary': {键摘要}}——CI 验收用。
@@ -42,28 +47,37 @@ def dispatch_remote_training(task_package: dict, *, dry_run: bool = False) -> di
       非零退出抛 RemoteError（含 stderr 尾部摘要），超时抛 RemoteError。
     - runner='local'：RemoteError——本地训练路径由调用方 train_classifier 处理，不经远程派发。
     """
-    _validate_package(task_package)
+    task_package = _validate_package(task_package)
     runner = task_package.get("runner", _DEFAULT_RUNNER)
     if not isinstance(runner, str) or runner not in _KNOWN_RUNNERS:
         raise ValueError(f"runner 必须为 {' 或 '.join(_KNOWN_RUNNERS)}，得到 {runner!r}")
     if runner == "local":
         raise RemoteError("runner='local' 不经远程派发——本地训练路径由调用方 train_classifier 处理")
 
+    serial_err = _probe_hyperparams_serializable(task_package)
     if dry_run:
+        summary = _package_summary(task_package, runner)
+        summary["serializable"] = serial_err is None
         return {
             "dispatched": False,
             "dry_run": True,
             "runner_found": shutil.which(runner) is not None,
-            "package_summary": _package_summary(task_package, runner),
+            "package_summary": summary,
         }
 
+    if serial_err is not None:
+        raise RemoteError(
+            f"hyperparams 含不可序列化对象——真派发无法 JSON 序列化训练包（{serial_err}）"
+        )
     exe = _discover_runner(runner)
     return _dispatch(exe, task_package, runner)
 
 
-def _validate_package(task_package: dict) -> None:
-    """形状校验（dry_run 下同样执行）：必填四键齐全、路径/入口为非空 str、data_paths 非空
-    [str]、hyperparams 为 dict、code_root 目录存在。违例一律 ValueError。"""
+def _validate_package(task_package: dict) -> dict:
+    """形状校验（dry_run 下同样执行）+ code_root 绝对路径规范化（B14 低#6），
+    返回规范化后的包浅拷贝：必填四键齐全、路径/入口为非空 str、data_paths 非空
+    [str]、hyperparams 为 dict、code_root（abspath 规范化后）目录存在。
+    违例一律 ValueError——相对路径按进程 cwd 解析后再校验、入包。"""
     if not isinstance(task_package, dict):
         raise ValueError(f"task_package 必须为 dict，得到 {type(task_package).__name__}")
     for key in _REQUIRED_KEYS:
@@ -72,8 +86,9 @@ def _validate_package(task_package: dict) -> None:
     code_root = task_package["code_root"]
     if not isinstance(code_root, str) or not code_root:
         raise ValueError(f"code_root 必须为非空 str（训练代码目录），得到 {code_root!r}")
-    if not os.path.isdir(code_root):
-        raise ValueError(f"code_root 目录不存在：{code_root!r}")
+    abs_root = os.path.abspath(code_root)  # 相对路径绝对化：规范化后再校验+入包
+    if not os.path.isdir(abs_root):
+        raise ValueError(f"code_root 目录不存在：{abs_root!r}")
     data_paths = task_package["data_paths"]
     if not isinstance(data_paths, list) or not data_paths:
         raise ValueError(f"data_paths 必须为非空 [str] 列表，得到 {data_paths!r}")
@@ -87,10 +102,25 @@ def _validate_package(task_package: dict) -> None:
     entrypoint = task_package["entrypoint"]
     if not isinstance(entrypoint, str) or not entrypoint:
         raise ValueError(f"entrypoint 必须为非空 str（模块.函数），得到 {entrypoint!r}")
+    normalized = dict(task_package)
+    normalized["code_root"] = abs_root
+    return normalized
+
+
+def _probe_hyperparams_serializable(task_package: dict) -> str | None:
+    """hyperparams JSON 序列化预检（B14 中#1）：json.dumps 试探——可序列化返回
+    None；失败返回 '<异常类型>: <原文>'（set/numpy 标量等），供 RemoteError 消息
+    与 dry_run 摘要 'serializable' 标注共用。"""
+    try:
+        json.dumps(task_package["hyperparams"], ensure_ascii=False)
+    except (TypeError, ValueError) as exc:
+        return f"{type(exc).__name__}: {exc}"
+    return None
 
 
 def _package_summary(task_package: dict, runner: str) -> dict:
-    """dry_run 返回用的包键摘要：入口/超参原样，数据路径带份数。"""
+    """dry_run 返回用的包键摘要：入口/超参原样，数据路径带份数（code_root 已绝对化；
+    'serializable' 标注由调用方附上）。"""
     return {
         "runner": runner,
         "code_root": task_package["code_root"],
@@ -127,10 +157,16 @@ def _dispatch(exe: str, task_package: dict, runner: str) -> dict:
     首行为 job_id。临时文件无论成败均清理。"""
     payload = dict(task_package)
     payload.setdefault("runner", runner)
+    try:  # 纵深防御：包内不可序列化对象（含必填四键外的附加键）在此兜住转 RemoteError
+        blob = json.dumps(payload, ensure_ascii=False)
+    except (TypeError, ValueError) as exc:
+        raise RemoteError(
+            f"任务包含不可 JSON 序列化对象（{type(exc).__name__}: {exc}）——无法落盘派发"
+        ) from exc
     fd, package_path = tempfile.mkstemp(prefix="trainpkg_", suffix=".json")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            json.dump(payload, fh, ensure_ascii=False)
+            fh.write(blob)
         try:
             proc = subprocess.run(
                 [exe, "train", "--package", package_path],

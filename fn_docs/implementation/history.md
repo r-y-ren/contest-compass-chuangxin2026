@@ -31,3 +31,5 @@
 | 10-12 | B13 | check_failure, record_failure_level, compare_failure_boundaries, build_curve_frames（波1）, execute_gb42590_protocol, plot_triple_curves（波2） | 2020 全库绿；全链探针（GB failed+P_crit−20dB+三 PNG cjk+weakest 定位）——完整测评闭环成形 |
 | 10-12 | B13+ | 双审：三轴全过+对抗 中1低5 → 6 项修复+10 回归；Ruling㉑ | 2030 全库绿 |
 | 10-12 | B14 | make_group_splits, dispatch_remote_training, predict_style（波1）, train_classifier, grouped_cv_evaluate（波2） | 2118 全库绿；AI 管线探针（训练 48 两类/推理 tone 0.94/分组 CV F1=1.00 泄漏 False）；Ruling㉒ |
+| 10-12 | B14+ | 双审：三轴过门（2 低观察）+对抗 中3低3 → 5 修 1 申报+18 回归；Ruling㉓ | 2136 全库绿 |
+

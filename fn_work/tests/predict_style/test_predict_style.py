@@ -10,6 +10,7 @@ import pytest
 
 from src.index_dataset.index_dataset import index_dataset
 from src.predict_style.predict_style import predict_style
+from src.synthesize_style.gen_pulse import gen_pulse
 
 #: 七类样式标签域（六生成样式 + composite）——dummy 分类器的匹配名集
 _LABELS = [
@@ -44,6 +45,14 @@ def _wide_noise_iq():
     spec = np.fft.fft(white)
     freqs = np.fft.fftfreq(n, d=1.0 / 1e6)
     return np.fft.ifft(spec * (np.abs(freqs) < 100e3)).astype(np.complex64)
+
+
+def _pulse_iq(duty, repeat_hz=5e3, carrier_hz=0.1e6, n=8192, fs=1e6):
+    """周期脉冲串 IQ：给定占空比/重复率（载波 0.1fs），gen_pulse 物理口径合成。"""
+    iq, _meta = gen_pulse(
+        duty / repeat_hz, repeat_hz, n, carrier_hz=carrier_hz, fs=fs
+    )
+    return iq
 
 
 def _write_sigmf_pair(directory, iq, fs=1e6):
@@ -265,3 +274,75 @@ def test_infer_service_dataset_query_optional_path(tmp_path, monkeypatch):
     assert result["status"] == "ok"
     assert result["label"] == "tone"
     assert result["iq_source"].startswith("sigmf:")
+
+
+# --- B14 中#3 脉冲盲区：门控判据全段口径重标定（短周期/中占空比不再漏检） ---
+
+
+@pytest.mark.parametrize("duty", [0.05, 0.3, 0.5])
+def test_infer_service_pulse_duty_band_three_points(duty):
+    """5kHz 重复率下 duty 0.05/0.3/0.5 三点全命中 pulse——旧 128 块量化口径在
+    周期 200 样本时块均值永不下探 20dB 阈值（duty 0.5 关断段 100<128 必漏检）。"""
+    result = predict_style(_pulse_iq(duty), model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["recognized"] is True
+    assert result["label"] == "pulse"
+    assert result["confidence"] > 0.5
+
+
+def test_infer_service_pulse_short_period_20khz():
+    """短周期 20kHz（50 样本/周期，远小于旧 128 块粒度）→ 仍判 pulse。"""
+    result = predict_style(_pulse_iq(0.1, repeat_hz=20e3), model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["label"] == "pulse"
+
+
+def test_infer_service_pulse_recap_sweep_params_20us_5khz_carrier():
+    """重标定验收例（审查 sweep 口径）：20µs 脉宽/5kHz 重复/0.1MHz 载波（duty=0.1）→
+    pulse；且配方注册表 pulse 默认参数（100µs/1kHz/无载波）不回归。"""
+    iq, _meta = gen_pulse(20e-6, 5e3, 8192, carrier_hz=0.1e6, fs=1e6)
+    result = predict_style(iq, model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["label"] == "pulse"
+
+
+def test_infer_service_pulse_default_recipe_params_not_regressed():
+    """六类默认参数 sweep 中 pulse 行：RECIPES['pulse'] 默认（100µs/1kHz/fs=1e6）→ pulse。"""
+    from src.switch_style.lookup_style_recipe import RECIPES
+
+    iq, _meta = RECIPES["pulse"]["generator"](
+        **dict(RECIPES["pulse"]["defaults"])
+    )
+    result = predict_style(iq, model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["label"] == "pulse"
+
+
+def test_infer_service_constant_envelope_tone_not_stolen_by_pulse_gate():
+    """反例护栏：恒包络 tone 占空比≈1.0 落在脉冲窗外 → 仍判 tone（重标定不抢道）。"""
+    result = predict_style(_tone_iq(), model=_dummy_model())
+    assert result["label"] == "tone"
+
+
+# --- B14 低#4 零能量退化：全零 IQ 不冒充高置信分类 ---
+
+
+def test_infer_service_zero_energy_iq_degenerate_annotation():
+    """全零 IQ（谱全平坦且总能量<1e-12）→ conf 钳 0.1+features 附
+    'degenerate': 'zero_energy'（status 仍 ok、recognized 仍 True 不阻塞）。"""
+    result = predict_style(np.zeros(4096, dtype=np.complex64), model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["recognized"] is True
+    assert result["confidence"] <= 0.1
+    assert result["features"]["degenerate"] == "zero_energy"
+
+
+def test_infer_service_tiny_but_nonzero_signal_not_flagged_degenerate():
+    """微幅 tone（总能量 4096·(1e-8)²≈4e-13 <1e-12 但谱不平坦：峰仍高出底噪约 4dB）
+    → 不附 degenerate 标注（平坦+零能量双条件缺一不可）。"""
+    result = predict_style(
+        1e-8 * _tone_iq(), model=_dummy_model()
+    )
+    assert result["status"] == "ok"
+    assert result["label"] == "tone"
+    assert "degenerate" not in result["features"]

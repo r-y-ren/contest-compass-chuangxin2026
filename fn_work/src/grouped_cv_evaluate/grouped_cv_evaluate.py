@@ -13,8 +13,11 @@ R31 评测协议（简化签名：本函数收样本数据、不查库——调�
        零除类 F1=0 计入）+per_fold {'fold','n_train','n_test','accuracy'}；
     ④ 泄漏自检（自证机制）：固定用内置 dummy 口径，把同一数据在「分组划分」与
        「随机逐样本划分（random.Random(0) 洒点）」下对照——若随机口径 macro_f1 比分组
-       口径高出 >0.15→'leak_suspect': True+警告（段级泄漏会让随机口径虚高）。对照实验
-       不调用传入的自定义 train_fn/predict_fn（不产生隐藏重复调用副作用）；
+       口径高出 >0.15 且各折训练集类别覆盖≥2→'leak_suspect': True+警告（段级泄漏会让
+       随机口径虚高）；**类饥饿排除**（B14 中#2）：任一折训练集类别覆盖<2 类（少数类
+       批次全被分进同一 test 折）时，随机/分组差大属折构造饥饿非泄漏——改报
+       'fold_class_starvation': True+饥饿警告文案（区别于泄漏）。对照实验不调用传入的
+       自定义 train_fn/predict_fn（不产生隐藏重复调用副作用）；
     ⑤ 内部目标 0.85：macro_f1 < 0.85→'below_target': True 如实记录（不粉饰）。
 
 输入:
@@ -25,7 +28,7 @@ R31 评测协议（简化签名：本函数收样本数据、不查库——调�
 输出:
     dict: {'confusion': {'labels': [...], 'matrix': [[...]]}, 'macro_f1': float,
            'per_fold': [...], 'effective_k': int, 'leak_suspect': bool,
-           'below_target': bool, 'n_samples': int}
+           'fold_class_starvation': bool, 'below_target': bool, 'n_samples': int}
 
 错误:
     ValueError —— samples 非 list/为空/元素非 dict/缺 'label' 或 'features'/label 非 str/
@@ -223,12 +226,29 @@ def grouped_cv_evaluate(samples: list, k: int = 5, train_fn=None, predict_fn=Non
     random_pairs, _ = _run_folds(samples, random_folds_idx, _dummy_train, _dummy_predict)
     random_f1 = _macro_f1(_confusion_matrix(random_pairs, labels))
 
-    leak_suspect = (random_f1 - grouped_f1) > _LEAK_MARGIN
+    # 类饥饿排除（B14 中#2）：分组口径下任一折训练集类别覆盖<2 类（少数类批次全被
+    # 分进同一 test 折）时，随机/分组差大属折构造饥饿非泄漏——leak_suspect 追加
+    # 「且各折训练集类别覆盖≥2」，饥饿场景改报 fold_class_starvation+独立警告文案。
+    fold_class_starvation = any(
+        len({samples[i]["label"] for i in train_idx}) < 2
+        for train_idx, _ in folds_idx
+    )
+    gap = random_f1 - grouped_f1
+    leak_suspect = gap > _LEAK_MARGIN and not fold_class_starvation
     if leak_suspect:
         warnings.warn(
             f"分组 CV 泄漏自检：随机逐样本划分 macro_f1={random_f1:.3f} 比分组划分 "
-            f"{grouped_f1:.3f} 高出 {random_f1 - grouped_f1:.3f}(>0.15)——疑似批次级"
+            f"{grouped_f1:.3f} 高出 {gap:.3f}(>0.15)——疑似批次级"
             "段泄漏让随机口径虚高，评测以分组口径为准",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    elif fold_class_starvation:
+        warnings.warn(
+            f"分组 CV 折构造饥饿：存在训练集类别覆盖<2 类的折（少数类批次全被分进同一 "
+            f"test 折）——随机逐样本划分 macro_f1={random_f1:.3f} 与分组划分 "
+            f"{grouped_f1:.3f} 的差距属折构造饥饿而非泄漏，建议增加少数类批次数或降低 k；"
+            "评测以分组口径为准",
             RuntimeWarning,
             stacklevel=2,
         )
@@ -240,6 +260,7 @@ def grouped_cv_evaluate(samples: list, k: int = 5, train_fn=None, predict_fn=Non
         "per_fold": per_fold,
         "effective_k": splits["effective_k"],
         "leak_suspect": leak_suspect,
+        "fold_class_starvation": fold_class_starvation,
         "below_target": macro_f1 < _INTERNAL_TARGET,
         "n_samples": n,
     }

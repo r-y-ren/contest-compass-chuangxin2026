@@ -595,8 +595,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] predict_style · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(predict_style)' && echo commit在案 → commit在案 (10-12)
 
 ## B14 批间门
-- [ ] B14 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B14 · 用户裁决 — 预告: 继续 B15 / 修订 / 裁决 blocked
+- [x] B14 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B14 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 2136 passed in 13.92s (10-12)
+- [x] B14 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b14.py | grep -q 'F1=1.00' && echo B14 双审收口（5 修 1 申报） → B14 双审收口（5 修 1 申报） (10-12)
 
 ## B15 — open_sim_siggen, open_sim_analyzer, upconvert_with_image_rejection, open_sim_mixer, open_sim_emi_receiver, open_sim_attenuator
 ### open_sim_siggen
@@ -888,4 +888,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B12 双审收口——对抗 中3低3 全修复（①sim 监测 ts 改主机单调钟盖戳（块号降级 block_index 附注）+自家 E2E 错误锚修正+对齐源统一 ts_ms 域；②基线恰等阈 fsum 精确舍入（朴素累加浮点误差击穿锁定口径）；③sample_rate/freq_hz 域校验全链；④失败路径孤儿 data 清理；⑤每 64 块磁盘复查；⑥标注域夹取+clamped 标注）+三轴 2 观察（annotate 必填严于规格回写 R27 口径；sim 时钟域统一落位） — 对抗审查（修复子代理中断但产物完整落盘，主会话复测确认） — 13 回归 — batches Ruling⑳ (10-12)
 - Ruling: B13 双审收口——对抗 中1低5 全修复（①scenario['params'] 嵌套合并进合成参数（平铺优先）+protocol_start 反映实际合成；②dwell/judge 两级回落 scenario>ctx>默认；③异常路径补 protocol_stop aborted 尽力落盘；④partial_reason 口径+空判据轴注；⑤n_runs 按条目计数注明；⑥freq 字符串数值归一+n_freq_invalid） — 对抗审查 — 10 回归 — batches Ruling㉑ (10-12)
 - Ruling: B14 三处申报——①predict_style kind='cnn_dummy' 规则判据（质心/带宽特征），'cnn'→unsupported_model not_implemented_yet 如实；②grouped_cv_evaluate 泄漏自检对照组固定内置 dummy（自定义 fn 不重复调用，docstring 裁决）；③train_classifier local 产 cnn_dummy 类均值模型（真训练归 remote 路径） — 子代理实现申报 — 无 — batches Ruling㉒ (10-12)
+- Ruling: B14 双审收口——对抗 中3低3（修 5 申报 1）——①hyperparams 序列化预检（真派发 RemoteError/dry_run serializable 标注）；②泄漏自检类饥饿排除（fold_class_starvation 旗标区别于泄漏——每 run 单样式规范布局下少数类批次少的常态误报堵死）；③pulse 判据重标定（全段 duty+门控自相关，六默认参数 sweep 过）；④零能量退化标注；⑥code_root 绝对化；⑤dummy 覆盖域申报不修（partial_band 覆盖 fraction≤0.06 邻域、sweep/chirp 单向规则不可分——真 CNN 归 remote） — 对抗审查 — 18 回归 — batches Ruling㉓ (10-12)
 

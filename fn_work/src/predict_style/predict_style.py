@@ -35,8 +35,21 @@ _NO_MODEL_NOTE = "未识别（无模型）——不阻塞主流程"
 #: nfft 域干跑预检用空段（长度 0 < 任何合法 nfft → 只走参数校验分支）
 _EMPTY_IQ = np.zeros(0, dtype=np.complex128)
 
-#: 时域占空统计的块长（样本数）——脉冲类门控检测粒度
-_ENV_CHUNK = 128
+#: 脉冲门控包络二值化阈值（B14 中#3）：包络低于峰值 -20dB（比值 1/10）判关断——
+#: 全段样本口径量化，不再按块聚合（短周期脉冲周期 < 块长时块均值永不下探）。
+_GATE_FLOOR_RATIO = 10.0
+#: 脉冲占空比带宽（on 段占全段比例的闭区间）与门控周期性自相关峰阈值——
+#: duty∈[0.05,0.5] 且二值门控自相关出现显著周期峰才判 pulse（噪声门控占空比
+#: ≈0.9+、恒包络≈1.0，均落在窗外）。带宽两侧留采样量化容差 _PULSE_DUTY_EPS
+#: （duty_on 是样本计数近似，边界 duty=0.05/0.5 的实测分数可偏入窗内 ±1 个
+#: 周期样本数——200/8192≈0.024 的相位极值由容差 0.01+周期性要求共同兜住）。
+_PULSE_DUTY_MIN = 0.05
+_PULSE_DUTY_MAX = 0.5
+_PULSE_DUTY_EPS = 0.01
+_PULSE_AC_PEAK = 0.3
+#: 零能量退化判定（B14 低#4）：全段总能量（包络平方和）与谱平坦度（dB 峰谷差）阈值。
+_DEGENERATE_ENERGY = 1e-12
+_DEGENERATE_SPEC_SPAN = 1e-9
 
 
 def _fail(status: str, note: str, summary: str) -> dict:
@@ -198,6 +211,24 @@ def _acquire_iq(iq_source: Any) -> tuple[np.ndarray, str, dict | None]:
     return iq, summary, None
 
 
+def _gate_autocorr_peak(gate: np.ndarray) -> bool:
+    """二值门控序列的周期性自相关检验（B14 中#3）：去均值后 FFT 线性自相关归一，
+    lag∈[4, n//3] 内出现 >_PULSE_AC_PEAK 的峰 → 周期脉冲串（理想周期门控在重复
+    周期 lag 处归一值≈1-P/n；噪声门控自相关随 lag 即衰减到 0 附近，量级~1/√n）。"""
+    n = int(gate.size)
+    if n < 12:
+        return False
+    series = gate.astype(np.float64) - float(gate.mean())
+    ac0 = float((series * series).sum())
+    if ac0 <= 0.0:  # 恒定门控（全开/全关）无周期结构可言
+        return False
+    max_lag = n // 3
+    size = 1 << int(2 * n - 1).bit_length()  # ≥2n-1 的 2 幂 → 循环相关退化为线性
+    spectrum = np.fft.rfft(series, size)
+    ac = np.fft.irfft(spectrum * np.conj(spectrum), size)[: max_lag + 1]
+    return bool((ac[4:] / ac0 > _PULSE_AC_PEAK).any())  # lag≥4 排除主瓣零邻域
+
+
 def _classify_dummy(iq: np.ndarray, spec_res: dict) -> tuple[str, float, dict]:
     """dummy 规则分类器：谱质心/带宽特征 + 阈值匹配，在七类规范名上出标签+置信度。
 
@@ -205,12 +236,15 @@ def _classify_dummy(iq: np.ndarray, spec_res: dict) -> tuple[str, float, dict]:
     - centroid_hz：时间平均功率谱的质心，折合正频率轴（0=DC，1=Nyquist）位置；
     - bandwidth_3db：时间平均谱峰 -3dB 以上的 bin 占正频率轴份额（0–1）；
     - 辅助（不外发）：包络起伏 env_cv（tone 恒包络≈0 / 噪声 Rayleigh≈0.52 /
-      脉冲门控≫1）、时域占空 duty_off（脉冲关断块占比）、逐帧峰位轨迹
-      sweep_range/reversals（chirp/sweep 判据）、带内平坦度 ripple20。
+      脉冲门控≫1）、时域占空 duty_on/duty_off（B14 中#3 全段样本口径：包络二值
+      化后 on 段占比/关断占比，非块内量化）、门控周期性 gate_periodic（二值包络
+      自相关周期峰）、逐帧峰位轨迹 sweep_range/reversals（chirp/sweep 判据）、
+      带内平坦度 ripple20。
 
-    决策序（deterministic）：脉冲门控 → 扫频轨迹（确定性包络才认，噪声抖动排除）
-    → 窄带+恒包络=tone → 窄带噪声=partial_band → 宽带平坦=bandlimited_noise →
-    兜底 composite。阈值为经验值（nfft 归一量纲，随窗宽不敏感）。
+    决策序（deterministic）：门控脉冲（duty∈[0.05,0.5] 且门控自相关周期峰）→
+    扫频轨迹（确定性包络才认，噪声抖动排除）→ 窄带+恒包络=tone → 窄带噪声=
+    partial_band → 宽带平坦=bandlimited_noise → 兜底 composite。阈值为经验值
+    （nfft 归一量纲，随窗宽不敏感）。
     """
     spec = spec_res["spec"].astype(np.float64)
     freq_bins = int(spec.shape[0])
@@ -233,12 +267,23 @@ def _classify_dummy(iq: np.ndarray, spec_res: dict) -> tuple[str, float, dict]:
     mean_env = float(env.mean())
     env_cv = float(env.std() / mean_env) if mean_env > 0.0 else 0.0
     pwr = env * env
-    nblk = int(pwr.size) // _ENV_CHUNK
-    if nblk >= 2:
-        blocks = pwr[: nblk * _ENV_CHUNK].reshape(nblk, _ENV_CHUNK).mean(axis=1)
-        duty_off = float((blocks < float(pwr.mean()) / 100.0).mean())  # 块均值低于总均值 20dB
+
+    # 脉冲门控（B14 中#3 全段口径重标定）：包络二值化（峰值 -20dB 以下为关断）→
+    # 占空 duty_on 与关断占比 duty_off；门控规律以二值序列 FFT 自相关周期峰验证。
+    peak_env = float(env.max()) if env.size else 0.0
+    if peak_env > 0.0:
+        gate = env > (peak_env / _GATE_FLOOR_RATIO)
+        duty_on = float(gate.mean())
     else:
-        duty_off = 0.0
+        gate = np.zeros_like(env, dtype=bool)
+        duty_on = 0.0  # 全零段无门控可言（零能量退化另行标注）
+    duty_off = 1.0 - duty_on
+    duty_gated = (
+        _PULSE_DUTY_MIN - _PULSE_DUTY_EPS
+        <= duty_on
+        <= _PULSE_DUTY_MAX + _PULSE_DUTY_EPS
+    )
+    gate_periodic = duty_gated and _gate_autocorr_peak(gate)
 
     peak_bins = np.argmax(spec, axis=0).astype(np.float64)  # 逐帧谱峰 bin
     sweep_range = float(peak_bins.max() - peak_bins.min()) / axis
@@ -246,7 +291,7 @@ def _classify_dummy(iq: np.ndarray, spec_res: dict) -> tuple[str, float, dict]:
     moving = diffs[np.abs(diffs) > 0.5]  # 滤除亚 bin 抖动
     reversals = int((np.diff(np.sign(moving)) != 0).sum()) if moving.size >= 2 else 0
 
-    if duty_off > 0.5:  # 过半时间块近零功率 → 门控脉冲
+    if duty_gated and gate_periodic:  # 全段口径门控+占空带宽+周期性 → 脉冲
         label, confidence = "pulse", min(0.95, 0.5 + 0.45 * duty_off)
     elif env_cv < 0.35 and (sweep_range > 0.02 or reversals >= 4):  # 确定性扫频轨迹
         if reversals >= 3:
@@ -263,6 +308,14 @@ def _classify_dummy(iq: np.ndarray, spec_res: dict) -> tuple[str, float, dict]:
         label, confidence = "composite", 0.40
 
     features = {"centroid_hz": centroid, "bandwidth_3db": min(bw3db, 1.0)}
+    # 零能量退化（B14 低#4）：谱全平坦且总能量<1e-12（全零 IQ）→ conf 钳 0.1+
+    # features 附 'degenerate': 'zero_energy'（不冒充高置信分类）。
+    if (
+        float(prof.max() - prof.min()) < _DEGENERATE_SPEC_SPAN
+        and float(pwr.sum()) < _DEGENERATE_ENERGY
+    ):
+        confidence = min(confidence, 0.1)
+        features["degenerate"] = "zero_energy"
     return label, float(min(max(confidence, 0.0), 1.0)), features
 
 
@@ -347,7 +400,9 @@ def predict_style(iq_source, model=None, nfft: int = 256) -> dict | list[dict]:
         'label': 七类名 str, 'confidence': 0–1 float, 'model_version':
         kind+'-'+sha256(weights)[:8]（无 weights → kind+'-dummy'）, 'features':
         {'centroid_hz': 质心（相对量纲，0=DC/1=Nyquist）, 'bandwidth_3db': -3dB
-        带宽（正频率轴份额 0–1）}, 'iq_source': 来源摘要}。失败行：no_model/
+        带宽（正频率轴份额 0–1）}, 'iq_source': 来源摘要}——零能量退化段（谱全平坦
+        且总能量<1e-12，如全零 IQ）confidence 钳 ≤0.1 且 features 追加
+        'degenerate': 'zero_energy'（B14 低#4）。失败行：no_model/
         unsupported_model/no_iq/bad_iq/short_iq + recognized=False + note。
 
     错误:

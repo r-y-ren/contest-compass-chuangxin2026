@@ -90,6 +90,58 @@ def test_grouped_cv_leak_not_triggered_on_clean_data():
     assert res["below_target"] is False
 
 
+# --- B14 中#2 类饥饿排除：折构造饥饿不误报泄漏 ---
+
+
+def _starved_folds_scenario(maj_batches=9, per_maj=10):
+    """审查复现场景：90 个多类样本分 9 批 + 2 个少类各 5 样本单批，k=5。
+
+    make_group_splits 贪心均衡把两个少类批（计数 5 最小）堆进同一个 test 折 →
+    该折训练集只剩多类（类别覆盖 1<2）——随机口径近乎满分 vs 分组口径少类全错，
+    差>0.15：属折构造饥饿而非泄漏。
+    """
+    data = []
+    for bi in range(maj_batches):
+        data += _mk("A", [8.0, 0.0, 0.0], f"maj{bi}", per_maj, 0.05, seed=bi)
+    data += _mk("B", [-8.0, 0.0, 0.0], "minB", 5, 0.05, seed=90)
+    data += _mk("C", [0.0, 8.0, 0.0], "minC", 5, 0.05, seed=91)
+    return data
+
+
+def test_grouped_cv_class_starvation_not_misreported_as_leak():
+    """类饥饿场景（审查复现）：随机/分组差>0.15 但存在训练集类别覆盖<2 的折 →
+    fold_class_starvation=True、leak_suspect=False（饥饿非泄漏），警告文案报饥饿。"""
+    data = _starved_folds_scenario()
+    with pytest.warns(RuntimeWarning, match="饥饿"):
+        res = grouped_cv_evaluate(data, k=5)
+    assert res["fold_class_starvation"] is True
+    assert res["leak_suspect"] is False
+    assert res["macro_f1"] < 0.85  # 分组口径少类不可学，如实压低
+    assert res["below_target"] is True
+
+
+def test_grouped_cv_starvation_scenario_gap_actually_large():
+    """同场景补证：随机口径确实虚高（>0.15 差距真实存在）——排除「差本来就不大」
+    的平凡通过，确保改判逻辑真正吃到了类饥饿排除分支。"""
+    data = _starved_folds_scenario()
+    labels = {s["label"] for s in data}
+    assert labels == {"A", "B", "C"}
+    with pytest.warns(RuntimeWarning, match="饥饿"):
+        res = grouped_cv_evaluate(data, k=5)
+    # 少类 B/C 在分组口径下被整折饿死 → 混淆矩阵对应行全预测成 A
+    idx = {lab: i for i, lab in enumerate(res["confusion"]["labels"])}
+    matrix = res["confusion"]["matrix"]
+    assert matrix[idx["B"]][idx["A"]] == 5
+    assert matrix[idx["C"]][idx["A"]] == 5
+
+
+def test_grouped_cv_no_starvation_on_mixed_batches():
+    """干净混批数据：各折训练集类别覆盖≥2 → fold_class_starvation=False（旗标不粘死）。"""
+    res = grouped_cv_evaluate(_two_class_mixed_batches(), k=5)
+    assert res["fold_class_starvation"] is False
+    assert res["leak_suspect"] is False
+
+
 def test_grouped_cv_below_target_on_unseparable_noise():
     """不可分噪声特征：F1 低+below_target=True 如实记录（不粉饰）。"""
     data = []
@@ -273,7 +325,8 @@ def test_grouped_cv_feature_dict_features_supported():
 
 
 def test_grouped_cv_result_shape_and_types():
-    """返回契约：恰 7 个顶层键+confusion 两键+类型正确。"""
+    """返回契约：恰 8 个顶层键（含 B14 中#2 新增 fold_class_starvation）+confusion
+    两键+类型正确。"""
     data = _two_class_mixed_batches(batches=("y0", "y1", "y2"), per=2, sigma=0.1)
     res = grouped_cv_evaluate(data, k=3)
     assert set(res) == {
@@ -282,12 +335,14 @@ def test_grouped_cv_result_shape_and_types():
         "per_fold",
         "effective_k",
         "leak_suspect",
+        "fold_class_starvation",
         "below_target",
         "n_samples",
     }
     assert set(res["confusion"]) == {"labels", "matrix"}
     assert isinstance(res["macro_f1"], float)
     assert isinstance(res["leak_suspect"], bool)
+    assert isinstance(res["fold_class_starvation"], bool)
     assert isinstance(res["below_target"], bool)
     assert isinstance(res["n_samples"], int)
     assert isinstance(res["effective_k"], int)

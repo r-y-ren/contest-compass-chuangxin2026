@@ -269,3 +269,83 @@ def test_dispatch_runner_vanished_between_discover_and_spawn(monkeypatch, tmp_pa
     with pytest.raises(RemoteError) as excinfo:
         dispatch_remote_training(_package(tmp_path))
     assert UNREACHABLE in str(excinfo.value)
+
+
+# --- B14 中#1 序列化逃逸：hyperparams JSON 序列化预检（真派发拒/dry_run 标注） ---
+
+
+def test_real_dispatch_rejects_unserializable_hyperparams_before_probe(monkeypatch, tmp_path):
+    """真派发前预检：hyperparams 含 set 值 json.dumps 失败→RemoteError 含
+    「hyperparams 含不可序列化对象」与 TypeError 原文（含类型名）；预检先于
+    runner 探活——which 未命中也不调 subprocess。"""
+    _patch_which(monkeypatch, None)
+    _forbid_run(monkeypatch)
+    package = _package(tmp_path)
+    package["hyperparams"] = {"lr": 1e-3, "tags": {1, 2}}
+    with pytest.raises(RemoteError) as excinfo:
+        dispatch_remote_training(package)
+    msg = str(excinfo.value)
+    assert "hyperparams 含不可序列化对象" in msg
+    assert "TypeError" in msg
+    assert "set" in msg  # TypeError 原文点名不可序列化类型
+
+
+def test_dry_run_summary_flags_unserializable_hyperparams_no_green_light(monkeypatch, tmp_path):
+    """dry_run 同样探测但不抛：package_summary 附 'serializable': False
+    （不放行绿灯——CI 验收可据此拒收），dispatched 仍 False。"""
+    _patch_which(monkeypatch, FAKE_EXE)
+    _forbid_run(monkeypatch)
+    package = _package(tmp_path)
+    package["hyperparams"] = {"tags": {"a", "b"}}
+    result = dispatch_remote_training(package, dry_run=True)
+    assert result["dispatched"] is False
+    assert result["package_summary"]["serializable"] is False
+
+
+def test_dry_run_summary_serializable_true_for_plain_hyperparams(monkeypatch, tmp_path):
+    """合法 hyperparams（纯 JSON 域）→ dry_run 摘要 'serializable': True。"""
+    _patch_which(monkeypatch, FAKE_EXE)
+    result = dispatch_remote_training(_package(tmp_path), dry_run=True)
+    assert result["package_summary"]["serializable"] is True
+
+
+# --- B14 低#6 相对路径：code_root abspath 规范化后再校验+入包 ---
+
+
+def test_relative_code_root_normalized_to_absolute_in_payload(monkeypatch, tmp_path):
+    """code_root='.'（相对）→ 按进程 cwd 绝对化后入包：真派发 payload 收到绝对路径。"""
+    monkeypatch.chdir(tmp_path)
+    _patch_which(monkeypatch, FAKE_EXE)
+    calls, payloads = _patch_run(monkeypatch, stdout="job-rel-1\n")
+    package = _package(tmp_path)
+    package["code_root"] = "."
+    result = dispatch_remote_training(package)
+    assert result["dispatched"] is True
+    assert payloads[0]["code_root"] == str(tmp_path)
+    assert os.path.isabs(payloads[0]["code_root"])
+
+
+def test_relative_code_root_normalized_in_dry_run_summary(monkeypatch, tmp_path):
+    """dry_run 摘要同样透传绝对化后的 code_root（'.' → cwd 绝对路径）。"""
+    monkeypatch.chdir(tmp_path)
+    _patch_which(monkeypatch, FAKE_EXE)
+    package = _package(tmp_path)
+    package["code_root"] = "."
+    result = dispatch_remote_training(package, dry_run=True)
+    assert result["package_summary"]["code_root"] == str(tmp_path)
+    assert result["package_summary"]["code_root"] != "."
+
+
+def test_relative_code_root_resolved_against_cwd_not_literal(monkeypatch, tmp_path):
+    """相对路径按进程 cwd 解析后校验：'./train_code' 在 cwd=tmp 下存在→通过；
+    同一字符串换 cwd 到别处（目录不存在）→ ValueError 拒。"""
+    _patch_which(monkeypatch, FAKE_EXE)
+    package = _package(tmp_path)
+    package["code_root"] = "./train_code"
+    monkeypatch.chdir(tmp_path)
+    assert dispatch_remote_training(package, dry_run=True)["dry_run"] is True
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    with pytest.raises(ValueError, match="code_root"):
+        dispatch_remote_training(package, dry_run=True)
