@@ -101,7 +101,7 @@
 | locate_ledger_row | B17 | wired 10-12 | 19 passed；边界正则+状态列解析 | 5963f4e |
 | update_ledger | B17 | wired 10-12 | 17 passed；原子写+覆盖守卫 | da40f7d |
 | count_comment_ratio | B17 | wired 10-12 | 14 passed；tokenize 注释+docstring | 629df88 |
-| audit_ledger | B17 | wired 10-12 | 12 passed；死锚核验+注释率 | pending |
+| audit_ledger | B17 | wired 10-12 | 12 passed；死锚核验+注释率 | 1841af8 |
 | validate_scenario_schema | B17 | wired 10-12 | 21 passed；七类白名单+域 | 957d0f2 |
 | normalize_scenario | B17 | wired 10-12 | 9 passed；默认填充+归一+深拷贝 | 227b1a6 |
 | load_scenario | B17 | wired 10-12 | 16 passed；校验→红线→规范化 | pending |

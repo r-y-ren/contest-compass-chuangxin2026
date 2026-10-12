@@ -700,7 +700,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] audit_ledger · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k ledger_audit -q 2>&1 | tail -1 → 12 passed, 2455 deselected in 1.64s (10-12)
 - [x] audit_ledger · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b17.py | grep -q 'audit 100 条' && echo 顶层实跑通过（真清单） → 顶层实跑通过（真清单） (10-12)
 - [x] audit_ledger · 清单进位 — 证据: bash -c grep -q '| audit_ledger | B17 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] audit_ledger · commit — 预告: fn(audit_ledger): wired 含四文档变更
+- [x] audit_ledger · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(audit_ledger)' && echo commit在案 → commit在案 (10-12)
 ### validate_scenario_schema
 - [x] validate_scenario_schema · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:validate_scenario_schema' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
 - [x] validate_scenario_schema · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/load_scenario/test_validate_scenario_schema.py | tail -1 → 21 passed in 0.02s (10-12)
@@ -714,10 +714,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] normalize_scenario · 清单进位 — 证据: bash -c grep -q '| normalize_scenario | B17 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] normalize_scenario · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(normalize_scenario)' && echo commit在案 → commit在案 (10-12)
 ### load_scenario
-- [ ] load_scenario · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] load_scenario · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] load_scenario · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] load_scenario · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] load_scenario · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:load_scenario' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] load_scenario · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k scenario_validate -q 2>&1 | tail -1 → 16 passed, 2451 deselected in 1.37s (10-12)
+- [x] load_scenario · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b17.py | grep -q '场景装载' && echo 顶层实跑通过（红线联动） → 顶层实跑通过（红线联动） (10-12)
+- [x] load_scenario · 清单进位 — 证据: bash -c grep -q '| load_scenario | B17 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] load_scenario · commit — 预告: fn(load_scenario): wired 含四文档变更
 
 ## B17 批间门
