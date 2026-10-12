@@ -82,9 +82,9 @@
 | compare_failure_boundaries | B13 | wired 10-12 | 12 passed；中位数聚合+平手规则 | c2b6a96 |
 | build_curve_frames | B13 | wired 10-12 | 24 passed；三帧纯计算+开窗 | 5044bd0 |
 | plot_triple_curves | B13 | wired 10-12 | 12 passed；三 PNG+curves_data.json+字体回退 | 49e4665 |
-| dispatch_remote_training | B14 | stub 10-11 | 上游覆盖: train_classifier | — |
+| dispatch_remote_training | B14 | wired 10-12 | 19 passed；探活+dry_run+形状稳定 | pending |
 | train_classifier | B14 | stub 10-11 | pytest -k train_classifier | — |
-| make_group_splits | B14 | wired 10-12 | 20 passed；组粒度贪心均衡 | pending |
+| make_group_splits | B14 | wired 10-12 | 20 passed；组粒度贪心均衡 | ba54c94 |
 | grouped_cv_evaluate | B14 | stub 10-11 | pytest -k grouped_cv | — |
 | predict_style | B14 | stub 10-11 | pytest -k infer_service | — |
 | open_sim_siggen | B15 | stub 10-11 | pytest -k sim_1433d | — |

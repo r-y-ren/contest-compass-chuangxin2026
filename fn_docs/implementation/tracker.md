@@ -564,10 +564,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B14 — dispatch_remote_training, train_classifier, make_group_splits, grouped_cv_evaluate, predict_style
 ### dispatch_remote_training
-- [ ] dispatch_remote_training · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] dispatch_remote_training · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] dispatch_remote_training · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] dispatch_remote_training · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] dispatch_remote_training · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:dispatch_remote_training' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] dispatch_remote_training · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/train_classifier/test_dispatch_remote_training.py | tail -1 → 19 passed in 0.03s (10-12)
+- [x] dispatch_remote_training · wired — 证据: bash -c grep -rn 'dispatch_remote_training(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/train_classifier/train_classifier.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] dispatch_remote_training · 清单进位 — 证据: bash -c grep -q '| dispatch_remote_training | B14 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] dispatch_remote_training · commit — 预告: fn(dispatch_remote_training): wired 含四文档变更
 ### train_classifier
 - [ ] train_classifier · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -580,7 +580,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] make_group_splits · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/grouped_cv_evaluate/test_make_group_splits.py | tail -1 → 20 passed in 0.02s (10-12)
 - [x] make_group_splits · wired — 证据: bash -c grep -rn 'make_group_splits(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/grouped_cv_evaluate/grouped_cv_evaluate.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] make_group_splits · 清单进位 — 证据: bash -c grep -q '| make_group_splits | B14 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] make_group_splits · commit — 预告: fn(make_group_splits): wired 含四文档变更
+- [x] make_group_splits · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(make_group_splits)' && echo commit在案 → commit在案 (10-12)
 ### grouped_cv_evaluate
 - [ ] grouped_cv_evaluate · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] grouped_cv_evaluate · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
