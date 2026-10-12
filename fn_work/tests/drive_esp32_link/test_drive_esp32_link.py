@@ -140,6 +140,44 @@ def test_dut_esp32_cum_overflow_flagged_same_window():
     assert "cum_overflow" not in samples[0]  # 正常窗不带标记
 
 
+def test_dut_esp32_err_rollback_counter_reset_err_then_recovered():
+    lines = [_frame(1, 100, 10, retries=2), _frame(2, 200, 3, retries=7),
+             _frame(3, 300, 8)]
+    samples = list(drive_esp32_link(_lines_cfg(lines)))  # 不杀流
+    assert samples[0]["per_raw"] == pytest.approx(10 / 100)
+    # err 回退（3<10）而 sent 仍在涨（200>100）：err 计数回退=设备复位/回绕，与
+    # drive_nrf24_link 的 counter_reset 语义对齐——per_raw=None+counter_reset_err 注，
+    # 不得以 0.0 冒充零丢包判据证据；retries 照常透出、累计口径照实
+    assert samples[1]["per_raw"] is None
+    assert samples[1]["per_note"] == "counter_reset_err"
+    assert samples[1]["per_cum"] == pytest.approx(3 / 200)
+    assert samples[1]["retries"] == 7
+    assert set(samples[1]) - _BASE_KEYS == {"per_note"}
+    # 后续窗以回退后的 err=3 为新基线恢复正常数值口径 (8-3)/(300-200)
+    assert samples[2]["per_raw"] == pytest.approx(5 / 100)
+    assert "per_note" not in samples[2]
+
+
+def test_dut_esp32_counter_reset_err_exclusive_with_no_delta_and_overflow():
+    # 三态互斥构造：no_delta（sent 增量 0）/ counter_reset_err（err 回退而 sent 涨）/
+    # delta_overflow（err 增量>sent 增量），每窗恰落一种、不叠加
+    lines = [
+        _frame(1, 100, 5),   # 首帧基线窗：正常数值
+        _frame(2, 100, 5),   # sent 增量 0 且 err 增量 0 → no_delta（非 counter_reset_err）
+        _frame(3, 200, 3),   # err 增量 -2<0 且 sent 增量 100>0 → counter_reset_err
+        _frame(4, 210, 80),  # err 增量 77>sent 增量 10 → delta_overflow
+    ]
+    samples = list(drive_esp32_link(_lines_cfg(lines)))
+    assert samples[0]["per_raw"] == pytest.approx(5 / 100)
+    assert "per_note" not in samples[0]
+    assert samples[1]["per_note"] == "no_delta"
+    assert samples[2]["per_note"] == "counter_reset_err"
+    assert samples[3]["per_note"] == "delta_overflow"
+    # 每窗 per_note 与 per_raw=None 恰同现同缺（数值在位不带注，带注必为 None）
+    for s in samples:
+        assert ("per_note" in s) == (s["per_raw"] is None)
+
+
 def test_dut_esp32_consecutive_bad_frames_stop_tx_before_link_error():
     backend = _FakeBackend()
     lines = [_frame(1, 100, 1)] + ["garbage,not,a,frame"] * 5

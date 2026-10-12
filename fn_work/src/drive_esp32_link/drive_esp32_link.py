@@ -102,8 +102,11 @@ def _sample_from_frame(frame: dict, prev: dict) -> dict:
     帧给的是累计 sent/err：增量口径用本帧−上帧（首帧以 0 为基线，天然等于帧内累计）。
     不可比窗 per_raw=None 并附注（不得以 0.0 成为零丢包判据证据）：
     sent 增量<=0（含计数器重置回退）附 'per_note': 'no_delta'；err 增量>sent 增量
-    （物理不可能）附 'per_note': 'delta_overflow'（不杀流、如实标注）。per_cum>1
-    同窗附 'cum_overflow': True（累计口径溢出标注，值照实透出）。
+    （物理不可能）附 'per_note': 'delta_overflow'（不杀流、如实标注）；err 增量<0
+    且 sent 增量>0（err 计数回退=设备复位/回绕而 sent 仍在涨）附
+    'per_note': 'counter_reset_err'——与 drive_nrf24_link 的 counter_reset 语义
+    对齐：重定基线不计负增量，该窗不可比（retries 照常透出），后续窗按新基线
+    正常。per_cum>1 同窗附 'cum_overflow': True（累计口径溢出标注，值照实透出）。
     """
     sent_delta = frame["sent"] - prev["sent"]
     err_delta = frame["err"] - prev["err"]
@@ -121,9 +124,14 @@ def _sample_from_frame(frame: dict, prev: dict) -> dict:
         if err_delta > sent_delta:
             # err 增量>sent 增量：物理不可能（丢包不可能多于发包），如实标注不硬算
             sample["per_note"] = "delta_overflow"
+        elif err_delta < 0:
+            # err 计数回退（设备复位/回绕）而 sent 仍在涨：与 nrf counter_reset 语义
+            # 对齐——重定基线不计负增量，per_raw=None 不得以 0.0 冒充零丢包判据证据
+            # （retries 照常透出，不杀流），后续窗以回退后的计数为新基线正常
+            sample["per_note"] = "counter_reset_err"
         else:
-            # err 回退（计数器重置但 sent 仍在涨的畸形流）按 0 截断，防负 PER
-            sample["per_raw"] = max(err_delta, 0) / sent_delta
+            # 此分支 err_delta>=0（负增量已由上一分支拦截），正常增量口径
+            sample["per_raw"] = err_delta / sent_delta
     else:
         # 不可比窗（无新增发包，含 sent 回退）：per_raw=None，不得记 0.0 冒充零丢包
         sample["per_note"] = "no_delta"
@@ -202,7 +210,9 @@ def drive_esp32_link(serial_config: dict, ctx: dict | None = None) -> Iterator[d
           {'timestamp_ms': time.monotonic()*1000, 'link': 'esp32', 'seq',
            'per_raw': 增量 PER（本帧 err−上帧 err / 本帧 sent−上帧 sent；首帧以 0 为
                       基线；不可比窗为 None 并附 'per_note'——sent 增量<=0（含回退）
-                      →'no_delta'，err 增量>sent 增量（物理不可能）→'delta_overflow'），
+                      →'no_delta'，err 增量>sent 增量（物理不可能）→'delta_overflow'，
+                      err 增量<0 而 sent 增量>0（err 计数回退=设备复位/回绕）→
+                      'counter_reset_err'，后续窗按新基线正常），
            'per_cum': 累计 PER（本帧 err/sent；sent=0→0.0；>1 同窗附
                       'cum_overflow': True），
            'retries': int, 'rssi_dbm': float|None（'NA'→None 透传）, 'source': 'esp32'}；

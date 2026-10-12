@@ -72,7 +72,7 @@
 | compute_per | B11 | wired 10-12 | 17 passed；样本量警告口径 | 88d76f6 |
 | normalize_kpi | B11 | wired 10-12 | 20 passed；异源冲突拒+BER 口径声明 | 7198a3e |
 | compute_alignment_error | B12 | wired 10-12 | 28 passed；配对时延 p50/p95 | 48417e1 |
-| record_run_streams | B12 | wired 10-12 | 15 passed 含真后端 E2E；三路合流总编 | pending |
+| record_run_streams | B12 | wired 10-12 | 15 passed 含真后端 E2E；三路合流总编 | 8ee48b6 |
 | run_baseline_check | B12 | wired 10-12 | 16 passed；保守拒+advice | 204e78c |
 | annotate_truth_labels | B12 | wired 10-12 | 21 passed；SigMF v1.2+jam 命名空间 | 39faa47 |
 | write_sigmf_recording | B12 | wired 10-12 | 13 新用例（-k 34）；流式 cf32+完整性校验 | dc5f59d |

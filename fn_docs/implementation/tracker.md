@@ -496,7 +496,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] record_run_streams · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k align_streams -q 2>&1 | tail -1 → 15 passed, 1902 deselected in 1.44s (10-12)
 - [x] record_run_streams · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b12.py | grep -q '准闭环' && echo 顶层实跑通过（三路合流+录制+对齐） → 顶层实跑通过（三路合流+录制+对齐） (10-12)
 - [x] record_run_streams · 清单进位 — 证据: bash -c grep -q '| record_run_streams | B12 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] record_run_streams · commit — 预告: fn(record_run_streams): wired 含四文档变更
+- [x] record_run_streams · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(record_run_streams)' && echo commit在案 → commit在案 (10-12)
 ### run_baseline_check
 - [x] run_baseline_check · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:run_baseline_check' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
 - [x] run_baseline_check · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k baseline_guard -q 2>&1 | tail -1 → 16 passed, 1901 deselected in 1.44s (10-12)
