@@ -73,8 +73,8 @@
 | normalize_kpi | B11 | wired 10-12 | 20 passed；异源冲突拒+BER 口径声明 | 7198a3e |
 | compute_alignment_error | B12 | wired 10-12 | 28 passed；配对时延 p50/p95 | 48417e1 |
 | record_run_streams | B12 | stub 10-11 | pytest -k align_streams | — |
-| run_baseline_check | B12 | stub 10-11 | pytest -k baseline_guard | — |
-| annotate_truth_labels | B12 | wired 10-12 | 21 passed；SigMF v1.2+jam 命名空间 | pending |
+| run_baseline_check | B12 | wired 10-12 | 16 passed；保守拒+advice | pending |
+| annotate_truth_labels | B12 | wired 10-12 | 21 passed；SigMF v1.2+jam 命名空间 | 39faa47 |
 | write_sigmf_recording | B12 | stub 10-11 | pytest -k sigmf_record | — |
 | check_failure | B13 | stub 10-11 | 上游覆盖: execute_gb42590_protocol | — |
 | record_failure_level | B13 | stub 10-11 | 上游覆盖: execute_gb42590_protocol | — |
