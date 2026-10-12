@@ -14,10 +14,13 @@
   平铺或 {'params': …} 外包裹均收，透传采集参数）→ 逐块 monitor.csv 写 bin
   行（timestamp_ms,freq_mhz,power_db,confidence 四列——confidence 缺省 'ok'，
   块 overflow → 'overflow'）+ 每块 compute_spectrum_stats(reference) 统计行
-  另存 monitor_stats.jsonl（不混 bin 行）；事件路注入事件由 ladder 经
+  另存 monitor_stats.jsonl（不混 bin 行）；sim 元组块归一时 ts 由主机单调钟
+  盖戳（毫秒域，与 kpi/事件同域——rx_ts 块号降级 'block_index' 附注）；
+  事件路注入事件由 ladder 经
   append_event 落 events.jsonl（本函数不重复写），对齐读内存共享
   ctx['jam_events']（缺省回落 ctx['events_sink'] / events.jsonl 读回，
-  'ts_ms' 缺键时以 'ts' 兜底映射）；
+  对齐源统一 ts_ms 主机单调毫秒域：事件优先取 'ts_ms' 键，'ts'
+  （append_event 权威盖戳键，同主机单调域）兜底映射）；
 - 协作停：ctx['stop']['flag']=True → 三路 drain 收尾（DUT/监测生成器
   close，spec 规约的惰性：停检在每路拉取之间，块不再多读一个），记
   'cooperative_stop' 注并以 append_event 落一条 streams_stopped 记帐事件
@@ -45,6 +48,7 @@ import csv
 import json
 import math
 import os
+import time
 from numbers import Real
 from typing import Iterator
 
@@ -150,9 +154,12 @@ def _as_monitor_block(block: object) -> object:
     """后端块形状归一：dict 直通；(samples, meta) 元组（sim 契约）转块 dict。
 
     SimBackend.read_samples 的元素是 (rx_block, meta) 二元组（meta 含 'rx_ts'
-    单调块号），而 capture_monitor_spectrum / write_sigmf_recording 只认块 dict
-    （samples/ts/overflow）——在此归一；其余形状原样透传（由 capture 的块形状
-    校验拒，走停发射路径）。
+    单调**块号**，非毫秒域），而 capture_monitor_spectrum / write_sigmf_recording
+    只认块 dict（samples/ts/overflow）——在此归一。归一时 ts 以**主机单调钟
+    盖戳**（time.monotonic()*1000，与 kpi 样本（drive_*）及 append_event 事件
+    同一毫秒域：rx_ts 块号直接当 ts 用会让 monitor.csv/统计行/对齐配对错单位，
+    块号降级为 'block_index' 附注保留溯源）；其余形状原样透传（由 capture 的
+    块形状校验拒，走停发射路径）。
     """
     if isinstance(block, dict):
         return block
@@ -160,7 +167,10 @@ def _as_monitor_block(block: object) -> object:
         samples, meta = block
         return {
             "samples": samples,
-            "ts": meta.get("rx_ts"),
+            # 主机单调钟毫秒盖戳（B12 中#1）：块号非毫秒域，不得充当 ts；
+            # 浮点毫秒保逐块严格递增（同毫秒内两块 int 会并列）。
+            "ts": time.monotonic() * 1000.0,
+            "block_index": meta.get("rx_ts"),  # sim 块号附注（溯源用，非时间戳）
             "overflow": bool(meta.get("overflow", False)),
         }
     return block
@@ -171,7 +181,8 @@ def _tee_backend_stream(state: dict) -> Iterator[dict]:
 
     真实契约（sim/B210）：read_samples() → list[块]（无数据 []）——逐块经
     _as_monitor_block 归一（B210 块即 dict；sim 块为 (samples, meta) 元组转
-    块 dict）后 yield，绝不可把整个返回值当单块传下游；replay 旧契约为单块
+    块 dict，ts 以主机单调钟毫秒盖戳——rx_ts 块号非毫秒域）后 yield，绝不可
+    把整个返回值当单块传下游；replay 旧契约为单块
     dict（耗尽恒 []），按单块直通兼容。空返回记一次空读并继续轮询，连续空读
     达 _MONITOR_EMPTY_READ_LIMIT 判源耗尽自然收尾（不抛——耗尽注由 _advance
     的 StopIteration 路径记 'monitor_source_exhausted'）。record=True 时每块
@@ -333,9 +344,12 @@ def _read_events_jsonl(run_dir: str) -> list:
 def _alignment_events(ctx: dict, run_dir: str) -> list:
     """对齐事件源解析：ctx['jam_events'] > ctx['events_sink'] > events.jsonl 读回。
 
-    共享 list 在采集收尾后快照（各写方已同步 append 完）；'ts_ms' 缺键时以
-    'ts'（append_event 权威盖戳键）兜底映射；非 dict / 非有限 ts 条目防御性
-    剔除（compute_alignment_error 的严格校验归其自有用例，编排层不替抛）。
+    共享 list 在采集收尾后快照（各写方已同步 append 完）；对齐源统一 ts_ms
+    主机单调毫秒域（与 sim 元组块归一盖戳 / kpi 样本钟同域）：事件优先取
+    'ts_ms' 键，缺键时以 'ts'（append_event 权威盖戳键，同主机单调域）兜底
+    映射；非 dict / 非有限 ts 条目防御性剔除（compute_alignment_error 的
+    严格校验归其自有用例，编排层不替抛）。本函数不覆盖调用方事件数据——
+    域统一由"优先 ts_ms + ts 兜底"的取值口径达成。
     """
     source = ctx.get("jam_events")
     if not isinstance(source, list):

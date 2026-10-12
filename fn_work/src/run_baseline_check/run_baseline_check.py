@@ -14,12 +14,16 @@
     不可比窗）→ **保守拒绝**——无法判健康即不放行；
   - RSSI 稳定性（有 ``rssi_dbm`` 样本时极差 < ``rssi_range_db``，默认 20dB）：
     超限仅记 ``warning:`` 前缀违例条目，不中止、不影响放行；
-- 聚合为顺序无关统计（均值/极差/计数），时间戳乱序容忍。
+- 聚合为顺序无关统计（均值/极差/计数），时间戳乱序容忍；
+- PER 均值以 ``math.fsum``（精确舍入求和）聚合——朴素 ``+=`` 累加的浮点误差
+  会让恰等阈边界翻转（十行恰 0.05 的朴素均值 0.049999999999999996 < 0.05
+  被误放行；fsum 恰得 0.05，按"均值≥阈即超阈"口径正确拒绝）。
 
 调用方：execute_gb42590_protocol（前置）；run_demo。
 """
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 
 #: 基线 PER 放行阈（比判据 0.10 更严：基线段对环境噪声敏感）。
@@ -96,7 +100,7 @@ def run_baseline_check(samples: Iterable[dict], threshold: dict | None = None) -
 
     n_samples = 0
     n_judged = 0
-    per_sum = 0.0
+    judged_per_values: list[float] = []  # 判据样本收集后 math.fsum（恰等阈不漂移）
     rssi_values: list[float] = []
 
     for index, row in enumerate(rows):
@@ -109,12 +113,16 @@ def run_baseline_check(samples: Iterable[dict], threshold: dict | None = None) -
         judge_per = row.get("judge_per")
         if judge_per is not None:
             n_judged += 1
-            per_sum += judge_per
+            judged_per_values.append(judge_per)
         rssi = row.get("rssi_dbm")
         if rssi is not None:
             rssi_values.append(rssi)
 
-    per_mean = per_sum / n_judged if n_judged else None
+    # math.fsum：精确舍入求和——恰等阈口径（均值 ≥ 阈即超阈）不被朴素累加的
+    # 浮点误差翻转（十行恰 0.05：朴素均值 0.0499…96 误放行，fsum 恰 0.05 拒）。
+    per_mean = (
+        math.fsum(judged_per_values) / n_judged if n_judged else None
+    )
 
     violations: list[str] = []
     if per_mean is None or n_judged < min_samples:

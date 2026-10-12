@@ -27,3 +27,5 @@
 | 10-12 | B11 | parse_esp32_frame, parse_nrf24_frame, apply_cliff_model, compute_per（波1）, drive_esp32_link, drive_nrf24_link, simulate_link_degradation, normalize_kpi（波2）+B10 空表边角顺手修 | 1792 全库绿；三源贯通探针（esp 0.20/nrf 0.45/sim 悬崖）；Ruling⑰ 三处分歧待双审 |
 | 10-12 | B11+ | 双审：三轴过门（固件申报+ESP token）+对抗 高1中3低3 → 8 项修复+33 回归；Ruling⑰⑱ | 1825 全库绿 |
 | 10-12 | B12 | compute_alignment_error, annotate_truth_labels, run_baseline_check（波1）, write_sigmf_recording（波2）, record_run_streams（波3）+esp 对齐修+read_samples 契约修（真缺陷，探针抓到） | 1917 全库绿；准闭环探针（kpi/stats/SigMF/基线）全过；Ruling⑲ |
+| 10-12 | B12+ | 双审收口：中3低3 全修+13 回归；Ruling⑳ | 1930 全库绿 |
+

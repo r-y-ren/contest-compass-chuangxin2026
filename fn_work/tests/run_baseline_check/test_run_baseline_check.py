@@ -160,3 +160,14 @@ def test_baseline_guard_equal_threshold_is_not_healthy():
     rssi_edge = run_baseline_check(_rows([0.01] * 10, [-60.0] * 5 + [-40.0] * 5))
     assert rssi_edge["passed"] is True
     assert any(v.startswith("warning") and "rssi_unstable" in v for v in rssi_edge["violations"])
+
+
+def test_baseline_guard_ten_rows_exact_threshold_rejected_fsum():
+    # B12 中#2 回归：十行恰 0.05 的朴素 += 累加均值 0.049999999999999996 < 0.05
+    # 被误放行；math.fsum 精确舍入恰得 0.05 → 按恰等阈口径正确拒绝。
+    result = run_baseline_check(_rows([0.05] * 10))
+    assert result["n_judged"] == 10
+    assert result["per_mean"] == 0.05  # fsum 均值恰等于阈值（无累积误差）
+    assert result["passed"] is False
+    assert result["stop_reason"] == "baseline_per_exceeded"
+    assert "baseline_per_exceeded" in result["violations"]

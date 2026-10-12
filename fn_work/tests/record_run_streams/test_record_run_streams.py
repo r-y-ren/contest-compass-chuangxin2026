@@ -21,6 +21,7 @@ DUT 路以 sim 事件流或 esp32 lines 行流注入，run_dir 用 pytest tmp_pa
 import json
 import math
 import os
+import time
 
 import pytest
 
@@ -623,11 +624,16 @@ def test_align_streams_real_sim_backend_end_to_end_two_blocks(tmp_path):
     backend.start_tx([tone, list(tone)])  # 喂两块再采集
 
     events = sim_events(2)
+    # 对齐事件用主机单调毫秒域盖戳（B12 中#1：sim 元组块归一 ts 已统一主机域，
+    # jam_events 取值口径 ts_ms 优先——事件与监测块同域方可配对）。
+    host_jam = [
+        {"type": "power_step", "ts_ms": time.monotonic() * 1000.0} for _ in range(2)
+    ]
     ctx = make_ctx(
         tmp_path,
         backend,
         sim_events_src=events,
-        jam=jam_events(2),
+        jam=host_jam,
         dut={"source": "sim", "samples_per_event": 1},
     )
     result = record_run_streams(ctx)
@@ -639,9 +645,23 @@ def test_align_streams_real_sim_backend_end_to_end_two_blocks(tmp_path):
     assert len(read_lines(os.path.join(str(tmp_path), "monitor.csv"))) == 1 + 2 * 4
     # 源耗尽（空读超阈）自然收尾不抛，注在位
     assert "monitor_source_exhausted" in result["streams_note"]
-    # 归一块 ts 取 sim meta['rx_ts']（单调块号 0/1）→ 统计行时间戳可断言
+    # 归一块 ts 为主机单调毫秒盖戳（rx_ts 块号非毫秒域，不再充当时间戳）：
+    # 统计行时间戳非负且逐块严格递增（同域毫断言，替代旧 [0,1] 块号错误锚）。
     stats_rows = [
         json.loads(line)
         for line in read_lines(os.path.join(str(tmp_path), "monitor_stats.jsonl"))
     ]
-    assert [row["timestamp_ms"] for row in stats_rows] == [0, 1]
+    ts_values = [row["timestamp_ms"] for row in stats_rows]
+    assert len(ts_values) == 2
+    assert ts_values[0] >= 0 and ts_values[1] > ts_values[0]
+    # 对齐腿：主机域事件与主机域监测块可配对（延迟非负有限），不再因单位错位
+    # 流尽 unpaired；kpi 腿仍 sim 仿真钟域（配不上属预期，单路未配不进
+    # unpaired_events——两路皆流先止才算）。
+    alignment = result["alignment"]
+    assert alignment["n_events"] == 2
+    assert alignment["n_paired_monitor"] == 2
+    assert alignment["unpaired_events"] == []
+    for pair in alignment["pairs"]:
+        assert pair["monitor_delay_ms"] is not None
+        assert pair["monitor_delay_ms"] >= 0
+        assert math.isfinite(pair["monitor_delay_ms"])

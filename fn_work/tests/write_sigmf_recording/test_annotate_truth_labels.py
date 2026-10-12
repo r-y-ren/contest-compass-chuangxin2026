@@ -253,3 +253,36 @@ def test_malformed_power_steps_shape_rejected_as_valueerror():
     facts["power_steps"] = [{"step": 1, "target_db": 0.0, "ts": 1_000}, "bogus"]
     with pytest.raises(ValueError):
         annotate_truth_labels(facts)
+
+
+@pytest.mark.parametrize(
+    "bad_rate",
+    [0.0, -1_000_000.0, float("nan"), float("inf"), float("-inf"), "1e6", True],
+)
+def test_sample_rate_domain_rejected_with_value(bad_rate):
+    """⑮ B12 中#3：sample_rate ≤0/NaN/±Inf/非数值（bool 不算）→ValueError 附值。"""
+    facts = copy.deepcopy(_FULL_FACTS)
+    facts["sample_rate"] = bad_rate
+    with pytest.raises(ValueError) as ei:
+        annotate_truth_labels(facts)
+    assert "sample_rate" in str(ei.value)
+    assert repr(bad_rate) in str(ei.value) or str(bad_rate) in str(ei.value)
+
+
+@pytest.mark.parametrize("bad_freq", [-2_400_000_000.0, -0.1, float("nan"), "2.4e9"])
+def test_negative_freq_hz_rejected_with_value(bad_freq):
+    """⑯ B12 中#3：freq_hz 负值→ValueError 附值（载波非负——负频偏是频谱域
+    参数不是载波）；NaN/非数值同拒。"""
+    facts = copy.deepcopy(_FULL_FACTS)
+    facts["freq_hz"] = bad_freq
+    with pytest.raises(ValueError) as ei:
+        annotate_truth_labels(facts)
+    assert "freq_hz" in str(ei.value)
+
+
+def test_zero_freq_hz_and_positive_sample_rate_legal():
+    """⑰ 域下界合法：freq_hz=0（DC，非负即收）与正常正采样率→正常标注不抛。"""
+    facts = copy.deepcopy(_FULL_FACTS)
+    facts["freq_hz"] = 0.0
+    meta = annotate_truth_labels(facts)
+    assert meta["captures"][0]["core:frequency"] == 0.0

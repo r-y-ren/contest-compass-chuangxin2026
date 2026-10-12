@@ -6,6 +6,13 @@
   事先未知（无法按 n_samples×8 预估需求），以固定阈值 200MB 代——剩余
   < 200MB → StorageError 附路径与剩余/阈值两数。本函数不负责停发射：
   抛出即调用方责任（R27 停发射语义在 record_run_streams）；
+- 磁盘复查：每写满 64 块复查一次 disk_usage，剩余 < 50MB → StorageError
+  提前抛（比写到 ENOSPC 中途爆掉友好；复查阈低于预检阈——录制途中已付出的
+  空间沉没，只需保证下一批块有处可写）；
+- 孤儿清理：数据写/完整性校验/meta 写任一环节失败（ValueError/StorageError
+  异常路径）→ 尽力 os.remove 半截 .sigmf-data 与 .sigmf-meta（remove 失败
+  仅吞不掩盖原异常）——异常返回统一不留孤儿录制对（正常返回的成对文件是
+  产物非孤儿）；
 - 数据写：run_dir 下 recordings/ 目录落 <run_id 消毒串>.sigmf-data，
   cf32_le 编码（每样本 8 字节 = float32 实部/虚部交错小端；numpy
   ascontiguousarray→view('<f4')→tobytes 转字节），块迭代逐块 flush；
@@ -16,9 +23,14 @@
   总数标注进 meta global 'jam:invalid_samples'（选计数标注）；
 - 空块/空流合法：空录制 0 样本（data 0 字节 + meta core:num_samples=0）；
 - meta：facts 先经 annotate_truth_labels 干跑（非法 facts → ValueError
-  先于任何数据落盘），数据写完后在其 global 更新 core:num_samples 并
-  校验 core:datatype == 'cf32_le'（不符 → StorageError），JSON 写同名
-  .sigmf-meta（与 .sigmf-data 同目录同 stem 成对）；
+  先于任何数据落盘——含 sample_rate ≤0/NaN、freq_hz 负值的域校验），数据写
+  完后在其 global 更新 core:num_samples 并校验 core:datatype == 'cf32_le'
+  （不符 → StorageError），JSON 写同名 .sigmf-meta（与 .sigmf-data 同目录
+  同 stem 成对）；
+- 标注截取：annotations 的 sample_start+count 超出实录 num_samples →
+  截取到录制域内（start 夹 min(start, num)，count 夹 num-start），被截
+  的标注附 'jam:annotation_clamped': true（档窗口长于实际录制是编排层
+  常态——录制 tick 数由采集进度决定，非标注窗决定）；
 - 完整性：数据写毕核对「write 返回的实际写入字节计数」与「盘上文件
   大小」均等于 num_samples×8，任一不符 → StorageError（截断/超长双向，
   附路径与两数）；
@@ -41,6 +53,12 @@ __all__ = ["StorageError", "write_sigmf_recording"]
 
 #: 磁盘预检固定阈值（样本总数未知，以 200MB 固定阈值代预估需求）。
 _MIN_FREE_BYTES = 200 * 1024 * 1024
+
+#: 磁盘复查：每写满此块数复查一次剩余空间（长录制中途蒸发检测）。
+_RECHECK_INTERVAL_BLOCKS = 64
+
+#: 复查阈：剩余 < 50MB → StorageError 提前抛（低于预检阈——已写空间沉没）。
+_MIN_FREE_BYTES_RECHECK = 50 * 1024 * 1024
 
 #: cf32_le：每样本 8 字节（float32 实部+虚部交错、小端）。
 _BYTES_PER_SAMPLE = 8
@@ -67,18 +85,59 @@ def _existing_ancestor(path: str) -> str:
     return probe
 
 
-def _check_disk(recordings_dir: str) -> None:
-    """磁盘预检：剩余 < 200MB → StorageError（附探测点、剩余与阈值两数）。"""
+def _ensure_disk_free(recordings_dir: str, min_free_bytes: int, label: str) -> None:
+    """剩余空间守门：disk_usage 查剩余 < min_free_bytes → StorageError（附探测点、剩余与阈值）。"""
     probe = _existing_ancestor(recordings_dir)
     try:
         free = shutil.disk_usage(probe).free
     except OSError as exc:
         raise StorageError(f"磁盘预检失败 {probe}: {exc}") from exc
-    if free < _MIN_FREE_BYTES:
+    if free < min_free_bytes:
         raise StorageError(
-            f"磁盘剩余空间不足：{probe} 剩 {free} 字节 < 阈值 {_MIN_FREE_BYTES}"
-            f" 字节（200MB），拒录 {recordings_dir}"
+            f"磁盘剩余空间不足：{probe} 剩 {free} 字节 < 阈值 {min_free_bytes}"
+            f" 字节（{label}），拒录 {recordings_dir}"
         )
+
+
+def _check_disk(recordings_dir: str) -> None:
+    """磁盘预检（落盘前）：剩余 < 200MB → StorageError。"""
+    _ensure_disk_free(recordings_dir, _MIN_FREE_BYTES, "200MB")
+
+
+def _cleanup_partial(data_path: str, meta_path: str, recordings_dir: str) -> None:
+    """异常路径孤儿清理：尽力删半截 .sigmf-data/.sigmf-meta（B12 低#4）。
+
+    os.remove/rmdir 均尽力而为——失败（目录已被外部删除/权限等）仅吞，绝不
+    在清理路径再抛新异常掩盖原异常；recordings/ 删空后一并移除（无残留目录）。
+    """
+    for path in (data_path, meta_path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    try:
+        os.rmdir(recordings_dir)  # 仅当已空才成功——正常成对文件在场时天然无效
+    except OSError:
+        pass
+
+
+def _clamp_annotations(meta: dict, num_samples: int) -> None:
+    """标注域截取（B12 低#6）：annotations 起/计数超出实录样本数→夹进 [0, num_samples]。
+
+    start 夹 min(start, num)，count 夹 num-start；被截的标注附
+    'jam:annotation_clamped': true（未动的标注不加键——消费者可据此辨识降级）。
+    """
+    for annotation in meta.get("annotations") or []:
+        if not isinstance(annotation, dict):
+            continue
+        start = annotation.get("core:sample_start", 0)
+        count = annotation.get("core:sample_count", 0)
+        clamped_start = min(start, num_samples)
+        clamped_count = min(count, num_samples - clamped_start)
+        if clamped_start != start or clamped_count != count:
+            annotation["core:sample_start"] = clamped_start
+            annotation["core:sample_count"] = clamped_count
+            annotation["jam:annotation_clamped"] = True
 
 
 def _is_complex_sample(value) -> bool:
