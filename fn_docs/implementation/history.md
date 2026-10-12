@@ -41,4 +41,5 @@
 | 10-12 | B17+ | 双审：三轴过门（低2）+对抗 高1中4低4 → 修7申报2+24 回归；Ruling㉚（真清单状态列 append 方案——台账机制关键缺陷修复） | 2491 全库绿 |
 | 10-12 | B18 | render_disclaimer_sections, assemble_frequency_plots, extract_report_numbers（波1）, build_report, verify_report_traceability（波2） | 2576 全库绿；报告链探针（各节齐/脚注 GB42590+PER/溯源 passed） |
 | 10-12 | B18+ | 双审：三轴过门（3 观察）+对抗 高2中8低6 → 修13申报3+28 回归；Ruling㉛ | 2604 全库绿 |
+| 10-12 | B18++ | 修复后复核：13/13 生效+等值盲区申报；Ruling㉜ | 2604 全库绿 |
 
