@@ -83,9 +83,9 @@
 | build_curve_frames | B13 | wired 10-12 | 24 passed；三帧纯计算+开窗 | 5044bd0 |
 | plot_triple_curves | B13 | wired 10-12 | 12 passed；三 PNG+curves_data.json+字体回退 | 49e4665 |
 | dispatch_remote_training | B14 | wired 10-12 | 19 passed；探活+dry_run+形状稳定 | 5a65d34 |
-| train_classifier | B14 | wired 10-12 | 15 新用例；取数→谱→样本量→remote/local | pending |
+| train_classifier | B14 | wired 10-12 | 15 新用例；取数→谱→样本量→remote/local | b2fca5e |
 | make_group_splits | B14 | wired 10-12 | 20 passed；组粒度贪心均衡 | ba54c94 |
-| grouped_cv_evaluate | B14 | stub 10-11 | pytest -k grouped_cv | — |
+| grouped_cv_evaluate | B14 | wired 10-12 | 20 新用例；混淆+F1+泄漏自检 | pending |
 | predict_style | B14 | wired 10-12 | 17 passed；cnn_dummy+全状态机不抛 | 61716a4 |
 | open_sim_siggen | B15 | stub 10-11 | pytest -k sim_1433d | — |
 | open_sim_analyzer | B15 | stub 10-11 | pytest -k sim_rsa513a | — |
