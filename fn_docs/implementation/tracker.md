@@ -810,10 +810,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B20 — map_per_to_injection, bridge_to_sitl, fallback_fixed_strategy, run_rl_policy, run_rff_pipeline
 ### map_per_to_injection
-- [ ] map_per_to_injection · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] map_per_to_injection · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] map_per_to_injection · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] map_per_to_injection · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] map_per_to_injection · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:map_per_to_injection' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] map_per_to_injection · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/bridge_to_sitl/ 2>&1 | grep -c passed → 1 (10-12)
+- [x] map_per_to_injection · wired — 证据: bash -c grep -rn 'map_per_to_injection(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/bridge_to_sitl/bridge_to_sitl.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] map_per_to_injection · 清单进位 — 证据: bash -c grep -q '| map_per_to_injection | B20 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] map_per_to_injection · commit — 预告: fn(map_per_to_injection): wired 含四文档变更
 ### bridge_to_sitl
 - [ ] bridge_to_sitl · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -900,4 +900,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B18 复核收口——13/13 复触发确认+2604 无回归；两个等值盲区如实记录（①数据侧尾零形 2438.000 与候选规范形互不认——**现产写入 str(float) 恒规范形不触发**，仅非规范外部数据受害；②U+2212 数据侧变体缺——同前）——申报留观（B21 终批若引入外部数据源再堵：extract 保留 raw literal 入候选） — 修复后复核 — 无代码改动 — batches Ruling㉜ (10-12)
 - Ruling: B19 三处申报——①环境装 fastapi/httpx 后 15 个原 skip TestClient 用例转实跑暴露 8 败（2 测试目录时序 bug+**6 源码真缺陷**：from __future__ import annotations 使 FastAPI 字符串注解解析失败→Request/WebSocket 误判 query 参数→POST 422/WS 1008——真运行也会炸，已修源码并禁用该 import）；②fastapi/uvicorn 延迟 import+缺库 AppError/ConsoleError pip 提示（原 skipless 环境策略）；③push 控制帧 emergency_stop 直调 trigger 不走广播 — 环境补装+子代理申报 — 26 用例实跑全绿 — batches Ruling㉝ (10-12)
 - Ruling: B19 双审收口——三轴修订后过门（中#4 slug：serve 25 用例改 test_console_api_ 前缀可发现；中#1 场景 CRUD：补 POST/PUT/DELETE /api/scenarios——写前 load_scenario 全口径校验+红线拒 400 不落盘）+对抗 中2低4（run 状态可查 GET /api/runs/{id}；新 run 复位 stop_flag——旧停机信号不吃；降频双判据 OR 断连≥2 不随帧数稀释；运行 loop 内 ensure_future 健康异步 socket 不误剔；trigger 顶层 stop_failed 联动；CDN 协议白名单）；低#5 计数勘误 functions.md 两处 — 三轴+对抗 — 25 回归 — batches Ruling㉞ (10-12)
+- Ruling: B20 两处申报——①RL 实现为 numpy 表格式 Q-learning（ε-greedy+动态状态登记，不引 torch——「D3QN 反向用作策略」的轻量软件替身，真 D3QN 归远期算力路径）；②SITL 真连走简化 mock MAVLink 层（心跳+SIM_PACKET_LOSS/SIM_LATENCY_MS 参数——pymavlink 延迟 import 缺库 SitlWarn 不抛） — 子代理申报 — 无 — batches Ruling㉟ (10-12)
 

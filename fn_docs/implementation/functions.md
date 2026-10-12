@@ -117,7 +117,7 @@
 | measure_refresh_latency | B19 | wired 10-12 | 8 passed；配对分位+pending | d6d4c07 |
 | trigger_emergency_stop | B19 | wired 10-12 | 7 passed；先停发射+永不抛 | 315fd8f |
 | push_realtime_kpi | B19 | wired 10-12 | 14 passed；广播+环形+降频 | 1344453 |
-| map_per_to_injection | B20 | stub 10-11 | 上游覆盖: bridge_to_sitl | — |
+| map_per_to_injection | B20 | wired 10-12 | 16 组；饱和+分段线性 | pending |
 | bridge_to_sitl | B20 | stub 10-11 | pytest -k sitl_bridge | — |
 | fallback_fixed_strategy | B20 | stub 10-11 | 上游覆盖: run_rl_policy | — |
 | run_rl_policy | B20 | stub 10-11 | pytest -k rl_policy | — |
