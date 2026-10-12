@@ -604,12 +604,12 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] open_sim_siggen · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k sim_1433d -q 2>&1 | tail -1 → 15 passed, 2251 deselected in 1.37s (10-12)
 - [x] open_sim_siggen · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b15.py | grep -q '1ppm 回读' && echo 顶层实跑通过（1ppm 口径） → 顶层实跑通过（1ppm 口径） (10-12)
 - [x] open_sim_siggen · 清单进位 — 证据: bash -c grep -q '| open_sim_siggen | B15 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] open_sim_siggen · commit — 预告: fn(open_sim_siggen): wired 含四文档变更
+- [x] open_sim_siggen · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(open_sim_siggen)' && echo commit在案 → commit在案 (10-12)
 ### open_sim_analyzer
-- [ ] open_sim_analyzer · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] open_sim_analyzer · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] open_sim_analyzer · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] open_sim_analyzer · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] open_sim_analyzer · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:open_sim_analyzer' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] open_sim_analyzer · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k sim_rsa513a -q 2>&1 | tail -1 → 13 passed, 2253 deselected in 1.41s (10-12)
+- [x] open_sim_analyzer · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b15.py | grep -q '±1.5' && echo 顶层实跑通过（不确定度口径） → 顶层实跑通过（不确定度口径） (10-12)
+- [x] open_sim_analyzer · 清单进位 — 证据: bash -c grep -q '| open_sim_analyzer | B15 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] open_sim_analyzer · commit — 预告: fn(open_sim_analyzer): wired 含四文档变更
 ### upconvert_with_image_rejection
 - [x] upconvert_with_image_rejection · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:upconvert_with_image_rejection' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
