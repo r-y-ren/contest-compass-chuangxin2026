@@ -412,12 +412,12 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] estimate_snr · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/compute_spectrum_stats/test_estimate_snr.py | tail -1 → 31 passed in 0.02s (10-12)
 - [x] estimate_snr · wired — 证据: bash -c grep -rn 'estimate_snr(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/compute_spectrum_stats/compute_spectrum_stats.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] estimate_snr · 清单进位 — 证据: bash -c grep -q '| estimate_snr | B10 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] estimate_snr · commit — 预告: fn(estimate_snr): wired 含四文档变更
+- [x] estimate_snr · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(estimate_snr)' && echo commit在案 → commit在案 (10-12)
 ### check_flatness
-- [ ] check_flatness · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] check_flatness · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] check_flatness · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] check_flatness · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] check_flatness · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:check_flatness' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] check_flatness · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/compute_spectrum_stats/test_check_flatness.py | tail -1 → 26 passed in 0.02s (10-12)
+- [x] check_flatness · wired — 证据: bash -c grep -rn 'check_flatness(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/compute_spectrum_stats/compute_spectrum_stats.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] check_flatness · 清单进位 — 证据: bash -c grep -q '| check_flatness | B10 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] check_flatness · commit — 预告: fn(check_flatness): wired 含四文档变更
 ### compute_spectrum_stats
 - [ ] compute_spectrum_stats · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
