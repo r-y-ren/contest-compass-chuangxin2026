@@ -538,7 +538,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] execute_gb42590_protocol · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k gb42590_executor -q 2>&1 | tail -1 → 13 passed, 2007 deselected in 1.90s (10-12)
 - [x] execute_gb42590_protocol · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b13.py | grep -q 'GB failed' && echo 顶层实跑通过（全链 failed+P_crit） → 顶层实跑通过（全链 failed+P_crit） (10-12)
 - [x] execute_gb42590_protocol · 清单进位 — 证据: bash -c grep -q '| execute_gb42590_protocol | B13 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] execute_gb42590_protocol · commit — 预告: fn(execute_gb42590_protocol): wired 含四文档变更
+- [x] execute_gb42590_protocol · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(execute_gb42590_protocol)' && echo commit在案 → commit在案 (10-12)
 ### compare_failure_boundaries
 - [x] compare_failure_boundaries · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:compare_failure_boundaries' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
 - [x] compare_failure_boundaries · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k boundary_compare -q 2>&1 | tail -1 → 12 passed, 2008 deselected in 1.37s (10-12)
@@ -552,10 +552,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] build_curve_frames · 清单进位 — 证据: bash -c grep -q '| build_curve_frames | B13 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] build_curve_frames · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(build_curve_frames)' && echo commit在案 → commit在案 (10-12)
 ### plot_triple_curves
-- [ ] plot_triple_curves · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] plot_triple_curves · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] plot_triple_curves · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] plot_triple_curves · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] plot_triple_curves · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:plot_triple_curves' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] plot_triple_curves · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k triple_curves -q 2>&1 | tail -1 → 36 passed, 1984 deselected in 3.01s (10-12)
+- [x] plot_triple_curves · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b13.py | grep -q '三 PNG 齐' && echo 顶层实跑通过（三图+中文 cjk） → 顶层实跑通过（三图+中文 cjk） (10-12)
+- [x] plot_triple_curves · 清单进位 — 证据: bash -c grep -q '| plot_triple_curves | B13 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] plot_triple_curves · commit — 预告: fn(plot_triple_curves): wired 含四文档变更
 
 ## B13 批间门
