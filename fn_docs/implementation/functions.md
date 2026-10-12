@@ -105,7 +105,7 @@
 | validate_scenario_schema | B17 | wired 10-12 | 21 passed；七类白名单+域 | 957d0f2 |
 | normalize_scenario | B17 | wired 10-12 | 9 passed；默认填充+归一+深拷贝 | 227b1a6 |
 | load_scenario | B17 | wired 10-12 | 16 passed；校验→红线→规范化 | 3775208 |
-| render_disclaimer_sections | B18 | stub 10-11 | 上游覆盖: build_report | — |
+| render_disclaimer_sections | B18 | wired 10-12 | 33 passed；基座+上下文+模拟段 | pending |
 | assemble_frequency_plots | B18 | stub 10-11 | 上游覆盖: build_report | — |
 | build_report | B18 | stub 10-11 | pytest -k report_builder | — |
 | extract_report_numbers | B18 | stub 10-11 | 上游覆盖: verify_report_traceability | — |
