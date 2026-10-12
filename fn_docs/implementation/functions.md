@@ -93,7 +93,7 @@
 | open_sim_mixer | B15 | wired 10-12 | 14 passed；13G 链+beyond_model+IQ 搬移 | 44b6d49 |
 | open_sim_emi_receiver | B15 | wired 10-12 | 13 passed；三检波+CISPR 声明 | f7a5302 |
 | open_sim_attenuator | B15 | wired 10-12 | 20 passed；0.25 网格+真衰减数学 | 0579c65 |
-| make_disclaimer_block | B16 | stub 10-11 | 上游覆盖: run_emc_conduction_sim | — |
+| make_disclaimer_block | B16 | wired 10-12 | 12 passed；三场景统一声明源 | pending |
 | run_emc_conduction_sim | B16 | stub 10-11 | pytest -k emc_conduction | — |
 | run_emc_radiation_sim | B16 | stub 10-11 | pytest -k emc_radiation | — |
 | plan_frequency_sweep | B16 | stub 10-11 | 上游覆盖: run_emc_sweep | — |

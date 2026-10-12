@@ -642,10 +642,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B16 — make_disclaimer_block, run_emc_conduction_sim, run_emc_radiation_sim, plan_frequency_sweep, run_emc_sweep
 ### make_disclaimer_block
-- [ ] make_disclaimer_block · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] make_disclaimer_block · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] make_disclaimer_block · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] make_disclaimer_block · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] make_disclaimer_block · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:make_disclaimer_block' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] make_disclaimer_block · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/shared/test_make_disclaimer_block.py | tail -1 → 12 passed in 0.01s (10-12)
+- [x] make_disclaimer_block · wired — 证据: bash -c grep -rn 'make_disclaimer_block(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src --include='*.py' | grep -v 'def make_disclaimer_block' | grep -v test | grep -v shared/ | head -3 && echo 三 EMC 流程+报告调用点存在 → 三 EMC 流程+报告调用点存在 (10-12)
+- [x] make_disclaimer_block · 清单进位 — 证据: bash -c grep -q '| make_disclaimer_block | B16 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] make_disclaimer_block · commit — 预告: fn(make_disclaimer_block): wired 含四文档变更
 ### run_emc_conduction_sim
 - [ ] run_emc_conduction_sim · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -892,4 +892,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B14 复核收口——①饥饿/泄漏两旗标改可并存（泄漏判定不再被饥饿否决，三态警告文案，原仅饥饿例按新语义重构为确定性场景）；②Ruling㉓ sweep 验收措辞如实修正（4/6 默认命中，2 类邻交叠） — 修复后复核发现 — 1 回归 — batches Ruling㉔ (10-12)
 - Ruling: B15 五后端简化口径申报——①混频 rf_power=IF+3dB（LO 搬移能量近似）；②EMI QP=简化衰减曲线（非 CISPR 16-1-1 规范 QP 模型，文档注明）；③衰减器切换时延 nominal 500ns 声明（实测仅程序级记录）；④RF 超 20G 标注 beyond_model；⑤所有读数 simulated:True 标记（R42 规约） — 子代理实现申报 — 无 — batches Ruling㉕ (10-12)
 - Ruling: B15 双审收口——三轴中2（R39-R43 错误字段回写 ValueError 五后端统一器件域口径；siggen 补相噪静态口径键 −100dBc/Hz@10k）+对抗 中2低4（analyzer NaN 拒收+maxhold 不污染；EMI qp 保序钳 average 界；截断计数标注；负频率钳 0；start_tx 逐样本校验；rep_hz property 防护）+三轴低（VBW 参数面；串接归 B16 接线留观） — 三轴+对抗合并 — 8 修+净增 8 回归 — batches Ruling㉖ (10-12)
+- Ruling: B16 两处申报——①plan_frequency_sweep 对数刻度 step_hz=每步相对增量 r（每步比 1+r——公式为规范，1,2,4M 例用 r=1.0 即比 2 达成）；②EMC 三流程演示态：读数为模拟口径、iq/iq_provider 可选注入、限值缺省不判 passed（None 如实） — 子代理实现申报+探针勘误（cispr_b 30M/5M=7 点非 10） — 无 — batches Ruling㉗ (10-12)
 
