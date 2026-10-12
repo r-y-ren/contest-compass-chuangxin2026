@@ -95,9 +95,9 @@
 | open_sim_attenuator | B15 | wired 10-12 | 20 passed；0.25 网格+真衰减数学 | 0579c65 |
 | make_disclaimer_block | B16 | wired 10-12 | 12 passed；三场景统一声明源 | ca121ba |
 | run_emc_conduction_sim | B16 | wired 10-12 | 10 passed；LISN 模拟+dbuv+margin | eba4e8b |
-| run_emc_radiation_sim | B16 | wired 10-12 | 8 passed；谱+补偿+洁净度 | pending |
+| run_emc_radiation_sim | B16 | wired 10-12 | 8 passed；谱+补偿+洁净度 | f969249 |
 | plan_frequency_sweep | B16 | wired 10-12 | 27 passed；双刻度+CISPR 频段 | 897ec62 |
-| run_emc_sweep | B16 | stub 10-11 | pytest -k emc_sweep | — |
+| run_emc_sweep | B16 | wired 10-12 | 9 passed；点表编排+spurious 标记 | pending |
 | locate_ledger_row | B17 | stub 10-11 | 上游覆盖: update_ledger | — |
 | update_ledger | B17 | stub 10-11 | pytest -k ledger_update | — |
 | count_comment_ratio | B17 | stub 10-11 | 上游覆盖: audit_ledger | — |
