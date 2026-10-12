@@ -628,12 +628,12 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] open_sim_emi_receiver · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k sim_emi_receiver -q 2>&1 | tail -1 → 13 passed, 2253 deselected in 1.36s (10-12)
 - [x] open_sim_emi_receiver · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b15.py | grep -q 'EMI 底噪' && echo 顶层实跑通过（-150dBm/Hz 口径） → 顶层实跑通过（-150dBm/Hz 口径） (10-12)
 - [x] open_sim_emi_receiver · 清单进位 — 证据: bash -c grep -q '| open_sim_emi_receiver | B15 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] open_sim_emi_receiver · commit — 预告: fn(open_sim_emi_receiver): wired 含四文档变更
+- [x] open_sim_emi_receiver · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(open_sim_emi_receiver)' && echo commit在案 → commit在案 (10-12)
 ### open_sim_attenuator
-- [ ] open_sim_attenuator · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] open_sim_attenuator · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] open_sim_attenuator · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] open_sim_attenuator · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] open_sim_attenuator · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:open_sim_attenuator' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] open_sim_attenuator · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k sim_attenuator -q 2>&1 | tail -1 → 20 passed, 2246 deselected in 1.39s (10-12)
+- [x] open_sim_attenuator · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b15.py | grep -q '衰减 30dB' && echo 顶层实跑通过（真衰减数学） → 顶层实跑通过（真衰减数学） (10-12)
+- [x] open_sim_attenuator · 清单进位 — 证据: bash -c grep -q '| open_sim_attenuator | B15 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] open_sim_attenuator · commit — 预告: fn(open_sim_attenuator): wired 含四文档变更
 
 ## B15 批间门
