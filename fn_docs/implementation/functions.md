@@ -120,7 +120,7 @@
 | map_per_to_injection | B20 | wired 10-12 | 16 组；饱和+分段线性 | ff9881c |
 | bridge_to_sitl | B20 | wired 10-12 | 16 组；dry_run+缺库不抛 | 970c125 |
 | fallback_fixed_strategy | B20 | wired 10-12 | 13 组；GB 计划联动 | 27ee377 |
-| run_rl_policy | B20 | wired 10-12 | 13 组；Q-learning+回退 | pending |
-| run_rff_pipeline | B20 | stub 10-11 | pytest -k rff_pipeline | — |
+| run_rl_policy | B20 | wired 10-12 | 13 组；Q-learning+回退 | 91bba33 |
+| run_rff_pipeline | B20 | wired 10-12 | 7 组；端到端 F1 1.0 | pending |
 | execute_scenario | B21 | stub 10-11 | 上游覆盖: run_demo | — |
 | run_demo | B21 | stub 10-11 | pytest -k demo_pipeline | — |
