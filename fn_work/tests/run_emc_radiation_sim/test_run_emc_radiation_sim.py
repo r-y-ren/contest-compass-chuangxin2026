@@ -1,10 +1,11 @@
 """run_emc_radiation_sim 对抗测试：验收 slug=emc_radiation（内置音谱、洁净度判据、
-无表/有表补偿口径、声明块、缺键拒绝、仪器域错透传）。"""
+无表/有表/空表/部分覆盖补偿口径、声明块、缺键拒绝、仪器域错透传与 center 回滚）。"""
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
+from src.open_sim_analyzer.open_sim_analyzer import open_sim_analyzer
 from src.run_emc_radiation_sim.run_emc_radiation_sim import run_emc_radiation_sim
 
 
@@ -98,3 +99,67 @@ def test_emc_radiation_disclaimer_emc_scene_and_simulated_flag():
     assert "本测试为模拟演示" in result["disclaimer"]
     assert "CISPR 16-1-1" in result["disclaimer"]
     assert result["simulated"] is True
+
+
+# ---------------------------------------------------------------------------
+# B16 修复回归
+# ---------------------------------------------------------------------------
+
+def test_emc_radiation_empty_tables_compensated_false_with_empty_note():
+    """B16中#3：空表（{} 或全空 entries）→ compensated=False +「表为空——未补偿」。"""
+    scenario = {"center_hz": 1e9, "span_hz": 1e6}
+    for empty_tables in ({}, {"link_loss": {}, "antenna": {}}):
+        result = run_emc_radiation_sim(
+            {}, {**scenario, "compensation_tables": empty_tables}
+        )
+        assert result["compensated"] is False
+        assert "表为空" in result["compensation_note"]
+        assert "未补偿" in result["compensation_note"]
+        assert "compensation_confidence" not in result   # 未补偿不带置信度汇总
+
+
+def test_emc_radiation_partial_coverage_confidence_summary():
+    """B16中#3：部分覆盖 → compensated=True + 逐 bin 置信度汇总
+    {'ok','extrapolated','no_table'}。"""
+    scenario = {"center_hz": 1e9, "span_hz": 1e6}
+    # link_loss 覆盖谱段（999.5–1000.5MHz 落 999–1001 区间内→ok）；
+    # antenna 只覆盖 1100MHz 外 → 全程取低端端点 → extrapolated 支配
+    tables = {
+        "link_loss": {999.0: 3.0, 1001.0: 3.0},
+        "antenna": {1100.0: 2.0, 1101.0: 2.0},
+    }
+    result = run_emc_radiation_sim({}, {**scenario, "compensation_tables": tables})
+    assert result["compensated"] is True
+    conf = result["compensation_confidence"]
+    assert set(conf) == {"ok", "extrapolated", "no_table"}
+    assert conf == {"ok": 0, "extrapolated": 1024, "no_table": 0}
+    # antenna 键整体缺（走文件加载口径仍无表）→ no_table 支配；link_loss 仍贡献补偿
+    one_table = {"link_loss": {999.0: 3.0, 1001.0: 3.0}}
+    result2 = run_emc_radiation_sim({}, {**scenario, "compensation_tables": one_table})
+    assert result2["compensated"] is True
+    assert result2["compensation_confidence"] == {
+        "ok": 0, "extrapolated": 0, "no_table": 1024,
+    }
+
+
+def test_emc_radiation_full_coverage_confidence_all_ok():
+    """B16中#3：双表全覆盖 → 全 bin 'ok'（汇总随部分覆盖口径一并输出）。"""
+    scenario = {"center_hz": 1e9, "span_hz": 1e6}
+    tables = {
+        "link_loss": {999.0: 3.0, 1001.0: 3.0},
+        "antenna": {999.0: 2.0, 1001.0: 2.0},
+    }
+    result = run_emc_radiation_sim({}, {**scenario, "compensation_tables": tables})
+    assert result["compensation_confidence"] == {"ok": 1024, "extrapolated": 0, "no_table": 0}
+
+
+def test_emc_radiation_span_error_rolls_back_injected_center():
+    """B16低#6：set_center 成功而 set_span 域错 → 注入实例 center 回滚（无半套残留）。"""
+    analyzer = open_sim_analyzer({"center_hz": 2e9, "span_hz": 1e6})
+    with pytest.raises(ValueError):
+        run_emc_radiation_sim(
+            {"spectrum_analyzer": analyzer},
+            {"center_hz": 1e9, "span_hz": 1e12},   # span 超上域 110MHz → set_span 拒
+        )
+    assert analyzer.center_hz == pytest.approx(2e9)  # 原值恢复——center 不残留 1e9
+    assert analyzer.span_hz == pytest.approx(1e6)    # span 本就未被写

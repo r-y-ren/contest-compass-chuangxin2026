@@ -11,11 +11,17 @@ make_disclaimer_block、本函数只做编排）：
   tables=scenario['compensation_tables'] **直传**（缺省 None→不补并在
   compensation_note 标注），逐 bin (freq/1e6 MHz, power) 代数和
   p_actual = p_measured + L_link + C_ant（公式(6)，缺表项不计入）；个别 bin
-  p_actual=None（非法点）回落原始值，不让演示流程中断。
+  p_actual=None（非法点）回落原始值，不让演示流程中断。补偿口径（B16中#3）：
+  表给到但为空（{} 或全空 entries→两补偿项全 None）→ compensated=False +
+  「表为空——未补偿」标注；表有贡献 → compensated=True 并附
+  'compensation_confidence' 逐 bin 置信度汇总 {'ok','extrapolated','no_table'}。
 - 洁净度核验（简单阈值判据，演示口径）：bin 功率 ≥ max − peak_drop_db（缺省
   6 dB，scenario['peak_drop_db'] 可覆盖）计峰候选，相邻 bin 归并为一峰——
   'in_band_peaks'=峰簇数；'out_of_band_ratio_db'=主峰簇（含最大 bin 的簇）外
   全部 bin 线性功率和与主峰簇功率之比（dB，带外杂散比）。
+- 注入实例残留语义（B16低#6）：set_center/set_span「先全验后设」——set_center
+  成功而 set_span 失败时回滚 center 原值后原样透传 ValueError（不留半套参数
+  残留在共享实例上）。
 - 全程模拟口径（R34 同 R33 语义）：输出恒带 simulated=True 与
   make_disclaimer_block('emc') 声明块；ctx/scenario 形状错 ValueError；
   仪器（注入或内部）观测域错（set_center/set_span、iq 非法）原样透传；
@@ -40,6 +46,11 @@ DEFAULT_PEAK_DROP_DB = 6.0
 #: 未提供补偿表时的注记（谱值为未补偿原始口径——演示标注）。
 _NO_TABLES_NOTE = (
     "scenario 未提供 compensation_tables：谱值为未做增益补偿的原始口径（演示标注）"
+)
+
+#: 补偿表给到但为空（{} 或全空 entries）时的注记（B16中#3：表为空——未补偿）。
+_EMPTY_TABLES_NOTE = (
+    "compensation_tables 为空（{} 或全空 entries，无任何可用表项）——表为空，未补偿"
 )
 
 #: 提供补偿表时的注记。
@@ -135,10 +146,14 @@ def run_emc_radiation_sim(ctx: dict, scenario: dict) -> dict:
     :return: ``{'spectrum': {'freqs': [Hz…], 'power_db': [dB…]}, 'compensated': bool,
         'cleanliness': {'in_band_peaks', 'out_of_band_ratio_db', 'peak_threshold_db',
         'criterion'}, 'disclaimer': make_disclaimer_block('emc'), 'simulated': True,
-        'compensation_note': str, 'uncertainty_db': 谱不确定度透传, 'warnings': []}``。
+        'compensation_note': str, 'uncertainty_db': 谱不确定度透传, 'warnings': [],
+        'compensation_confidence': {'ok': n, 'extrapolated': n, 'no_table': n}（仅
+        表有贡献时输出——B16中#3 逐 bin 置信度汇总）}``——表为空（{} 或全空
+        entries）时 compensated=False 且 note 注明「表为空——未补偿」。
     :raises ValueError: ctx/scenario 非 dict；缺 'center_hz'/'span_hz'；
         peak_drop_db 非法；仪器观测域错（set_center/set_span）或 iq 非法
-        原样透传（注入与内部新建同口径）。
+        原样透传（注入与内部新建同口径；set_span 失败时注入实例 center 已回滚
+        ——B16低#6）。
     """
     _require_dict("ctx", ctx)
     _require_dict("scenario", scenario)
@@ -151,31 +166,51 @@ def run_emc_radiation_sim(ctx: dict, scenario: dict) -> dict:
     )
 
     analyzer, _injected = _resolve_analyzer(ctx)
-    analyzer.set_center(scenario["center_hz"])  # 域错透传（注入/内部同口径）
-    analyzer.set_span(scenario["span_hz"])
+    # B16低#6 残留语义：先全验后设——set_center 成功而 set_span 失败时回滚 center
+    # 原值（try/except 记录原值恢复）后原样透传，注入实例不留半套参数残留。
+    prev_center_hz = analyzer.center_hz
+    try:
+        analyzer.set_center(scenario["center_hz"])  # 域错透传（注入/内部同口径）
+        analyzer.set_span(scenario["span_hz"])
+    except ValueError:
+        analyzer.center_hz = prev_center_hz
+        raise
     spectrum = analyzer.measure(scenario.get("iq"))  # iq=None → 内置测试音路径
     freqs = [float(f) for f in spectrum["freqs"]]
     powers = [float(p) for p in spectrum["power_db"]]
 
-    # ② 增益补偿：tables 直传缺省 None → 不补+标注；补后个别非法 bin 回落原值
+    # ② 增益补偿：tables 直传缺省 None → 不补+标注；空表（{} 或全空 entries）→
+    # compensated=False+「表为空——未补偿」（B16中#3）；表有贡献 → 置信度汇总随输出。
     tables = scenario.get("compensation_tables")
     compensated = False
     compensation_note = _NO_TABLES_NOTE
+    compensation_confidence: dict[str, int] | None = None
     if tables is not None:
         config = ctx.get("calibration_config")
         if not isinstance(config, dict):
             config = {}
         measurements = [(f / 1e6, p) for f, p in zip(freqs, powers)]
         comp = compensate_link_power(measurements, config, tables=tables)
-        powers = [
-            point["p_actual"] if point["p_actual"] is not None else raw
-            for point, raw in zip(comp, powers)
-        ]
-        compensated = True
-        compensation_note = _TABLES_NOTE
+        # 空表判定：全部 bin 两补偿项均为 None → 表未贡献任何补偿（{} 走文件加载
+        # 口径后仍无表项、或 entries 全空/全非法），视同未补偿并如实标注。
+        if all(point["l_link"] is None and point["c_ant"] is None for point in comp):
+            compensation_note = _EMPTY_TABLES_NOTE
+        else:
+            powers = [
+                point["p_actual"] if point["p_actual"] is not None else raw
+                for point, raw in zip(comp, powers)
+            ]
+            compensated = True
+            compensation_note = _TABLES_NOTE
+            confidence = {"ok": 0, "extrapolated": 0, "no_table": 0}
+            for point in comp:  # compensate_link_power 逐 bin confidence 汇总
+                key = point["confidence"]
+                if key in confidence:
+                    confidence[key] += 1
+            compensation_confidence = confidence
 
     # ③ 洁净度核验（对最终图谱口径——补偿后的谱）＋ ④ 输出
-    return {
+    result = {
         "spectrum": {"freqs": freqs, "power_db": powers},
         "compensated": compensated,
         "cleanliness": _cleanliness(powers, peak_drop_db),
@@ -185,3 +220,6 @@ def run_emc_radiation_sim(ctx: dict, scenario: dict) -> dict:
         "uncertainty_db": spectrum.get("uncertainty_db"),
         "warnings": [],
     }
+    if compensation_confidence is not None:
+        result["compensation_confidence"] = compensation_confidence
+    return result

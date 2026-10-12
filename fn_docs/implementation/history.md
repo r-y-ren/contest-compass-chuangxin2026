@@ -36,3 +36,5 @@
 | 10-12 | B15 | upconvert_with_image_rejection, open_sim_siggen, open_sim_analyzer, open_sim_emi_receiver, open_sim_attenuator（波1）, open_sim_mixer（波2） | 2266 全库绿；五后端链探针（13G 混频/±1.5dB/底噪公式/30dB 数学/1ppm）；Ruling㉕ |
 | 10-12 | B15+ | 双审：三轴附条件过+对抗 中2低4 → 8 项修复+8 回归；Ruling㉖ | 2275 全库绿 |
 | 10-12 | B16 | make_disclaimer_block, plan_frequency_sweep（波1）, run_emc_conduction_sim, run_emc_radiation_sim, run_emc_sweep（波2） | 2338 全库绿；EMC 三流程探针（dbuv 换算/洁净度/7 点扫频）；Ruling㉗ |
+| 10-12 | B16+ | 双审：三轴过门（1 观察）+对抗 高1中2低3 → 7 项修复+19 回归；Ruling㉘ | 2362 全库绿 |
+

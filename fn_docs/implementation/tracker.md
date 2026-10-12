@@ -673,8 +673,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] run_emc_sweep · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(run_emc_sweep)' && echo commit在案 → commit在案 (10-12)
 
 ## B16 批间门
-- [ ] B16 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B16 · 用户裁决 — 预告: 继续 B17 / 修订 / 裁决 blocked
+- [x] B16 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B16 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 2362 passed in 14.30s (10-12)
+- [x] B16 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b16.py | grep -q 'EMC 三流程' && echo B16 双审收口（7 项修复） → B16 双审收口（7 项修复） (10-12)
 
 ## B17 — locate_ledger_row, update_ledger, count_comment_ratio, audit_ledger, validate_scenario_schema, normalize_scenario, load_scenario
 ### locate_ledger_row
@@ -893,4 +893,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B15 五后端简化口径申报——①混频 rf_power=IF+3dB（LO 搬移能量近似）；②EMI QP=简化衰减曲线（非 CISPR 16-1-1 规范 QP 模型，文档注明）；③衰减器切换时延 nominal 500ns 声明（实测仅程序级记录）；④RF 超 20G 标注 beyond_model；⑤所有读数 simulated:True 标记（R42 规约） — 子代理实现申报 — 无 — batches Ruling㉕ (10-12)
 - Ruling: B15 双审收口——三轴中2（R39-R43 错误字段回写 ValueError 五后端统一器件域口径；siggen 补相噪静态口径键 −100dBc/Hz@10k）+对抗 中2低4（analyzer NaN 拒收+maxhold 不污染；EMI qp 保序钳 average 界；截断计数标注；负频率钳 0；start_tx 逐样本校验；rep_hz property 防护）+三轴低（VBW 参数面；串接归 B16 接线留观） — 三轴+对抗合并 — 8 修+净增 8 回归 — batches Ruling㉖ (10-12)
 - Ruling: B16 两处申报——①plan_frequency_sweep 对数刻度 step_hz=每步相对增量 r（每步比 1+r——公式为规范，1,2,4M 例用 r=1.0 即比 2 达成）；②EMC 三流程演示态：读数为模拟口径、iq/iq_provider 可选注入、限值缺省不判 passed（None 如实） — 子代理实现申报+探针勘误（cispr_b 30M/5M=7 点非 10） — 无 — batches Ruling㉗ (10-12)
+- Ruling: B16 双审收口——对抗 高1中2低3+三轴 1 观察全修（①扫描点数上限 10000 可调（1e-9 步 OOM/挂起堵死）；②EMI NaN 家族口径对齐逐样本拒；③辐射补偿空表 False+confidence 汇总；④band 短路 start/stop（占位删除）；⑤sweep detector/rbw 可观测；⑥参数先全验后设+回滚；⑦SweepError(ValueError) 命名收口） — 对抗+三轴 — 19 回归 — batches Ruling㉘ (10-12)
 

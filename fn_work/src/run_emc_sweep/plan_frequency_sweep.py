@@ -12,6 +12,9 @@ CISPR_BANDS: dict[str, tuple[float, float]] = {
 _LINEAR = 'linear'
 _LOG = 'log'
 
+#: 计划点数缺省上限（B16高#1）：公式点数超限立即拒绝——防 1e-9 级步长拖垮内存/时耗。
+DEFAULT_MAX_POINTS = 10_000
+
 
 def _as_finite_number(name: str, value: object) -> float:
     """数值参数守卫：拒 bool / 非数值类型 / NaN / Inf，返回 float。"""
@@ -25,8 +28,19 @@ def _as_finite_number(name: str, value: object) -> float:
     return number
 
 
-def plan_frequency_sweep(start_hz: float, stop_hz: float, step_hz: float = 1e6,
-                         scale: str = 'linear', band: str | None = None) -> dict:
+def _enforce_point_limit(n_points: int, max_points: int) -> None:
+    """点数上限守卫（B16高#1）：公式点数超限立即 ValueError——先拒后建表（秒拒不建表）。"""
+    if n_points > max_points:
+        raise ValueError(
+            f"计划点数 {n_points} 超出上限 max_points={max_points}"
+            "（请增大 step_hz 或提高 max_points）"
+        )
+
+
+def plan_frequency_sweep(start_hz: float | None = None, stop_hz: float | None = None,
+                         step_hz: float = 1e6, scale: str = 'linear',
+                         band: str | None = None,
+                         max_points: int = DEFAULT_MAX_POINTS) -> dict:
     """扫描点表纯函数（线性/对数刻度）。
 
     生成 EMC 步进扫描的有序频率点表。两种刻度下 ``step_hz`` 语义不同（务必注意）：
@@ -40,36 +54,50 @@ def plan_frequency_sweep(start_hz: float, stop_hz: float, step_hz: float = 1e6,
       点数 = ``ceil(log(stop/start)/log(1+r)) + 1``，逐点等比；末点对齐到
       ``stop``。
 
+    点数上限（B16高#1）: 公式点数超过 ``max_points``（缺省 10000）立即
+    ValueError（消息附点数与上限，提示增大 step 或提高 max_points）——先拒后
+    建表，1e-9 级步长秒拒不拖垮内存。
+
     便捷参数 ``band``: ``'cispr_a'``（9 kHz–150 kHz）或 ``'cispr_b'``
-    （150 kHz–30 MHz）；给定时忽略 ``start_hz``/``stop_hz`` 而采用频段值。
+    （150 kHz–30 MHz）；给定时**短路 start/stop 校验**（B16低#4）——用户
+    start/stop（含 None）被忽略，频段值即生效。
 
     Args:
-        start_hz: 起始频率（Hz），要求 > 0。
-        stop_hz: 终止频率（Hz），要求 > start_hz。
+        start_hz: 起始频率（Hz），要求 > 0；缺省 None——仅 ``band`` 给定时可缺。
+        stop_hz: 终止频率（Hz），要求 > start_hz；缺省 None——仅 ``band`` 给定时可缺。
         step_hz: 步进——线性刻度为绝对 Hz 步长，对数刻度为每步相对增量 r。
         scale: 刻度，``'linear'`` 或 ``'log'``。
-        band: CISPR 频段便捷参数，缺省 None（用 start/stop）。
+        band: CISPR 频段便捷参数，缺省 None（用 start/stop）；给定时忽略 start/stop。
+        max_points: 计划点数上限（缺省 10000，须为正整数）——公式点数超限即拒。
 
     Returns:
         dict: ``{'points_hz': list[float], 'n_points': int, 'scale': str,
         'step_note': str, 'warnings': list[str]}``；给 ``band`` 时附 ``'band'`` 键。
 
     Raises:
-        ValueError: start_hz<=0 / stop_hz<=start_hz / step_hz<=0 / scale 非法 /
-            band 非法 / 参数为 NaN、Inf 或 bool。
+        ValueError: start_hz<=0 / stop_hz<=start_hz（band 未给时）/ step_hz<=0 /
+            scale 非法 / band 非法 / 参数为 NaN、Inf 或 bool / max_points 非正整数 /
+            公式点数超 max_points。
     """
-    start_hz = _as_finite_number('start_hz', start_hz)
-    stop_hz = _as_finite_number('stop_hz', stop_hz)
     step_hz = _as_finite_number('step_hz', step_hz)
 
     if not isinstance(scale, str) or scale not in (_LINEAR, _LOG):
         raise ValueError(f"scale 非法: {scale!r}（合法值: 'linear', 'log'）")
 
+    if isinstance(max_points, bool) or not isinstance(max_points, int) or max_points < 1:
+        raise ValueError(
+            f"max_points 必须为正整数（bool 拒收），实际为 {max_points!r}"
+        )
+
     if band is not None:
+        # B16低#4：band 给定时短路 start/stop 校验——频段值即生效（None start 可达）
         if not isinstance(band, str) or band not in CISPR_BANDS:
             legal = ', '.join(repr(name) for name in CISPR_BANDS)
             raise ValueError(f"band 非法: {band!r}（合法值: {legal}）")
         start_hz, stop_hz = CISPR_BANDS[band]
+    else:
+        start_hz = _as_finite_number('start_hz', start_hz)
+        stop_hz = _as_finite_number('stop_hz', stop_hz)
 
     if step_hz <= 0:
         raise ValueError(f"step_hz 必须 > 0: {step_hz!r}")
@@ -85,11 +113,14 @@ def plan_frequency_sweep(start_hz: float, stop_hz: float, step_hz: float = 1e6,
         step_note = 'linear: step_hz 为固定绝对步长（Hz）'
         span = stop_hz - start_hz
         if step_hz >= span:
+            n_points = 1
+            _enforce_point_limit(n_points, max_points)
             points = [start_hz]
             warnings.append('single_point')
             step_note += '；step ≥ 跨度 → 单点'
         else:
             n_points = math.ceil(span / step_hz) + 1
+            _enforce_point_limit(n_points, max_points)  # B16高#1：超限秒拒不建表
             points = [start_hz + k * step_hz for k in range(n_points - 1)]
             points.append(stop_hz)
     else:
@@ -99,6 +130,7 @@ def plan_frequency_sweep(start_hz: float, stop_hz: float, step_hz: float = 1e6,
         n_points = math.ceil(
             math.log(stop_hz / start_hz) / math.log(ratio)
         ) + 1
+        _enforce_point_limit(n_points, max_points)  # B16高#1：超限秒拒不建表
         points = [start_hz * ratio ** k for k in range(n_points - 1)]
         points.append(stop_hz)
 

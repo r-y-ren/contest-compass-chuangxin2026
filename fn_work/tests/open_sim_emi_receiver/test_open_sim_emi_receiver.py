@@ -314,3 +314,18 @@ def test_sim_emi_receiver_single_tone_peak_located():
         rx.measure("not-iq")
     with pytest.raises(ValueError):
         rx.measure([1 + 0j, "x", 3 + 0j, 4 + 0j])
+
+
+def test_sim_emi_receiver_non_finite_iq_samples_rejected_family_aligned():
+    # B16中#2: IQ 逐样本 isfinite 校验（家族口径对齐 open_sim_analyzer——含首位置）
+    rx = open_sim_emi_receiver()
+    with pytest.raises(ValueError, match=r"iq\[8\].*非有限"):
+        rx.measure([1.0] * 8 + [float("nan")] * 8)
+    with pytest.raises(ValueError, match=r"iq\[0\].*非有限"):  # 首位置同样拒
+        rx.measure([float("nan")] + [1.0] * 15)
+    with pytest.raises(ValueError, match=r"iq\[0\].*非有限"):  # 虚部 NaN 同样拒
+        rx.measure([complex(1.0, float("nan"))] + [1.0] * 15)
+    with pytest.raises(ValueError, match=r"iq\[12\].*非有限"):  # ±inf 同样拒
+        rx.measure([1.0] * 12 + [float("inf")] * 8)
+    # 合法有限 IQ 不受影响（0dBm 音仍可读）
+    assert max(rx.measure([1.0] * 64)["power_dbm"]) == pytest.approx(0.0, abs=1e-9)

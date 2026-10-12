@@ -214,3 +214,84 @@ def test_step_le_zero_rejected_on_both_scales():
     with pytest.raises(ValueError):
         # 对数刻度 r<=0 → 每步比 1+r<=1 无意义
         plan_frequency_sweep(1e6, 4e6, step_hz=0.0, scale='log')
+
+
+# ---------------------------------------------------------------------------
+# B16高#1：点数上限 max_points（公式点数超限秒拒不建表）
+# ---------------------------------------------------------------------------
+
+def test_linear_formula_points_over_limit_rejected_with_count_and_hint():
+    # 1kHz–21kHz 步 2Hz → 公式点数恰 10001 > 10000：消息附点数、上限与提示
+    with pytest.raises(ValueError, match=r"计划点数 10001 超出上限 max_points=10000") as excinfo:
+        plan_frequency_sweep(1e3, 21e3, step_hz=2.0)
+    message = str(excinfo.value)
+    assert "step_hz" in message          # 提示：增大步长
+    assert "max_points" in message       # 提示：或提高上限
+
+
+def test_log_formula_points_over_limit_rejected():
+    # cispr_a 对数步 r=1e-4 → 公式点数 >10000：同样秒拒
+    expected_n = math.ceil(math.log(150e3 / 9e3) / math.log(1.0 + 1e-4)) + 1
+    assert expected_n > 10000            # 前置自检：本用例确为超限场景
+    with pytest.raises(ValueError, match=f"计划点数 {expected_n} 超出上限"):
+        plan_frequency_sweep(9e3, 150e3, step_hz=1e-4, scale='log')
+
+
+def test_tiny_step_1e9_rejected_instantly_without_building_table():
+    # 1e-9 级步长：公式点数 ~1e15——先拒后建表（若先建表本用例将拖垮内存/时耗）
+    with pytest.raises(ValueError, match=r"超出上限 max_points=10000"):
+        plan_frequency_sweep(1e6, 2e6, step_hz=1e-9)
+
+
+def test_exactly_10000_points_passes_on_both_scales():
+    # 线性：跨度 9999Hz 步 1Hz → 恰 10000 点（边界含——==上限通过）
+    linear = plan_frequency_sweep(1e3, 10999.0, step_hz=1.0)
+    assert linear['n_points'] == 10000 == len(linear['points_hz'])
+    assert linear['points_hz'][0] == pytest.approx(1e3)
+    assert linear['points_hz'][-1] == pytest.approx(10999.0)
+    # 对数：步比构造使公式比值 = 9998.5 → ceil+1 恰 10000 点
+    r = 2.0 ** (1.0 / 9998.5) - 1.0
+    log_result = plan_frequency_sweep(1e6, 2e6, step_hz=r, scale='log')
+    assert log_result['n_points'] == 10000 == len(log_result['points_hz'])
+    assert log_result['points_hz'][0] == pytest.approx(1e6)
+    assert log_result['points_hz'][-1] == pytest.approx(2e6)
+
+
+def test_max_points_custom_limit_boundary():
+    # 自定义上限：n=10 ≤ max_points=10 恰过；同计划对 max_points=9 超限拒
+    plan_kwargs = {'start_hz': 9e3, 'stop_hz': 90e3, 'step_hz': 9e3}
+    ok = plan_frequency_sweep(**plan_kwargs, max_points=10)
+    assert ok['n_points'] == 10
+    with pytest.raises(ValueError, match=r"超出上限 max_points=9"):
+        plan_frequency_sweep(**plan_kwargs, max_points=9)
+
+
+@pytest.mark.parametrize('bad_max_points', [True, 0, -1, 10.5, '100', None])
+def test_max_points_invalid_values_rejected(bad_max_points):
+    with pytest.raises(ValueError, match="max_points"):
+        plan_frequency_sweep(9e3, 90e3, step_hz=9e3, max_points=bad_max_points)
+
+
+# ---------------------------------------------------------------------------
+# B16低#4：band 给定时短路 start/stop 校验（频段值即生效——None start 可达）
+# ---------------------------------------------------------------------------
+
+def test_band_short_circuits_start_stop_validation_none_reachable():
+    result = plan_frequency_sweep(None, None, step_hz=9e3, band='cispr_a')
+    assert result['points_hz'][0] == 9e3
+    assert result['points_hz'][-1] == 150e3
+    assert result['n_points'] == 17
+    assert result['band'] == 'cispr_a'
+    # band 值即生效：用户 start/stop 为 NaN/负数等垃圾值也被忽略（不触发其校验）
+    weird = plan_frequency_sweep(NAN, -1, step_hz=1.0, scale='log', band='cispr_b')
+    assert weird['points_hz'][0] == 150e3
+    assert weird['points_hz'][-1] == 30e6
+    assert weird['n_points'] == 9
+
+
+def test_none_start_without_band_still_rejected():
+    # 无 band 时 start/stop 缺省 None 仍拒（None 只在 band 语境下合法）
+    with pytest.raises(ValueError, match="start_hz"):
+        plan_frequency_sweep(None, 90e3, step_hz=9e3)
+    with pytest.raises(ValueError, match="stop_hz"):
+        plan_frequency_sweep(9e3, None, step_hz=9e3)

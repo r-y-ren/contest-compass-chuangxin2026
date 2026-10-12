@@ -1,12 +1,14 @@
 """run_emc_sweep 对抗测试：验收 slug=emc_sweep（计划透传、逐点读数、杂散标记/计数、
-iq_provider 逐点注入、频段便捷、单点警告、越界裁剪、声明与敏感度口径）。"""
+iq_provider 逐点注入、频段便捷、单点警告、越界裁剪、声明与敏感度口径；B16：band-only
+无占位、detector/rbw 可观测、SweepError 包装、NaN IQ 拒收）。"""
 from __future__ import annotations
 
 import math
 
 import pytest
 
-from src.run_emc_sweep.run_emc_sweep import run_emc_sweep
+from src.open_sim_emi_receiver.open_sim_emi_receiver import open_sim_emi_receiver
+from src.run_emc_sweep.run_emc_sweep import SweepError, run_emc_sweep
 
 #: 仿真底噪口径：−150 dBm/Hz + 10·log10(rbw)。
 _NOISE_9K = -150.0 + 10.0 * math.log10(9e3)
@@ -129,3 +131,65 @@ def test_emc_sweep_disclaimer_simulated_and_cispr_a_convenience():
     assert result["n_points"] == 17
     assert result["points"][0]["freq_hz"] == pytest.approx(9e3)
     assert result["points"][-1]["freq_hz"] == pytest.approx(150e3)
+
+
+# ---------------------------------------------------------------------------
+# B16 修复回归
+# ---------------------------------------------------------------------------
+
+def test_emc_sweep_band_only_scenario_no_start_stop_placeholder():
+    """B16低#4：band-only 场景 start/stop 缺省 None 直接传入计划（占位删除）。"""
+    result = run_emc_sweep({}, {"band": "cispr_a", "step_hz": 9e3})
+    assert result["plan"]["band"] == "cispr_a"
+    assert result["n_points"] == 17
+    assert result["plan"]["points_hz"][0] == 9e3
+    assert result["plan"]["points_hz"][-1] == 150e3
+
+
+def test_emc_sweep_detector_and_rbw_observable_shared_qp_residual():
+    """B16低#5：输出增 detector/rbw_hz——共享实例上次显式设置的 qp 残留可见。"""
+    rx = open_sim_emi_receiver({"detector": "peak", "rbw_hz": 120e3})
+    first = run_emc_sweep(
+        {"em_receiver": rx},
+        {"start_hz": 1e6, "stop_hz": 3e6, "step_hz": 1e6, "detector": "quasi_peak"},
+    )
+    assert first["detector"] == "quasi_peak"          # 显式给定生效并可见
+    # 共享实例复用（scenario 未显式给 detector/rbw）→ 上次的 qp 残留浮出
+    second = run_emc_sweep(
+        {"em_receiver": rx},
+        {"start_hz": 1e6, "stop_hz": 3e6, "step_hz": 1e6},
+    )
+    assert second["detector"] == "quasi_peak"         # 残留 qp 可观测
+    assert second["rbw_hz"] == pytest.approx(120e3)   # 注入 RBW 透传可观测
+
+
+def test_emc_sweep_internal_receiver_defaults_observable():
+    """内部新建接收机：detector='peak' 工厂缺省可见；rbw 为末点频段缺省（30MHz→120kHz）。"""
+    result = run_emc_sweep({}, {"band": "cispr_b", "scale": "log", "step_hz": 1.0})
+    assert result["detector"] == "peak"
+    assert result["rbw_hz"] == pytest.approx(120e3)    # 末点 30e6 Hz → 频段缺省 RBW
+
+
+def test_emc_sweep_plan_errors_wrapped_as_sweeperror():
+    """三轴观察：内部计划错包装 SweepError（ValueError 子类——对外契约不破坏）。"""
+    with pytest.raises(SweepError):
+        run_emc_sweep({}, {"start_hz": 90e3, "stop_hz": 9e3, "step_hz": 9e3})  # 起止颠倒
+    with pytest.raises(ValueError):  # 仍可按 ValueError 捕获（子类契约）
+        run_emc_sweep({}, {"start_hz": 90e3, "stop_hz": 9e3, "step_hz": 9e3})
+    with pytest.raises(SweepError, match="max_points"):  # 计划超限错同样包装
+        run_emc_sweep({}, {"start_hz": 9e3, "stop_hz": 90e3, "step_hz": 1e-9})
+    # scenario 形状错（缺 start/stop）是编排 ValueError——非计划错，不包装
+    with pytest.raises(ValueError) as excinfo:
+        run_emc_sweep({}, {"stop_hz": 90e3})
+    assert not isinstance(excinfo.value, SweepError)
+
+
+def test_emc_sweep_iq_provider_nan_iq_rejected():
+    """B16中#2：iq_provider 返回含 NaN 样本的 IQ → measure 逐样本拒收，ValueError 透传。"""
+    def provider(freq_hz: float):
+        return [1.0] * 8 + [float("nan")] * 8
+
+    with pytest.raises(ValueError, match="非有限"):
+        run_emc_sweep(
+            {}, {"start_hz": 1e6, "stop_hz": 3e6, "step_hz": 1e6, "iq_provider": provider}
+        )

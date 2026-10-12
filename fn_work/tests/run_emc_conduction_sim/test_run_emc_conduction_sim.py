@@ -130,3 +130,12 @@ def test_emc_conduction_disclaimer_carries_emc_scene_simulated_flag():
     assert "本测试为模拟演示" in result["disclaimer"]             # emc 场景恒含句
     assert "CISPR 16-1-1" in result["disclaimer"]
     assert result["simulated"] is True
+
+
+def test_emc_conduction_nan_iq_rejected():
+    """B16中#2：scenario['iq'] 含 NaN 样本 → measure 逐样本拒收，ValueError 透传。"""
+    iq = [1.0] * 32 + [float("nan")] * 32
+    with pytest.raises(ValueError, match="非有限"):
+        run_emc_conduction_sim({}, {"freq_hz": 10e6, "iq": iq})
+    with pytest.raises(ValueError, match=r"iq\[0\]"):  # 首位置 NaN 同样拒
+        run_emc_conduction_sim({}, {"freq_hz": 10e6, "iq": [float("inf")] + [1.0] * 63})

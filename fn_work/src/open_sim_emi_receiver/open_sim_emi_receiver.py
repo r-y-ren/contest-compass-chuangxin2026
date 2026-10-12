@@ -230,7 +230,9 @@ class SimEmiReceiver:
         quasi_peak 口径（B15对抗中#2 保序）: qp = max(average, min(peak, peak −
         _qp_offset_db(rep_hz)))——dB 域以 average 钳下界，avg ≤ qp ≤ peak 恒成立
         （平稳信号 qp=average，曲线未触界时 qp=peak−offset）。
-        错误: iq 非 str/bytes 的可迭代复数序列、样本数 <4（4 帧口径）、样本非复数 → ValueError。
+        错误: iq 非 str/bytes 的可迭代复数序列、样本数 <4（4 帧口径）、样本非复数、
+        样本非有限（NaN/±inf 逐样本拒收，含首位置——B16中#2，家族口径对齐
+        open_sim_analyzer） → ValueError。
         """
         base = {
             "detector": self._detector,
@@ -316,6 +318,9 @@ class SimEmiReceiver:
     def _split_frames(self, iq) -> tuple[list[list[complex]], int]:
         """IQ 强制转换 + 简化 4 帧等长切分；返回 (帧列表, 丢弃余数样本数)。
 
+        逐样本先验校验：类型（bool/非复数拒）与非有限（NaN/±inf 拒，含首位置——
+        B16中#2 家族口径，先于任何谱计算，杜绝非有限值渗入 FFT）。
+
         尾部长度 %=4 的余数样本不计（规约口径）——丢弃数如实返回，供 measure 标注
         'truncated_samples'（B15低#3，与超长帧截断合并计数）。
         """
@@ -330,6 +335,12 @@ class SimEmiReceiver:
         for idx, s in enumerate(items):
             if isinstance(s, bool) or not isinstance(s, numbers.Complex):
                 raise ValueError(f"iq[{idx}] 须为复数样本，实际为 {type(s).__name__}: {s!r}")
+            if not (math.isfinite(s.real) and math.isfinite(s.imag)):
+                # B16中#2：逐样本非有限拒收（含首位置），家族口径对齐 open_sim_analyzer
+                raise ValueError(
+                    f"iq[{idx}] 样本非有限（含 NaN/±inf 拒收，家族口径），"
+                    f"实际为 {s!r}"
+                )
         frame_len = len(items) // _N_FRAMES
         if frame_len < 1:
             raise ValueError(

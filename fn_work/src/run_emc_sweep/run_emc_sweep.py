@@ -4,9 +4,11 @@
 make_disclaimer_block、本函数只做编排）：
 
 - 扫描计划：scenario 的 start_hz/stop_hz/step_hz/scale/band **全透传**
-  plan_frequency_sweep（缺省键由计划函数补：step 缺省 1e6、scale 缺省 linear）；
-  给 band 时无需 start/stop；两者都缺 → scenario 形状 ValueError；计划域错
-  （起止颠倒/非法刻度/非法 band 等）以计划函数的 ValueError 原样透传。
+  plan_frequency_sweep（缺省键由计划函数补：start/stop 缺省 None、step 缺省
+  1e6、scale 缺省 linear）；给 band 时无需 start/stop（计划函数短路其校验——
+  B16低#4）；两者都缺 → scenario 形状 ValueError；计划域错（起止颠倒/非法
+  刻度/非法 band/点数超限等）包装为 SweepError 抛出（ValueError 子类——
+  对外契约仍是 ValueError，三轴观察）。
 - 逐点采集：SimEmiReceiver（ctx['em_receiver'] 注入或内部 open_sim_emi_receiver
   新建）置频（freq_hz 公有属性直写——后端无 set_freq）后 measure——缺省
   measure(None) 底噪读数；scenario['iq_provider'] 为 Callable[freq_hz → iq] 时
@@ -18,6 +20,8 @@ make_disclaimer_block、本函数只做编排）：
 - 杂散搜索：读数（dBm）超 scenario['spurious_threshold_dbm']（缺省 −100 dBm）
   的点附 'spurious': True（未超的点不带该键）；**阈值即敏感度口径**
   （sensitivity_note 注明）。
+- 可观测性（B16低#5）：输出增 'detector'/'rbw_hz'——扫描结束时仪器实际生效值
+  （共享注入实例的残留参数因此可见，如 quasi_peak）。
 - 全程模拟口径：输出恒带 simulated=True 与 make_disclaimer_block('emc') 声明块。
 
 调用方：build_report（EMC 段）；run_demo。
@@ -37,13 +41,21 @@ from src.shared.make_disclaimer_block import make_disclaimer_block
 
 from .plan_frequency_sweep import plan_frequency_sweep
 
-__all__ = ["DEFAULT_SPURIOUS_THRESHOLD_DBM", "run_emc_sweep"]
+__all__ = ["DEFAULT_SPURIOUS_THRESHOLD_DBM", "SweepError", "run_emc_sweep"]
 
 #: 杂散判定阈值缺省（dBm）——即敏感度口径：读数（模拟）超阈即标记 spurious。
 DEFAULT_SPURIOUS_THRESHOLD_DBM = -100.0
 
 #: 计划参数透传键（值非 None 的键才透传，其余由计划函数补缺省）。
 _PLAN_KEYS = ("start_hz", "stop_hz", "step_hz", "scale", "band")
+
+
+class SweepError(ValueError):
+    """扫描计划错（三轴观察）：内部 plan_frequency_sweep 的 ValueError 统一包装。
+
+    ValueError 子类——对外契约仍是 ValueError（既有 ``pytest.raises(ValueError)``
+    与调用方 try/except 不破坏）；消息保留计划函数原文并附上下文。
+    """
 
 
 def _require_dict(name: str, value: object) -> dict:
@@ -89,28 +101,32 @@ def run_emc_sweep(ctx: dict, scenario: dict) -> dict:
           （非可调用非 None → TypeError）；
         - 'spurious_threshold_dbm'（可选）：杂散判定阈（缺省 −100.0，即敏感度口径）。
     :return: ``{'points': [{'freq_hz', 'power_dbm', 'spurious'?}, …], 'n_points': int,
-        'n_spurious': int, 'plan': 计划函数原样返回, 'disclaimer':
-        make_disclaimer_block('emc'), 'simulated': True, 'sensitivity_note': str,
-        'warnings': [计划警告（single_point 等）+ 越界裁剪标注…]}``——
-        freq_hz 为裁剪后实测频率；'spurious': True 仅附在超阈点上。
+        'n_spurious': int, 'detector': 扫描结束实际生效检波器, 'rbw_hz': 实际生效 RBW,
+        'plan': 计划函数原样返回, 'disclaimer': make_disclaimer_block('emc'),
+        'simulated': True, 'sensitivity_note': str, 'warnings': [计划警告
+        （single_point 等）+ 越界裁剪标注…]}``——freq_hz 为裁剪后实测频率；
+        'spurious': True 仅附在超阈点上；detector/rbw_hz 取末点读数回显
+        （注入实例参数透传下即其残留/显式状态——B16低#5）。
     :raises ValueError: ctx/scenario 非 dict；无 band 又缺 start/stop；
-        spurious_threshold_dbm 非法；计划域错与仪器域错原样透传。
+        spurious_threshold_dbm 非法；计划域错包装为 SweepError（ValueError
+        子类，契约不变）与仪器域错原样透传。
     :raises TypeError: iq_provider 给定但不可调用。
     """
     _require_dict("ctx", ctx)
     _require_dict("scenario", scenario)
 
-    # ① 计划：start/stop/step/scale/band 全透传（值非 None 的键才进计划函数）
+    # ① 计划：start/stop/step/scale/band 全透传（值非 None 的键才进计划函数）；
+    # band-only 场景直接不传 start/stop（计划函数缺省 None + band 短路其校验——B16低#4）
     plan_kwargs = {key: scenario[key] for key in _PLAN_KEYS if scenario.get(key) is not None}
     if "band" not in plan_kwargs and not {"start_hz", "stop_hz"} <= plan_kwargs.keys():
         raise ValueError(
             "scenario 缺 'start_hz'/'stop_hz'（或改用 'band' 频段便捷参数）"
         )
-    if "band" in plan_kwargs:
-        # band 给定时计划函数忽略 start/stop——缺省补 0 占位满足位置形参（频段值覆盖）
-        plan_kwargs.setdefault("start_hz", 0)
-        plan_kwargs.setdefault("stop_hz", 0)
-    plan = plan_frequency_sweep(**plan_kwargs)  # 计划域错（起止颠倒等）ValueError 透传
+    try:
+        plan = plan_frequency_sweep(**plan_kwargs)
+    except ValueError as exc:
+        # 计划域错（起止颠倒/非法刻度/点数超限等）统一包装 SweepError（ValueError 子类）
+        raise SweepError(f"扫描计划错: {exc}") from exc
 
     threshold = _as_finite_real(
         "spurious_threshold_dbm",
@@ -134,6 +150,8 @@ def run_emc_sweep(ctx: dict, scenario: dict) -> dict:
     warnings = [str(w) for w in plan.get("warnings", [])]
     points: list[dict] = []
     n_spurious = 0
+    effective_detector: str | None = None
+    effective_rbw_hz: float | None = None
 
     # ② 逐点采集（底噪或 iq_provider 注入）＋ 越界裁剪＋ ③ 杂散标记
     for freq_req in plan["points_hz"]:
@@ -153,6 +171,9 @@ def run_emc_sweep(ctx: dict, scenario: dict) -> dict:
             receiver.set_rbw(None)
         iq = iq_provider(freq_meas) if iq_provider is not None else None
         reading = receiver.measure(iq)  # iq=None → 底噪读数；给 iq → 逐 bin 频域检波
+        # B16低#5 可观测：记录仪器实际生效值（逐点覆盖——末点即扫描结束态，含共享实例残留）
+        effective_detector = reading.get("detector")
+        effective_rbw_hz = reading.get("rbw_hz")
         power_raw = reading.get("power_dbm")
         if isinstance(power_raw, list):
             power_dbm = float(max(power_raw))  # iq 路径：全谱 bin 最大值（最坏口径）
@@ -164,11 +185,13 @@ def run_emc_sweep(ctx: dict, scenario: dict) -> dict:
             n_spurious += 1
         points.append(point)
 
-    # ④ 输出（阈值即敏感度口径——sensitivity_note 注明）
+    # ④ 输出（阈值即敏感度口径——sensitivity_note 注明；detector/rbw_hz 为实际生效值）
     return {
         "points": points,
         "n_points": len(points),
         "n_spurious": n_spurious,
+        "detector": effective_detector,
+        "rbw_hz": effective_rbw_hz,
         "plan": plan,
         "disclaimer": make_disclaimer_block("emc"),
         "simulated": True,
