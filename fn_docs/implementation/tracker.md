@@ -678,10 +678,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B17 — locate_ledger_row, update_ledger, count_comment_ratio, audit_ledger, validate_scenario_schema, normalize_scenario, load_scenario
 ### locate_ledger_row
-- [ ] locate_ledger_row · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] locate_ledger_row · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] locate_ledger_row · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] locate_ledger_row · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] locate_ledger_row · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:locate_ledger_row' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] locate_ledger_row · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/update_ledger/test_locate_ledger_row.py | tail -1 → 19 passed in 0.05s (10-12)
+- [x] locate_ledger_row · wired — 证据: bash -c grep -rn 'locate_ledger_row(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/update_ledger/update_ledger.py /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/audit_ledger/audit_ledger.py | head -2 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] locate_ledger_row · 清单进位 — 证据: bash -c grep -q '| locate_ledger_row | B17 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] locate_ledger_row · commit — 预告: fn(locate_ledger_row): wired 含四文档变更
 ### update_ledger
 - [ ] update_ledger · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -894,4 +894,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B15 双审收口——三轴中2（R39-R43 错误字段回写 ValueError 五后端统一器件域口径；siggen 补相噪静态口径键 −100dBc/Hz@10k）+对抗 中2低4（analyzer NaN 拒收+maxhold 不污染；EMI qp 保序钳 average 界；截断计数标注；负频率钳 0；start_tx 逐样本校验；rep_hz property 防护）+三轴低（VBW 参数面；串接归 B16 接线留观） — 三轴+对抗合并 — 8 修+净增 8 回归 — batches Ruling㉖ (10-12)
 - Ruling: B16 两处申报——①plan_frequency_sweep 对数刻度 step_hz=每步相对增量 r（每步比 1+r——公式为规范，1,2,4M 例用 r=1.0 即比 2 达成）；②EMC 三流程演示态：读数为模拟口径、iq/iq_provider 可选注入、限值缺省不判 passed（None 如实） — 子代理实现申报+探针勘误（cispr_b 30M/5M=7 点非 10） — 无 — batches Ruling㉗ (10-12)
 - Ruling: B16 双审收口——对抗 高1中2低3+三轴 1 观察全修（①扫描点数上限 10000 可调（1e-9 步 OOM/挂起堵死）；②EMI NaN 家族口径对齐逐样本拒；③辐射补偿空表 False+confidence 汇总；④band 短路 start/stop（占位删除）；⑤sweep detector/rbw 可观测；⑥参数先全验后设+回滚；⑦SweepError(ValueError) 命名收口） — 对抗+三轴 — 19 回归 — batches Ruling㉘ (10-12)
+- Ruling: B17 三处申报——①update_ledger 统计节不自动滚动（人工维护，TODO(manual) 注明）；②load_scenario 无 PyYAML 回退解析仅支持平铺+单层嵌套+简单列表（复杂结构提示装 PyYAML；yaml 的 1e6 科学计数在 PyYAML 中本身是 str——探针遇 fallback 路径证实）；③audit 死锚核验含裸 snake_case token（len≥4 含 _，台账文件自身排除防自引用） — 子代理申报+探针实证 — 无 — batches Ruling㉙ (10-12)
 
