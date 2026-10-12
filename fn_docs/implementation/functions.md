@@ -112,9 +112,9 @@
 | verify_report_traceability | B18 | wired 10-12 | 17 passed；候选串+口径白名单 | 6672e9a |
 | create_console_app | B19 | wired 10-12 | 26 实跑；五路由+WS+400 指错 | 5c55ef3 |
 | serve_console | B19 | stub 10-11 | pytest -k console_api | — |
-| build_scenario_cards | B19 | wired 10-12 | 13 passed；损坏跳过+error 卡 | pending |
+| build_scenario_cards | B19 | wired 10-12 | 13 passed；损坏跳过+error 卡 | 2e01e28 |
 | render_console_pages | B19 | stub 10-11 | pytest -k console_ui | — |
-| measure_refresh_latency | B19 | stub 10-11 | 上游覆盖: push_realtime_kpi | — |
+| measure_refresh_latency | B19 | wired 10-12 | 8 passed；配对分位+pending | pending |
 | trigger_emergency_stop | B19 | stub 10-11 | 上游覆盖: push_realtime_kpi | — |
 | push_realtime_kpi | B19 | stub 10-11 | pytest -k realtime_console | — |
 | map_per_to_injection | B20 | stub 10-11 | 上游覆盖: bridge_to_sitl | — |
