@@ -28,3 +28,4 @@
 | 10-12 | B11+ | 双审：三轴过门（固件申报+ESP token）+对抗 高1中3低3 → 8 项修复+33 回归；Ruling⑰⑱ | 1825 全库绿 |
 | 10-12 | B12 | compute_alignment_error, annotate_truth_labels, run_baseline_check（波1）, write_sigmf_recording（波2）, record_run_streams（波3）+esp 对齐修+read_samples 契约修（真缺陷，探针抓到） | 1917 全库绿；准闭环探针（kpi/stats/SigMF/基线）全过；Ruling⑲ |
 | 10-12 | B12+ | 双审收口：中3低3 全修+13 回归；Ruling⑳ | 1930 全库绿 |
+| 10-12 | B13 | check_failure, record_failure_level, compare_failure_boundaries, build_curve_frames（波1）, execute_gb42590_protocol, plot_triple_curves（波2） | 2020 全库绿；全链探针（GB failed+P_crit−20dB+三 PNG cjk+weakest 定位）——完整测评闭环成形 |

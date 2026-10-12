@@ -556,7 +556,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] plot_triple_curves · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k triple_curves -q 2>&1 | tail -1 → 36 passed, 1984 deselected in 3.01s (10-12)
 - [x] plot_triple_curves · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b13.py | grep -q '三 PNG 齐' && echo 顶层实跑通过（三图+中文 cjk） → 顶层实跑通过（三图+中文 cjk） (10-12)
 - [x] plot_triple_curves · 清单进位 — 证据: bash -c grep -q '| plot_triple_curves | B13 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] plot_triple_curves · commit — 预告: fn(plot_triple_curves): wired 含四文档变更
+- [x] plot_triple_curves · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(plot_triple_curves)' && echo commit在案 → commit在案 (10-12)
 
 ## B13 批间门
 - [ ] B13 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
