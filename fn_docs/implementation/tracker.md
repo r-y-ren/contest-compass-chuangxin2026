@@ -370,7 +370,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] plan_ladder_steps · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/run_power_ladder/test_plan_ladder_steps.py | tail -1 → 36 passed in 0.02s (10-12)
 - [x] plan_ladder_steps · wired — 证据: bash -c grep -rn 'plan_ladder_steps(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/run_power_ladder/run_power_ladder.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] plan_ladder_steps · 清单进位 — 证据: bash -c grep -q '| plan_ladder_steps | B9 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] plan_ladder_steps · commit — 预告: fn(plan_ladder_steps): wired 含四文档变更
+- [x] plan_ladder_steps · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(plan_ladder_steps)' && echo commit在案 → commit在案 (10-12)
 ### run_power_ladder
 - [ ] run_power_ladder · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] run_power_ladder · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -378,10 +378,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] run_power_ladder · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] run_power_ladder · commit — 预告: fn(run_power_ladder): wired 含四文档变更
 ### compute_pathloss
-- [ ] compute_pathloss · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] compute_pathloss · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] compute_pathloss · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] compute_pathloss · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] compute_pathloss · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:compute_pathloss' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] compute_pathloss · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/map_distance_to_loss/test_compute_pathloss.py | tail -1 → 60 passed in 0.03s (10-12)
+- [x] compute_pathloss · wired — 证据: bash -c grep -rn 'compute_pathloss(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/map_distance_to_loss/map_distance_to_loss.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] compute_pathloss · 清单进位 — 证据: bash -c grep -q '| compute_pathloss | B9 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] compute_pathloss · commit — 预告: fn(compute_pathloss): wired 含四文档变更
 ### map_distance_to_loss
 - [ ] map_distance_to_loss · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
