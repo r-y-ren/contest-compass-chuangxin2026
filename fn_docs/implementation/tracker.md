@@ -460,7 +460,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] apply_cliff_model · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/simulate_link_degradation/test_apply_cliff_model.py | tail -1 → 23 passed in 0.02s (10-12)
 - [x] apply_cliff_model · wired — 证据: bash -c grep -rn 'apply_cliff_model(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/simulate_link_degradation/simulate_link_degradation.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] apply_cliff_model · 清单进位 — 证据: bash -c grep -q '| apply_cliff_model | B11 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] apply_cliff_model · commit — 预告: fn(apply_cliff_model): wired 含四文档变更
+- [x] apply_cliff_model · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(apply_cliff_model)' && echo commit在案 → commit在案 (10-12)
 ### simulate_link_degradation
 - [ ] simulate_link_degradation · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] simulate_link_degradation · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -468,10 +468,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] simulate_link_degradation · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] simulate_link_degradation · commit — 预告: fn(simulate_link_degradation): wired 含四文档变更
 ### compute_per
-- [ ] compute_per · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] compute_per · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] compute_per · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] compute_per · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] compute_per · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:compute_per' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] compute_per · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/normalize_kpi/test_compute_per.py | tail -1 → 17 passed in 0.01s (10-12)
+- [x] compute_per · wired — 证据: bash -c grep -rn 'compute_per(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/normalize_kpi/normalize_kpi.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] compute_per · 清单进位 — 证据: bash -c grep -q '| compute_per | B11 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] compute_per · commit — 预告: fn(compute_per): wired 含四文档变更
 ### normalize_kpi
 - [ ] normalize_kpi · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零

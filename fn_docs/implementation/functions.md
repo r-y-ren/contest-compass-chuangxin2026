@@ -67,9 +67,9 @@
 | drive_esp32_link | B11 | stub 10-11 | pytest -k dut_esp32 | — |
 | parse_nrf24_frame | B11 | wired 10-12 | 13 passed；无 rssi 口径 | 47482fc |
 | drive_nrf24_link | B11 | stub 10-11 | pytest -k dut_nrf24 | — |
-| apply_cliff_model | B11 | wired 10-12 | 23 passed；sigmoid 悬崖+夹紧 | pending |
+| apply_cliff_model | B11 | wired 10-12 | 23 passed；sigmoid 悬崖+夹紧 | 2325a9c |
 | simulate_link_degradation | B11 | stub 10-11 | pytest -k dut_sim | — |
-| compute_per | B11 | stub 10-11 | 上游覆盖: normalize_kpi | — |
+| compute_per | B11 | wired 10-12 | 17 passed；样本量警告口径 | pending |
 | normalize_kpi | B11 | stub 10-11 | pytest -k kpi_model | — |
 | compute_alignment_error | B12 | stub 10-11 | 上游覆盖: record_run_streams | — |
 | record_run_streams | B12 | stub 10-11 | pytest -k align_streams | — |
