@@ -646,7 +646,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] make_disclaimer_block · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/shared/test_make_disclaimer_block.py | tail -1 → 12 passed in 0.01s (10-12)
 - [x] make_disclaimer_block · wired — 证据: bash -c grep -rn 'make_disclaimer_block(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src --include='*.py' | grep -v 'def make_disclaimer_block' | grep -v test | grep -v shared/ | head -3 && echo 三 EMC 流程+报告调用点存在 → 三 EMC 流程+报告调用点存在 (10-12)
 - [x] make_disclaimer_block · 清单进位 — 证据: bash -c grep -q '| make_disclaimer_block | B16 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] make_disclaimer_block · commit — 预告: fn(make_disclaimer_block): wired 含四文档变更
+- [x] make_disclaimer_block · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(make_disclaimer_block)' && echo commit在案 → commit在案 (10-12)
 ### run_emc_conduction_sim
 - [ ] run_emc_conduction_sim · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] run_emc_conduction_sim · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -660,10 +660,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] run_emc_radiation_sim · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] run_emc_radiation_sim · commit — 预告: fn(run_emc_radiation_sim): wired 含四文档变更
 ### plan_frequency_sweep
-- [ ] plan_frequency_sweep · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] plan_frequency_sweep · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] plan_frequency_sweep · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] plan_frequency_sweep · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] plan_frequency_sweep · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:plan_frequency_sweep' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] plan_frequency_sweep · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/run_emc_sweep/test_plan_frequency_sweep.py | tail -1 → 27 passed in 0.02s (10-12)
+- [x] plan_frequency_sweep · wired — 证据: bash -c grep -rn 'plan_frequency_sweep(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/run_emc_sweep/run_emc_sweep.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] plan_frequency_sweep · 清单进位 — 证据: bash -c grep -q '| plan_frequency_sweep | B16 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] plan_frequency_sweep · commit — 预告: fn(plan_frequency_sweep): wired 含四文档变更
 ### run_emc_sweep
 - [ ] run_emc_sweep · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
