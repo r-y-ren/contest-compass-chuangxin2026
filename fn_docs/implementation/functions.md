@@ -122,5 +122,5 @@
 | fallback_fixed_strategy | B20 | wired 10-12 | 13 组；GB 计划联动 | 27ee377 |
 | run_rl_policy | B20 | wired 10-12 | 13 组；Q-learning+回退 | 91bba33 |
 | run_rff_pipeline | B20 | wired 10-12 | 7 组；端到端 F1 1.0 | 2b3917e |
-| execute_scenario | B21 | wired 10-12 | 18 passed；四类型分派 | pending |
-| run_demo | B21 | stub 10-11 | pytest -k demo_pipeline | — |
+| execute_scenario | B21 | wired 10-12 | 18 passed；四类型分派 | 471e6bb |
+| run_demo | B21 | wired 10-12 | 23 passed；CLI 总装+真 --demo 0 退出 | pending |
