@@ -63,9 +63,9 @@
 | estimate_snr | B10 | wired 10-12 | 31 passed；公式(4)+guard 防泄漏 | 4c105d7 |
 | check_flatness | B10 | wired 10-12 | 26 passed；≤4dB 判据（EN 300 328） | 5484d1a |
 | compute_spectrum_stats | B10 | wired 10-12 | 16 新用例（目录 73）；full/power_only/JSR 双口径 | c08f46d |
-| parse_esp32_frame | B11 | wired 10-12 | 34 passed；校验和+域校验 | pending |
+| parse_esp32_frame | B11 | wired 10-12 | 34 passed；校验和+域校验 | 88023ce |
 | drive_esp32_link | B11 | stub 10-11 | pytest -k dut_esp32 | — |
-| parse_nrf24_frame | B11 | stub 10-11 | 上游覆盖: drive_nrf24_link | — |
+| parse_nrf24_frame | B11 | wired 10-12 | 13 passed；无 rssi 口径 | pending |
 | drive_nrf24_link | B11 | stub 10-11 | pytest -k dut_nrf24 | — |
 | apply_cliff_model | B11 | stub 10-11 | 上游覆盖: simulate_link_degradation | — |
 | simulate_link_degradation | B11 | stub 10-11 | pytest -k dut_sim | — |
