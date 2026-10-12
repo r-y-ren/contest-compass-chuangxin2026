@@ -762,10 +762,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B19 — create_console_app, serve_console, build_scenario_cards, render_console_pages, measure_refresh_latency, trigger_emergency_stop, push_realtime_kpi
 ### create_console_app
-- [ ] create_console_app · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] create_console_app · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] create_console_app · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] create_console_app · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] create_console_app · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:create_console_app' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] create_console_app · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/serve_console/test_create_console_app.py | tail -1 → 25 passed, 1 warning in 0.22s (10-12)
+- [x] create_console_app · wired — 证据: bash -c grep -rn 'create_console_app(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/serve_console/serve_console.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] create_console_app · 清单进位 — 证据: bash -c grep -q '| create_console_app | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] create_console_app · commit — 预告: fn(create_console_app): wired 含四文档变更
 ### serve_console
 - [ ] serve_console · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -898,4 +898,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B17 双审收口——对抗 高1中4低2（修7申报2+三轴低1）——①**状态列结构守卫**（真清单 4 列无状态列：locate 表头检测三形态自适应，update 以 append 列方案动态加「完成状态」列——描述列零破坏、表头/分隔行/条目行三行合法扩展、同表后续原位补槽）；②\| 转义管道 Markdown 感知切列；③newline='' 保行尾；④数值 str 双路径统一（validate 宽数+normalize 化达）；⑤audit done 口径同源 has_done_mark（wired 纳入锚点核验）；⑥anchor 120 上限；⑨⑩⑪低三申报（幂等拒/overwrite 无痕/弱存在性）；history ⑨→㉙ 字符修正 — 对抗审查（高#1 为台账机制关键设计缺陷：真清单形态与函数假设不符，冒烟测试曾掩盖） — 24 回归 — batches Ruling㉚ (10-12)
 - Ruling: B18 双审收口——对抗 高2中8低6（修13申报3）——**R46 假阴性三路堵死**（①词界回查废子串命中；②白名单收缩仅 '>' 脚注行（判据/阈值/目标关键词豁免删除——正文测量数字必须回查）；③舍入候选去 .1f/.2f/.3f 只留等值形态）+科学计数双形族；R45 防自噬（failure 聚合段引用块化）+换行/管道注入消毒（表格字段/脚注行）；U+2212/dBµV/isfile/缺额分账/去重/emc 形状；申报 3（复合单位截抽/DB m 歧义/半存图全量重绘）；代价如实：尾零-短形不再互认（⑥c 固化） — 对抗审查 — 28 回归 — batches Ruling㉛ (10-12)
 - Ruling: B18 复核收口——13/13 复触发确认+2604 无回归；两个等值盲区如实记录（①数据侧尾零形 2438.000 与候选规范形互不认——**现产写入 str(float) 恒规范形不触发**，仅非规范外部数据受害；②U+2212 数据侧变体缺——同前）——申报留观（B21 终批若引入外部数据源再堵：extract 保留 raw literal 入候选） — 修复后复核 — 无代码改动 — batches Ruling㉜ (10-12)
+- Ruling: B19 三处申报——①环境装 fastapi/httpx 后 15 个原 skip TestClient 用例转实跑暴露 8 败（2 测试目录时序 bug+**6 源码真缺陷**：from __future__ import annotations 使 FastAPI 字符串注解解析失败→Request/WebSocket 误判 query 参数→POST 422/WS 1008——真运行也会炸，已修源码并禁用该 import）；②fastapi/uvicorn 延迟 import+缺库 AppError/ConsoleError pip 提示（原 skipless 环境策略）；③push 控制帧 emergency_stop 直调 trigger 不走广播 — 环境补装+子代理申报 — 26 用例实跑全绿 — batches Ruling㉝ (10-12)
 
