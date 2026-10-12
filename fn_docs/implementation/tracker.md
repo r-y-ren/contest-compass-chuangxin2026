@@ -838,7 +838,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] run_rff_pipeline · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k rff_pipeline -q 2>&1 | tail -1 → 7 passed, 2758 deselected, 1 warning in 1.64s (10-12)
 - [x] run_rff_pipeline · wired — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k rff_pipeline -q 2>&1 | grep -q passed && echo 顶层实跑通过（端到端 F1=1.0 含） → 顶层实跑通过（端到端 F1=1.0 含） (10-12)
 - [x] run_rff_pipeline · 清单进位 — 证据: bash -c grep -q '| run_rff_pipeline | B20 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] run_rff_pipeline · commit — 预告: fn(run_rff_pipeline): wired 含四文档变更
+- [x] run_rff_pipeline · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(run_rff_pipeline)' && echo commit在案 → commit在案 (10-12)
 
 ## B20 批间门
 - [ ] B20 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）

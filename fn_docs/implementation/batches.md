@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B20 | map_per_to_injection, bridge_to_sitl, fallback_fixed_strategy, run_rl_policy, run_rff_pipeline | SITL 映射+RL 冒烟+RFF smoke（sitl_bridge/rl_policy/rff_pipeline） | 二期族（P1） |
-| B21 | execute_scenario, run_demo | run_demo wired：sim 全流程 0 退出八件套+报告（demo_pipeline） | 终批总装 |
+| ▶ B21 | execute_scenario, run_demo | run_demo wired：sim 全流程 0 退出八件套+报告（demo_pipeline） | 终批总装 |
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
 | 日期 | 事件 | 说明 |
@@ -44,3 +43,4 @@
 | 10-12 | Ruling㉜B18 复核 | 13/13 生效；尾零/U+2212 等值盲区申报留观（现产不触发） |
 | 10-12 | Ruling㉝B19 申报 | 装库后 skip 转实跑暴露 6 真缺陷（annotations 注解解析）已修；延迟 import 口径 |
 | 10-12 | Ruling㉞B19 双审 | 三轴中2（slug/CRUD）+对抗中2低4 全修+25 回归；stop 复位/run 可查/降频不稀释 |
+| 10-12 | Ruling㉟B20 申报 | RL=numpy Q-learning 轻量替身；SITL 简化 mock MAVLink 层 |
