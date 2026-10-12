@@ -400,7 +400,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] enforce_bandwidth_limit · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/capture_monitor_spectrum/test_enforce_bandwidth_limit.py | tail -1 → 34 passed in 0.02s (10-12)
 - [x] enforce_bandwidth_limit · wired — 证据: bash -c grep -rn 'enforce_bandwidth_limit(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/capture_monitor_spectrum/capture_monitor_spectrum.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] enforce_bandwidth_limit · 清单进位 — 证据: bash -c grep -q '| enforce_bandwidth_limit | B10 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] enforce_bandwidth_limit · commit — 预告: fn(enforce_bandwidth_limit): wired 含四文档变更
+- [x] enforce_bandwidth_limit · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(enforce_bandwidth_limit)' && echo commit在案 → commit在案 (10-12)
 ### capture_monitor_spectrum
 - [ ] capture_monitor_spectrum · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] capture_monitor_spectrum · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -408,10 +408,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] capture_monitor_spectrum · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] capture_monitor_spectrum · commit — 预告: fn(capture_monitor_spectrum): wired 含四文档变更
 ### estimate_snr
-- [ ] estimate_snr · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] estimate_snr · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] estimate_snr · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] estimate_snr · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] estimate_snr · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:estimate_snr' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] estimate_snr · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/compute_spectrum_stats/test_estimate_snr.py | tail -1 → 31 passed in 0.02s (10-12)
+- [x] estimate_snr · wired — 证据: bash -c grep -rn 'estimate_snr(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/compute_spectrum_stats/compute_spectrum_stats.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] estimate_snr · 清单进位 — 证据: bash -c grep -q '| estimate_snr | B10 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] estimate_snr · commit — 预告: fn(estimate_snr): wired 含四文档变更
 ### check_flatness
 - [ ] check_flatness · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零

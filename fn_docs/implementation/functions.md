@@ -58,9 +58,9 @@
 | run_power_ladder | B9 | wired 10-12 | 56 passed；失效即停+异常先停发射 | 577c21d |
 | compute_pathloss | B9 | wired 10-12 | 60 passed；公式(3)+per-call 抽样 | deeadd0 |
 | map_distance_to_loss | B9 | wired 10-12 | 40 passed；不可达点如实标注 | 6c20b6f |
-| enforce_bandwidth_limit | B10 | wired 10-12 | 34 passed；分段无缝+能力域拒 | pending |
+| enforce_bandwidth_limit | B10 | wired 10-12 | 34 passed；分段无缝+能力域拒 | 8fb1eb4 |
 | capture_monitor_spectrum | B10 | stub 10-11 | pytest -k monitor_capture | — |
-| estimate_snr | B10 | stub 10-11 | 上游覆盖: compute_spectrum_stats | — |
+| estimate_snr | B10 | wired 10-12 | 31 passed；公式(4)+guard 防泄漏 | pending |
 | check_flatness | B10 | stub 10-11 | 上游覆盖: compute_spectrum_stats | — |
 | compute_spectrum_stats | B10 | stub 10-11 | pytest -k spectrum_stats | — |
 | parse_esp32_frame | B11 | stub 10-11 | 上游覆盖: drive_esp32_link | — |
