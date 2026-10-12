@@ -784,7 +784,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] render_console_pages · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k console_ui -q 2>&1 | tail -1 → 15 passed, 2692 deselected, 1 warning in 1.63s (10-12)
 - [x] render_console_pages · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b19.py | grep -q 'Vue CDN 页面落盘' && echo 顶层实跑通过（CDN 页+落盘） → 顶层实跑通过（CDN 页+落盘） (10-12)
 - [x] render_console_pages · 清单进位 — 证据: bash -c grep -q '| render_console_pages | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] render_console_pages · commit — 预告: fn(render_console_pages): wired 含四文档变更
+- [x] render_console_pages · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(render_console_pages)' && echo commit在案 → commit在案 (10-12)
 ### measure_refresh_latency
 - [x] measure_refresh_latency · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:measure_refresh_latency' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
 - [x] measure_refresh_latency · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/push_realtime_kpi/test_measure_refresh_latency.py | tail -1 → 8 passed in 0.01s (10-12)
@@ -798,10 +798,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] trigger_emergency_stop · 清单进位 — 证据: bash -c grep -q '| trigger_emergency_stop | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] trigger_emergency_stop · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(trigger_emergency_stop)' && echo commit在案 → commit在案 (10-12)
 ### push_realtime_kpi
-- [ ] push_realtime_kpi · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] push_realtime_kpi · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] push_realtime_kpi · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] push_realtime_kpi · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] push_realtime_kpi · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:push_realtime_kpi' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] push_realtime_kpi · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k realtime_console -q 2>&1 | tail -1 → 14 passed, 2693 deselected, 1 warning in 1.63s (10-12)
+- [x] push_realtime_kpi · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b19.py | grep -q '实时流 3 帧' && echo 顶层实跑通过（广播+latency） → 顶层实跑通过（广播+latency） (10-12)
+- [x] push_realtime_kpi · 清单进位 — 证据: bash -c grep -q '| push_realtime_kpi | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] push_realtime_kpi · commit — 预告: fn(push_realtime_kpi): wired 含四文档变更
 
 ## B19 批间门

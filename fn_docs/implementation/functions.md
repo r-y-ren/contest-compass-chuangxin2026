@@ -113,10 +113,10 @@
 | create_console_app | B19 | wired 10-12 | 26 实跑；五路由+WS+400 指错 | 5c55ef3 |
 | serve_console | B19 | wired 10-12 | 25 passed；dry_run+延迟 uvicorn | 24c66e8 |
 | build_scenario_cards | B19 | wired 10-12 | 13 passed；损坏跳过+error 卡 | 2e01e28 |
-| render_console_pages | B19 | wired 10-12 | 15 passed；单文件 HTML+CDN | pending |
+| render_console_pages | B19 | wired 10-12 | 15 passed；单文件 HTML+CDN | 6915fd7 |
 | measure_refresh_latency | B19 | wired 10-12 | 8 passed；配对分位+pending | d6d4c07 |
 | trigger_emergency_stop | B19 | wired 10-12 | 7 passed；先停发射+永不抛 | 315fd8f |
-| push_realtime_kpi | B19 | stub 10-11 | pytest -k realtime_console | — |
+| push_realtime_kpi | B19 | wired 10-12 | 14 passed；广播+环形+降频 | pending |
 | map_per_to_injection | B20 | stub 10-11 | 上游覆盖: bridge_to_sitl | — |
 | bridge_to_sitl | B20 | stub 10-11 | pytest -k sitl_bridge | — |
 | fallback_fixed_strategy | B20 | stub 10-11 | 上游覆盖: run_rl_policy | — |
