@@ -670,7 +670,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] run_emc_sweep · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/run_emc_sweep/test_run_emc_sweep.py | tail -1 → 9 passed in 0.01s (10-12)
 - [x] run_emc_sweep · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b16.py | grep -q '扫频 7 点' && echo 顶层实跑通过（点表+spurious） → 顶层实跑通过（点表+spurious） (10-12)
 - [x] run_emc_sweep · 清单进位 — 证据: bash -c grep -q '| run_emc_sweep | B16 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] run_emc_sweep · commit — 预告: fn(run_emc_sweep): wired 含四文档变更
+- [x] run_emc_sweep · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(run_emc_sweep)' && echo commit在案 → commit在案 (10-12)
 
 ## B16 批间门
 - [ ] B16 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
