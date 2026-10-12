@@ -345,3 +345,79 @@ def test_spectrum_stats_timestamp_passthrough():
     assert row["timestamp_ms"] == 987.5
     absent = compute_spectrum_stats({"bins": make_spectrum()})
     assert absent["timestamp_ms"] is None
+
+
+# --------------------------- B10 对抗审查回归（None 透传/表缓存/reason 前缀）
+
+
+def test_spectrum_stats_contained_interference_band_passes_none_jsr_through():
+    """高#1 下游回归：干扰带 (2400,2419) 完全含信号带 (2402,2417) → 干扰桶被
+    剔/掐尽：p_interference_db=None、jsr_db/jsr_source=None 口径透传，
+    snr_db=+inf（噪声/干扰分母为零）。"""
+    bins = [{"freq_mhz": float(f), "power_db": -20.0} for f in range(2400, 2420)]
+    row = compute_spectrum_stats(
+        {
+            "bins": bins,
+            "timestamp_ms": 1.0,
+            "reference": {
+                "signal_band": (2402.0, 2417.0),
+                "interference_band": (2400.0, 2419.0),
+            },
+        }
+    )
+    assert row["mode"] == "full"
+    assert row["available"] is True
+    assert row["n_interference_bins"] == 0
+    assert row["p_interference_db"] is None
+    assert row["jsr_db"] is None
+    assert row["jsr_source"] is None
+    assert row["snr_db"] == math.inf
+
+
+def test_spectrum_stats_leakage_table_read_once_per_call(monkeypatch, leakage_table, wifi_window):
+    """低#5 回归：单次统计调用（window 内 41 个可扣 bin）泄漏表只读一次（旧
+    口径逐 bin 重读 41 次）；缓存以调用为界，跨调用各自再读。"""
+    import src.calibrate_leakage.calibrate_leakage as leakage_mod
+
+    reads = {"count": 0}
+    real_load = leakage_mod._load_table
+
+    def counting_load(path):
+        reads["count"] += 1
+        return real_load(path)
+
+    monkeypatch.setattr(leakage_mod, "_load_table", counting_load)
+    window = {**wifi_window, "leakage_table_path": leakage_table}
+    first = compute_spectrum_stats(dict(window))
+    assert reads["count"] == 1
+    assert first["leak_corrected"] is True
+    compute_spectrum_stats(dict(window))
+    assert reads["count"] == 2  # 不跨调用缓存
+
+
+def test_spectrum_stats_invalid_flatness_limit_uses_limit_reason_prefix():
+    """低#6 回归：flatness_band 合法而 flatness_limit_db 非法（负数）→ reason
+    前缀 invalid_flatness_limit；band 形状非法仍用 invalid_flatness_band 前缀；
+    平坦度兜底不影响 SNR 块。"""
+    limit_bad = compute_spectrum_stats(
+        {
+            "bins": make_spectrum(),
+            "reference": {
+                **REFERENCE,
+                "flatness_band": (1.0, 3.0),
+                "flatness_limit_db": -1.0,
+            },
+        }
+    )
+    assert limit_bad["flatness_available"] is False
+    assert limit_bad["flatness_db"] is None
+    assert limit_bad["flatness_reason"].startswith("invalid_flatness_limit")
+    assert limit_bad["available"] is True  # SNR 口径不受平坦度兜底影响
+
+    band_bad = compute_spectrum_stats(
+        {
+            "bins": make_spectrum(),
+            "reference": {**REFERENCE, "flatness_band": (1.0, 2.0, 3.0)},
+        }
+    )
+    assert band_bad["flatness_reason"].startswith("invalid_flatness_band")

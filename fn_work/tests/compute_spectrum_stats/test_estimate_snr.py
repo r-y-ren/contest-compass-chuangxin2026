@@ -7,6 +7,7 @@
 掐头去尾+线性总和口径，不复用被测代码路径）对照 ±0.1 dB，另加手算字面值锚点。
 """
 import math
+import random
 
 import pytest
 
@@ -314,3 +315,103 @@ def test_counter_fields_partition_total_bins():
             == len(bins)
         )
         assert got["n_skipped_bins"] == got["n_guard_bins"] + got["n_invalid_bins"]
+
+
+# ------------------------------------- B10 对抗审查回归（重叠带口径）
+
+
+def test_interference_candidates_exclude_signal_guard_bins_partial_overlap():
+    """高#1 回归：干扰带 (90,210) 部分套住信号带 (100,200)——信号带 guard 区 bin
+    （100/101/199/200，故意 +30 dB）不得泄入干扰桶：干扰只计带外 16 bin
+    （92..99 + 201..208 全 −60 dB），guard 区功率不影响任何功率分量。"""
+    bins = [{"freq_mhz": float(f), "power_db": -60.0} for f in range(90, 211)]
+    for f in (100, 101, 199, 200):
+        bins[f - 90]["power_db"] = 30.0  # 信号带 guard 区陷阱功率
+    got = estimate_snr(bins, {"signal_band": (100.0, 200.0), "interference_band": (90.0, 210.0)})
+    assert got["n_interference_bins"] == 16  # 旧口径 20（信号 guard 区 4 bin 泄入）
+    assert got["p_interference_db"] == pytest.approx(-60.0 + 10.0 * math.log10(16.0), abs=1e-9)
+    assert got["n_signal_bins"] == 97  # 102..198
+    assert got["n_noise_bins"] == 0
+    assert got["n_guard_bins"] == 8  # 信号 guard 4（含陷阱 bin）+ 干扰 guard 4
+    assert got["n_skipped_bins"] == 8
+    assert got["available"] is True
+    assert got["snr_db"] == pytest.approx(10.0 * math.log10(97.0 / 16.0), abs=1e-9)
+    assert (
+        got["n_signal_bins"] + got["n_noise_bins"] + got["n_interference_bins"] + got["n_skipped_bins"]
+        == len(bins)
+    )
+
+
+def test_interference_fully_containing_signal_band_empties_interference_bucket():
+    """高#1 极端回归：干扰带 (2400,2419) 完全含信号带 (2402,2417)——干扰候选剔除
+    信号带全部 bin 后仅剩 4 个带外边缘 bin，guard=2 掐尽 → n_interference_bins=0、
+    p_interference_db=None；噪声桶亦空 → 分母零 → snr_db=+inf（仍 available）。"""
+    bins = [{"freq_mhz": float(f), "power_db": -20.0} for f in range(2400, 2420)]
+    got = estimate_snr(bins, {"signal_band": (2402.0, 2417.0), "interference_band": (2400.0, 2419.0)})
+    assert got["n_interference_bins"] == 0  # 旧口径 4（信号 guard 区 bin 泄入干扰桶）
+    assert got["p_interference_db"] is None
+    assert got["n_noise_bins"] == 0
+    assert got["n_signal_bins"] == 12  # 2404..2415
+    assert got["n_guard_bins"] == 8  # 信号 4 + 干扰 4（2400/2401/2418/2419）
+    assert got["n_skipped_bins"] == 8
+    assert got["available"] is True
+    assert got["degenerate"] is False
+    assert got["snr_db"] == math.inf
+    assert (
+        got["n_signal_bins"] + got["n_noise_bins"] + got["n_interference_bins"] + got["n_skipped_bins"]
+        == len(bins)
+    )
+
+
+def test_count_invariant_and_no_leak_fuzz_containment_overlaps():
+    """中#2 回归（fuzz 500 组）：随机包含型重叠（干扰带套住信号带）×随机 guard×
+    混入坏 bin——计数不变式恒成立；且信号带 bin（+30 dB）永不泄入干扰桶
+    （干扰成员全为 −100 dB 带外 bin，p_interference_db 可精确预测）。"""
+    rng = random.Random(20261011)
+    for _ in range(500):
+        step = rng.choice([0.5, 1.0, 2.0])
+        sig_lo = round(rng.uniform(100.0, 400.0), 3)
+        sig_hi = sig_lo + round(rng.uniform(1.0, 60.0), 3)
+        itf_lo = sig_lo - rng.uniform(0.0, 8.0)
+        itf_hi = sig_hi + rng.uniform(0.0, 8.0)  # 包含型重叠（完全含/边界相接）
+        guard = rng.choice([0, 1, 2, 3])
+        grid_lo = math.floor(itf_lo) - 3
+        grid_hi = math.ceil(itf_hi) + 3
+        bins = []
+        for k in range(int((grid_hi - grid_lo) / step) + 1):
+            freq = grid_lo + k * step  # 整数起点×0.5/1/2 步进：频点无累积误差
+            bins.append(
+                {
+                    "freq_mhz": freq,
+                    "power_db": 30.0 if sig_lo <= freq <= sig_hi else -100.0,
+                }
+            )
+        if rng.random() < 0.3:
+            bins.append({"freq_mhz": float("nan"), "power_db": 0.0})  # 坏频率
+        if rng.random() < 0.3:
+            bins.append({"freq_mhz": 0.0, "power_db": float("nan")})  # NaN 功率
+        got = estimate_snr(
+            bins,
+            {
+                "signal_band": (sig_lo, sig_hi),
+                "interference_band": (itf_lo, itf_hi),
+                "edge_guard_bins": guard,
+            },
+        )
+        # 计数不变式：三类计数 + 跳过 == 总 bin 数；跳过 = guard + 坏
+        assert (
+            got["n_signal_bins"]
+            + got["n_noise_bins"]
+            + got["n_interference_bins"]
+            + got["n_skipped_bins"]
+            == len(bins)
+        )
+        assert got["n_skipped_bins"] == got["n_guard_bins"] + got["n_invalid_bins"]
+        # 泄漏检测：干扰桶成员必全为 −100 dB 带外 bin（+30 dB 信号带 bin 若泄入，
+        # p_interference_db 立即偏高而失配）
+        if got["n_interference_bins"] > 0:
+            assert got["p_interference_db"] == pytest.approx(
+                -100.0 + 10.0 * math.log10(got["n_interference_bins"]), abs=1e-6
+            )
+        else:
+            assert got["p_interference_db"] is None

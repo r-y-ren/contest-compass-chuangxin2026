@@ -427,8 +427,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] compute_spectrum_stats · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(compute_spectrum_stats)' && echo commit在案 → commit在案 (10-12)
 
 ## B10 批间门
-- [ ] B10 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B10 · 用户裁决 — 预告: 继续 B11 / 修订 / 裁决 blocked
+- [x] B10 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B10 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 1642 passed in 11.26s (10-12)
+- [x] B10 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b10.py | grep -q 'SNR=19' && echo B10 双审收口（6 项修复） → B10 双审收口（6 项修复） (10-12)
 
 ## B11 — parse_esp32_frame, drive_esp32_link, parse_nrf24_frame, drive_nrf24_link, apply_cliff_model, simulate_link_degradation, compute_per, normalize_kpi
 ### parse_esp32_frame
@@ -881,4 +881,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B8 双审收口——①R12 档位标定口径回写（cal_table 直传/ctx，不走文件标定表）；②对抗 高1中2低3 全修复（append_event 循环引用 RecursionError 逃逸→EventWriteError 带 DAG 放行；composite 深度上限 8+深拷贝防回染；tone defaults 补 fs 六样式全可切；cal 零命中 cal_unused 标注；switch_style composite 可达） — 三轴观察+对抗 — 无 — responsibility.md L479+batches Ruling⑬ (10-11)
 - Ruling: B9 一处算术勘误——提示文本「link=−10→−15..0 六档」与 5dB 网格算术不符（实为 −15/−10/−5/0 四档），子代理按规则实现并断言 4 档；阶梯下发口径=target_db 绝对值作衰减请求（干扰功率=满增益−衰减）入 run_power_ladder docstring — 实现申报+主会话探针勘误（60/80dB 损耗超域顶 reachable=False 属正确行为） — 无 — batches 变更记录 Ruling⑭ (10-12)
 - Ruling: B9 双审收口——对抗 中3低2 全修复（①run_power_ladder 每轮自生成 run_token 传停发射链（B3 高#2 同型残留堵死）；②map 负损耗 reachable=False 容错；③set_tx_gain 回退路径增益地板如实（partial/gain_floor/unknown_gain，事件不再虚报）；④判据警告入 ladder_stop 事件；⑤reason 细分 max_steps） — 对抗审查 — 无 — batches 变更记录 Ruling⑮ (10-12)
+- Ruling: B10 双审收口——对抗 高1中1低4 全修复（①estimate_snr 重叠带 guard bin 泄入干扰桶堵死（干扰候选排除信号带全体，掐尽→None+snr=inf）；②计数不变式集合并集+fuzz 500 组锁定；③恰界 1e-9 容差+note 全精度；④末段频轴按实际 span 缩放不越带顶；⑤泄漏表单次读入+逐频点插值（放弃按频点缓存 corrected 的语义错误方案——子代理申报）；⑥flatness reason 前缀区分） — 对抗审查 — 无 — batches 变更记录 Ruling⑯ (10-12)
 

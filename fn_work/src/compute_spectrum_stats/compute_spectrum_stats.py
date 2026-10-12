@@ -13,9 +13,9 @@
 - flatness_band 在位 → check_flatness（判据默认 4 dB，
   reference['flatness_limit_db'] 可透传），结果键幂等加前缀 flatness_ 合入
   （'flatness_db' 已带前缀保持原名，'pass'→'flatness_pass' 等）；
-- 自漏扣除：window 含 'leakage_table_path' 时先逐频点
-  calibrate_leakage(request)（measured_db+coupling_db）扣除，扣除后谱进统计；
-  表缺失/无效 → 读数原样保留且 'leak_corrected'=False（不抛）；
+- 自漏扣除：window 含 'leakage_table_path' 时按频点扣除（corrected = measured_db
+  + coupling_db，calibrate_leakage 的读表/插值语义；每次调用表只读一次），
+  扣除后谱进统计；表缺失/无效 → 读数原样保留且 'leak_corrected'=False（不抛）；
 - 底噪口径：无 reference（缺省/None）→ mode='power_only'，只出
   {'p_total_db': 全谱线和, 'peak_db'/'peak_at_mhz', 'noise_floor_db': 全谱
   20 分位（近似底噪）, 'available': bool, 'mode', 'note':
@@ -28,11 +28,12 @@
 from __future__ import annotations
 
 import math
+import os
 from numbers import Real
 
 from .estimate_snr import estimate_snr
 from .check_flatness import check_flatness
-from src.calibrate_leakage.calibrate_leakage import calibrate_leakage
+import src.calibrate_leakage.calibrate_leakage as _leakage_impl
 
 __all__ = ["compute_spectrum_stats"]
 
@@ -62,38 +63,37 @@ def _parse_bin(entry) -> tuple[float | None, float | None]:
 
 
 def _apply_leakage_correction(bins: list, table_path: str) -> tuple[list, bool]:
-    """逐频点自漏扣除 → (扣除后 bins, leak_corrected)。
+    """逐频点自漏扣除 → (扣除后 bins, leak_corrected)；标定表每次调用只读一次。
 
-    仅对可提交请求的 bin（dict、频率有限且 >0、power_db 有限实数）尝试
-    calibrate_leakage(request)；corrected_db 为 None（表缺失/无效）或请求抛
-    ValueError 时读数原样保留。leak_corrected = 至少提交一个请求且全部成功
-    （标定表按路径整体生效/失效，逐 bin 不偏科）。输入 bins 不被原地改动。
+    仅对可扣除的 bin（dict、频率有限且 >0、power_db 有限实数）尝试扣除：
+    corrected = measured_db + coupling(freq)（calibrate_leakage 扣除请求的读表/
+    插值语义，表单次读入后逐频点插值复用）；表缺失/无效（读表失败）→ 读数
+    原样保留。leak_corrected = 至少一个可扣 bin 且全部扣除成功（标定表按
+    路径整体生效/失效，逐 bin 不偏科）。输入 bins 不被原地改动。
     """
+    if os.path.isfile(table_path):
+        try:
+            coupling_table = _leakage_impl._load_table(table_path)
+        except (OSError, ValueError, TypeError, KeyError):
+            coupling_table = None
+    else:
+        coupling_table = None
     corrected_bins: list = []
     n_attempted = 0
     n_corrected = 0
     for entry in bins:
         freq, power_db = _parse_bin(entry)
         if freq is None or freq <= 0.0 or not math.isfinite(power_db):
-            # −inf dB（零功率）扣除前后线性功率同为 0，无需提交请求
+            # −inf dB（零功率）扣除前后线性功率同为 0，无需扣除
             corrected_bins.append(entry)
             continue
         n_attempted += 1
-        corrected = None
-        try:
-            result = calibrate_leakage(
-                request={
-                    "table_path": table_path,
-                    "measured_db": power_db,
-                    "freq_mhz": freq,
-                }
-            )
-            candidate = result.get("corrected_db")
-            if isinstance(candidate, (int, float)) and not isinstance(candidate, bool):
-                corrected = float(candidate)
-        except ValueError:
-            corrected = None
-        if corrected is None or not math.isfinite(corrected):
+        corrected: float | None = None
+        if coupling_table is not None:
+            candidate = power_db + _leakage_impl._lookup_coupling(coupling_table, freq)[0]
+            if math.isfinite(candidate):
+                corrected = candidate
+        if corrected is None:
             corrected_bins.append(entry)
         else:
             n_corrected += 1
@@ -272,20 +272,27 @@ def compute_spectrum_stats(window: dict, reference: dict | None = None) -> dict:
         snr_result = _snr_unavailable(f"invalid_reference: {exc}", row["invalid_bins"])
     row.update(snr_result)
 
-    # 平坦度块（flatness_band 在位才核验）
+    # 平坦度块（flatness_band 在位才核验）；band 与判据值谁非法以 reason 前缀区分
+    # （invalid_flatness_band / invalid_flatness_limit）——判据非法时换默认判据重试
+    # 可算即归因于判据，仍抛则归因于带形状。
     flatness_band = reference.get("flatness_band")
     if flatness_band is None:
         flatness_result = _flatness_unavailable("no_flatness_band")
     else:
         limit_db = reference.get("flatness_limit_db")
+        effective_limit = _DEFAULT_FLATNESS_LIMIT_DB if limit_db is None else limit_db
         try:
-            flatness_result = check_flatness(
-                spec_bins,
-                flatness_band,
-                _DEFAULT_FLATNESS_LIMIT_DB if limit_db is None else limit_db,
-            )
+            flatness_result = check_flatness(spec_bins, flatness_band, effective_limit)
         except ValueError as exc:
-            flatness_result = _flatness_unavailable(f"invalid_flatness_band: {exc}")
+            if limit_db is not None:
+                try:
+                    check_flatness(spec_bins, flatness_band, _DEFAULT_FLATNESS_LIMIT_DB)
+                except ValueError:
+                    flatness_result = _flatness_unavailable(f"invalid_flatness_band: {exc}")
+                else:
+                    flatness_result = _flatness_unavailable(f"invalid_flatness_limit: {exc}")
+            else:
+                flatness_result = _flatness_unavailable(f"invalid_flatness_band: {exc}")
     row.update(_flatness_prefixed(flatness_result))
 
     # ①/④ JSR：反演口径 P_interference/P_signal → dB；已知 signal_power_db

@@ -181,3 +181,40 @@ def test_segments_cover_target_exactly_without_gaps_or_overlap():
         assert a["covers"][1] == b["covers"][0]  # 无缝：无重叠也无缝隙
     total = sum(s["span_mhz"] for s in segs)
     assert total == pytest.approx(hi - lo)
+
+
+# ---------------------------------- B10 对抗审查回归（恰界容差/note 精度）
+
+
+def test_just_over_bw_within_relative_tolerance_stays_single_segment():
+    """低#3 回归：宽度=56·(1+1e-12)（浮点噪声级超出，≤1e-9 相对容差）→ 单段
+    limited=False 且完整覆盖带顶（旧口径误判受限，且分段把带顶 5.6e-11 MHz 截丢）。"""
+    lo = 2400.0
+    hi = lo + 56.0 * (1.0 + 1e-12)
+    assert hi - lo > 56.0  # 前置：确属"恰界超出一丝"
+    plan = enforce_bandwidth_limit((lo, hi))
+    assert plan["limited"] is False
+    assert plan["note"] is None
+    assert len(plan["segments"]) == 1
+    seg = plan["segments"][0]
+    assert seg["covers"] == (lo, hi)  # 完整覆盖，不丢带顶
+    assert seg["span_mhz"] == pytest.approx(hi - lo, rel=1e-12)
+    assert seg["center_mhz"] == pytest.approx((lo + hi) / 2.0)
+
+
+def test_clearly_over_bw_just_above_tolerance_splits_two_segments():
+    """低#3 对照：56.001 MHz（超 1e-9 容差）→ 仍两段受限，末段收窄 0.001 MHz。"""
+    plan = enforce_bandwidth_limit((2400.0, 2456.001))
+    assert plan["limited"] is True
+    assert len(plan["segments"]) == 2
+    assert plan["segments"][0]["covers"] == (2400.0, 2456.0)
+    assert plan["segments"][1]["covers"] == (2456.0, 2456.001)
+    assert plan["segments"][1]["span_mhz"] == pytest.approx(0.001)
+
+
+def test_note_reports_full_precision_width_without_truncation():
+    """低#3 回归：note 宽度用 repr 全精度——100.0000001 MHz 不被 :g 截成 100。"""
+    plan = enforce_bandwidth_limit((1000.0, 1100.0000001))
+    note = plan["note"]
+    assert "span_exceeds_device_bw" in note
+    assert "100.0000001" in note

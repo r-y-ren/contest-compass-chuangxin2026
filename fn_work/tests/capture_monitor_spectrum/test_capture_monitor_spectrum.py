@@ -208,3 +208,71 @@ def test_monitor_capture_noise_power_finite():
     assert all(isinstance(r["power_db"], float) and math.isfinite(r["power_db"]) for r in bins)
     assert bins[0]["freq_mhz"] == pytest.approx(2404.0 - DEV_BW / 2.0)
     assert bins[-1]["freq_mhz"] == pytest.approx(2404.0 + DEV_BW / 2.0 - DEV_BW / 128.0)
+
+
+# ----------------------------- B10 对抗审查回归（末段频轴/泄漏表单次读入）
+
+
+def test_monitor_capture_narrow_last_segment_freq_axis_stays_in_band():
+    """低#4 回归：(5900,6000)=100MHz>56MHz → 两段；收窄末段（span=44）bin 频轴
+    按段实际 span 等比缩放：∈[5956,6000] 不越目标带顶（旧口径恒 56MHz 频轴，
+    末段频轴越顶到 6005.125）；满宽段频轴保持设备带宽口径。"""
+    params = {"target_band": (5900.0, 6000.0), "nfft": 64}
+    stream = [_block(_tone_samples()), _block(_tone_samples())]
+    blocks = list(capture_monitor_spectrum(None, stream, params))
+    assert [b["segment"] for b in blocks] == [0, 1]
+    full_bins, narrow_bins = blocks[0]["bins"], blocks[1]["bins"]
+    # 满宽段：频轴=段中心±设备带宽/2（5900 起、步进 56/64），口径不变
+    assert full_bins[0]["freq_mhz"] == pytest.approx(5900.0)
+    assert full_bins[-1]["freq_mhz"] == pytest.approx(5956.0 - DEV_BW / 64.0)
+    # 收窄末段：频轴=段中心±span/2（步进 span/nfft），max ≤ 目标带顶 6000
+    assert narrow_bins[0]["freq_mhz"] == pytest.approx(5956.0)
+    assert narrow_bins[-1]["freq_mhz"] == pytest.approx(6000.0 - 44.0 / 64.0)
+    assert max(r["freq_mhz"] for r in narrow_bins) <= 6000.0 + 1e-9
+    assert min(r["freq_mhz"] for r in narrow_bins) >= 5956.0 - 1e-9
+    narrow_freqs = [r["freq_mhz"] for r in narrow_bins]
+    assert narrow_freqs == sorted(narrow_freqs)
+
+
+def test_monitor_capture_leakage_table_read_once_per_call(monkeypatch, tmp_path):
+    """低#5 回归：同一采集调用（生成器生命周期）泄漏表只读一次——两块同段频轴
+    去重后 _load_table 计数=1（旧口径逐块逐频点重读 2×64 次）；且各块按本块
+    功率扣除（corrected=本块原始读数−10 dB，非共享首块同频点的结果）。"""
+    import src.calibrate_leakage.calibrate_leakage as leakage_mod
+
+    points = [{"freq_mhz": f, "coupling_db": -10.0} for f in (2376.0, 2404.0, 2432.0)]
+    table_path = tmp_path / "leak_flat.json"
+    calibrate_leakage(session_data={"points": points, "out_path": str(table_path)})
+
+    reads = {"count": 0}
+    real_load = leakage_mod._load_table
+
+    def counting_load(path):
+        reads["count"] += 1
+        return real_load(path)
+
+    monkeypatch.setattr(leakage_mod, "_load_table", counting_load)
+
+    rng_a, rng_b = np.random.default_rng(3), np.random.default_rng(5)
+    samples_a = (rng_a.standard_normal(64) + 1j * rng_a.standard_normal(64)).tolist()
+    samples_b = (rng_b.standard_normal(64) + 1j * rng_b.standard_normal(64)).tolist()
+    params = {"target_band": BAND_SINGLE, "nfft": 64, "leakage_table_path": str(table_path)}
+    corrected_blocks = list(
+        capture_monitor_spectrum(None, [_block(samples_a), _block(samples_b)], params)
+    )
+    assert len(corrected_blocks) == 2
+    assert all(b["leak_corrected"] is True for b in corrected_blocks)
+    assert reads["count"] == 1  # 表只被读一次
+
+    # 扣除语义逐块独立：corrected = 本块原始读数 − 10 dB（平坦耦合表）
+    raw_blocks = list(
+        capture_monitor_spectrum(
+            None,
+            [_block(samples_a), _block(samples_b)],
+            {"target_band": BAND_SINGLE, "nfft": 64},
+        )
+    )
+    for raw, corrected in zip(raw_blocks, corrected_blocks):
+        for raw_row, cor_row in zip(raw["bins"], corrected["bins"]):
+            assert cor_row["freq_mhz"] == pytest.approx(raw_row["freq_mhz"])
+            assert cor_row["power_db"] == pytest.approx(raw_row["power_db"] - 10.0, abs=1e-9)

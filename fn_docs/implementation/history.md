@@ -23,3 +23,4 @@
 | 10-12 | B9 | plan_ladder_steps, compute_pathloss（波1）, run_power_ladder, map_distance_to_loss（波2） | 1494 全库绿；两顶层探针（失效即停/距离→损耗→组合）；Ruling⑭ |
 | 10-12 | B9+ | 双审：三轴过门（1 观察留 B13 JSR 接线）+对抗 中3低2 → 5 项修复+11 回归；Ruling⑮ | 1505 全库绿 |
 | 10-12 | B10 | enforce_bandwidth_limit, estimate_snr, check_flatness（波1）, capture_monitor_spectrum, compute_spectrum_stats（波2）+B9 两边界顺手修（_auto token/reason 优先级） | 1631 全库绿；探针谱峰定位 2438.1+SNR 19dB |
+| 10-12 | B10+ | 双审：三轴过门（4 低观察）+对抗 高1中1低4 → 6 项修复+11 回归；Ruling⑯ | 1642 全库绿 |

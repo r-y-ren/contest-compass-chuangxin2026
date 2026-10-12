@@ -3,7 +3,8 @@
 消费监测 IQ 块流（read_b210_rx_stream 产出协议：samples/ts/overflow），逐块做
 numpy FFT 功率谱（dB），以块级 dict 流式产出 bin 行列表；enforce_bandwidth_limit
 在采集参数处实施 56MHz 边界（分段计划+受限口径附首块 meta）；ctx/params 提供
-泄漏标定表时经 calibrate_leakage(request) 按频点扣除自漏（表缺不扣并标注 False）。
+泄漏标定表时按频点扣除自漏（calibrate_leakage 的读表/插值语义，生成器生命
+周期内表只读一次；表缺/无效不扣并标注 False）。
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ from .enforce_bandwidth_limit import (
     MonitorError,
     enforce_bandwidth_limit,
 )
-from src.calibrate_leakage.calibrate_leakage import calibrate_leakage
+import src.calibrate_leakage.calibrate_leakage as _leakage_impl
 
 __all__ = ["MonitorError", "capture_monitor_spectrum"]
 
@@ -34,6 +35,20 @@ def _as_positive_int(value: object, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ValueError(f"{name} 必须为正整数，收到: {value!r}")
     return int(value)
+
+
+def _load_coupling_table(table_path: str | None):
+    """按路径单次加载泄漏标定表（复用 calibrate_leakage 的读表/校验/插值件）。
+
+    生成器生命周期内只读一次文件；表路径空/文件缺失/结构无效 → None（不扣除，
+    不抛——与 calibrate_leakage 扣除请求的容错口径一致）。
+    """
+    if not table_path or not os.path.isfile(table_path):
+        return None
+    try:
+        return _leakage_impl._load_table(table_path)
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
 
 
 def capture_monitor_spectrum(
@@ -60,8 +75,9 @@ def capture_monitor_spectrum(
     输出: 生成器逐块 dict（跳过块不产出）：{'timestamp_ms': 流块 ts 或产出块序号,
           'segment': 段索引（按产出块序在计划段间轮转扫描）, 'center_mhz': 段中心,
           'bins': [{'freq_mhz': float, 'power_db': float}] 升频序列表（FFT bin 频点=
-          段中心+fftshift(fftfreq(nfft, 1/设备带宽))，功率=10*log10(|FFT|²/nfft)；
-          max_bins 截断保低频端）, 'overflow': 流块溢出标志透传, 'leak_corrected':
+          段中心+fftshift(fftfreq(nfft, 1/设备带宽))，受限计划的收窄末段按段实际
+          span 等比缩放，功率=10*log10(|FFT|²/nfft)；max_bins 截断保低频端）,
+          'overflow': 流块溢出标志透传, 'leak_corrected':
           本块任一 bin 完成自漏扣除（表缺/无效→False 不抛）, 'invalid_blocks_so_far':
           迄今含 NaN/不可解析 IQ 而跳过的块计数}；首块另附 'plan'=enforce_bandwidth_limit
           全量计划（segments/limited/note，受限口径入 meta）。
@@ -69,8 +85,9 @@ def capture_monitor_spectrum(
           device_bw 非法 → ValueError；目标频段超设备能力域 → MonitorError）在调用时
           即刻抛出（不推迟到首块 next）；流迭代抛出的异常（BackendError 族）原样
           透传不包装；流块非 dict → MonitorError（流中断，走停发射路径）。
-    口径: FFT 频窗始终为设备实时带宽（复基带满带宽采样），与段宽无关——末段收窄
-          只影响段中心与拼接覆盖，不缩 bin 频轴。
+    口径: FFT 频窗为设备实时带宽（复基带满带宽采样）；受限分段计划中收窄的末段
+          bin 频轴按段实际 span 等比缩放（段中心±span/2，不越目标带顶），其余段
+          频轴为设备带宽口径。
     """
     if ctx is not None and not isinstance(ctx, dict):
         raise ValueError(f"ctx 必须为 dict 或 None，实际类型: {type(ctx).__name__}")
@@ -137,8 +154,13 @@ def _iter_monitor_blocks(
     """实际采集循环：入口校验与计划已就绪，此处纯流式产出逻辑。"""
     segments = plan["segments"]
     n_segments = len(segments)
-    # bin 频轴只依赖 nfft 与设备带宽（复基带满带宽采样），逐块复用。
+    # bin 基准频轴只依赖 nfft 与设备带宽（复基带满带宽采样），逐块复用；
+    # 受限计划的收窄末段按段实际 span 等比缩放（频轴不越目标带顶）。
     bin_offsets = np.fft.fftshift(np.fft.fftfreq(nfft, d=1.0 / sample_rate_mhz))
+    narrowed_plan = bool(plan.get("limited"))
+    axis_by_segment: dict[int, np.ndarray] = {}
+    # 泄漏标定表单次读入（生成器生命周期内复用；缺/无效 → None 不扣除）。
+    coupling_table = _load_coupling_table(table_path)
 
     invalid_so_far = 0  # 含 NaN/不可解析 IQ 的跳过块累计（透传到后续产出块 meta）
     block_index = 0     # 产出块序号（跳过块不占号；驱动段轮转与 ts 兜底）
@@ -174,29 +196,30 @@ def _iter_monitor_blocks(
 
         segment_index = block_index % n_segments
         center_mhz = float(segments[segment_index]["center_mhz"])
+        offsets = axis_by_segment.get(segment_index)
+        if offsets is None:
+            span_mhz = float(segments[segment_index]["span_mhz"])
+            offsets = (
+                bin_offsets * (span_mhz / sample_rate_mhz)
+                if narrowed_plan and span_mhz < sample_rate_mhz
+                else bin_offsets
+            )
+            axis_by_segment[segment_index] = offsets
         timestamp = chunk.get("ts")
         if timestamp is None:
             timestamp = block_index
 
         leak_corrected = False
         rows: list[dict] = []
-        for offset, db_value in zip(bin_offsets, power_db):
+        for offset, db_value in zip(offsets, power_db):
             freq_mhz = float(offset + center_mhz)
             power_value = float(db_value)
-            # 自漏扣除：逐频点查表插值回加（corrected 覆盖 power_db）；表缺/无效→
-            # corrected_db=None 不扣不抛，块级标注 False。
-            if table_path is not None and freq_mhz > 0.0 and math.isfinite(power_value):
-                response = calibrate_leakage(
-                    request={
-                        "table_path": table_path,
-                        "measured_db": power_value,
-                        "freq_mhz": freq_mhz,
-                    }
-                )
-                corrected = response.get("corrected_db")
-                if corrected is not None:
-                    power_value = float(corrected)
-                    leak_corrected = True
+            # 自漏扣除：频点查表插值回加（corrected = measured + coupling，表已
+            # 单次读入）；表缺/无效 → 不扣不抛，块级标注 False。
+            if coupling_table is not None and freq_mhz > 0.0 and math.isfinite(power_value):
+                coupling_db = _leakage_impl._lookup_coupling(coupling_table, freq_mhz)[0]
+                power_value = float(power_value + coupling_db)
+                leak_corrected = True
             rows.append({"freq_mhz": freq_mhz, "power_db": power_value})
 
         block_out: dict = {

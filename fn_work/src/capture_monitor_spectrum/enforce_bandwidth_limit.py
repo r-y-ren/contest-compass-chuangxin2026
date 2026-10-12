@@ -57,12 +57,13 @@ def enforce_bandwidth_limit(
 ) -> dict:
     """给定目标观测频段与设备实时带宽，产出合法采集计划。
 
-    - 目标频段完整落在设备能力域（freq_range_mhz）内且宽度 <= device_bw_mhz：
-      单段计划 [{'center_mhz': 中点, 'span_mhz': 宽度, 'covers': (lo, hi)}]，
-      limited=False，note=None。
-    - 宽度 > device_bw_mhz（span_exceeds_device_bw）：按 device_bw_mhz 从目标
-      下界起分段——相邻段共享边界频率、段宽=device_bw_mhz、末段收窄到目标
-      上界；limited=True，note 说明受限口径（reason + requested 宽度）。
+    - 目标频段完整落在设备能力域（freq_range_mhz）内且宽度 <= device_bw_mhz·
+      (1+1e-9)（恰界浮点噪声级超出按未超处理）：单段计划 [{'center_mhz': 中点,
+      'span_mhz': 宽度, 'covers': (lo, hi)}]，limited=False，note=None。
+    - 宽度 > device_bw_mhz·(1+1e-9)（span_exceeds_device_bw）：按 device_bw_mhz
+      从目标下界起分段——相邻段共享边界频率、段宽=device_bw_mhz、末段收窄到
+      目标上界；limited=True，note 说明受限口径（reason + requested 宽度，
+      repr 全精度防 :g 截断失真）。
     - 目标频段超出设备能力域（整体或部分不在 freq_range_mhz 内）：MonitorError。
     - 形状/数值非法（lo>=hi、device_bw_mhz<=0 或非有限、freq_range_mhz 形状
       非法）：ValueError。
@@ -88,7 +89,7 @@ def enforce_bandwidth_limit(
         )
 
     width = band_hi - band_lo
-    if width <= device_bw:
+    if width <= device_bw * (1.0 + 1e-9):  # 1e-9 相对容差：恰界浮点噪声不误判受限
         segments = [
             {
                 "center_mhz": (band_lo + band_hi) / 2.0,
@@ -100,7 +101,7 @@ def enforce_bandwidth_limit(
 
     segments = _split_into_segments(band_lo, band_hi, device_bw)
     note = (
-        f"{_SPAN_EXCEEDS_REASON}: requested {width:g} MHz exceeds device "
-        f"real-time bandwidth {device_bw:g} MHz; split into {len(segments)} segments"
+        f"{_SPAN_EXCEEDS_REASON}: requested {width!r} MHz exceeds device "
+        f"real-time bandwidth {device_bw!r} MHz; split into {len(segments)} segments"
     )
     return {"segments": segments, "limited": True, "note": note}

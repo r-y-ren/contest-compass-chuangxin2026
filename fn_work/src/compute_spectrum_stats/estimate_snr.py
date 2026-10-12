@@ -9,6 +9,9 @@
 - 防泄漏 guard：信号带/干扰带各自的带内候选 bin 按频率排序后掐头去尾各
   edge_guard_bins 个；被 guard 排除的边界 bin 不计入任何功率和（测量 guard
   band 惯例——边界泄漏区不污染信号/噪声/干扰任一估计），计入跳过桶；
+- 重叠归属：干扰带候选先剔除信号带全部 bin（含被 guard 排除者——信号带
+  guard 区只进跳过桶，不得泄入干扰桶），再行 guard 截取；干扰候选被剔/掐尽
+  → 干扰桶空（n_interference_bins=0、p_interference_db=None）；
 - 可用性：信号带零 bin（guard 排空/频谱无覆盖/无数据）→ available=False
   不抛；全谱零功率 → available=False 且 degenerate=True；分母为零（纯信号、
   噪声/干扰零功率）→ snr_db=+inf（数学口径），available=True；
@@ -97,8 +100,10 @@ def estimate_snr(power_bins: list, split_params: dict) -> dict:
             'edge_guard_bins': int = 2        带边界排除 bin 数（防泄漏）。
         }
     归属/口径:
-        信号带内 bin（guard 截取后）归信号；干扰带内先剔除信号归属再 guard 截取
-        （重叠 bin 归信号）；其余为噪声。各 P_* 为对应 bin 的线性功率总和
+        信号带内 bin（guard 截取后）归信号；干扰带候选先剔除信号带全部 bin
+        （含信号带 guard 排除者——重叠时信号带 bin 一律不进干扰桶）再 guard
+        截取，干扰候选全被剔除/掐尽 → n_interference_bins=0、
+        p_interference_db=None；其余为噪声。各 P_* 为对应 bin 的线性功率总和
         （dB→10**(db/10)），SNR 取 10·log10(P_signal/(P_noise+P_interference))。
     输出:
         {'snr_db': float|None,                     分母零→+inf；不可用→None
@@ -146,7 +151,9 @@ def estimate_snr(power_bins: list, split_params: dict) -> dict:
     if int_lo is None:
         int_members, int_guarded = [], []
     else:
-        sig_claimed = {v[0] for v in sig_members}
+        # 干扰候选剔除信号带全部 bin（含 guard 排除者）：信号带 guard 区只进
+        # 跳过桶，不得泄入干扰桶（重叠频带下的防泄漏口径）。
+        sig_claimed = {v[0] for v in sig_cand}
         int_cand = sorted(
             (v for v in valid if int_lo <= v[1] <= int_hi and v[0] not in sig_claimed),
             key=lambda v: v[1],
@@ -163,7 +170,7 @@ def estimate_snr(power_bins: list, split_params: dict) -> dict:
     p_noise = math.fsum(v[2] for v in noise_members)
     total_power = math.fsum(v[2] for v in valid)  # 含 guard 排除 bin（谱整体退化判定）
 
-    n_guard = len(sig_guarded) + len(int_guarded)
+    n_guard = len(guarded)  # 集合并集计数（防重叠双计），守住 skipped 计数不变式
     degenerate = bool(valid) and total_power <= 0.0
     n_signal = len(sig_members)
 
