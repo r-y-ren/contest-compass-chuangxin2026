@@ -109,7 +109,7 @@
 | assemble_frequency_plots | B18 | wired 10-12 | 15 passed；≥5 位+缺额如实 | d92fac9 |
 | build_report | B18 | wired 10-12 | 17 passed；总装+缺项+PNG 复用 | e8b6f31 |
 | extract_report_numbers | B18 | wired 10-12 | 24 passed；单位家族+科学计数 | 1b0cdb4 |
-| verify_report_traceability | B18 | wired 10-12 | 17 passed；候选串+口径白名单 | pending |
+| verify_report_traceability | B18 | wired 10-12 | 17 passed；候选串+口径白名单 | 6672e9a |
 | create_console_app | B19 | stub 10-11 | 上游覆盖: serve_console | — |
 | serve_console | B19 | stub 10-11 | pytest -k console_api | — |
 | build_scenario_cards | B19 | stub 10-11 | 上游覆盖: render_console_pages | — |
