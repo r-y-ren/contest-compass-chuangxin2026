@@ -790,12 +790,12 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] measure_refresh_latency · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/push_realtime_kpi/test_measure_refresh_latency.py | tail -1 → 8 passed in 0.01s (10-12)
 - [x] measure_refresh_latency · wired — 证据: bash -c grep -rn 'measure_refresh_latency(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/push_realtime_kpi/push_realtime_kpi.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] measure_refresh_latency · 清单进位 — 证据: bash -c grep -q '| measure_refresh_latency | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] measure_refresh_latency · commit — 预告: fn(measure_refresh_latency): wired 含四文档变更
+- [x] measure_refresh_latency · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(measure_refresh_latency)' && echo commit在案 → commit在案 (10-12)
 ### trigger_emergency_stop
-- [ ] trigger_emergency_stop · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] trigger_emergency_stop · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] trigger_emergency_stop · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] trigger_emergency_stop · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] trigger_emergency_stop · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:trigger_emergency_stop' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] trigger_emergency_stop · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/push_realtime_kpi/test_trigger_emergency_stop.py | tail -1 → 7 passed in 0.01s (10-12)
+- [x] trigger_emergency_stop · wired — 证据: bash -c grep -rn 'trigger_emergency_stop(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/push_realtime_kpi/push_realtime_kpi.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] trigger_emergency_stop · 清单进位 — 证据: bash -c grep -q '| trigger_emergency_stop | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] trigger_emergency_stop · commit — 预告: fn(trigger_emergency_stop): wired 含四文档变更
 ### push_realtime_kpi
 - [ ] push_realtime_kpi · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
