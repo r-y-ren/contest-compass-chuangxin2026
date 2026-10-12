@@ -88,10 +88,10 @@
 | grouped_cv_evaluate | B14 | wired 10-12 | 20 新用例；混淆+F1+泄漏自检 | f08eb2a |
 | predict_style | B14 | wired 10-12 | 17 passed；cnn_dummy+全状态机不抛 | 61716a4 |
 | open_sim_siggen | B15 | wired 10-12 | 15 passed；0.5dB 量化+1ppm+SCPI 复用 | da76f24 |
-| open_sim_analyzer | B15 | wired 10-12 | 13 passed；DPX+±1.5dB 确定性偏差 | pending |
+| open_sim_analyzer | B15 | wired 10-12 | 13 passed；DPX+±1.5dB 确定性偏差 | e40bed3 |
 | upconvert_with_image_rejection | B15 | wired 10-12 | 59 passed；公式(2)+镜像+杂散 | 2069ccf |
 | open_sim_mixer | B15 | stub 10-11 | pytest -k sim_mixer13g | — |
-| open_sim_emi_receiver | B15 | stub 10-11 | pytest -k sim_emi_receiver | — |
+| open_sim_emi_receiver | B15 | wired 10-12 | 13 passed；三检波+CISPR 声明 | pending |
 | open_sim_attenuator | B15 | stub 10-11 | pytest -k sim_attenuator | — |
 | make_disclaimer_block | B16 | stub 10-11 | 上游覆盖: run_emc_conduction_sim | — |
 | run_emc_conduction_sim | B16 | stub 10-11 | pytest -k emc_conduction | — |
