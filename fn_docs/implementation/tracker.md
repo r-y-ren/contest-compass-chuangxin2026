@@ -742,7 +742,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] build_report · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k report_builder -q 2>&1 | tail -1 → 17 passed, 2559 deselected in 3.87s (10-12)
 - [x] build_report · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b18.py | grep -q '各节齐' && echo 顶层实跑通过（报告总装） → 顶层实跑通过（报告总装） (10-12)
 - [x] build_report · 清单进位 — 证据: bash -c grep -q '| build_report | B18 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] build_report · commit — 预告: fn(build_report): wired 含四文档变更
+- [x] build_report · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(build_report)' && echo commit在案 → commit在案 (10-12)
 ### extract_report_numbers
 - [x] extract_report_numbers · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:extract_report_numbers' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
 - [x] extract_report_numbers · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/verify_report_traceability/test_extract_report_numbers.py | tail -1 → 24 passed in 0.02s (10-12)
@@ -750,10 +750,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] extract_report_numbers · 清单进位 — 证据: bash -c grep -q '| extract_report_numbers | B18 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] extract_report_numbers · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(extract_report_numbers)' && echo commit在案 → commit在案 (10-12)
 ### verify_report_traceability
-- [ ] verify_report_traceability · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] verify_report_traceability · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] verify_report_traceability · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] verify_report_traceability · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] verify_report_traceability · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:verify_report_traceability' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] verify_report_traceability · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k report_traceability -q 2>&1 | tail -1 → 41 passed, 2535 deselected in 1.90s (10-12)
+- [x] verify_report_traceability · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b18.py | grep -q 'passed=True' && echo 顶层实跑通过（溯源闭环） → 顶层实跑通过（溯源闭环） (10-12)
+- [x] verify_report_traceability · 清单进位 — 证据: bash -c grep -q '| verify_report_traceability | B18 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] verify_report_traceability · commit — 预告: fn(verify_report_traceability): wired 含四文档变更
 
 ## B18 批间门
