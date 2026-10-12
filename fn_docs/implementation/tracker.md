@@ -718,7 +718,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] load_scenario · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k scenario_validate -q 2>&1 | tail -1 → 16 passed, 2451 deselected in 1.37s (10-12)
 - [x] load_scenario · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b17.py | grep -q '场景装载' && echo 顶层实跑通过（红线联动） → 顶层实跑通过（红线联动） (10-12)
 - [x] load_scenario · 清单进位 — 证据: bash -c grep -q '| load_scenario | B17 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] load_scenario · commit — 预告: fn(load_scenario): wired 含四文档变更
+- [x] load_scenario · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(load_scenario)' && echo commit在案 → commit在案 (10-12)
 
 ## B17 批间门
 - [ ] B17 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）

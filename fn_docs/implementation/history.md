@@ -37,4 +37,4 @@
 | 10-12 | B15+ | 双审：三轴附条件过+对抗 中2低4 → 8 项修复+8 回归；Ruling㉖ | 2275 全库绿 |
 | 10-12 | B16 | make_disclaimer_block, plan_frequency_sweep（波1）, run_emc_conduction_sim, run_emc_radiation_sim, run_emc_sweep（波2） | 2338 全库绿；EMC 三流程探针（dbuv 换算/洁净度/7 点扫频）；Ruling㉗ |
 | 10-12 | B16+ | 双审：三轴过门（1 观察）+对抗 高1中2低3 → 7 项修复+19 回归；Ruling㉘ | 2362 全库绿 |
-
+| 10-12 | B17 | locate_ledger_row, count_comment_ratio, validate_scenario_schema, normalize_scenario（波1）, update_ledger, audit_ledger, load_scenario（波2） | 2467 全库绿；台账探针（audit 100 条注释率 36%/写入往返）+场景红线联动；Ruling⑨ |

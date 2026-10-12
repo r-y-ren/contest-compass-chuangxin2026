@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B17 | locate_ledger_row, update_ledger, count_comment_ratio, audit_ledger, validate_scenario_schema, normalize_scenario, load_scenario | 台账写/自检绿（ledger_update/ledger_audit）；场景六非法拒（scenario_validate） | 台账+场景族 |
-| B18 | render_disclaimer_sections, assemble_frequency_plots, build_report, extract_report_numbers, verify_report_traceability | 报告字段/口径/溯源绿（report_builder/report_traceability） | 报告族 |
+| ▶ B18 | render_disclaimer_sections, assemble_frequency_plots, build_report, extract_report_numbers, verify_report_traceability | 报告字段/口径/溯源绿（report_builder/report_traceability） | 报告族 |
 | B19 | create_console_app, serve_console, build_scenario_cards, render_console_pages, measure_refresh_latency, trigger_emergency_stop, push_realtime_kpi | API 合约+急停+实时（console_api/console_ui/realtime_console） | Web 族 |
 | B20 | map_per_to_injection, bridge_to_sitl, fallback_fixed_strategy, run_rl_policy, run_rff_pipeline | SITL 映射+RL 冒烟+RFF smoke（sitl_bridge/rl_policy/rff_pipeline） | 二期族（P1） |
 | B21 | execute_scenario, run_demo | run_demo wired：sim 全流程 0 退出八件套+报告（demo_pipeline） | 终批总装 |
@@ -41,3 +40,5 @@
 | 10-12 | Ruling㉖B15 双审 | 三轴中2+对抗中2低4 全修+8 回归；ValueError 统一口径回写；qp 保序 |
 | 10-12 | Ruling㉗B16 申报 | 对数 step=每步增量比（1+r 规范）；EMC 演示态限值缺省不判 |
 | 10-12 | Ruling㉘B16 双审 | 高1中2低3+观察 全修+19 回归；点数上限/NaN 家族对齐/补偿 confidence |
+| 10-12 | Ruling㉙B17 申报 | 统计节人工滚动/回退解析局限/死锚 token 口径 |
+
