@@ -77,9 +77,9 @@
 | annotate_truth_labels | B12 | wired 10-12 | 21 passed；SigMF v1.2+jam 命名空间 | 39faa47 |
 | write_sigmf_recording | B12 | wired 10-12 | 13 新用例（-k 34）；流式 cf32+完整性校验 | dc5f59d |
 | check_failure | B13 | wired 10-12 | 18 passed；≥口径+样本不足保守 | 045c456 |
-| record_failure_level | B13 | wired 10-12 | 11 passed；电平回退+missing 如实 | pending |
+| record_failure_level | B13 | wired 10-12 | 11 passed；电平回退+missing 如实 | 8802c25 |
 | execute_gb42590_protocol | B13 | stub 10-11 | pytest -k gb42590_executor | — |
-| compare_failure_boundaries | B13 | stub 10-11 | pytest -k boundary_compare | — |
+| compare_failure_boundaries | B13 | wired 10-12 | 12 passed；中位数聚合+平手规则 | pending |
 | build_curve_frames | B13 | stub 10-11 | 上游覆盖: plot_triple_curves | — |
 | plot_triple_curves | B13 | stub 10-11 | pytest -k triple_curves | — |
 | dispatch_remote_training | B14 | stub 10-11 | 上游覆盖: train_classifier | — |
