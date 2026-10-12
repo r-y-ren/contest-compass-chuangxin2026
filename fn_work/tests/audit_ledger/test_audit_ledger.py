@@ -127,6 +127,39 @@ def test_ledger_audit_false_negative_leaked_mark(tmp_path):
     assert "状态列之外" in issue["detail"]
 
 
+def test_ledger_audit_wired_counts_done_and_anchor_verified(tmp_path):
+    # B17 中#5 复测：done 判定同源 has_done_mark——wired 行纳入 done+锚点核验。
+    ledger = _write_ledger(
+        tmp_path,
+        """| 编号 | 功能 | 状态 | 备注 |
+| B1 | wired 联动 | wired fn(locate_ledger_row) commit 111aaa | r1 |
+| B2 | 未完成 | 待开 | r2 |
+""",
+    )
+    res = audit_ledger(ledger, _make_code_root(tmp_path))
+    assert res["done_entries"] == 1  # wired 行计入 done（修复前只认 ✅ 漏统）
+    assert res["issues"] == [] and res["clean"] is True  # 锚点核验通过
+
+
+def test_ledger_audit_wired_dead_anchor_flagged(tmp_path):
+    ledger = _write_ledger(
+        tmp_path, "| B1 | wired 幽灵 | wired fn(ghost_fn) | r |\n"
+    )
+    res = audit_ledger(ledger, _make_code_root(tmp_path))
+    assert res["done_entries"] == 1
+    (issue,) = res["issues"]
+    assert issue["entry_id"] == "B1" and issue["kind"] == "dead_anchor"
+    assert "ghost_fn" in issue["detail"]
+
+
+def test_ledger_audit_wired_without_names_flagged(tmp_path):
+    # wired-only 且锚点正文不含可核验函数名 → dead_anchor（口径与 ✅ 行一致）。
+    ledger = _write_ledger(tmp_path, "| B1 | wired 无锚 | wired：骨架已联动 | r |\n")
+    res = audit_ledger(ledger, _make_code_root(tmp_path))
+    (issue,) = res["issues"]
+    assert issue["kind"] == "dead_anchor" and "可核验函数名" in issue["detail"]
+
+
 def test_ledger_audit_ambiguous_duplicate_entry(tmp_path):
     ledger = _write_ledger(
         tmp_path,

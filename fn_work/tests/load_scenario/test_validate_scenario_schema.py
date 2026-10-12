@@ -70,6 +70,42 @@ def test_missing_fs_reports_error():
     assert any("fs" in err for err in errors)
 
 
+# ---- 数字 str 宽容（B17 中#4）：可 float 且有限的 str 数值通过 ----
+
+
+def test_numeric_str_fields_accepted():
+    # PyYAML 1.1 口径下 '1e6'（无点科学计数）解析为 str——宽容通过待 normalize 数值化。
+    raw = {
+        "style": "tone",
+        "fs": "1e6",
+        "freq_hz": " 2450e6 ",
+        "power_dbm": "-10",
+        "duration_s": "2.5",
+        "duty_cycle": "0.5",
+        "judge_per_threshold": "0.1",
+    }
+    assert validate_scenario_schema(raw) == []
+
+
+@pytest.mark.parametrize("bad", ["abc", "", "  ", "nan", "inf", "-inf", "+Infinity"])
+def test_non_numeric_or_non_finite_str_rejected(bad):
+    errors = validate_scenario_schema({"style": "tone", "fs": bad})
+    assert errors and any("fs" in e for e in errors)
+
+
+def test_numeric_str_rejection_message_notes_normalization():
+    msg = " ".join(validate_scenario_schema({"style": "tone", "fs": "abc"}))
+    assert "数字 str" in msg and "规范化" in msg
+
+
+def test_repeats_integer_str_tolerated_but_fractional_str_rejected():
+    assert validate_scenario_schema({"style": "tone", "fs": FS, "repeats": "3"}) == []
+    assert validate_scenario_schema({"style": "tone", "fs": FS, "repeats": "3.0"}) == []
+    assert validate_scenario_schema({"style": "tone", "fs": FS, "repeats": "abc"}) != []
+    errs = validate_scenario_schema({"style": "tone", "fs": FS, "repeats": "2.5"})
+    assert any("repeats" in e for e in errs)
+
+
 # ---- 带限类 bandwidth_hz 必填 ----
 
 

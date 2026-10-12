@@ -69,13 +69,34 @@ def _is_finite_real(value: object) -> bool:
 
 
 def _number_field(raw: dict, key: str, errors: list) -> float | None:
-    """取数值键：缺失返回 None 不报错；非法（NaN/inf/bool/非数值/超 float
-    范围）记一条含键名与值的 error 并返回 None（后续域判定跳过，避免重复报错）。"""
+    """取数值键：缺失返回 None 不报错；非法记一条含键名与值的 error 并返回
+    None（后续域判定跳过，避免重复报错）。
+
+    数值形状宽容（B17 中#4）：数字 str（可 float 且有限）同样通过——PyYAML
+    1.1 口径不认 '1e6' 这类无点科学计数为 float 而给 str；通过后由
+    normalize_scenario 数值化。不可解析 str/NaN/inf/bool/非数值才拒（消息
+    注明数字 str 将被规范化）。
+    """
     if key not in raw:
         return None
     value = raw[key]
+    if isinstance(value, str):
+        try:
+            parsed = float(value.strip())
+        except ValueError:
+            parsed = None
+        if parsed is None or not math.isfinite(parsed):
+            errors.append(
+                f"{key} 数值非法（NaN/inf/非数字 str），实际值 {value!r}"
+                f"（数字 str 如 '1e6' 可通过并将被规范化为数值）"
+            )
+            return None
+        return parsed
     if not _is_finite_real(value):
-        errors.append(f"{key} 数值非法（NaN/inf/bool/非数值），实际值 {value!r}")
+        errors.append(
+            f"{key} 数值非法（NaN/inf/bool/非数值），实际值 {value!r}"
+            f"（数字 str 如 '1e6' 可通过并将被规范化为数值）"
+        )
         return None
     try:
         return float(value)
@@ -91,7 +112,8 @@ def validate_scenario_schema(raw: dict) -> list:
       - style: str，七类白名单 {'tone','sweep','chirp','bandlimited_noise',
         'partial_band','pulse','composite'}（switch_style/synthesize_style
         口径，大小写不敏感）；必填，缺失/非 str/白名单外 → 各一条 error；
-      - fs: 必填，数值>0（采样率 Hz）；
+      - fs: 必填，数值>0（采样率 Hz；数字 str 如 '1e6' 亦收——将被
+        normalize_scenario 规范化为 float，B17 中#4，其余数值键同口径）；
       - freq_hz: 可选数值（允许负值——基带频偏，域归 synthesize 侧）；
       - bandwidth_hz: 可选，>0 且 ≤56e6（等号通过）；带限类
         （bandlimited_noise/partial_band）必填，缺失即 error；
@@ -99,7 +121,7 @@ def validate_scenario_schema(raw: dict) -> list:
         guard_compliance（check_power_cap），本校验绝不重复判红线；
       - duration_s: 可选，>0；
       - duty_cycle: 可选，严格落于开区间 (0,1)（pulse 占空比）；
-      - repeats: 可选，正 int（拒 bool 与 float）；
+      - repeats: 可选，正 int（拒 bool 与 float；整数 str 如 '3' 可宽容）；
       - judge_per_threshold: 可选数值，严格落于 (0,1)（PER 判据阈值域）；
       - backend: 可选，仅查 str 形状（白名单与小写归一归 normalize_scenario）；
       - components: composite 必填且为非空 list，元素须为 dict 并递归按
@@ -172,12 +194,23 @@ def validate_scenario_schema(raw: dict) -> list:
 
     if "repeats" in raw:
         repeats = raw["repeats"]
+        if isinstance(repeats, str):
+            # 整数 str 宽容（'3'/'3.0'——与 normalize_scenario 的 _to_positive_int
+            # 同口径；小数 str 不宽容，落下方正 int 校验拒绝）。
+            try:
+                candidate = float(repeats.strip())
+            except ValueError:
+                candidate = float("nan")
+            if math.isfinite(candidate) and candidate.is_integer():
+                repeats = int(candidate)
         if (
             isinstance(repeats, bool)
             or not isinstance(repeats, Integral)
             or repeats <= 0
         ):
-            errors.append(f"repeats 须为正 int（拒 bool），实际值 {repeats!r}")
+            errors.append(
+                f"repeats 须为正 int（拒 bool；整数 str 如 '3' 可宽容），实际值 {raw['repeats']!r}"
+            )
 
     judge = _number_field(raw, "judge_per_threshold", errors)
     if judge is not None and not 0.0 < judge < 1.0:

@@ -11,7 +11,8 @@ from src.update_ledger.locate_ledger_row import LedgerError, locate_ledger_row
 REPO_ROOT = Path(__file__).resolve().parents[3]
 REAL_LEDGER = REPO_ROOT / "docs" / "全功能实现清单-技术支持版.md"
 
-# 样板：A–L 各域表格 + 一条 ▶ 前缀行 + 数字域指标表（不应被 A–L 定位误伤）。
+# 样板：A–L 各域表格（两类表头形态：含状态列 / 真清单 4 列无状态列）+ 一条
+# ▶ 前缀行 + 描述列含 \| 转义管道行 + 数字域指标表（不应被 A–L 定位误伤）。
 SAMPLE = """# 全功能实现清单（样板）
 
 ## A 域——平台骨架
@@ -27,6 +28,13 @@ SAMPLE = """# 全功能实现清单（样板）
 | B2 | 多调制样式 | ▶ 进行中：样式 5/6 | r4 |
 | ▶ B7 | 功率分辨率 | 标定排队 | r5 |
 | B10 | 信号源 | 远期 | r6 |
+| B8 | 频率准确度 \\| 相位噪声 \\| 双指标 | 待开 | r7 |
+
+## C 域——真清单形态（表头无状态列，4 列）
+| 编号 | 功能要求 | 技术支持与实现路径 | 分期 |
+| --- | --- | --- | --- |
+| C1 | 混频扩展至 13GHz | 远期⑤混频器仪表到位后实施（§5.5 L139） | 远期⑤ |
+| C2 | 谐波与微弱干扰表征 | CH2 监测通道验平坦度 \\| 实际注入谱 | 一期（监测级） |
 
 ## G 域——扫谱统计
 | 编号 | 功能 | 状态 | 备注 |
@@ -49,6 +57,12 @@ B1_LINE = "| B1 | 连续覆盖 | ✅ done | r3 |"
 B2_LINE = "| B2 | 多调制样式 | ▶ 进行中：样式 5/6 | r4 |"
 B7_LINE = "| ▶ B7 | 功率分辨率 | 标定排队 | r5 |"
 B10_LINE = "| B10 | 信号源 | 远期 | r6 |"
+B8_LINE = "| B8 | 频率准确度 \\| 相位噪声 \\| 双指标 | 待开 | r7 |"
+C_HEADER = "| 编号 | 功能要求 | 技术支持与实现路径 | 分期 |"
+C_SEP = "| --- | --- | --- | --- |"
+C1_LINE = "| C1 | 混频扩展至 13GHz | 远期⑤混频器仪表到位后实施（§5.5 L139） | 远期⑤ |"
+C2_LINE = "| C2 | 谐波与微弱干扰表征 | CH2 监测通道验平坦度 \\| 实际注入谱 | 一期（监测级） |"
+B_HEADER = "| 编号 | 功能 | 状态 | 备注 |"
 
 
 def _sample_line_no(line: str) -> int:
@@ -133,6 +147,75 @@ def test_ambiguous_double_match_rejected(tmp_path):
     assert f"第 {'、'.join(str(n) for n in nos)} 行" in msg  # 附各处行号
 
 
+def test_status_column_form_detected_from_header(ledger_path):
+    # 有状态列表头（样板 A/B/G/L 域）→ status 形态：状态列＝表头「状态」列。
+    res = locate_ledger_row("B1", ledger_path)
+    assert res["table_form"] == "status"
+    assert res["status_col_index"] == 3
+    assert res["header_line"] == B_HEADER
+    assert 0 < res["header_line_no"] < res["line_no"]
+    sample_lines = SAMPLE.splitlines()
+    assert sample_lines[res["header_line_no"] - 1] == B_HEADER  # 表头行号与原文互核
+    assert res["status_text"] == "✅ done"
+
+
+def test_real_ledger_form_no_status_column(ledger_path):
+    # 真清单形态（表头 4 列无「状态」）→ append 形态：状态语义恒空（描述列
+    # 绝不被误读为状态——B17 高#1 读侧），加列写侧归 update_ledger。
+    res = locate_ledger_row("C1", ledger_path)
+    assert res["line_no"] == _sample_line_no(C1_LINE)
+    assert res["table_form"] == "append"
+    assert res["status_col_index"] is None
+    assert res["header_line_no"] == _sample_line_no(C_HEADER)
+    assert res["header_line"] == C_HEADER
+    assert res["status_text"] == ""
+    assert res["has_done_mark"] is False and res["in_progress"] is False
+
+
+def test_escaped_pipe_in_description_keeps_columns(ledger_path):
+    # 描述列含 \|（转义管道）——不参与切列（B17 中#2），状态列仍取第 3 管道列。
+    res = locate_ledger_row("B8", ledger_path)
+    assert res["table_form"] == "status" and res["status_col_index"] == 3
+    assert res["status_text"] == "待开"  # 若 \| 误切列，此处会读到 '相位噪声 \| 双指标'
+    # 真清单形态下 \| 在技术路径列——append 判定同样不受影响。
+    res2 = locate_ledger_row("C2", ledger_path)
+    assert res2["table_form"] == "append" and res2["status_text"] == ""
+
+
+def test_headerless_table_falls_back_to_legacy_column(tmp_path):
+    # 无表头（无「表头+分隔行」结构）→ legacy 兜底：旧口径第 3 管道列。
+    p = tmp_path / "headerless.md"
+    p.write_text("| B1 | 连续覆盖 | ✅ done | r |\n", encoding="utf-8")
+    res = locate_ledger_row("B1", str(p))
+    assert res["table_form"] == "legacy"
+    assert res["header_line_no"] is None and res["header_line"] is None
+    assert res["status_col_index"] == 3
+    assert res["status_text"] == "✅ done" and res["has_done_mark"] is True
+
+
+def test_appended_status_column_rediscovered_as_status_form(tmp_path):
+    # 补列后表头含「完成状态」→ 自动回到 status 形态，✅ 判定来自新列。
+    text = SAMPLE.replace(
+        C_HEADER, C_HEADER + " 完成状态 |"
+    ).replace(
+        C_SEP, C_SEP + " --- |"
+    ).replace(
+        C1_LINE, C1_LINE + " ✅ 10-12 fn(demo_impl) |"
+    )
+    p = tmp_path / "appended.md"
+    p.write_text(text, encoding="utf-8")
+    res = locate_ledger_row("C1", str(p))
+    assert res["table_form"] == "status"
+    assert res["status_col_index"] == 5
+    assert res["status_text"] == "✅ 10-12 fn(demo_impl)"
+    assert res["has_done_mark"] is True
+    # 同表未补列的行：状态列为空（不算 done），描述列原样。
+    res2 = locate_ledger_row("C2", str(p))
+    assert res2["table_form"] == "status" and res2["status_text"] == ""
+    assert res2["has_done_mark"] is False
+    assert res2["line"] == C2_LINE
+
+
 def test_missing_file_rejected(tmp_path):
     missing = tmp_path / "nope.md"
     with pytest.raises(LedgerError) as ei:
@@ -159,9 +242,12 @@ def test_real_ledger_b5_smoke():
     assert 1 <= res["line_no"] <= len(raw_lines)
     assert raw_lines[res["line_no"] - 1] == res["line"]  # 1-based 行号与真文件互核
     assert res["line"].startswith("| B5 |")
-    assert res["status_text"]  # 状态列（第 3 管道列）非空
-    assert isinstance(res["has_done_mark"], bool)
+    # 真清单 4 列形态（表头无状态列）——状态语义来自表头检测而非固定第 3 管道列
+    # （第 3 管道列＝技术路径描述列，修复前会被误读为状态——B17 高#1）。
+    assert res["table_form"] == "append" and res["status_col_index"] is None
+    assert res["status_text"] == "" and res["has_done_mark"] is False
     assert isinstance(res["in_progress"], bool)
+    assert res["header_line_no"] is not None and "分期" in res["header_line"]
 
 
 def test_default_ledger_path_contract():

@@ -4,6 +4,10 @@
 申报简化（无 yaml 库回退手写解析）：仅支持平铺「key: value」+单层嵌套子块
 （含简单列表项 '- 标量' 与 '- [a, b]' 二元组）；更复杂结构（深层嵌套/内联
 字典/components 分量清单等）→ScenarioError 提示安装 PyYAML。
+
+数值口径对齐（B17 中#4）：PyYAML 1.1 不认 '1e6' 这类无点科学计数为 float
+（解析为 str）——validate_scenario_schema 宽数字 str、normalize_scenario
+数值化；手写回退 _fallback_scalar 则 float() 直转——两路径装载结果一致。
 """
 from __future__ import annotations
 

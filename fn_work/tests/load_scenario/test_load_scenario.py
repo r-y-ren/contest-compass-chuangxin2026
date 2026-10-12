@@ -191,6 +191,18 @@ def test_scenario_validate_nested_declarations_form(tmp_path):
     assert res["shielded_box"] is True and res["dut_scope"] == "self_built"
 
 
+def test_scenario_fs_scientific_notation_str_both_paths_agree(tmp_path, monkeypatch):
+    # B17 中#4 复测：fs: 1e6——PyYAML 1.1 口径不认无点科学计数为 float（给 str
+    # '1e6'），手写回退 float() 直转；两路径装载结果须一致（validate 宽数字 str
+    # + normalize 数值化）。
+    text = VALID_YAML.replace("fs: 2000000", "fs: 1e6")
+    with_pyyaml = load_scenario(_write(tmp_path, text))
+    assert load_mod._yaml is not None  # 本用例真实走 PyYAML 路径
+    monkeypatch.setattr(load_mod, "_yaml", None)  # 再走手写回退路径
+    fallback = load_scenario(_write(tmp_path, text, "scenario_fallback.yaml"))
+    assert with_pyyaml["fs"] == fallback["fs"] == 1000000.0
+
+
 def test_scenario_validate_real_repo_guard_wiring_sanity():
     # 真仓库结构不变量：红线模块在位（load_scenario 的 guard_compliance 落点）。
     assert (REPO_ROOT / "fn_work" / "src" / "guard_compliance" / "guard_compliance.py").is_file()

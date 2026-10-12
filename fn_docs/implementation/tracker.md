@@ -721,8 +721,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] load_scenario · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(load_scenario)' && echo commit在案 → commit在案 (10-12)
 
 ## B17 批间门
-- [ ] B17 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B17 · 用户裁决 — 预告: 继续 B18 / 修订 / 裁决 blocked
+- [x] B17 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B17 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 2491 passed in 14.55s (10-12)
+- [x] B17 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b17.py | grep -q '台账+场景' && echo B17 双审收口（修7申报2） → B17 双审收口（修7申报2） (10-12)
 
 ## B18 — render_disclaimer_sections, assemble_frequency_plots, build_report, extract_report_numbers, verify_report_traceability
 ### render_disclaimer_sections
@@ -895,4 +895,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B16 两处申报——①plan_frequency_sweep 对数刻度 step_hz=每步相对增量 r（每步比 1+r——公式为规范，1,2,4M 例用 r=1.0 即比 2 达成）；②EMC 三流程演示态：读数为模拟口径、iq/iq_provider 可选注入、限值缺省不判 passed（None 如实） — 子代理实现申报+探针勘误（cispr_b 30M/5M=7 点非 10） — 无 — batches Ruling㉗ (10-12)
 - Ruling: B16 双审收口——对抗 高1中2低3+三轴 1 观察全修（①扫描点数上限 10000 可调（1e-9 步 OOM/挂起堵死）；②EMI NaN 家族口径对齐逐样本拒；③辐射补偿空表 False+confidence 汇总；④band 短路 start/stop（占位删除）；⑤sweep detector/rbw 可观测；⑥参数先全验后设+回滚；⑦SweepError(ValueError) 命名收口） — 对抗+三轴 — 19 回归 — batches Ruling㉘ (10-12)
 - Ruling: B17 三处申报——①update_ledger 统计节不自动滚动（人工维护，TODO(manual) 注明）；②load_scenario 无 PyYAML 回退解析仅支持平铺+单层嵌套+简单列表（复杂结构提示装 PyYAML；yaml 的 1e6 科学计数在 PyYAML 中本身是 str——探针遇 fallback 路径证实）；③audit 死锚核验含裸 snake_case token（len≥4 含 _，台账文件自身排除防自引用） — 子代理申报+探针实证 — 无 — batches Ruling㉙ (10-12)
+- Ruling: B17 双审收口——对抗 高1中4低2（修7申报2+三轴低1）——①**状态列结构守卫**（真清单 4 列无状态列：locate 表头检测三形态自适应，update 以 append 列方案动态加「完成状态」列——描述列零破坏、表头/分隔行/条目行三行合法扩展、同表后续原位补槽）；②\| 转义管道 Markdown 感知切列；③newline='' 保行尾；④数值 str 双路径统一（validate 宽数+normalize 化达）；⑤audit done 口径同源 has_done_mark（wired 纳入锚点核验）；⑥anchor 120 上限；⑨⑩⑪低三申报（幂等拒/overwrite 无痕/弱存在性）；history ⑨→㉙ 字符修正 — 对抗审查（高#1 为台账机制关键设计缺陷：真清单形态与函数假设不符，冒烟测试曾掩盖） — 24 回归 — batches Ruling㉚ (10-12)
 

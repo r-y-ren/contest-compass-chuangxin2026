@@ -1,5 +1,8 @@
-"""台账自检：✅锚点存在（dead_anchor）/进行中冲突与✅泄漏（false_negative）/注释率附差距
+"""台账自检：完成锚点存在（dead_anchor）/进行中冲突与✅泄漏（false_negative）/注释率附差距
 ——重写规约与签名意图详见 fn_docs/responsibility.md。
+
+done 同源口径（B17 中#5）：完成判定复用 locate_ledger_row 的 has_done_mark
+（✅ 或 wired 字样）——wired 行同样纳入 done 计数与锚点核验，不再漏统。
 
 统计节一致性：update_ledger 申报简化为不滚动统计节（人工维护），故本自检
 不核对「- 共 .* 函数/条」行与实际条数——TODO(manual)：结题轮人工核对。
@@ -87,27 +90,45 @@ def _anchor_names(anchor_text: str) -> list[str]:
     return [t for t in _BARE_TOKEN_RE.findall(anchor_text) if len(t) >= 4 and "_" in t]
 
 
+# wired-only 完成标记（大小写不敏感）——done 判定与 locate_ledger_row 同口径后，
+# 状态列可只带 wired 不带 ✅，锚点正文取 wired 之后文本。
+_WIRED_RE = re.compile(r"wired", re.IGNORECASE)
+
+
+def _anchor_text_of(status: str) -> str:
+    """状态列文本剥去完成标记（✅ 优先，wired-only 次之）取锚点正文。"""
+    if "✅" in status:
+        rest = status.split("✅", 1)[1]
+    else:
+        parts = _WIRED_RE.split(status, maxsplit=1)
+        rest = parts[1] if len(parts) == 2 else status
+    return rest.strip().lstrip("：:，, ").strip()
+
+
 def audit_ledger(ledger_path: str, code_root: str) -> dict:
     """台账自检：✅ 锚点存在 / 未完成条目不应带 ✅ / 注释率附 target 差距。
 
     流程：①扫清单 A–L 全条目行（含 ▶ 变体）并逐条复用 locate_ledger_row 定位
-    （状态列与标记判定同口径；多处命中→'ambiguous'）；②✅ 条目收集锚点
-    （状态列 ✅ 后文本）→提取函数名（fn(name) 优先，其次裸 snake_case token）
-    →在 code_root 下核验（文件名或内容命中）——不存在→'dead_anchor'；
-    ③未完成条目的完成标注异常→'false_negative'（不应有——locate 已判口径）：
-    进行中标注（▶）与 ✅/wired 并存、或 ✅ 泄漏到状态列之外；④count_comment_ratio
-    附于 'comment_ratio' 键（含 target 0.20 与差距 gap）。
+    （状态列与标记判定同口径；多处命中→'ambiguous'）；②完成条目（done 判定
+    ＝locate 的 has_done_mark：✅ 或 wired——B17 中#5 同源口径）收集锚点
+    （状态列剥去 ✅/wired 标记后的文本）→提取函数名（fn(name) 优先，其次裸
+    snake_case token）→在 code_root 下核验（文件名或内容命中）——不存在→
+    'dead_anchor'；③未完成条目的完成标注异常→'false_negative'（不应有——
+    locate 已判口径）：进行中标注（▶）与 ✅/wired 并存、或 ✅ 泄漏到状态列
+    之外；④count_comment_ratio 附于 'comment_ratio' 键（含 target 0.20 与
+    差距 gap）。
 
     Args:
         ledger_path: 台账 md 路径（如 docs/全功能实现清单-技术支持版.md）。
         code_root: 源码树根目录（锚点核验+注释率统计共用）。
 
     Returns:
-        {'total_entries': 唯一条目数, 'done_entries': ✅ 条目数,
-         'issues': [{'entry_id', 'kind', 'detail'}, ...]（kind ∈ dead_anchor/
-         false_negative/ambiguous）, 'comment_ratio': count_comment_ratio 报告
-         + {'target': 0.20, 'gap': target-ratio（ratio None→None）,
-         'meets_target': ratio≥target}, 'clean': issues 为空}
+        {'total_entries': 唯一条目数, 'done_entries': 完成条目数（✅ 或 wired
+         ——与 locate/update 同源口径）, 'issues': [{'entry_id', 'kind',
+         'detail'}, ...]（kind ∈ dead_anchor/false_negative/ambiguous）,
+         'comment_ratio': count_comment_ratio 报告 + {'target': 0.20,
+         'gap': target-ratio（ratio None→None）, 'meets_target': ratio≥target},
+         'clean': issues 为空}
 
     Raises:
         LedgerError: 台账文件不存在或不可读。
@@ -140,15 +161,15 @@ def audit_ledger(ledger_path: str, code_root: str) -> dict:
             continue
 
         status = info["status_text"]
-        done = "✅" in status
+        done = info["has_done_mark"]  # ✅ 或 wired——与 locate/update 同源（中#5）
 
         # ---- ③ false_negative：未完成条目不应带完成标注 ----
-        if info["in_progress"] and (done or "wired" in status.lower()):
+        if info["in_progress"] and done:
             issues.append(
                 {
                     "entry_id": entry_id,
                     "kind": "false_negative",
-                    "detail": f"进行中标注（▶）与完成标记并存（不应有）: 状态列 {status!r}",
+                    "detail": f"进行中标注（▶）与完成标记（✅/wired）并存（不应有）: 状态列 {status!r}",
                 }
             )
         if not done and "✅" in info["line"]:
@@ -165,9 +186,9 @@ def audit_ledger(ledger_path: str, code_root: str) -> dict:
         if not done:
             continue
 
-        # ---- ② ✅ 条目：锚点收集与核验 ----
+        # ---- ② 完成条目（✅/wired）：锚点收集与核验 ----
         done_entries += 1
-        anchor_text = status.split("✅", 1)[1].strip()
+        anchor_text = _anchor_text_of(status)
         names = _anchor_names(anchor_text)
         if not names:
             issues.append(
