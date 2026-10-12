@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B10 | enforce_bandwidth_limit, capture_monitor_spectrum, estimate_snr, check_flatness, compute_spectrum_stats | 限带/分段绿（monitor_capture）；SNR/平坦度（spectrum_stats） | 监测族 |
-| B11 | parse_esp32_frame, drive_esp32_link, parse_nrf24_frame, drive_nrf24_link, apply_cliff_model, simulate_link_degradation, compute_per, normalize_kpi | dut 四树 wired（dut_esp32/dut_nrf24/dut_sim/kpi_model） | 被测链路族 |
+| ▶ B11 | parse_esp32_frame, drive_esp32_link, parse_nrf24_frame, drive_nrf24_link, apply_cliff_model, simulate_link_degradation, compute_per, normalize_kpi | dut 四树 wired（dut_esp32/dut_nrf24/dut_sim/kpi_model） | 被测链路族 |
 | B12 | compute_alignment_error, record_run_streams, run_baseline_check, annotate_truth_labels, write_sigmf_recording | 对齐绿（align_streams）；放行/中止（baseline_guard）；SigMF 往返（sigmf_record） | 采集对齐族 |
 | B13 | check_failure, record_failure_level, execute_gb42590_protocol, compare_failure_boundaries, build_curve_frames, plot_triple_curves | 失效电平预期档±1（gb42590_executor）；定位（boundary_compare）；三图 PNG（triple_curves） | 测评族 |
 | B14 | dispatch_remote_training, train_classifier, make_group_splits, grouped_cv_evaluate, predict_style | sanity 收敛+拒训（train_classifier）；无泄漏（grouped_cv）；识别（infer_service） | AI 族 |
