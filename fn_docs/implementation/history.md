@@ -21,3 +21,4 @@
 | 10-11 | B8 | append_event, lookup_style_recipe, plan_attenuator_combo（波1）, synthesize_style, switch_style, set_channel_attenuation（波2） | 1314 全库绿；三顶层探针（装配谱峰/切换 6ms/衰减下发+事件）；Ruling⑫ |
 | 10-11 | B8+ | 双审：三轴过门（2 观察）+对抗 高1中2低3 → 6 项修复+26 回归；Ruling⑬ | 1340 全库绿 |
 | 10-12 | B9 | plan_ladder_steps, compute_pathloss（波1）, run_power_ladder, map_distance_to_loss（波2） | 1494 全库绿；两顶层探针（失效即停/距离→损耗→组合）；Ruling⑭ |
+| 10-12 | B9+ | 双审：三轴过门（1 观察留 B13 JSR 接线）+对抗 中3低2 → 5 项修复+11 回归；Ruling⑮ | 1505 全库绿 |

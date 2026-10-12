@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -50,10 +50,13 @@ def test_channel_ladder_35db_dispatches_set_attenuation_and_logs_event(tmp_path)
 
 
 def test_channel_ladder_set_tx_gain_fallback_receives_negated_fine_step(tmp_path):
-    """② 仅 set_tx_gain 形态：细档 5 以软件增益 -5.0 下发（粗档手调两态经事件记录）。"""
-    backend = Mock(spec=["set_tx_gain"])
+    """② 仅 set_tx_gain 形态（增益可读且足量）：先读增益再以软件增益 -5.0 下发细档 5。"""
+    backend = Mock(spec=["set_tx_gain", "get_tx_gain"])
+    backend.get_tx_gain.return_value = 80.0
     result = set_channel_attenuation({"backend": backend, "run_dir": str(tmp_path)}, 35.0)
     backend.set_tx_gain.assert_called_once_with(-5.0)
+    # 先读当前增益（B9中#3 增益地板判定依据）再下发
+    assert backend.method_calls == [call.get_tx_gain(), call.set_tx_gain(-5.0)]
     assert result["applied"] is True and result["applied_via"] == "set_tx_gain"
     (event,) = _read_events(tmp_path)
     assert event["applied"] is True and event["fine_step_db"] == 5.0
@@ -89,7 +92,8 @@ def test_channel_ladder_run_dir_none_pure_computation_skips_event(monkeypatch, t
         raise AssertionError("纯计算模式不应调用 append_event")
 
     monkeypatch.setattr(sa_module, "append_event", _fail)
-    backend = Mock(spec=["set_tx_gain"])
+    backend = Mock(spec=["set_tx_gain", "get_tx_gain"])
+    backend.get_tx_gain.return_value = 100.0  # 增益足量：细档 20 全额生效
     result = set_channel_attenuation({"backend": backend}, 20.0)
     assert result["applied"] is True and result["achieved_db"] == 20.0
     assert not (tmp_path / "events.jsonl").exists()  # 任何位置均未落盘
@@ -190,8 +194,10 @@ def test_channel_ladder_two_targets_event_order_and_monotonic_ts(tmp_path):
 
 def test_channel_ladder_return_keyset_per_path(tmp_path):
     """⑪ 返回结构键集：成功=combo+applied+applied_via；未下发=combo+applied+reason。"""
+    backend = Mock(spec=["set_tx_gain", "get_tx_gain"])
+    backend.get_tx_gain.return_value = 50.0
     ok = set_channel_attenuation(
-        {"backend": Mock(spec=["set_tx_gain"]), "run_dir": str(tmp_path)}, 0.0
+        {"backend": backend, "run_dir": str(tmp_path)}, 0.0
     )
     assert set(ok) == _COMBO_KEYS | {"applied", "applied_via"}
     assert ok["coarse"] == "bypass" and ok["fine_step_db"] == 0.0 and ok["achieved_db"] == 0.0
@@ -212,3 +218,67 @@ def test_channel_ladder_non_dict_ctx_rejected():
     """⑫b ctx 形状错（非 dict）→ValueError（与 domain/cal_table 形状错同族）。"""
     with pytest.raises(ValueError, match="ctx"):
         set_channel_attenuation([("backend", None)], 35.0)  # type: ignore[arg-type]
+
+
+# ---- B9中#3 鸭子下发保真：set_tx_gain 回退路径的增益地板/增益不可读如实标注 ----
+
+
+class _SimGainBackend:
+    """SDR 软件增益后端仿真：set_tx_gain 负向调整夹 0，get_tx_gain 可读当前增益。"""
+
+    def __init__(self, initial_gain_db: float = 80.0) -> None:
+        self.gain_db = float(initial_gain_db)
+        self.gain_calls: list[float] = []
+
+    def get_tx_gain(self) -> float:
+        return self.gain_db
+
+    def set_tx_gain(self, delta_db: float) -> None:
+        self.gain_calls.append(float(delta_db))
+        self.gain_db = max(0.0, self.gain_db + float(delta_db))
+
+
+def test_channel_ladder_tx_gain_gain_80_three_levels_truthful(tmp_path):
+    """B9中#3 增益地板：增益 80 首档 15 全额（80→65 applied True）；目标 85（细档 85
+    ≥ 当前增益 80）→ 减到 0，applied 'partial'+gain_floor，实达/事件/返回不再虚报。"""
+    domain = {"coarse_db": 30.0, "fine_steps_db": [0.0, 15.0, 85.0]}
+    sim = _SimGainBackend(80.0)
+    # 首档 15：目标 15 → 旁路粗档+细档 15 < 当前增益 80 → 全额下发，增益 80−15=65
+    first = set_channel_attenuation({"backend": sim, "run_dir": str(tmp_path)}, 15.0)
+    assert sim.gain_db == 65.0 and sim.gain_calls == [-15.0]
+    assert first["applied"] is True and first["applied_via"] == "set_tx_gain"
+    assert first["fine_step_db"] == 15.0 and first["achieved_db"] == 15.0
+    assert "applied_detail" not in first
+    # 目标 85（增益 80 的后端、细档 85）：85 ≥ 80 → 增益减到 0，实际细档衰减=80
+    floored = set_channel_attenuation(
+        {"backend": _SimGainBackend(80.0), "run_dir": str(tmp_path)}, 85.0, domain=domain
+    )
+    assert floored["coarse"] == "bypass" and floored["fine_step_db"] == 85.0  # 请求档如实保留
+    assert floored["fine_actual_db"] == 80.0  # 实际细档衰减被夹至当前增益（减到 0）
+    assert floored["achieved_db"] == 80.0 and floored["residual_db"] == pytest.approx(5.0)
+    assert floored["applied"] == "partial"
+    assert floored["applied_via"] == "set_tx_gain" and floored["applied_detail"] == "gain_floor"
+    assert set(floored) == _COMBO_KEYS | {"applied", "applied_via", "applied_detail"}
+    # 地板按**当前**增益判定：同一 sim（已减到 65）再下 85 → 实际细档衰减=65
+    sequential = set_channel_attenuation({"backend": sim}, 85.0, domain=domain)
+    assert sim.gain_db == 0.0 and sim.gain_calls == [-15.0, -85.0]
+    assert sequential["fine_actual_db"] == 65.0 and sequential["achieved_db"] == 65.0
+    assert sequential["applied"] == "partial" and sequential["applied_detail"] == "gain_floor"
+    # 事件真值：applied/achieved 按实际，不再虚报 True/85
+    event1, event2 = _read_events(tmp_path)
+    assert event1["applied"] is True and event1["achieved_db"] == 15.0
+    assert event2["applied"] == "partial" and event2["applied_detail"] == "gain_floor"
+    assert event2["achieved_db"] == 80.0 and event2["target_db"] == 85.0
+
+
+def test_channel_ladder_tx_gain_without_get_tx_gain_marks_unknown_gain(tmp_path):
+    """B9中#3 无 get_tx_gain：增益地板是否夹 0 无法判定——applied 'unknown_gain'（如实
+    标不确定），下发照做、事件同标。"""
+    backend = Mock(spec=["set_tx_gain"])
+    result = set_channel_attenuation({"backend": backend, "run_dir": str(tmp_path)}, 35.0)
+    backend.set_tx_gain.assert_called_once_with(-5.0)  # 细档 5 照常下发
+    assert result["applied"] == "unknown_gain" and result["applied_via"] == "set_tx_gain"
+    assert "applied_detail" not in result and "reason" not in result
+    assert set(result) == _COMBO_KEYS | {"applied", "applied_via"}
+    (event,) = _read_events(tmp_path)
+    assert event["applied"] == "unknown_gain" and "applied_detail" not in event

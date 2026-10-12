@@ -135,6 +135,32 @@ def test_pathloss_map_unreachable_count_consistent_with_points():
     assert result["unreachable_count"] == sum(1 for f in flags if not f) == 3
 
 
+# ---- B9中#2 负损耗容错：loss_db < 0 → reachable False + 专属 hint，不抛 ----
+
+
+def test_pathloss_map_negative_loss_unreachable_with_hint_not_thrown():
+    """B9中#2 σ=40 base_seed=0 复现：i=3 抽样 −39.4522 → 损耗 −29.4522 < 0——负衰减无
+    档位可表达，reachable False + 「损耗为负（X_σ 过大）」hint；不抛、整计划返回。"""
+    # 逐点 seed=0,1,2,3 → X_σ 抽样 −7.3547/24.2982/87.1958/−39.4522（d=1 确定部分 10dB）
+    result = map_distance_to_loss([1.0, 1.0, 1.0, 1.0], _model(x_sigma=40.0, base_seed=0))
+    assert len(result["points"]) == 4  # 负损耗点不抛出，整计划继续返回
+    losses = [point["loss_db"] for point in result["points"]]
+    assert losses[3] == pytest.approx(10.0 - 39.4522, abs=1e-3)  # 复现点确为负损耗
+    negative = result["points"][3]
+    assert negative["reachable"] is False and negative["combo"] is None
+    assert "损耗为负（X_σ 过大）" in negative["hint"]
+    assert "负衰减无档位可表达" in negative["hint"]
+    assert result["unreachable_count"] == 2  # i=2（损耗 97.20 超域顶 50）与 i=3（负损耗）
+    # i=2 仍按超域口径提示（两类不可达成因各自如实），i=0/1 可达不受影响
+    over_ceiling = result["points"][2]
+    assert over_ceiling["reachable"] is False and "50.000" in over_ceiling["hint"]
+    assert "超出衰减器可达域上限" in over_ceiling["hint"]
+    assert all(point["reachable"] is True for point in result["points"][:2])
+    # 同参数两次调用一致（seed 序列口径下负损耗点亦复现）
+    again = map_distance_to_loss([1.0, 1.0, 1.0, 1.0], _model(x_sigma=40.0, base_seed=0))
+    assert again == result
+
+
 # ---- 入参拒绝：distances 空 / 含非法；base_seed 非法 ----
 
 

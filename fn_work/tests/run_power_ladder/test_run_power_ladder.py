@@ -326,3 +326,117 @@ def test_power_ladder_non_callable_failure_cb_rejected_upfront(tmp_path):
         )
     backend.set_attenuation.assert_not_called()
     backend.stop_tx.assert_not_called()
+
+
+# ---- B9 修复回归：每轮停发射保真 / 增益地板透传 / 判据警告留痕 / reason 细分 ----
+
+
+def test_power_ladder_two_rounds_same_backend_each_round_stops(tmp_path):
+    """B9中#1 每轮停发射保真：无外部 token 每轮自生成 uuid4().hex 写入 ctx——同 backend
+    连续两轮第二轮仍实停（status stopped 且 stop_tx 被调），非 already_stopped。"""
+    backend = Mock(spec=["set_attenuation", "stop_tx"])
+    results = []
+    tokens = []
+    for index in (1, 2):
+        round_dir = tmp_path / f"round{index}"
+        round_dir.mkdir()
+        ctx = _ctx(round_dir, backend)
+        results.append(run_power_ladder(ctx, {"start_db": -10.0, "stop_db": -10.0}, dwell_s=0.0))
+        tokens.append(ctx["run_token"])
+    first, second = results
+    assert first["stop_result"]["status"] == "stopped"
+    assert second["stop_result"]["status"] == "stopped"  # 独立 token → 每轮实停
+    assert backend.stop_tx.call_count == 2
+    # 自生成 token 已写入 ctx：hex 串互异（uuid4），两轮 token 不同
+    assert all(isinstance(token, str) and len(token) == 32 for token in tokens)
+    assert tokens[0] != tokens[1]
+    # 外部已提供 token 时不覆盖（调用方口径优先）
+    third_dir = tmp_path / "round3"
+    third_dir.mkdir()
+    ctx3 = _ctx(third_dir, backend, run_token="caller-token")
+    run_power_ladder(ctx3, {"start_db": -10.0, "stop_db": -10.0}, dwell_s=0.0)
+    assert ctx3["run_token"] == "caller-token"
+
+
+def test_power_ladder_executed_passes_through_gain_floor_status(tmp_path):
+    """B9中#3 executed 透传：set_tx_gain 后端增益地板档 applied 'partial'/
+    applied_detail 'gain_floor' 如实进入 executed 与 power_step 事件。"""
+    class _SimGainBackend:
+        """软件增益后端：set_tx_gain 负向调整夹 0，get_tx_gain 可读。"""
+
+        def __init__(self, initial_gain_db: float) -> None:
+            self.gain_db = float(initial_gain_db)
+
+        def get_tx_gain(self) -> float:
+            return self.gain_db
+
+        def set_tx_gain(self, delta_db: float) -> None:
+            self.gain_db = max(0.0, self.gain_db + float(delta_db))
+
+    sim = _SimGainBackend(12.0)  # 增益 12 < 首档衰减 20 → 首档即触地板减到 0
+    result = run_power_ladder(
+        _ctx(tmp_path, sim), {"start_db": -20.0, "step_db": 5.0, "stop_db": -5.0}, dwell_s=0.0
+    )
+    first = result["executed"][0]
+    assert first["target_db"] == -20.0  # 衰减 20 → 旁路粗档+细档 20 ≥ 增益 12
+    assert first["applied"] == "partial" and first["applied_detail"] == "gain_floor"
+    assert first["fine_actual_db"] == 12.0 and first["achieved_db"] == 12.0
+    power_first = _power_steps(_read_events(tmp_path))[0]
+    assert power_first["applied"] == "partial" and power_first["applied_detail"] == "gain_floor"
+    assert power_first["achieved_db"] == 12.0  # 事件真值随实达
+    assert result["stop_result"]["status"] == "stopped"  # set_tx_gain(0) 收尾成功
+
+
+@pytest.mark.parametrize("garbage", ["garbage", {"detail": "缺 failed"}, None, True])
+def test_power_ladder_failure_cb_garbage_warning_in_stop_event(tmp_path, garbage):
+    """B9低#4 判据警告留痕：failure_cb 返回 garbage → 档记录 warning 之外，ladder_stop
+    事件亦附 'judge_warning' 字段（终止语义处可追溯判据口径异常）。"""
+    backend = Mock(spec=["set_attenuation", "stop_tx"])
+    result = run_power_ladder(
+        _ctx(tmp_path, backend),
+        {"start_db": -10.0, "stop_db": -10.0},
+        failure_cb=lambda info: garbage,
+        dwell_s=0.0,
+    )
+    assert result["reason"] == "complete"
+    assert "warning" in result["executed"][0]  # executed 记录留痕（既有口径）
+    stop_event = _read_events(tmp_path)[-1]
+    assert stop_event["type"] == "ladder_stop" and "judge_warning" in stop_event
+    assert "视为未失效" in stop_event["judge_warning"]
+
+
+def test_power_ladder_no_warning_no_judge_warning_field(tmp_path):
+    """B9低#4b 无判据警告：正常走完（判据全 False 或 None）ladder_stop 不附 judge_warning。"""
+    backend = Mock(spec=["set_attenuation", "stop_tx"])
+    run_power_ladder(
+        _ctx(tmp_path, backend),
+        {"start_db": -10.0, "stop_db": -10.0},
+        failure_cb=lambda info: {"failed": False},
+        dwell_s=0.0,
+    )
+    stop_event = _read_events(tmp_path)[-1]
+    assert stop_event["type"] == "ladder_stop" and "judge_warning" not in stop_event
+
+
+def test_power_ladder_max_steps_exhausted_reason_max_steps_not_complete(tmp_path):
+    """B9低#5 reason 细分：max_steps 用尽未触红线（truncated_at None 且步数==max_steps）
+    → reason 'max_steps'，区别于 stop_db 命中提前收尾的 'complete'。"""
+    backend = Mock(spec=["set_attenuation"])
+    result = run_power_ladder(
+        _ctx(tmp_path, backend),
+        {"start_db": -15.0, "step_db": 5.0, "stop_db": -5.0, "max_steps": 2},
+        dwell_s=0.0,
+    )
+    assert result["reason"] == "max_steps"
+    assert result["plan"]["truncated_at"] is None and result["plan"]["redline_hit"] is False
+    assert [rec["target_db"] for rec in result["executed"]] == [-15.0, -10.0]  # 用尽 2 档
+    # max_steps 放宽 → stop_db 命中提前收尾，仍为 complete
+    full = run_power_ladder(
+        _ctx(tmp_path, backend),
+        {"start_db": -15.0, "step_db": 5.0, "stop_db": -5.0, "max_steps": 10},
+        dwell_s=0.0,
+    )
+    assert full["reason"] == "complete" and len(full["executed"]) == 3
+    # ladder_stop 事件同步细分口径
+    stops = [event for event in _read_events(tmp_path) if event["type"] == "ladder_stop"]
+    assert [event["reason"] for event in stops] == ["max_steps", "complete"]

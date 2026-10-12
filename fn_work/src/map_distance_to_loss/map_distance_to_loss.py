@@ -50,8 +50,10 @@ def map_distance_to_loss(distances, model_params: dict) -> dict:
        ``seed=None``，系统熵播种、可运行但不可复现）——同一 (distances, base_seed)
        两次调用逐点一致。
     2. 损耗即目标衰减：每点 ``plan_attenuator_combo(loss_db, domain, cal_table)`` 择档
-       （set_channel_attenuation 的计划语义，本函数不下发）。不可达点（combo 为 None）
-       → 该点 ``'reachable': False`` 并附可达域提示（``hint``）；**不抛出**，整计划继续。
+       （set_channel_attenuation 的计划语义，本函数不下发）。不可达点（combo 为 None，
+       含 ``loss_db < 0`` 的负损耗——X_σ 抽样把损耗拉到 0 以下，负衰减无档位可表达）
+       → 该点 ``'reachable': False`` 并附提示（``hint``：超域点注明可达域上限、负损耗
+       点注明「损耗为负（X_σ 过大）」）；**不抛出**，整计划继续（B9中#2）。
     3. ``x_sigma_db = loss_db − 确定部分``（阴影抽样值；``x_sigma`` None/0 时恰为 0.0）。
        单调演变断言不强制——X_σ 抽样可打破损耗随距离单调，如实输出（不排序不整形）。
 
@@ -93,22 +95,32 @@ def map_distance_to_loss(distances, model_params: dict) -> dict:
         seed_i = None if base_seed is None else base_seed + i  # seed 序列口径
         loss_db = compute_pathloss(d, d0_m, l0_db, n, x_sigma, seed_i)
         deterministic = compute_pathloss(d, d0_m, l0_db, n, None)  # 确定部分（无阴影项）
-        combo = plan_attenuator_combo(loss_db, domain, cal_table)
-        reachable = combo is not None
-        point = {
+        point: dict = {
             "d_m": d,
             "loss_db": loss_db,
             "x_sigma_db": loss_db - deterministic,
-            "combo": combo,
-            "reachable": reachable,
+            "combo": None,
+            "reachable": False,
         }
-        if not reachable:
-            unreachable_count += 1
-            ceiling = _reachable_ceiling_db(domain, cal_table)
+        if loss_db < 0.0:
+            # 负损耗容错（B9中#2）：X_σ 抽样把损耗拉到 0 以下——负衰减无档位可表达，
+            # 该点不可达（不抛），整计划继续
             point["hint"] = (
-                f"目标衰减 loss_db={loss_db:.3f} dB 超出衰减器可达域上限 {ceiling:.3f} dB"
-                "（粗档 + 细档实际最大）；可减小距离、降低模型损耗或扩展 domain/fine_steps_db"
+                f"损耗为负（X_σ 过大）：loss_db={loss_db:.3f} dB < 0，负衰减无档位可表达；"
+                "可降低 x_sigma、提高 l0_db 或缩短距离"
             )
+        else:
+            combo = plan_attenuator_combo(loss_db, domain, cal_table)
+            point["combo"] = combo
+            point["reachable"] = combo is not None
+            if combo is None:
+                ceiling = _reachable_ceiling_db(domain, cal_table)
+                point["hint"] = (
+                    f"目标衰减 loss_db={loss_db:.3f} dB 超出衰减器可达域上限 {ceiling:.3f} dB"
+                    "（粗档 + 细档实际最大）；可减小距离、降低模型损耗或扩展 domain/fine_steps_db"
+                )
+        if not point["reachable"]:
+            unreachable_count += 1
         points.append(point)
 
     return {
