@@ -766,7 +766,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] create_console_app · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/serve_console/test_create_console_app.py | tail -1 → 25 passed, 1 warning in 0.22s (10-12)
 - [x] create_console_app · wired — 证据: bash -c grep -rn 'create_console_app(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/serve_console/serve_console.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] create_console_app · 清单进位 — 证据: bash -c grep -q '| create_console_app | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] create_console_app · commit — 预告: fn(create_console_app): wired 含四文档变更
+- [x] create_console_app · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(create_console_app)' && echo commit在案 → commit在案 (10-12)
 ### serve_console
 - [ ] serve_console · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] serve_console · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -774,10 +774,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] serve_console · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] serve_console · commit — 预告: fn(serve_console): wired 含四文档变更
 ### build_scenario_cards
-- [ ] build_scenario_cards · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] build_scenario_cards · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] build_scenario_cards · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] build_scenario_cards · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] build_scenario_cards · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:build_scenario_cards' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] build_scenario_cards · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/render_console_pages/test_build_scenario_cards.py | tail -1 → 12 passed in 0.04s (10-12)
+- [x] build_scenario_cards · wired — 证据: bash -c grep -rn 'build_scenario_cards(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/render_console_pages/render_console_pages.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] build_scenario_cards · 清单进位 — 证据: bash -c grep -q '| build_scenario_cards | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] build_scenario_cards · commit — 预告: fn(build_scenario_cards): wired 含四文档变更
 ### render_console_pages
 - [ ] render_console_pages · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
