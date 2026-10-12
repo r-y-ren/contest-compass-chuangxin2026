@@ -1,4 +1,4 @@
-"""write_sigmf_recording 对抗测试：cf32 精确字节/往返、空录制、磁盘预检先于任何写、写失败与截断/超长 StorageError、非法样本计数入 meta、ctx/块形状拒、大块性能冒烟、data/meta 成对。"""
+"""write_sigmf_recording 对抗测试：cf32 精确字节/往返、空录制、磁盘预检先于任何写、写失败与截断/超长 StorageError、非法样本计数入 meta、ctx/块形状拒、大块性能冒烟、data/meta 成对、中途畸形块孤儿清理、64 块磁盘复查、标注域夹取。"""
 from __future__ import annotations
 
 import json
@@ -243,3 +243,60 @@ def test_sigmf_record_ndarray_complex_blocks_fast_path_roundtrip(tmp_path):
     decoded = _read_data(result)
     expected = np.array([1 + 2j, 3 - 4j, -1.5 + 0.5j], dtype="<c8")
     assert np.array_equal(decoded, expected)
+
+
+def test_sigmf_record_malformed_block_midstream_orphan_cleanup(tmp_path):
+    """⑭ 中途畸形块（缺 samples 键）→ValueError 后孤儿清理：recordings/ 无残留 data。"""
+    blocks = [{"samples": [1j, 2j]}, {"ts": 1.0}, {"samples": [3j]}]
+    with pytest.raises(ValueError, match=r"iq_stream\[1\].*samples"):
+        write_sigmf_recording(blocks, _ctx(tmp_path))
+    # 已写的半截 .sigmf-data 被清理、删空后的 recordings/ 一并移除——零残留。
+    assert not (tmp_path / "recordings").exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_sigmf_record_midstream_disk_recheck_storage_error_and_cleanup(
+    tmp_path, monkeypatch
+):
+    """⑮ 写满 64 块复查磁盘：disk_usage 第二次起返回 10MB<50MB→StorageError 且清理半截。"""
+    calls = {"n": 0}
+    big_free = SimpleNamespace(total=10**9, used=0, free=500 * 1024 * 1024)
+    tiny_free = SimpleNamespace(total=10**9, used=0, free=10 * 1024 * 1024)
+
+    def fake_disk_usage(path):
+        calls["n"] += 1
+        return big_free if calls["n"] == 1 else tiny_free
+
+    monkeypatch.setattr(shutil, "disk_usage", fake_disk_usage)
+    blocks = [{"samples": [1j]} for _ in range(65)]  # >64 块触发第一次复查
+    with pytest.raises(StorageError) as excinfo:
+        write_sigmf_recording(blocks, _ctx(tmp_path))
+    assert "50MB" in str(excinfo.value)  # 复查阈（非 200MB 预检阈）随异常回报
+    assert calls["n"] == 2  # 预检 1 次 + 第 64 块后复查 1 次
+    assert not (tmp_path / "recordings").exists()  # 抛前先清半截 data+空目录
+
+
+def test_sigmf_record_overlong_annotations_clamped_to_num_samples(tmp_path):
+    """⑯ 标注窗超实录样本数→start/count 夹进录制域并附 clamped 标记；域内标注不动。"""
+    facts = {
+        **_FACTS,
+        "sample_rate": 1000.0,  # 1 样本/ms：窗 0..1000ms → 每档标注 count=1000
+        "power_steps": [
+            {"step": 0, "target_db": -10.0, "ts": 0.0},  # 0..1000 全在域内
+            {"step": 1, "target_db": 0.0, "ts": 150.0},  # 150..1150 → count 夹 850
+            {"step": 2, "target_db": 5.0, "ts": 1200.0},  # start 1200 → 夹 1000+count 0
+        ],
+    }
+    blocks = [{"samples": [1j] * 500}, {"samples": [1j] * 500}]  # 实录 1000 样本
+    result = write_sigmf_recording(blocks, {"run_dir": str(tmp_path), "facts": facts})
+    assert result["num_samples"] == 1000
+    ann0, ann1, ann2 = _read_meta(result)["annotations"]
+    assert ann0["core:sample_start"] == 0
+    assert ann0["core:sample_count"] == 1000
+    assert "jam:annotation_clamped" not in ann0  # 域内标注不加键
+    assert ann1["core:sample_start"] == 150
+    assert ann1["core:sample_count"] == 850  # 150+1000 超 1000 → 夹 1000-150
+    assert ann1["jam:annotation_clamped"] is True
+    assert ann2["core:sample_start"] == 1000  # 起点本身超域 → 夹 min(start, num)
+    assert ann2["core:sample_count"] == 0
+    assert ann2["jam:annotation_clamped"] is True

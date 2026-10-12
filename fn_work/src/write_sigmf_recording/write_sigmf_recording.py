@@ -203,9 +203,11 @@ def write_sigmf_recording(iq_stream, ctx: dict) -> dict:
     输出: {'data_path','meta_path','num_samples','bytes_written'}（路径为
     str，data/meta 同目录同 stem 成对）。
     错误: ctx 缺 run_dir/facts、块非 dict/缺 samples 键/samples 不可迭代、
-    facts 形状非法 → ValueError；磁盘剩余 < 200MB、写失败（OSError）、
-    datatype/完整性（num_samples×8 与实写及盘上大小任一不符，截断/超长
-    双向）→ StorageError（附路径与原因；停发射是调用方责任）。
+    facts 形状非法 → ValueError；磁盘剩余 < 200MB（预检）或录制途中每 64 块
+    复查 < 50MB、写失败（OSError）、datatype/完整性（num_samples×8 与实写及
+    盘上大小任一不符，截断/超长双向）→ StorageError（附路径与原因；停发射是
+    调用方责任）。异常返回统一清理半截 data/meta（不留孤儿录制对）；annotations
+    超实录域自动夹取并附 jam:annotation_clamped。
     """
     if not isinstance(ctx, dict):
         raise ValueError(f"ctx 必须为 dict，实际为 {type(ctx).__name__}")
@@ -244,13 +246,15 @@ def write_sigmf_recording(iq_stream, ctx: dict) -> dict:
     data_path = os.path.join(recordings_dir, stem + ".sigmf-data")
     meta_path = os.path.join(recordings_dir, stem + ".sigmf-meta")
 
-    # ② 流式写 .sigmf-data（cf32_le，逐块 flush）。
+    # ② 流式写 .sigmf-data（cf32_le，逐块 flush）；异常路径（④孤儿清理）统一
+    # 先 _cleanup_partial 删半截文件再重抛——正常返回的成对文件是产物非孤儿。
     num_samples = 0
     invalid_samples = 0
     bytes_written = 0
     try:
         os.makedirs(recordings_dir, exist_ok=True)
         with open(data_path, "wb") as data_file:
+            blocks_since_recheck = 0
             for index, block in enumerate(blocks):
                 if not isinstance(block, dict):
                     raise ValueError(
@@ -268,37 +272,56 @@ def write_sigmf_recording(iq_stream, ctx: dict) -> dict:
                 num_samples += n_samples
                 invalid_samples += n_invalid
                 bytes_written += written
+                # ⑤ 磁盘复查：每写满 64 块查一次剩余空间（长录制中途蒸发检测）。
+                blocks_since_recheck += 1
+                if blocks_since_recheck >= _RECHECK_INTERVAL_BLOCKS:
+                    _ensure_disk_free(
+                        recordings_dir, _MIN_FREE_BYTES_RECHECK, "50MB"
+                    )
+                    blocks_since_recheck = 0
+    except (ValueError, StorageError):
+        _cleanup_partial(data_path, meta_path, recordings_dir)
+        raise
     except OSError as exc:
+        _cleanup_partial(data_path, meta_path, recordings_dir)
         raise StorageError(f"SigMF 数据写失败 {data_path}: {exc}") from exc
 
-    # ④ 完整性校验：实写字节与盘上大小均须等于 num_samples×8（截断/超长双向）。
+    # ④ 完整性校验：实写字节与盘上大小均须等于 num_samples×8（截断/超长双向）；
+    # 任一不符先清理半截 data 再抛（失败返回不留孤儿录制对）。
     expected_bytes = num_samples * _BYTES_PER_SAMPLE
-    if bytes_written != expected_bytes:
-        raise StorageError(
-            f"SigMF 录制完整性不符 {data_path}：{num_samples} 样本应 "
-            f"{expected_bytes} 字节，实际写入 {bytes_written} 字节（截断/短写）"
-        )
     try:
+        if bytes_written != expected_bytes:
+            raise StorageError(
+                f"SigMF 录制完整性不符 {data_path}：{num_samples} 样本应 "
+                f"{expected_bytes} 字节，实际写入 {bytes_written} 字节（截断/短写）"
+            )
         on_disk_bytes = os.path.getsize(data_path)
+        if on_disk_bytes != expected_bytes:
+            direction = "截断" if on_disk_bytes < expected_bytes else "超长"
+            raise StorageError(
+                f"SigMF 录制完整性不符（{direction}）{data_path}：应 "
+                f"{expected_bytes} 字节，盘上 {on_disk_bytes} 字节"
+            )
+    except StorageError:
+        _cleanup_partial(data_path, meta_path, recordings_dir)
+        raise
     except OSError as exc:
+        _cleanup_partial(data_path, meta_path, recordings_dir)
         raise StorageError(
             f"SigMF 录制完整性核对失败（读取数据文件大小）{data_path}: {exc}"
         ) from exc
-    if on_disk_bytes != expected_bytes:
-        direction = "截断" if on_disk_bytes < expected_bytes else "超长"
-        raise StorageError(
-            f"SigMF 录制完整性不符（{direction}）{data_path}：应 "
-            f"{expected_bytes} 字节，盘上 {on_disk_bytes} 字节"
-        )
 
-    # ③ 收尾：更新 core:num_samples、标注非法样本计数，写 .sigmf-meta JSON。
+    # ③ 收尾：更新 core:num_samples、标注非法样本计数、⑥标注域夹取（超窗
+    # annotations 夹进实录样本域并附 jam:annotation_clamped），写 .sigmf-meta JSON。
     global_meta["core:num_samples"] = num_samples
     global_meta["jam:invalid_samples"] = invalid_samples
+    _clamp_annotations(meta, num_samples)
     try:
         with open(meta_path, "w", encoding="utf-8") as meta_file:
             json.dump(meta, meta_file, ensure_ascii=False, indent=2)
             meta_file.write("\n")
     except OSError as exc:
+        _cleanup_partial(data_path, meta_path, recordings_dir)
         raise StorageError(f"SigMF 元数据写失败 {meta_path}: {exc}") from exc
 
     return {
