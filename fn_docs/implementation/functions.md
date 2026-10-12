@@ -98,13 +98,13 @@
 | run_emc_radiation_sim | B16 | wired 10-12 | 8 passed；谱+补偿+洁净度 | f969249 |
 | plan_frequency_sweep | B16 | wired 10-12 | 27 passed；双刻度+CISPR 频段 | 897ec62 |
 | run_emc_sweep | B16 | wired 10-12 | 9 passed；点表编排+spurious 标记 | 002e308 |
-| locate_ledger_row | B17 | wired 10-12 | 19 passed；边界正则+状态列解析 | pending |
-| update_ledger | B17 | stub 10-11 | pytest -k ledger_update | — |
-| count_comment_ratio | B17 | stub 10-11 | 上游覆盖: audit_ledger | — |
-| audit_ledger | B17 | stub 10-11 | pytest -k ledger_audit | — |
-| validate_scenario_schema | B17 | stub 10-11 | 上游覆盖: load_scenario | — |
-| normalize_scenario | B17 | stub 10-11 | 上游覆盖: load_scenario | — |
-| load_scenario | B17 | stub 10-11 | pytest -k scenario_validate | — |
+| locate_ledger_row | B17 | wired 10-12 | 19 passed；边界正则+状态列解析 | 5963f4e |
+| update_ledger | B17 | wired 10-12 | 17 passed；原子写+覆盖守卫 | pending |
+| count_comment_ratio | B17 | wired 10-12 | 14 passed；tokenize 注释+docstring | pending |
+| audit_ledger | B17 | wired 10-12 | 12 passed；死锚核验+注释率 | pending |
+| validate_scenario_schema | B17 | wired 10-12 | 21 passed；七类白名单+域 | pending |
+| normalize_scenario | B17 | wired 10-12 | 9 passed；默认填充+归一+深拷贝 | pending |
+| load_scenario | B17 | wired 10-12 | 16 passed；校验→红线→规范化 | pending |
 | render_disclaimer_sections | B18 | stub 10-11 | 上游覆盖: build_report | — |
 | assemble_frequency_plots | B18 | stub 10-11 | 上游覆盖: build_report | — |
 | build_report | B18 | stub 10-11 | pytest -k report_builder | — |
