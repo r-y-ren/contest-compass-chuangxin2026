@@ -568,7 +568,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] dispatch_remote_training · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/train_classifier/test_dispatch_remote_training.py | tail -1 → 19 passed in 0.03s (10-12)
 - [x] dispatch_remote_training · wired — 证据: bash -c grep -rn 'dispatch_remote_training(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/train_classifier/train_classifier.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] dispatch_remote_training · 清单进位 — 证据: bash -c grep -q '| dispatch_remote_training | B14 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] dispatch_remote_training · commit — 预告: fn(dispatch_remote_training): wired 含四文档变更
+- [x] dispatch_remote_training · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(dispatch_remote_training)' && echo commit在案 → commit在案 (10-12)
 ### train_classifier
 - [ ] train_classifier · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] train_classifier · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -588,10 +588,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] grouped_cv_evaluate · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] grouped_cv_evaluate · commit — 预告: fn(grouped_cv_evaluate): wired 含四文档变更
 ### predict_style
-- [ ] predict_style · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] predict_style · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] predict_style · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] predict_style · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] predict_style · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:predict_style' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] predict_style · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k infer_service -q 2>&1 | tail -1 → 17 passed, 2101 deselected in 1.39s (10-12)
+- [x] predict_style · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b14.py | grep -q 'label=tone' && echo 顶层实跑通过（识别 tone conf 0.94） → 顶层实跑通过（识别 tone conf 0.94） (10-12)
+- [x] predict_style · 清单进位 — 证据: bash -c grep -q '| predict_style | B14 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] predict_style · commit — 预告: fn(predict_style): wired 含四文档变更
 
 ## B14 批间门
