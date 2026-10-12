@@ -79,8 +79,8 @@
 | check_failure | B13 | wired 10-12 | 18 passed；≥口径+样本不足保守 | 045c456 |
 | record_failure_level | B13 | wired 10-12 | 11 passed；电平回退+missing 如实 | 8802c25 |
 | execute_gb42590_protocol | B13 | stub 10-11 | pytest -k gb42590_executor | — |
-| compare_failure_boundaries | B13 | wired 10-12 | 12 passed；中位数聚合+平手规则 | pending |
-| build_curve_frames | B13 | stub 10-11 | 上游覆盖: plot_triple_curves | — |
+| compare_failure_boundaries | B13 | wired 10-12 | 12 passed；中位数聚合+平手规则 | c2b6a96 |
+| build_curve_frames | B13 | wired 10-12 | 24 passed；三帧纯计算+开窗 | pending |
 | plot_triple_curves | B13 | stub 10-11 | pytest -k triple_curves | — |
 | dispatch_remote_training | B14 | stub 10-11 | 上游覆盖: train_classifier | — |
 | train_classifier | B14 | stub 10-11 | pytest -k train_classifier | — |
