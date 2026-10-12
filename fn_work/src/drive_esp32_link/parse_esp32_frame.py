@@ -4,9 +4,13 @@
 
     ESP,<seq>,<sent>,<err>,<retries>,<rssi>[*<hex>]
 
-- 逗号分隔 6 字段：seq/sent/err/retries 为非负整数，rssi 为 dBm 浮点数或 'NA'（→ None）。
+- 逗号分隔 6 字段：seq/sent/err/retries 为非负整数（严格 ``[0-9]+``——拒正负号/
+  全角数字/混排/字段内空白，与 parse_nrf24_frame 同口径），rssi 为 dBm 浮点数或
+  'NA'（→ None）；rssi 数值须有限（NaN/inf/-inf/溢出拒收——与全库非有限拒口径一致）。
 - 可选校验和后缀 ``*<hex>``：存在时对帧体（ESP 起、``*`` 前）做简单 ``sum & 0xFF`` 校验，
   不符抛 FrameError；hex 大小写均可。
+- 数据字段禁含 ``'*'``（``'*'`` 是校验和后缀的边界符，字段内出现会造成校验和切分
+  歧义——本解析按最后一个 ``'*'`` 切分，含 ``'*'`` 的字段属非法帧）。
 - 多余空白容忍（仅限整行首尾，\\r\\n 结尾亦可）；多行输入拒绝。
 
 解析失败（字段非整数/负数/字段数不足/前缀非 ESP 等）统一抛本文件定义的
@@ -14,10 +18,14 @@
 """
 from __future__ import annotations
 
+import math
+import re
+
 _PREFIX = "ESP"
 _FIELD_COUNT = 6
 _SUM_MASK = 0xFF
 _SNIPPET_LIMIT = 40
+_DIGITS = re.compile(r"^[0-9]+$")  # 显式 [0-9]：拒 Unicode 数字/正负号/小数点/空白（与 NRF 同口径）
 
 
 class FrameError(ValueError):
@@ -35,14 +43,16 @@ class FrameError(ValueError):
 
 
 def _parse_int_field(text: str, name: str, raw: str) -> int:
-    """把字段解析为非负十进制整数，否则抛 FrameError。"""
-    try:
-        value = int(text, 10)
-    except ValueError:
-        raise FrameError(f"field {name!r} is not an integer: {text!r}", raw) from None
-    if value < 0:
-        raise FrameError(f"field {name!r} must be >= 0, got {value}", raw)
-    return value
+    """把字段按严格 [0-9]+ 解析为非负十进制整数，否则抛 FrameError。
+
+    显式字符类拒 int() 会放行的 ``+5``/全角数字/字段内空白等（与 parse_nrf24_frame
+    的 _DIGITS 同口径）。
+    """
+    if not _DIGITS.match(text):
+        raise FrameError(
+            f"field {name!r} must be a non-negative integer ([0-9]+), got {text!r}", raw
+        )
+    return int(text)
 
 
 def parse_esp32_frame(frame: bytes | str) -> dict:
@@ -57,8 +67,9 @@ def parse_esp32_frame(frame: bytes | str) -> dict:
         无校验和后缀时 ``checksum_ok`` 为 ``None``，``raw`` 为 strip 后原行。
 
     Raises:
-        FrameError: 多行/空输入、前缀非 ESP、字段数不为 6、整数字段非数字或为负、
-            rssi 非 'NA' 且非数字、校验和格式非法或不符。
+        FrameError: 多行/空输入、前缀非 ESP、字段数不为 6、整数字段非严格 ``[0-9]+``
+            （含正负号/全角/混排/字段内空白）、rssi 非 'NA' 且非数字或非有限
+            （NaN/inf/溢出）、校验和格式非法或不符。
     """
     if isinstance(frame, (bytes, bytearray)):
         try:
@@ -109,6 +120,11 @@ def parse_esp32_frame(frame: bytes | str) -> dict:
             raise FrameError(
                 f"field 'rssi' is not a number or 'NA': {rssi_text!r}", line
             ) from None
+        if not math.isfinite(rssi_dbm):
+            # NaN/inf/-inf（含 '1e999' 溢出）非有限值拒收——与全库口径一致
+            raise FrameError(
+                f"field 'rssi' must be a finite number, got {rssi_text!r}", line
+            )
 
     return {
         "seq": _parse_int_field(fields[1], "seq", line),

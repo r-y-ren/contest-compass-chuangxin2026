@@ -139,6 +139,81 @@ def test_kpi_model_judge_per_per_raw_only_note():
     assert row["meta"]["judge_basis"] == "per_raw"
 
 
+def test_kpi_model_per_raw_none_no_delta_esp32_judge_unavailable():
+    """中#2 判据口径透传：esp32 no_delta 窗（per_raw=None）→ per/judge_per 均 None、
+    judge_note='per_unavailable'（不得误标 'per_raw_only'）、per_note 透传 meta。"""
+    row = normalize_kpi(
+        {"per_raw": None, "per_note": "no_delta", "rssi_dbm": -60.0}, "esp32"
+    )
+    assert row["per"] is None
+    assert row["judge_per"] is None
+    assert row["meta"]["judge_note"] == "per_unavailable"
+    assert row["meta"]["judge_basis"] == "per_raw"
+    assert row["meta"]["per_note"] == "no_delta"
+
+
+def test_kpi_model_per_raw_none_no_delta_nrf24_judge_unavailable():
+    """中#2 补例（nrf24 侧 no_delta）：同口径——judge_per=None+'per_unavailable'。"""
+    row = normalize_kpi(
+        {"per_raw": None, "per_note": "no_delta", "retries": 2, "rpd": False}, "nrf24"
+    )
+    assert row["per"] is None and row["judge_per"] is None
+    assert row["meta"]["judge_note"] == "per_unavailable"
+    assert row["meta"]["per_note"] == "no_delta"
+
+
+def test_kpi_model_per_raw_none_counter_reset_nrf24_judge_unavailable():
+    """中#2 补例（nrf24 counter_reset 窗）：judge_per=None+'per_unavailable'+注记透传。"""
+    row = normalize_kpi(
+        {"per_raw": None, "per_note": "counter_reset", "retries": 0, "rpd": True}, "nrf24"
+    )
+    assert row["per"] is None and row["judge_per"] is None
+    assert row["meta"]["judge_note"] == "per_unavailable"
+    assert row["meta"]["per_note"] == "counter_reset"
+
+
+def test_kpi_model_per_raw_none_without_note_still_unavailable():
+    """per_raw=None 但样本未带 per_note：判据口径同 'per_unavailable'，meta 不设 per_note 键。"""
+    row = normalize_kpi({"per_raw": None}, "esp32")
+    assert row["judge_per"] is None
+    assert row["meta"]["judge_note"] == "per_unavailable"
+    assert "per_note" not in row["meta"]
+
+
+def test_kpi_model_per_note_absent_meta_has_no_per_note_key():
+    """样本无 per_note 时 meta 不设 per_note 键（数值在位场景照旧 'per_raw_only'）。"""
+    meta = normalize_kpi({"per_raw": 0.1, "retries": 1}, "esp32")["meta"]
+    assert "per_note" not in meta
+    assert meta["judge_note"] == "per_raw_only"
+
+
+def test_kpi_model_delta_overflow_note_passthrough():
+    """delta_overflow 窗注记透传：judge_per=None（不可比窗不得成为判据证据）。"""
+    row = normalize_kpi({"per_raw": None, "per_note": "delta_overflow"}, "esp32")
+    assert row["judge_per"] is None
+    assert row["meta"]["judge_note"] == "per_unavailable"
+    assert row["meta"]["per_note"] == "delta_overflow"
+
+
+def test_kpi_model_partial_counts_ignored_falls_back_to_per_raw():
+    """低#7 半指定计数：n_error/n_total 只给其一半→忽略计数落回 per_raw 口径。"""
+    row = normalize_kpi({"per_raw": 0.05, "n_error": 3}, "nrf24")  # 只有 n_error
+    assert row["judge_per"] == 0.05
+    assert row["meta"]["judge_note"] == "partial_counts_ignored"
+    assert row["meta"]["judge_basis"] == "per_raw"
+    row2 = normalize_kpi({"per_raw": 0.02, "n_total": 100}, "esp32")  # 只有 n_total
+    assert row2["judge_per"] == 0.02
+    assert row2["meta"]["judge_note"] == "partial_counts_ignored"
+    assert row2["meta"]["judge_basis"] == "per_raw"
+
+
+def test_kpi_model_full_counts_still_win_over_partial_paths():
+    """n_error/n_total 双全时仍经 compute_per 重算（半指定口径不侵蚀全指定路径）。"""
+    row = normalize_kpi({"per_raw": 0.5, "n_error": 3, "n_total": 20}, "esp32")
+    assert row["judge_per"] == pytest.approx(3 / 20)
+    assert row["meta"]["judge_note"] == "low_samples(<30)"
+
+
 def test_kpi_model_invalid_counts_wrapped_kpierror():
     with pytest.raises(KpiError, match="n_error"):
         normalize_kpi({"per_raw": 0.1, "n_error": 5, "n_total": 2}, "esp32")

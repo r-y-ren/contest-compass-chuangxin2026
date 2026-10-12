@@ -5,8 +5,12 @@
 
 - ``per`` 恒为样本 ``per_raw`` 透传；``judge_per`` 为判据用 PER（EN 300 328
   判据 PER≤10% 口径）：样本含 ``n_error``/``n_total`` 时经 compute_per 重算并附
-  样本量警告（``meta['judge_note']``），仅有 ``per_raw`` 时直用并标
-  ``'per_raw_only'``；
+  样本量警告（``meta['judge_note']``），半指定计数（只给其一半）忽略计数落回
+  ``per_raw`` 口径并标 ``'partial_counts_ignored'``；``per_raw`` 数值在位而无计数
+  时直用并标 ``'per_raw_only'``；``per_raw`` 为 None（no_delta/counter_reset/
+  delta_overflow 等不可比窗）时 ``judge_per=None`` 并标 ``'per_unavailable'``
+  （不可比窗不得成为判据证据——'per_raw_only' 仅用于 per_raw 数值在位场景）；
+- 样本窗注记 ``per_note`` 透传入 ``meta['per_note']``（样本未携带时不设键）；
 - ``rssi_dbm``：esp32/sim 透传（缺则 None）；nrf24 无 RSSI 口径，恒 None；
 - ``rpd``：nrf24 透传否则 None；``jsr_db``：sim 透传否则 None；
 - ``meta`` 附口径声明（BER→PER 以口径声明实现、F13 分辨率数字【待实测】）与
@@ -77,7 +81,9 @@ def normalize_kpi(sample: dict, source: str) -> dict:
         sample: 任一源原始样本 dict——esp32（per_raw/retries/rssi_dbm/seq…）、
             nrf24（per_raw/retries/rpd…）、sim（per_raw/per_model/jsr_db…）；
             可选 ``timestamp_ms``/``link`` 透传，含 ``n_error``/``n_total`` 时
-            判据 PER 经 compute_per 重算。
+            判据 PER 经 compute_per 重算（半指定计数忽略并标
+            'partial_counts_ignored'）；``per_raw`` 为 None 时判据 PER 不可用
+            （'per_unavailable'）；样本 ``per_note``（窗注记）透传入 meta。
         source: 样本来源，'esp32' | 'nrf24' | 'sim'。
 
     Returns:
@@ -89,8 +95,9 @@ def normalize_kpi(sample: dict, source: str) -> dict:
              'judge_per': 判据用 PER, 'rpd': nrf24 透传否则 None,
              'jsr_db': sim 透传否则 None,
              'meta': {'style': 口径声明, 'source_fields': 原样本键集,
-                      'judge_note': 样本量警告|'per_raw_only',
-                      'judge_basis': 重算依据, ['per_model': sim 模型 PER]}]}
+                      'judge_note': 样本量警告|'per_raw_only'|'per_unavailable'|'partial_counts_ignored',
+                      'judge_basis': 重算依据,
+                      ['per_model': sim 模型 PER], ['per_note': 样本窗注记透传]}}
 
     Raises:
         KpiError: 未知 source（消息附三源清单）、sample 非 dict、缺 per_raw、
@@ -113,6 +120,18 @@ def normalize_kpi(sample: dict, source: str) -> dict:
 
     if "n_error" in sample and "n_total" in sample:
         judge_per, judge_note, judge_basis = _judge_from_counts(sample, source)
+    elif "n_error" in sample or "n_total" in sample:
+        # 半指定计数（只给 n_error/n_total 其一）：计数不完整无从重算——忽略计数，
+        # 记 note 落回 per_raw 口径（judge_per 直用 per_raw）。
+        judge_per = sample["per_raw"]
+        judge_note = "partial_counts_ignored"
+        judge_basis = "per_raw"
+    elif sample["per_raw"] is None:
+        # per_raw=None（no_delta/counter_reset/delta_overflow 等不可比窗）：判据 PER
+        # 不可用——'per_raw_only' 仅用于 per_raw 数值在位场景，不得误导。
+        judge_per = None
+        judge_note = "per_unavailable"
+        judge_basis = "per_raw"
     else:
         judge_per = sample["per_raw"]
         judge_note = "per_raw_only"
@@ -126,6 +145,9 @@ def normalize_kpi(sample: dict, source: str) -> dict:
     }
     if "per_model" in sample:
         meta["per_model"] = sample["per_model"]
+    if "per_note" in sample:
+        # 样本窗注记（'no_delta'/'counter_reset'/'delta_overflow' 等）透传
+        meta["per_note"] = sample["per_note"]
 
     return {
         "timestamp_ms": sample.get("timestamp_ms"),

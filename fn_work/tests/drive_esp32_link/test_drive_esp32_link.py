@@ -90,15 +90,16 @@ def test_dut_esp32_normal_three_frames_per_incremental():
     assert all("per_note" not in s for s in samples)
 
 
-def test_dut_esp32_no_sent_delta_per_zero_with_note():
+def test_dut_esp32_no_sent_delta_per_none_with_note():
     lines = [_frame(1, 100, 2), _frame(2, 100, 2), _frame(3, 100, 5)]
     samples = list(drive_esp32_link(_lines_cfg(lines)))
     assert samples[0]["per_raw"] == pytest.approx(2 / 100)
     assert "per_note" not in samples[0]
-    # sent 增量 0：per 记 0 并附 no_delta 注（即使 err 有跳变也不除零）
-    assert samples[1]["per_raw"] == 0.0
+    # sent 增量 0：不可比窗 per_raw=None+no_delta 注（即使 err 有跳变也不除零，
+    # 更不得以 0.0 冒充零丢包判据证据——与 drive_nrf24_link 同口径）
+    assert samples[1]["per_raw"] is None
     assert samples[1]["per_note"] == "no_delta"
-    assert samples[2]["per_raw"] == 0.0
+    assert samples[2]["per_raw"] is None
     assert samples[2]["per_note"] == "no_delta"
 
 
@@ -109,15 +110,39 @@ def test_dut_esp32_seq_rollback_annotated_not_raised():
     assert "seq_rollback" not in samples[0]
     assert samples[1]["seq_rollback"] is True  # 3 < 10：计数器重置场景
     assert "seq_rollback" not in samples[2]
-    # 重置帧 sent 回退（50<100）→ 按无增量口径记 0+注；后续帧以重置值为新基线
-    assert samples[1]["per_raw"] == 0.0 and samples[1]["per_note"] == "no_delta"
+    # 重置帧 sent 回退（50<100）→ 不可比窗按 None+注；后续帧以重置值为新基线
+    assert samples[1]["per_raw"] is None and samples[1]["per_note"] == "no_delta"
     assert samples[2]["per_raw"] == pytest.approx(0.0)  # (0-0)/(60-50)
     assert set(samples[1]) - _BASE_KEYS == {"per_note", "seq_rollback"}
 
 
+def test_dut_esp32_delta_overflow_annotated_not_fatal():
+    lines = [_frame(1, 100, 1), _frame(2, 110, 25), _frame(3, 210, 30)]
+    samples = list(drive_esp32_link(_lines_cfg(lines)))  # 不杀流
+    assert samples[0]["per_raw"] == pytest.approx(1 / 100)
+    # err 增量 24 > sent 增量 10：物理不可能→per_raw=None+delta_overflow 注
+    assert samples[1]["per_raw"] is None
+    assert samples[1]["per_note"] == "delta_overflow"
+    assert samples[1]["per_cum"] == pytest.approx(25 / 110)  # 累计口径照实
+    # 流继续：后续窗恢复数值口径 (30-25)/(210-110)
+    assert samples[2]["per_raw"] == pytest.approx(5 / 100)
+    assert "per_note" not in samples[2]
+
+
+def test_dut_esp32_cum_overflow_flagged_same_window():
+    lines = [_frame(1, 100, 5), _frame(2, 200, 250)]
+    samples = list(drive_esp32_link(_lines_cfg(lines)))
+    # err 增量 245>100 → delta_overflow；同窗 per_cum=250/200>1 → cum_overflow 标记
+    assert samples[1]["per_note"] == "delta_overflow"
+    assert samples[1]["per_raw"] is None
+    assert samples[1]["per_cum"] == pytest.approx(1.25)
+    assert samples[1]["cum_overflow"] is True
+    assert "cum_overflow" not in samples[0]  # 正常窗不带标记
+
+
 def test_dut_esp32_consecutive_bad_frames_stop_tx_before_link_error():
     backend = _FakeBackend()
-    lines = [_frame(1, 100, 1)] + ["garbage,not,a,frame"] * 20
+    lines = [_frame(1, 100, 1)] + ["garbage,not,a,frame"] * 5
     gen = drive_esp32_link(_lines_cfg(lines), {"backend": backend})
     got = []
     with pytest.raises(LinkError) as excinfo:
@@ -127,17 +152,17 @@ def test_dut_esp32_consecutive_bad_frames_stop_tx_before_link_error():
     assert [s["seq"] for s in got] == [1]
     # 事件序：LinkError 抛出时 stop_tx 已先于 set_tx_gain(0) 调用过
     assert backend.calls == ["stop_tx", "set_tx_gain:0"]
-    assert "20" in str(excinfo.value)
+    assert "5" in str(excinfo.value)  # 默认阈 5（与 drive_nrf24_link 同缺省）
 
 
 def test_dut_esp32_sparse_bad_frames_counter_reset_continues():
     lines = (
-        ["nope"] * 19
+        ["nope"] * 4
         + [_frame(1, 100, 1)]
-        + ["nope"] * 19
+        + ["nope"] * 4
         + [_frame(2, 200, 2)]
     )
-    samples = list(drive_esp32_link(_lines_cfg(lines)))  # 19<20 不抛
+    samples = list(drive_esp32_link(_lines_cfg(lines)))  # 4<5 不抛
     assert [s["seq"] for s in samples] == [1, 2]
     assert samples[1]["per_raw"] == pytest.approx(1 / 100)
 
@@ -249,3 +274,36 @@ def test_dut_esp32_custom_bad_frame_limit_threshold():
     lines = ["x"] * 3 + [_frame(9, 30, 0)]
     samples = list(drive_esp32_link(_lines_cfg(lines, bad_frame_limit=4)))
     assert [s["seq"] for s in samples] == [9]
+
+
+def test_dut_esp32_auto_run_token_two_rounds_both_actually_stop():
+    """三轴中#2：ctx 未提供 token 时自生成 '_auto:' 写回——同 backend+同 ctx 两轮
+    错误路径均实停（若无 token 机制，第二轮会被进程级幂等吞成 already_stopped）。"""
+    backend = _FakeBackend()
+    ctx = {"backend": backend}
+    with pytest.raises(LinkError):
+        list(drive_esp32_link(_lines_cfg(["x"] * 5), ctx))  # 默认阈 5
+    assert ctx["run_token"].startswith("_auto:")
+    assert backend.calls == ["stop_tx", "set_tx_gain:0"]
+    # 第二轮（同 ctx 复用）：旧 '_auto:' token 换新 → 停发射运行级幂等仍实停
+    token_first = ctx["run_token"]
+    with pytest.raises(LinkError):
+        list(drive_esp32_link(_lines_cfg(["x"] * 5), ctx))
+    assert ctx["run_token"] != token_first
+    assert ctx["run_token"].startswith("_auto:")
+    assert backend.calls == ["stop_tx", "set_tx_gain:0"] * 2  # 两轮各实停一次
+
+
+def test_dut_esp32_external_run_token_not_overwritten():
+    """外部 token（无 '_auto:' 前缀）不被覆盖，两轮沿用同 token。"""
+    backend = _FakeBackend()
+    ctx = {"backend": backend, "run_token": "caller-token"}
+    with pytest.raises(LinkError):
+        list(drive_esp32_link(_lines_cfg(["x"] * 5, bad_frame_limit=2), ctx))
+    assert ctx["run_token"] == "caller-token"
+    assert backend.calls == ["stop_tx", "set_tx_gain:0"]
+    # 同外部 token 再触发：停发射幂等 already_stopped（不再实打两步）
+    with pytest.raises(LinkError):
+        list(drive_esp32_link(_lines_cfg(["x"] * 2, bad_frame_limit=2), ctx))
+    assert ctx["run_token"] == "caller-token"
+    assert backend.calls == ["stop_tx", "set_tx_gain:0"]  # 未增长

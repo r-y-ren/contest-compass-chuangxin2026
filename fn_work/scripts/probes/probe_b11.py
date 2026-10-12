@@ -6,7 +6,7 @@ from src.simulate_link_degradation.simulate_link_degradation import simulate_lin
 from src.normalize_kpi.normalize_kpi import normalize_kpi
 lines = iter([b'ESP,1,100,5,2,-52.5', b'ESP,2,200,25,4,-51.0', b'ESP,3,300,90,9,-49.5'])
 esp = [normalize_kpi(s, 'esp32') for s in drive_esp32_link({'source': 'lines', 'lines': lines})]
-nrf = [normalize_kpi(s, 'nrf24') for s in drive_nrf24_link({'port': '/dev/null', 'source': iter([b'NRF,1,80,4,1,1', b'NRF,2,160,40,3,0'])})]
+nrf = [normalize_kpi(s, 'nrf24') for s in drive_nrf24_link({'source': 'lines', 'lines': iter([b'NRF,1,80,4,1,1', b'NRF,2,160,40,3,0'])})]
 ev = iter([{'type': 'power_step', 'target_db': -30, 'ts': 1}, {'type': 'power_step', 'target_db': -5, 'ts': 2}])
 sim = [normalize_kpi(s, 'sim') for s in simulate_link_degradation(ev, ctx={'signal_power_db': -20.0})]
 assert abs(esp[1]['per'] - 20 / 100) < 1e-9 and esp[0]['rssi_dbm'] == -52.5 and esp[0]['rpd'] is None

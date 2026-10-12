@@ -80,7 +80,25 @@ def test_checksum_empty_suffix_rejected():
     ],
 )
 def test_negative_fields_rejected(frame, field):
-    with pytest.raises(FrameError, match=rf"field '{field}' must be >= 0"):
+    # 严格 [0-9]+：负号在字符类外，一律按非纯数字拒（与 parse_nrf24_frame 同口径）
+    with pytest.raises(FrameError, match=rf"field '{field}' must be a non-negative integer"):
+        parse_esp32_frame(frame)
+
+
+@pytest.mark.parametrize(
+    "frame",
+    [
+        "ESP,+1,100,2,3,-60",  # 正号：int() 会放行，严格口径拒
+        "ESP,１,100,2,3,-60",  # 全角数字：int() 会放行（int('１')==1），拒
+        "ESP,1,10 0,2,3,-60",  # 字段内空白混排
+        "ESP,1x,100,2,3,-60",  # 字母混排
+        "ESP,1.0,100,2,3,-60",  # 小数非整数口径
+        "ESP,0x10,100,2,3,-60",  # 十六进制字面量
+    ],
+)
+def test_non_canonical_integer_fields_rejected(frame):
+    """低#5 整数字段严格化：seq/sent/err/retries 仅收 [0-9]+（与 nrf 一致）。"""
+    with pytest.raises(FrameError, match="non-negative integer"):
         parse_esp32_frame(frame)
 
 
@@ -113,13 +131,32 @@ def test_bad_prefix_or_empty_rejected(frame):
 
 
 def test_non_numeric_integer_field_rejected():
-    with pytest.raises(FrameError, match="'seq' is not an integer"):
+    with pytest.raises(FrameError, match="non-negative integer"):
         parse_esp32_frame("ESP,abc,100,2,3,-60")
 
 
 def test_non_numeric_rssi_rejected():
     with pytest.raises(FrameError, match="'rssi' is not a number"):
         parse_esp32_frame("ESP,1,100,2,3,foo")
+
+
+@pytest.mark.parametrize(
+    "rssi",
+    [
+        "nan",
+        "NaN",
+        "inf",
+        "-inf",
+        "INF",
+        "Infinity",
+        "1e999",  # float() 溢出为 inf
+        "-1e999",
+    ],
+)
+def test_non_finite_rssi_rejected(rssi):
+    """中#4 rssi 非有限拒：NaN/inf/-inf/溢出解析成功也拒收（'NA' 仍→None）。"""
+    with pytest.raises(FrameError, match="finite"):
+        parse_esp32_frame(f"ESP,1,100,2,3,{rssi}")
 
 
 def test_bytes_input_utf8():

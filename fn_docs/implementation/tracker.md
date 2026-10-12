@@ -481,8 +481,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] normalize_kpi · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(normalize_kpi)' && echo commit在案 → commit在案 (10-12)
 
 ## B11 批间门
-- [ ] B11 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B11 · 用户裁决 — 预告: 继续 B12 / 修订 / 裁决 blocked
+- [x] B11 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B11 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 1825 passed in 11.27s (10-12)
+- [x] B11 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b11.py | grep -q '三源贯通' && echo B11 双审收口（8 项修复+探针新口径过） → B11 双审收口（8 项修复+探针新口径过） (10-12)
 
 ## B12 — compute_alignment_error, record_run_streams, run_baseline_check, annotate_truth_labels, write_sigmf_recording
 ### compute_alignment_error
@@ -883,4 +883,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B9 双审收口——对抗 中3低2 全修复（①run_power_ladder 每轮自生成 run_token 传停发射链（B3 高#2 同型残留堵死）；②map 负损耗 reachable=False 容错；③set_tx_gain 回退路径增益地板如实（partial/gain_floor/unknown_gain，事件不再虚报）；④判据警告入 ladder_stop 事件；⑤reason 细分 max_steps） — 对抗审查 — 无 — batches 变更记录 Ruling⑮ (10-12)
 - Ruling: B10 双审收口——对抗 高1中1低4 全修复（①estimate_snr 重叠带 guard bin 泄入干扰桶堵死（干扰候选排除信号带全体，掐尽→None+snr=inf）；②计数不变式集合并集+fuzz 500 组锁定；③恰界 1e-9 容差+note 全精度；④末段频轴按实际 span 缩放不越带顶；⑤泄漏表单次读入+逐频点插值（放弃按频点缓存 corrected 的语义错误方案——子代理申报）；⑥flatness reason 前缀区分） — 对抗审查 — 无 — batches 变更记录 Ruling⑯ (10-12)
 - Ruling: B11 三处 NRF/ESP 口径分歧申报（交双审裁决）——①config 形状：esp={'source':'lines','lines':迭代器,port 可缺}，nrf={'port' 必填,'source' 直收迭代器}；②无增量窗：esp per_raw=0.0+note，nrf per_raw=None+note（下游 normalize_kpi 遇 None 会 KpiError——潜在断链）；③坏帧阈：esp 默认 20 连续，nrf 默认 5 连续 — 两个子代理并行实现各自申报同构但细节漂移 — 待双审统一 — batches 变更记录 Ruling⑰ (10-12)
+- Ruling: B11 双审收口（Ruling⑰ 裁决落地）——①no-delta 统一 None（弃 ESP 0.0——不可比窗曾成零丢包判据证据，judge_per=None+per_unavailable）；②config 统一 ESP 形状（source serial/lines+lines 键）；③坏帧阈统一 bad_frame_limit=5；④delta 溢出 None+标注不杀流；⑤rssi 非有限拒；⑥整数字段严格化；⑦半指定计数 note；⑧ESP 停发射补 _auto: run_token（两轮实停）。**固件交付申报**：R18/R19 的 PlatformIO 固件工程顺延至集成批（B21 前）随真机联调交付（ESP32/NRF24 硬件未接，先行交付无法验证——三轴评审中项转申报） — 三轴+对抗合并（Ruling⑰② 预判反转如实记录：None 不断链、真危害在 0.0 侧） — 33 回归 — batches Ruling⑱ (10-12)
 
