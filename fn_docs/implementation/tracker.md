@@ -366,10 +366,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B9 — plan_ladder_steps, run_power_ladder, compute_pathloss, map_distance_to_loss
 ### plan_ladder_steps
-- [ ] plan_ladder_steps · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] plan_ladder_steps · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] plan_ladder_steps · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] plan_ladder_steps · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] plan_ladder_steps · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:plan_ladder_steps' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] plan_ladder_steps · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/run_power_ladder/test_plan_ladder_steps.py | tail -1 → 36 passed in 0.02s (10-12)
+- [x] plan_ladder_steps · wired — 证据: bash -c grep -rn 'plan_ladder_steps(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/run_power_ladder/run_power_ladder.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] plan_ladder_steps · 清单进位 — 证据: bash -c grep -q '| plan_ladder_steps | B9 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] plan_ladder_steps · commit — 预告: fn(plan_ladder_steps): wired 含四文档变更
 ### run_power_ladder
 - [ ] run_power_ladder · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -879,4 +879,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B7 双审收口——对抗 中5低7 全修复（IndexError 崩溃/银行家舍入空输出/NaN 喂下游/amplitude 表示域/占位元数据+seed·混叠·欠定·整型七项口径统一）；probe_b7 fs=1→100（repeat 10Hz 在 fs=1 属欠定域，修复后如法拒） — 对抗审查 — 无 — batches Ruling⑪ (10-11)
 - Ruling: B8 三处申报取舍收拢——①synthesize_style 签名微调为单参 params dict（桩三参→规约「输入 params: dict」口径，代码即真值）；②style 键不入 check_style_params 二次校验（合法性归注册表、扩展样式经本入口可达；check 的带限类 bandwidth 联动与 pulse 参数名不一致不入检）；③plan_attenuator_combo 择优规则=残差最优先（覆盖「≥半粗档用粗档」经验法则，平手选粗档/列表序，文档+测试固化） — 子代理实现申报 — 无 — batches 变更记录 Ruling⑫ (10-11)
 - Ruling: B8 双审收口——①R12 档位标定口径回写（cal_table 直传/ctx，不走文件标定表）；②对抗 高1中2低3 全修复（append_event 循环引用 RecursionError 逃逸→EventWriteError 带 DAG 放行；composite 深度上限 8+深拷贝防回染；tone defaults 补 fs 六样式全可切；cal 零命中 cal_unused 标注；switch_style composite 可达） — 三轴观察+对抗 — 无 — responsibility.md L479+batches Ruling⑬ (10-11)
+- Ruling: B9 一处算术勘误——提示文本「link=−10→−15..0 六档」与 5dB 网格算术不符（实为 −15/−10/−5/0 四档），子代理按规则实现并断言 4 档；阶梯下发口径=target_db 绝对值作衰减请求（干扰功率=满增益−衰减）入 run_power_ladder docstring — 实现申报+主会话探针勘误（60/80dB 损耗超域顶 reachable=False 属正确行为） — 无 — batches 变更记录 Ruling⑭ (10-12)
 
