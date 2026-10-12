@@ -490,7 +490,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] compute_alignment_error · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/record_run_streams/test_compute_alignment_error.py | tail -1 → 28 passed in 0.02s (10-12)
 - [x] compute_alignment_error · wired — 证据: bash -c grep -rn 'compute_alignment_error(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/record_run_streams/record_run_streams.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] compute_alignment_error · 清单进位 — 证据: bash -c grep -q '| compute_alignment_error | B12 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] compute_alignment_error · commit — 预告: fn(compute_alignment_error): wired 含四文档变更
+- [x] compute_alignment_error · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(compute_alignment_error)' && echo commit在案 → commit在案 (10-12)
 ### record_run_streams
 - [ ] record_run_streams · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] record_run_streams · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -504,10 +504,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] run_baseline_check · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] run_baseline_check · commit — 预告: fn(run_baseline_check): wired 含四文档变更
 ### annotate_truth_labels
-- [ ] annotate_truth_labels · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] annotate_truth_labels · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] annotate_truth_labels · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] annotate_truth_labels · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] annotate_truth_labels · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:annotate_truth_labels' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] annotate_truth_labels · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/write_sigmf_recording/test_annotate_truth_labels.py | tail -1 → 21 passed in 0.06s (10-12)
+- [x] annotate_truth_labels · wired — 证据: bash -c grep -rn 'annotate_truth_labels(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/write_sigmf_recording/write_sigmf_recording.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] annotate_truth_labels · 清单进位 — 证据: bash -c grep -q '| annotate_truth_labels | B12 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] annotate_truth_labels · commit — 预告: fn(annotate_truth_labels): wired 含四文档变更
 ### write_sigmf_recording
 - [ ] write_sigmf_recording · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
