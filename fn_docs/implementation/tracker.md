@@ -754,7 +754,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] verify_report_traceability · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k report_traceability -q 2>&1 | tail -1 → 41 passed, 2535 deselected in 1.90s (10-12)
 - [x] verify_report_traceability · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b18.py | grep -q 'passed=True' && echo 顶层实跑通过（溯源闭环） → 顶层实跑通过（溯源闭环） (10-12)
 - [x] verify_report_traceability · 清单进位 — 证据: bash -c grep -q '| verify_report_traceability | B18 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] verify_report_traceability · commit — 预告: fn(verify_report_traceability): wired 含四文档变更
+- [x] verify_report_traceability · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(verify_report_traceability)' && echo commit在案 → commit在案 (10-12)
 
 ## B18 批间门
 - [ ] B18 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）

@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B18 | render_disclaimer_sections, assemble_frequency_plots, build_report, extract_report_numbers, verify_report_traceability | 报告字段/口径/溯源绿（report_builder/report_traceability） | 报告族 |
-| B19 | create_console_app, serve_console, build_scenario_cards, render_console_pages, measure_refresh_latency, trigger_emergency_stop, push_realtime_kpi | API 合约+急停+实时（console_api/console_ui/realtime_console） | Web 族 |
+| ▶ B19 | create_console_app, serve_console, build_scenario_cards, render_console_pages, measure_refresh_latency, trigger_emergency_stop, push_realtime_kpi | API 合约+急停+实时（console_api/console_ui/realtime_console） | Web 族 |
 | B20 | map_per_to_injection, bridge_to_sitl, fallback_fixed_strategy, run_rl_policy, run_rff_pipeline | SITL 映射+RL 冒烟+RFF smoke（sitl_bridge/rl_policy/rff_pipeline） | 二期族（P1） |
 | B21 | execute_scenario, run_demo | run_demo wired：sim 全流程 0 退出八件套+报告（demo_pipeline） | 终批总装 |
 
