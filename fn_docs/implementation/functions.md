@@ -64,12 +64,12 @@
 | check_flatness | B10 | wired 10-12 | 26 passed；≤4dB 判据（EN 300 328） | 5484d1a |
 | compute_spectrum_stats | B10 | wired 10-12 | 16 新用例（目录 73）；full/power_only/JSR 双口径 | c08f46d |
 | parse_esp32_frame | B11 | wired 10-12 | 34 passed；校验和+域校验 | 88023ce |
-| drive_esp32_link | B11 | stub 10-11 | pytest -k dut_esp32 | — |
+| drive_esp32_link | B11 | wired 10-12 | 17 passed；坏帧超阈先停发射 | pending |
 | parse_nrf24_frame | B11 | wired 10-12 | 13 passed；无 rssi 口径 | 47482fc |
 | drive_nrf24_link | B11 | stub 10-11 | pytest -k dut_nrf24 | — |
 | apply_cliff_model | B11 | wired 10-12 | 23 passed；sigmoid 悬崖+夹紧 | 2325a9c |
 | simulate_link_degradation | B11 | stub 10-11 | pytest -k dut_sim | — |
-| compute_per | B11 | wired 10-12 | 17 passed；样本量警告口径 | pending |
+| compute_per | B11 | wired 10-12 | 17 passed；样本量警告口径 | 88d76f6 |
 | normalize_kpi | B11 | stub 10-11 | pytest -k kpi_model | — |
 | compute_alignment_error | B12 | stub 10-11 | 上游覆盖: record_run_streams | — |
 | record_run_streams | B12 | stub 10-11 | pytest -k align_streams | — |
