@@ -84,7 +84,7 @@
 | plot_triple_curves | B13 | wired 10-12 | 12 passed；三 PNG+curves_data.json+字体回退 | 49e4665 |
 | dispatch_remote_training | B14 | stub 10-11 | 上游覆盖: train_classifier | — |
 | train_classifier | B14 | stub 10-11 | pytest -k train_classifier | — |
-| make_group_splits | B14 | stub 10-11 | 上游覆盖: grouped_cv_evaluate | — |
+| make_group_splits | B14 | wired 10-12 | 20 passed；组粒度贪心均衡 | pending |
 | grouped_cv_evaluate | B14 | stub 10-11 | pytest -k grouped_cv | — |
 | predict_style | B14 | stub 10-11 | pytest -k infer_service | — |
 | open_sim_siggen | B15 | stub 10-11 | pytest -k sim_1433d | — |

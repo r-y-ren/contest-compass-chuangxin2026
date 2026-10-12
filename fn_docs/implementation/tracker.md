@@ -576,10 +576,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] train_classifier · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] train_classifier · commit — 预告: fn(train_classifier): wired 含四文档变更
 ### make_group_splits
-- [ ] make_group_splits · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] make_group_splits · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] make_group_splits · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] make_group_splits · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] make_group_splits · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:make_group_splits' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] make_group_splits · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/grouped_cv_evaluate/test_make_group_splits.py | tail -1 → 20 passed in 0.02s (10-12)
+- [x] make_group_splits · wired — 证据: bash -c grep -rn 'make_group_splits(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/grouped_cv_evaluate/grouped_cv_evaluate.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] make_group_splits · 清单进位 — 证据: bash -c grep -q '| make_group_splits | B14 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] make_group_splits · commit — 预告: fn(make_group_splits): wired 含四文档变更
 ### grouped_cv_evaluate
 - [ ] grouped_cv_evaluate · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -887,4 +887,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B12 集成发现——①后端 read_samples 契约三方不一：B210=list[dict]、SimBackend=list[(samples,meta) 元组]、replay=单 dict——record_run_streams 增 _as_monitor_block 归一层+真后端 E2E 锚死（探针抓到的真缺陷：mock 契约漂移掩盖）；②监测空读连续 50 次自然收尾不抛；③B11 复核遗留 esp err 回退窗 counter_reset_err 对齐（B12 顺手修） — 准闭环探针+复核建议 — 无 — batches Ruling⑲ (10-12)
 - Ruling: B12 双审收口——对抗 中3低3 全修复（①sim 监测 ts 改主机单调钟盖戳（块号降级 block_index 附注）+自家 E2E 错误锚修正+对齐源统一 ts_ms 域；②基线恰等阈 fsum 精确舍入（朴素累加浮点误差击穿锁定口径）；③sample_rate/freq_hz 域校验全链；④失败路径孤儿 data 清理；⑤每 64 块磁盘复查；⑥标注域夹取+clamped 标注）+三轴 2 观察（annotate 必填严于规格回写 R27 口径；sim 时钟域统一落位） — 对抗审查（修复子代理中断但产物完整落盘，主会话复测确认） — 13 回归 — batches Ruling⑳ (10-12)
 - Ruling: B13 双审收口——对抗 中1低5 全修复（①scenario['params'] 嵌套合并进合成参数（平铺优先）+protocol_start 反映实际合成；②dwell/judge 两级回落 scenario>ctx>默认；③异常路径补 protocol_stop aborted 尽力落盘；④partial_reason 口径+空判据轴注；⑤n_runs 按条目计数注明；⑥freq 字符串数值归一+n_freq_invalid） — 对抗审查 — 10 回归 — batches Ruling㉑ (10-12)
+- Ruling: B14 三处申报——①predict_style kind='cnn_dummy' 规则判据（质心/带宽特征），'cnn'→unsupported_model not_implemented_yet 如实；②grouped_cv_evaluate 泄漏自检对照组固定内置 dummy（自定义 fn 不重复调用，docstring 裁决）；③train_classifier local 产 cnn_dummy 类均值模型（真训练归 remote 路径） — 子代理实现申报 — 无 — batches Ruling㉒ (10-12)
 
