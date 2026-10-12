@@ -637,8 +637,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] open_sim_attenuator · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(open_sim_attenuator)' && echo commit在案 → commit在案 (10-12)
 
 ## B15 批间门
-- [ ] B15 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B15 · 用户裁决 — 预告: 继续 B16 / 修订 / 裁决 blocked
+- [x] B15 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B15 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 2275 passed in 14.19s (10-12)
+- [x] B15 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b15.py | grep -q '五后端链' && echo B15 双审收口（8 项修复） → B15 双审收口（8 项修复） (10-12)
 
 ## B16 — make_disclaimer_block, run_emc_conduction_sim, run_emc_radiation_sim, plan_frequency_sweep, run_emc_sweep
 ### make_disclaimer_block
@@ -891,4 +891,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B14 双审收口——对抗 中3低3（修 5 申报 1）——①hyperparams 序列化预检（真派发 RemoteError/dry_run serializable 标注）；②泄漏自检类饥饿排除（fold_class_starvation 旗标区别于泄漏——每 run 单样式规范布局下少数类批次少的常态误报堵死）；③pulse 判据重标定（全段 duty+门控自相关）验收：六类中 pulse/tone/chirp/partial_band 默认参数命中；sweep/bandlimited_noise 默认参数落入邻接类（dummy 覆盖域申报⑤的交叠，宽参数可命中）；④零能量退化标注；⑥code_root 绝对化；⑤dummy 覆盖域申报不修（partial_band 覆盖 fraction≤0.06 邻域、sweep/chirp 单向规则不可分——真 CNN 归 remote） — 对抗审查 — 18 回归 — batches Ruling㉓ (10-12)
 - Ruling: B14 复核收口——①饥饿/泄漏两旗标改可并存（泄漏判定不再被饥饿否决，三态警告文案，原仅饥饿例按新语义重构为确定性场景）；②Ruling㉓ sweep 验收措辞如实修正（4/6 默认命中，2 类邻交叠） — 修复后复核发现 — 1 回归 — batches Ruling㉔ (10-12)
 - Ruling: B15 五后端简化口径申报——①混频 rf_power=IF+3dB（LO 搬移能量近似）；②EMI QP=简化衰减曲线（非 CISPR 16-1-1 规范 QP 模型，文档注明）；③衰减器切换时延 nominal 500ns 声明（实测仅程序级记录）；④RF 超 20G 标注 beyond_model；⑤所有读数 simulated:True 标记（R42 规约） — 子代理实现申报 — 无 — batches Ruling㉕ (10-12)
+- Ruling: B15 双审收口——三轴中2（R39-R43 错误字段回写 ValueError 五后端统一器件域口径；siggen 补相噪静态口径键 −100dBc/Hz@10k）+对抗 中2低4（analyzer NaN 拒收+maxhold 不污染；EMI qp 保序钳 average 界；截断计数标注；负频率钳 0；start_tx 逐样本校验；rep_hz property 防护）+三轴低（VBW 参数面；串接归 B16 接线留观） — 三轴+对抗合并 — 8 修+净增 8 回归 — batches Ruling㉖ (10-12)
 

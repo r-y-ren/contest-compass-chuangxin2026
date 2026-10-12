@@ -81,11 +81,14 @@ def _noise_floor_dbm(rbw_hz: float) -> float:
 
 
 def _qp_offset_db(rep_hz: float) -> float:
-    """准峰值相对峰值的简化 CISPR 衰减（dB）。
+    """准峰值相对峰值的简化 CISPR 衰减（dB，pre-clamp 曲线）。
 
     简化曲线（规约口径，非 CISPR 16-1-1 规范 QP 充放电模型）：
     qp = peak − (10·log10(1 + 1000/rep_hz))·0.5——脉冲重复率 rep_hz 越低衰减越多
     （rep→∞ 时衰减→0 逼近 peak；rep=10Hz 衰减约 10dB）。
+    B15对抗中#2 保序口径：本值仅衰减曲线，最终 qp 再以 average 钳下界
+    （qp = max(average, min(peak, peak−offset))——dB 域钳界，保 avg ≤ qp ≤ peak
+    恒成立；平稳信号曲线跌破 average 时 qp=average，见 measure）。
     """
     return 5.0 * math.log10(1.0 + 1000.0 / rep_hz)
 
@@ -143,10 +146,15 @@ class SimEmiReceiver:
       - measure(iq)：IQ 序列按"简化 4 帧"切分，逐帧 FFT 取功率谱（幅度口径：单音复幅度
         1.0 → 0 dBm；逐 bin 以 RBW 内底噪钳底，杜绝 −inf），再跨帧按检波器合并——
         peak=各帧逐 bin 最大；average=各帧逐 bin 线性功率均值；quasi_peak=peak 减
-        简化 CISPR 衰减曲线 _qp_offset_db(rep_hz)（低重频衰减多，文档注明简化）。
+        简化 CISPR 衰减曲线 _qp_offset_db(rep_hz)（低重频衰减多，文档注明简化），
+        再以 average 钳下界保序（avg ≤ qp ≤ peak 恒成立——B15对抗中#2）。
 
     频域 bin 频率 = 中心频率 ± k·(sample_rate/N_fft)，输出以 MHz 列出（负频率按
-    环绕映射到中心频率以下）。RBW 经 set_rbw 参数化（None=恢复频段缺省 9k/120k）。
+    环绕映射到中心频率以下；环绕后仍 <0 的 bin 截为 0.0 并附 'freq_clamped': True
+    ——B15低#4）。RBW 经 set_rbw 参数化（None=恢复频段缺省 9k/120k）。
+    输入样本若被丢弃（非 4 帧整除尾部余数+超长帧截断至 8192 上限），读数附
+    'truncated_samples': 丢弃总数（仅 >0 时输出——B15低#3）。rep_hz 经校验
+    property（赋非法值在属性面即 ValueError——B15低#6）。
     """
 
     def __init__(
@@ -159,10 +167,24 @@ class SimEmiReceiver:
     ) -> None:
         self.freq_hz = freq_hz
         self.sample_rate = sample_rate
-        self.rep_hz = rep_hz
+        self._rep_hz = rep_hz
         self._detector = detector
         self._rbw_hz = rbw_hz
         self.events: list[str] = []
+
+    @property
+    def rep_hz(self) -> float:
+        """准峰值简化曲线的脉冲重复率 Hz（B15低#6：getter 透传；赋值走校验 setter）。"""
+        return self._rep_hz
+
+    @rep_hz.setter
+    def rep_hz(self, value) -> None:
+        """校验 setter：直戳属性赋非法值（≤0/bool/非实数/非有限）在属性面即 ValueError
+        （否则负/零 rep 会静默渗入 QP 曲线 log10——拒绝并保持原值）。"""
+        val = _as_real("rep_hz", value)
+        if val <= 0:
+            raise ValueError(f"rep_hz 必须为正（脉冲重复率），实际为 {val!r}")
+        self._rep_hz = val
 
     def __repr__(self) -> str:  # pragma: no cover - 调试辅助
         return (
@@ -201,7 +223,13 @@ class SimEmiReceiver:
             −150+10·log10(rbw), 'detector': 当前检波器, 'rbw_hz', 'noise_floor_dbm_hz': -150,
             'simulated': True, 'cispr_note': ...}；
           给 iq → 频域检波读数（列表）: 'freq_mhz'/'power_dbm' 为逐 bin 列表
-            （长度 N_fft，检波后口径），其余键同上。
+            （长度 N_fft，检波后口径），其余键同上；另附条件标注键（仅触发时输出）:
+            'truncated_samples': 丢弃样本总数（B15低#3——非 4 帧整除的尾部余数 +
+            超长帧截断至 8192 上限，>0 时才输出）；'freq_clamped': True（B15低#4——
+            环绕映射后仍为负的 bin 频率截为 0.0 时输出）。
+        quasi_peak 口径（B15对抗中#2 保序）: qp = max(average, min(peak, peak −
+        _qp_offset_db(rep_hz)))——dB 域以 average 钳下界，avg ≤ qp ≤ peak 恒成立
+        （平稳信号 qp=average，曲线未触界时 qp=peak−offset）。
         错误: iq 非 str/bytes 的可迭代复数序列、样本数 <4（4 帧口径）、样本非复数 → ValueError。
         """
         base = {
@@ -217,7 +245,7 @@ class SimEmiReceiver:
                 "power_dbm": _noise_floor_dbm(self._rbw_hz),
                 **base,
             }
-        frames = self._split_frames(iq)
+        frames, dropped_remainder = self._split_frames(iq)
         # 逐帧功率谱（线性 mW 口径），逐 bin 以 RBW 内底噪钳底（仿真接收机自有噪声）
         floor_lin = 10.0 ** (_noise_floor_dbm(self._rbw_hz) / 10.0)
         spectra = [self._frame_spectrum(frame, floor_lin) for frame in frames]
@@ -231,18 +259,32 @@ class SimEmiReceiver:
                 10.0 * math.log10(sum(spec[k] for spec in spectra) / _N_FRAMES)
                 for k in range(n_bins)
             ]
-        else:  # quasi_peak：peak 读数减简化 CISPR 衰减（dB 域减法 = 线性域乘衰减曲线）
+        else:  # quasi_peak：peak 减简化 CISPR 衰减，再以 average 钳下界（B15对抗中#2 保序）
             offset = _qp_offset_db(self.rep_hz)
-            power_dbm = [
-                10.0 * math.log10(max(spec[k] for spec in spectra)) - offset
-                for k in range(n_bins)
-            ]
+            power_dbm = []
+            for k in range(n_bins):
+                peak_db = 10.0 * math.log10(max(spec[k] for spec in spectra))
+                avg_db = 10.0 * math.log10(sum(spec[k] for spec in spectra) / _N_FRAMES)
+                power_dbm.append(max(avg_db, min(peak_db, peak_db - offset)))
         bin_hz = self.sample_rate / n_bins
-        freq_mhz = [
-            (self.freq_hz + (k if k < n_bins / 2 else k - n_bins) * bin_hz) / 1e6
-            for k in range(n_bins)
-        ]
-        return {"freq_mhz": freq_mhz, "power_dbm": power_dbm, **base}
+        freq_mhz = []
+        freq_clamped = False
+        for k in range(n_bins):
+            freq_hz = self.freq_hz + (k if k < n_bins / 2 else k - n_bins) * bin_hz
+            if freq_hz < 0.0:  # 环绕后负频率（低中心频率+宽带宽）：截 0 并标注（B15低#4）
+                freq_hz = 0.0
+                freq_clamped = True
+            freq_mhz.append(freq_hz / 1e6)
+        reading = {"freq_mhz": freq_mhz, "power_dbm": power_dbm, **base}
+        # 帧截断丢弃计数（B15低#3）：尾部余数 + 超长帧截断至 8192 上限，仅 >0 时输出
+        truncated = dropped_remainder + sum(
+            max(0, len(frame) - _MAX_FRAME_SAMPLES) for frame in frames
+        )
+        if truncated > 0:
+            reading["truncated_samples"] = truncated
+        if freq_clamped:
+            reading["freq_clamped"] = True
+        return reading
 
     def read_samples(self) -> dict:
         """注册表 rx 契约适配（method_names=['read_samples']）：等价 measure(None) 底噪读数。"""
@@ -271,8 +313,12 @@ class SimEmiReceiver:
             "simulated": True,
         }
 
-    def _split_frames(self, iq) -> list[list[complex]]:
-        """IQ 强制转换 + 简化 4 帧等长切分（尾部长度 %=4 的余数样本不计，规约口径）。"""
+    def _split_frames(self, iq) -> tuple[list[list[complex]], int]:
+        """IQ 强制转换 + 简化 4 帧等长切分；返回 (帧列表, 丢弃余数样本数)。
+
+        尾部长度 %=4 的余数样本不计（规约口径）——丢弃数如实返回，供 measure 标注
+        'truncated_samples'（B15低#3，与超长帧截断合并计数）。
+        """
         if isinstance(iq, (str, bytes)):
             raise ValueError(f"iq 须为复数样本序列，实际为 {type(iq).__name__}: {iq!r}")
         try:
@@ -289,7 +335,9 @@ class SimEmiReceiver:
             raise ValueError(
                 f"iq 至少 {_N_FRAMES} 个样本（简化 {_N_FRAMES} 帧检波口径），实际 {len(items)}"
             )
-        return [items[i * frame_len : (i + 1) * frame_len] for i in range(_N_FRAMES)]
+        remainder = len(items) - frame_len * _N_FRAMES
+        frames = [items[i * frame_len : (i + 1) * frame_len] for i in range(_N_FRAMES)]
+        return frames, remainder
 
     def _frame_spectrum(self, frame: list[complex], floor_lin: float) -> list[float]:
         """单帧功率谱：截断至帧长上限→补零到 2 的幂→FFT→逐 bin |X|²/L²（单音幅度 1.0→0dBm）。

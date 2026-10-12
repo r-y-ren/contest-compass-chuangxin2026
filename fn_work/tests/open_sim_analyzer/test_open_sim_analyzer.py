@@ -185,13 +185,14 @@ def test_sim_rsa513a_trace_mode_invalid_rejected():
 def test_sim_rsa513a_capabilities_key_set():
     caps = open_sim_analyzer().capabilities()
     assert set(caps) == {
-        "model", "max_freq_hz", "span_range_hz", "rbw_range_hz",
+        "model", "max_freq_hz", "span_range_hz", "rbw_range_hz", "vbw_hz",
         "uncertainty_db", "simulated",
     }
     assert caps["model"] == "RSA513A-sim"
     assert caps["max_freq_hz"] == 13.6e9
     assert caps["span_range_hz"] == (1e3, 110e6)
     assert caps["rbw_range_hz"] == (1, 1e6)
+    assert caps["vbw_hz"] == 10e3  # VBW 参数面回显（缺省 10kHz，span 10e6 域内）
     assert caps["uncertainty_db"] == 1.5
     assert caps["simulated"] is True
     caps["model"] = "tampered"  # 返回副本：篡改不回写
@@ -239,3 +240,53 @@ def test_sim_rsa513a_measure_is_pure_of_rbw_and_repeatable():
     peak = _peak_index(first["power_db"])
     assert peak == 512 - 128  # fnorm=-0.125 → fftshift 后 bin 384
     assert first["freqs"][peak] == pytest.approx(5e9 - 0.125 * 20e6)
+
+
+def test_sim_rsa513a_rejects_non_finite_iq_and_maxhold_stays_clean():
+    # B15对抗中#1: 含 NaN/±inf 样本的 IQ 拒收（家族口径 ValueError，首位置入消息）；
+    # 校验先于谱计算 → maxhold 保持谱不被污染，后续干净帧照常累积/覆写
+    ana = open_sim_analyzer({"trace": "maxhold"})
+    for bad in (
+        [float("nan") + 0j, 1 + 0j],
+        [1 + 0j, complex(float("inf"), 0.0), 2 + 0j],
+        [complex(0.0, float("-inf"))],
+    ):
+        with pytest.raises(ValueError, match="非有限"):
+            ana.measure(iq=bad)
+    # 拒绝后无保持谱（首帧尚未成功）：干净低帧成为保持谱起点
+    low = ana.measure(iq=_tone_iq(-40.0, 0.25))["power_db"]
+    # 再次以 NaN 输入拒收：保持谱保持干净低帧原值（不抛前先算的污染不存在）
+    with pytest.raises(ValueError, match="非有限"):
+        ana.measure(iq=[1 + 0j, complex(float("nan"), 0.0)])
+    assert ana.measure(iq=_tone_iq(-40.0, 0.25))["power_db"] == low  # 幂等不变
+    # 干净高帧可正常覆写（钉住峰值）——maxhold 通道完好
+    high = ana.measure(iq=_tone_iq(-20.0, 0.25))["power_db"]
+    bin_i = 768
+    assert abs(high[bin_i] + 20.0) <= 1.5
+    assert high[bin_i] > low[bin_i]
+
+
+def test_sim_rsa513a_vbw_parameter_face_domain_echo_and_no_spectral_effect():
+    # B15三轴低③: VBW 纯参数面——域 1–span/10（按调用时刻 span 判域）、capabilities
+    # 'vbw_hz' 回显、不改谱计算、不清 maxhold 保持谱；拒绝原子（不改状态）
+    ana = open_sim_analyzer()  # span 10e6 → 域 [1, 1e6]
+    iq = _tone_iq(-12.0, 0.25)
+    ana.set_vbw(1e6)  # 域顶恰过（span/10）
+    base = ana.measure(iq=iq)["power_db"]
+    assert ana.set_vbw(1.0) == 1.0  # 域底恰过
+    assert ana.measure(iq=iq)["power_db"] == base  # 纯参数面：谱逐位不变
+    for bad in (0.0, 0.5, 1e6 + 1.0, float("nan"), float("inf"), True, "1e3"):
+        with pytest.raises(ValueError, match="vbw_hz"):
+            ana.set_vbw(bad)
+    assert ana.capabilities()["vbw_hz"] == 1.0  # 回显当前生效值（拒绝后原值保持）
+    # maxhold 保持谱不被 set_vbw 清除
+    ana.trace("maxhold")
+    held = ana.measure(iq=iq)["power_db"]
+    ana.set_vbw(2e3)
+    assert ana.measure(iq=iq)["power_db"] == held
+    # 小 span 构造：缺省 vbw=min(10k, span/10) 保域内；域顶随 span 收窄
+    small = open_sim_analyzer({"span_hz": 1e3})
+    assert small.capabilities()["vbw_hz"] == 100.0  # min(10e3, 1e2)
+    assert small.set_vbw(100.0) == 100.0  # 新域顶恰过
+    with pytest.raises(ValueError, match="vbw_hz"):
+        small.set_vbw(100.1)

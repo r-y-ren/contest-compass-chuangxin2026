@@ -163,3 +163,30 @@ def test_sim_attenuator_duck_compatible_with_set_channel_attenuation():
     assert callable(getattr(dev, "set_attenuation", None))
     dev.set_attenuation(30.0)  # 粗档 30dB 两态可由本插件承载
     assert dev.get_attenuation() == 30.0
+
+
+def test_sim_attenuator_full_chain_dispatch_via_set_channel_attenuation(tmp_path):
+    # B15三轴低⑥鸭子真接线：ctx backend=SimAttenuator 实例（非 Mock）经
+    # set_channel_attenuation 真路径全链——plan 档位计算→鸭子下发 set_attenuation→
+    # events.jsonl 事件落盘，实达值/切换日志/事件三面一致
+    import json
+
+    from src.set_channel_attenuation.set_channel_attenuation import set_channel_attenuation
+
+    dev = open_sim_attenuator()
+    result = set_channel_attenuation(
+        {"backend": dev, "run_dir": str(tmp_path)}, 30.0
+    )
+    assert result["applied"] is True
+    assert result["applied_via"] == "set_attenuation"  # 优先鸭子方法（全量实达值下发）
+    assert result["achieved_db"] == 30.0 and result["residual_db"] == 0.0
+    assert dev.get_attenuation() == 30.0  # 真路径实达（plan 实达 30.0 原样到器件）
+    assert dev.switch_log and dev.switch_log[-1]["applied_db"] == 30.0  # 切换留痕
+    events_file = tmp_path / "events.jsonl"
+    assert events_file.exists()
+    (event,) = [
+        json.loads(line) for line in events_file.read_text(encoding="utf-8").splitlines()
+    ]
+    assert event["type"] == "attenuation" and event["target_db"] == 30.0
+    assert event["applied"] is True and event["achieved_db"] == 30.0
+    assert event["coarse"] == "in" and event["coarse_db"] == 30.0

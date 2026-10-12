@@ -100,7 +100,7 @@ def test_sim_1433d_output_on_off_state():
 
 
 def test_sim_1433d_capabilities_key_set():
-    # 用例7: capabilities 键集恰为规约六键（不多不少），simulated=True，数值口径与域一致
+    # 用例7: capabilities 键集恰为规约七键（不多不少），simulated=True，数值口径与域一致
     caps = open_sim_siggen({}).capabilities()
     assert set(caps) == {
         "model",
@@ -108,6 +108,7 @@ def test_sim_1433d_capabilities_key_set():
         "power_range_dbm",
         "power_resolution_db",
         "freq_accuracy_ppm",
+        "phase_noise_dbc_hz_10k",
         "simulated",
     }
     assert caps["model"] == "1433D-sim"
@@ -115,6 +116,7 @@ def test_sim_1433d_capabilities_key_set():
     assert caps["power_range_dbm"] == (-140, 10)
     assert caps["power_resolution_db"] == 0.5
     assert caps["freq_accuracy_ppm"] == 1.0
+    assert caps["phase_noise_dbc_hz_10k"] == -100.0  # 10kHz 偏移典型值仿真声明
     assert caps["simulated"] is True
 
 
@@ -237,3 +239,43 @@ def test_sim_1433d_import_registration_idempotent():
     assert factory is SIM_MODULE.open_sim_siggen  # reload 后登记项即新工厂
     assert meta["caps"]["rx"] is False
     assert isinstance(factory({"freq_hz": 1e6}), SimSiggen1433D)  # 新工厂可正常实例化
+
+
+def test_sim_1433d_phase_noise_static_declaration_set_and_get():
+    # 用例16（B15三轴中②）: 相噪静态口径——capabilities 声明 -100 dBc/Hz @10kHz 偏移典型值，
+    # set_phase_noise(≤0)/get_phase_noise 参数化；>0/bool/非有限拒收；不做 IQ 相噪注入
+    sg = open_sim_siggen({})
+    assert sg.get_phase_noise() == -100.0
+    assert sg.set_phase_noise(-110.0) == -110.0
+    assert sg.get_phase_noise() == -110.0
+    assert sg.capabilities()["phase_noise_dbc_hz_10k"] == -110.0  # 回显当前声明值
+    assert sg.set_phase_noise(0.0) == 0.0  # ≤0 域：恰 0 边界收
+    for bad in (0.5, 10.0, float("nan"), float("inf"), True, "-100"):
+        with pytest.raises(ValueError):
+            sg.set_phase_noise(bad)
+    assert sg.get_phase_noise() == 0.0  # 拒绝不改状态
+    # 静态口径：相噪设置不注入 IQ——start_tx 登记样本原样
+    stats = sg.start_tx([1 + 0j, 2 + 0j])
+    assert stats["samples"] == 2
+    assert sg.tx_iq_blocks == [[1 + 0j, 2 + 0j]]
+
+
+def test_sim_1433d_start_tx_rejects_non_numeric_iq_with_block_sample_position():
+    # 用例17（B15低#5）: IQ 逐样本校验——标量 iq/str/块内与扁平序列内非数值样本一律
+    # ValueError（消息含块/样本位置），拒绝不留半截登记态
+    sg = open_sim_siggen({})
+    for scalar in (3, 3.5):  # 不可迭代标量整体拒（不再漏 TypeError）
+        with pytest.raises(ValueError):
+            sg.start_tx(scalar)
+    with pytest.raises(ValueError, match="块 0 样本 0"):  # str 逐字符成块后在样本面拒
+        sg.start_tx("abc")
+    with pytest.raises(ValueError, match="块 0 样本 1"):  # 块内样本位次入消息
+        sg.start_tx([[1 + 0j, "x"]])
+    with pytest.raises(ValueError, match="块 1 样本 0"):  # 混合扁平序列逐元素成块后在样本面拒
+        sg.start_tx([1 + 0j, "x"])
+    with pytest.raises(ValueError, match="块 1 样本 0"):
+        sg.start_tx([[1 + 0j, 2 + 0j], [True]])
+    with pytest.raises(ValueError, match="块 1 样本 2"):
+        sg.start_tx([[1 + 0j], [1 + 0j, 2 + 0j, None]])
+    assert sg.tx_active is False  # 校验先于登记：状态原样
+    assert sg.tx_iq_blocks == []

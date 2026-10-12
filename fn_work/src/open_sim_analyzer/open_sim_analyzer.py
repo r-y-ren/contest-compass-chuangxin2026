@@ -18,6 +18,9 @@ __all__ = ["SimRsa513a", "open_sim_analyzer"]
 _CENTER_RANGE_HZ: tuple[float, float] = (1e6, 13.6e9)  # 中心频率域 1MHz–13.6GHz
 _SPAN_RANGE_HZ: tuple[float, float] = (1e3, 110e6)  # DPX 口径 span 域 1kHz–110MHz
 _RBW_RANGE_HZ: tuple[float, float] = (1.0, 1e6)  # RBW 域 1Hz–1MHz
+# VBW 域（B15三轴低③，纯参数面）：下限 1Hz；上限随当前 span 动态 = span/10。
+_VBW_MIN_HZ = 1.0
+_DEFAULT_VBW_HZ = 10e3  # VBW 缺省（构造 span 过小致 span/10 < 缺省时取 span/10 保域内）
 
 # ---- 工厂缺省观测面 ----
 _DEFAULT_CENTER_HZ = 1e9
@@ -83,7 +86,10 @@ class SimRsa513a:
         center+span 位模式的 crc32（DPX 帧以 salt=0..7 派生 8 个不同偏差帧）——
         同参数同 salt 逐位可复现；
       - trace：clearwrite（缺省）当前谱即显；maxhold 逐 bin 取历史最大
-        （set_center/set_span 改轴即清保持谱，rbw 不改谱值故保持谱有效）。
+        （set_center/set_span 改轴即清保持谱，rbw 不改谱值故保持谱有效）；
+      - VBW（B15三轴低③）: 纯参数面——set_vbw 域 1–span/10 Hz、capabilities 'vbw_hz'
+        回显，不参与谱计算（仿真不施视频平滑）、不清保持谱；span 后续变化不回溯
+        重校已存 vbw（再次 set_vbw 按新 span 判域）。
 
     与 B210 分析仪模式的区别（接口口径）: 本后端为纯频谱分析仪仿真，无 IQ 采样流
     ——read_samples 恒返回 []（B210 分析仪模式有真实 IQ 流可读）；谱读数一律走
@@ -97,6 +103,7 @@ class SimRsa513a:
         self.center_hz = center_hz
         self.span_hz = span_hz
         self.rbw_hz = rbw_hz
+        self._vbw_hz = min(_DEFAULT_VBW_HZ, span_hz / 10.0)  # 缺省保域内（见常量注）
         self.trace_mode = trace_mode
         self._maxhold: list[float] | None = None  # maxhold 保持谱（轴变即失效清空）
         self.events: list[str] = []  # no_tx 调用记录（同 replay 先例）
@@ -141,6 +148,24 @@ class SimRsa513a:
         self.rbw_hz = val
         return val
 
+    def set_vbw(self, vbw_hz: float) -> float:
+        """设置 VBW 视频带宽（B15三轴低③，纯参数面）：域 1–span/10 Hz，按调用时刻 span 判域。
+
+        输入: vbw_hz 实数（bool/非实数/非有限/越域 → ValueError，先校验后写、拒绝不改状态）。
+        输出: 生效 VBW Hz。行为: 本仿真谱不施视频平滑——VBW 仅作参数面状态
+        （capabilities 'vbw_hz' 回显），不改谱计算、不清 maxhold 保持谱；
+        span 后续变化不回溯重校已存 vbw（再次 set_vbw 按新 span 判域）。
+        """
+        val = _as_real("vbw_hz", vbw_hz)
+        hi = self.span_hz / 10.0
+        if not _VBW_MIN_HZ <= val <= hi:
+            raise ValueError(
+                f"vbw_hz 超出仿真域 [{_VBW_MIN_HZ!r}, {hi!r}]（1–span/10，"
+                f"当前 span_hz={self.span_hz!r}），实际为 {val!r}"
+            )
+        self._vbw_hz = val
+        return val
+
     def trace(self, mode: str = _DEFAULT_TRACE_MODE) -> str:
         """切换迹线模式：'clearwrite'（当前谱即显）| 'maxhold'（逐 bin 历史最大保持）。
 
@@ -161,13 +186,24 @@ class SimRsa513a:
         return self.center_hz + (np.arange(_NFFT) - _NFFT / 2) * (self.span_hz / _NFFT)
 
     def _to_iq_array(self, iq: object) -> np.ndarray:
-        """IQ 输入整形：一维数值序列→复数数组，截前 nfft 或零填至 nfft；非一维/非数值→ValueError。"""
+        """IQ 输入整形：一维数值序列→复数数组，截前 nfft 或零填至 nfft。
+
+        非一维/非数值 → ValueError；含 NaN/±inf 样本 → ValueError（B15对抗中#1，
+        家族口径：非有限样本在截断/零填之前先拒，首个非有限位置入消息——
+        校验先于谱计算，maxhold 缓冲天然不被污染）。
+        """
         try:
             arr = np.asarray(iq, dtype=complex)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"iq 必须为一维复数/实数样本序列，无法解析: {iq!r}") from exc
         if arr.ndim != 1:
             raise ValueError(f"iq 必须为一维样本序列，实际维度为 {arr.ndim}")
+        bad = np.flatnonzero(~np.isfinite(arr))
+        if bad.size:
+            raise ValueError(
+                f"iq[{int(bad[0])}] 样本非有限（含 NaN/±inf 拒收，家族口径），"
+                f"实际为 {arr[bad[0]]!r}"
+            )
         if arr.size >= _NFFT:
             return arr[:_NFFT]
         out = np.zeros(_NFFT, dtype=complex)  # 不足 nfft：零填（空输入→全零→底噪谱）
@@ -197,7 +233,7 @@ class SimRsa513a:
         'uncertainty_db': 1.5, 'trace_mode': 当前模式, 'simulated': True}——
         power_db 已含 ±1.5 dB 仿真不确定度偏差（种子 center+span 哈希），maxhold 模式
         下为逐 bin 历史最大保持谱。
-        错误: iq 非一维/非数值序列 → ValueError（观测参数域错由各 setter 抛）。
+        错误: iq 非一维/非数值/含 NaN 或 ±inf 样本 → ValueError（观测参数域错由各 setter 抛）。
         """
         power = self._power_spectrum(iq, salt=0)
         if self.trace_mode == "maxhold":
@@ -245,6 +281,7 @@ class SimRsa513a:
             "max_freq_hz": _CENTER_RANGE_HZ[1],
             "span_range_hz": tuple(_SPAN_RANGE_HZ),
             "rbw_range_hz": tuple(_RBW_RANGE_HZ),
+            "vbw_hz": self._vbw_hz,  # B15三轴低③：VBW 参数面回显（纯声明，不改谱计算）
             "uncertainty_db": _UNCERTAINTY_DB,
             "simulated": True,
         }

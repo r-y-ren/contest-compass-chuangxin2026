@@ -894,7 +894,7 @@
 
 - **open_sim_siggen** [L0|新增]
   - 职责：1433D 仿真后端（注册名 sim_siggen_1433d）：SCPI 等价参数面（频率 1MHz–20GHz/功率/调制样式），仿真读数口径（0.5dB 分辨率/1ppm/相噪指标仿真相位噪声模型）；超仿真模型域返回标注。
-  - 签名意图：输入: SCPI 等价参数 / 输出: 仿真波形/读数 / 错误: 超域→SimError（附模型有效域）。
+  - 签名意图：输入: SCPI 等价参数 / 输出: 仿真波形/读数 / 错误: 超域→ValueError（消息附模型有效域）。
   - 调用方：manage_backend_registry（注册）；create_visa_driver（命令映射共用）
   - tested 策略：自有单测
   - 核验命令：测试: sim_1433d
@@ -905,7 +905,7 @@
 
 - **open_sim_analyzer** [L0|新增]
   - 职责：RSA513A 仿真后端（注册名 sim_rsa513a）：观测参数面（频率上限 13.6GHz/RBW/VBW/DPX 帧），仿真谱读数（幅度不确定度 ±1.5dB 仿真模型），规格对标表1 声明；与真实监测流接口兼容。
-  - 签名意图：输入: 观测参数 / 输出: 仿真谱数据 / 错误: 超域→SimError。
+  - 签名意图：输入: 观测参数 / 输出: 仿真谱数据 / 错误: 超域→ValueError（消息附域）。
   - 调用方：manage_backend_registry（注册）；run_emc_sweep（可配执行仪表）
   - tested 策略：自有单测
   - 核验命令：测试: sim_rsa513a
@@ -916,7 +916,7 @@
 
 - **open_sim_mixer** [L0|新增]
   - 职责：13GHz 混频扩展仿真后端：upconvert_with_image_rejection 执行上变频（f_RF=f_LO+f_IF）与镜像抑制（腔体滤波等效模型），本振稳定度参数→输出相噪口径；串接 sim 信号源/分析仪演示 13GHz 全链。
-  - 签名意图：输入: IF/LO 参数 / 输出: RF 仿真流+相噪口径 / 错误: 镜像抑制超域→SimError（标注）。
+  - 签名意图：输入: IF/LO 参数 / 输出: RF 仿真流+相噪口径 / 错误: 镜像抑制超域→ValueError（消息附非负域，标注）。
   - 调用方：manage_backend_registry（注册）；open_sim_siggen/open_sim_analyzer（串接）
   - tested 策略：自有单测
   - 核验命令：测试: sim_mixer13g
@@ -933,7 +933,7 @@
 
 - **open_sim_emi_receiver** [L0|新增]
   - 职责：EMI 接收机仿真后端（注册名 sim_emi_receiver）：CISPR 式读数（峰值/准峰值/平均值检波），频段 1kHz–3GHz、底噪 -150dBm/Hz 仿真口径；供 R33–R35 与独立 EMC 支路演示；所有读数带"模拟"标记。
-  - 签名意图：输入: 测量参数（频率/检波/带宽）/ 输出: CISPR 式读数 / 错误: 超域→SimError。
+  - 签名意图：输入: 测量参数（频率/检波/带宽）/ 输出: CISPR 式读数 / 错误: 超域→ValueError（消息附频段域）。
   - 调用方：manage_backend_registry（注册）；run_emc_conduction_sim/run_emc_sweep
   - tested 策略：自有单测
   - 核验命令：测试: sim_emi_receiver
@@ -944,7 +944,10 @@
 
 - **open_sim_attenuator** [L0|新增]
   - 职责：程控衰减器仿真后端：≥60dB 量程、档位粒度与切换时延仿真（纳秒级口径），实现与 set_channel_attenuation 相同的接口（粗档插件可替换），支撑 0–10km 全量程距离模拟演示。
-  - 签名意图：输入: 衰减请求（dB/档位）/ 输出: 实达衰减+切换时延 / 错误: 超量程→AttenuationError。
+  - 签名意图：输入: 衰减请求（dB/档位）/ 输出: 实达衰减+切换时延 / 错误: 超量程→ValueError（消息附量程域）。
+    （B15 Ruling：五仿真后端统一 ValueError 器件域口径——attenuator 不复用
+    set_channel_attenuation 的 AttenuationError，该异常保留给编排层的档位可达域判断，
+    器件域校验与编排可达域异常分层。）
   - 调用方：set_channel_attenuation（可替换粗档）；manage_backend_registry
   - tested 策略：自有单测
   - 核验命令：测试: sim_attenuator

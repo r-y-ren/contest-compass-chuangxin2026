@@ -75,20 +75,103 @@ def test_sim_emi_receiver_detector_ordering_peak_ge_qp_ge_average():
 
 
 def test_sim_emi_receiver_qp_lower_rep_more_attenuation():
-    # 用例4: QP 简化曲线低重频衰减多：rep=10Hz 比 rep=1kHz 多衰减 5·(log10(101)−log10(2))≈8.52 dB
+    # 用例4: QP 简化曲线低重频衰减多（未触 average 钳界的曲线区间）：脉冲 IQ（仅 1/4 帧
+    # 含单音，avg=peak−10·log10(4)≈−6.02dB），rep=100Hz 比 rep=1kHz 多衰减
+    # 5·(log10(11)−log10(2))≈3.70 dB（两 rep 的曲线衰减均 <6.02dB，不触钳界）
     common = {"freq_hz": 10e6, "sample_rate": 64e3, "detector": "quasi_peak"}
-    rx_low = open_sim_emi_receiver({**common, "rep_hz": 10.0})
+    rx_low = open_sim_emi_receiver({**common, "rep_hz": 100.0})
     rx_high = open_sim_emi_receiver({**common, "rep_hz": 1e3})
-    iq = _tone(64, 8) * 4  # 连续单音（各帧等幅）
+    iq = _tone(64, 8) + [0j] * 192  # 仅首帧含单音（幅度 1.0 → peak 0 dBm）
     low = rx_low.measure(iq)["power_dbm"]
     high = rx_high.measure(iq)["power_dbm"]
     i = _argmax(high)
     assert i == 8
     assert low[i] < high[i]
     assert high[i] - low[i] == pytest.approx(
-        5.0 * (math.log10(101.0) - math.log10(2.0)), abs=1e-6
+        5.0 * (math.log10(11.0) - math.log10(2.0)), abs=1e-6
     )
-    assert low[i] == pytest.approx(-5.0 * math.log10(101.0), abs=1e-6)
+    # 未钳界区间 qp == peak − 5·log10(1+1000/rep)
+    assert low[i] == pytest.approx(-5.0 * math.log10(11.0), abs=1e-6)
+    assert high[i] == pytest.approx(-5.0 * math.log10(2.0), abs=1e-6)
+
+
+def test_sim_emi_receiver_qp_steady_tone_ordering_holds_and_clamped_to_average():
+    # 用例14（B15对抗中#2）: 保序钳界——连续单音三检波 avg ≤ qp ≤ peak 恒成立；
+    # rep=100 平稳信号 qp==average（曲线衰减 5·log10(11)≈5.2dB 跌破均值即钳住，
+    # 不再破坏排序）；深衰减脉冲（rep=10Hz，曲线 10dB > 距峰 6.02dB）qp 亦钳到 average
+    common = {"freq_hz": 10e6, "sample_rate": 64e3}
+    steady = _tone(64, 8) * 4  # 连续单音：各帧等幅 → avg == peak
+    readings = {}
+    for det in ("peak", "quasi_peak", "average"):
+        rx = open_sim_emi_receiver({**common, "detector": det, "rep_hz": 100.0})
+        readings[det] = rx.measure(steady)["power_dbm"]
+    i = _argmax(readings["peak"])
+    assert i == 8
+    for p, q, a in zip(readings["peak"], readings["quasi_peak"], readings["average"]):
+        assert a <= q <= p  # 逐 bin 三检波排序恒成立
+    assert readings["quasi_peak"][i] == pytest.approx(readings["average"][i], abs=1e-9)
+    assert readings["average"][i] == pytest.approx(readings["peak"][i], abs=1e-9)
+    # 深衰减脉冲：曲线峰值衰减 10dB 超过 avg 距峰 6.02dB → qp 钳到 average
+    pulsed = _tone(64, 8) + [0j] * 192
+    rx_deep = open_sim_emi_receiver({**common, "detector": "quasi_peak", "rep_hz": 10.0})
+    rx_avg = open_sim_emi_receiver({**common, "detector": "average"})
+    deep = rx_deep.measure(pulsed)["power_dbm"]
+    avg = rx_avg.measure(pulsed)["power_dbm"]
+    assert deep[i] == pytest.approx(avg[i], abs=1e-9)
+
+
+def test_sim_emi_receiver_truncated_samples_annotated_when_dropped():
+    # 用例15（B15低#3）: 帧截断丢弃计数标注——非 4 帧整除余数与超长帧截断合并计数，
+    # 仅 >0 时输出（无截断不带该键）
+    rx = open_sim_emi_receiver({"freq_hz": 10e6, "sample_rate": 64e3})
+    clean = rx.measure(_tone(64, 8) * 4)
+    assert "truncated_samples" not in clean
+    truncated = rx.measure(_tone(64, 8) * 4 + [0j] * 3)  # 259=4×64+3 → 余数 3
+    assert truncated["truncated_samples"] == 3
+    assert len(truncated["power_dbm"]) == 64
+    # 超长帧截断：4 帧×(8192+8) 样本 → 每帧截 8 → 共 32（帧长上限 8192）
+    long_rx = open_sim_emi_receiver({"freq_hz": 10e6, "sample_rate": 1e6})
+    long_reading = long_rx.measure(_tone(32800, 8))
+    assert long_reading["truncated_samples"] == 32
+    assert len(long_reading["power_dbm"]) == 8192  # next_pow2(8192)=8192
+
+
+def test_sim_emi_receiver_negative_wrap_freq_clamped_to_zero_annotated():
+    # 用例16（B15低#4）: 低中心频率（1kHz）下环绕映射出现负频率 → 截为 0.0 并附
+    # 'freq_clamped': True；正常中心频率无负值不带该键
+    rx = open_sim_emi_receiver({"freq_hz": 1e3, "sample_rate": 64e3})
+    reading = rx.measure(_tone(64, 8) * 4)  # 64 bin，bin 宽 1kHz：k≥32 段环绕为负
+    assert reading["freq_clamped"] is True
+    assert all(f >= 0.0 for f in reading["freq_mhz"])
+    assert reading["freq_mhz"][0] == pytest.approx(1e-3)  # DC bin 恰为中心（未钳）
+    assert reading["freq_mhz"][32] == 0.0  # 环绕后最负的 bin 截 0
+    assert reading["freq_mhz"][63] == pytest.approx(0.0)  # k=63 恰映射 0Hz（原值非负）
+    normal = open_sim_emi_receiver({"freq_hz": 10e6, "sample_rate": 64e3}).measure(
+        _tone(64, 8) * 4
+    )
+    assert "freq_clamped" not in normal  # 无环绕负值 → 不输出该键
+
+
+def test_sim_emi_receiver_rep_hz_property_validating_setter():
+    # 用例17（B15低#6）: rep_hz 经校验 property——getter 透传；赋值须为正有限实数
+    # （≤0/bool/非实数/非有限 ValueError 且保持原值），直戳属性面即防护
+    rx = open_sim_emi_receiver()
+    assert rx.rep_hz == 100.0  # getter 透传工厂缺省
+    rx.rep_hz = 500.0
+    assert rx.rep_hz == 500.0
+    for bad in (0.0, -10.0, float("nan"), float("inf"), True, "100"):
+        with pytest.raises(ValueError):
+            rx.rep_hz = bad
+    assert rx.rep_hz == 500.0  # 拒绝不改状态
+    # setter 直达 QP 口径：改 rep 即改下一读数（不须重建实例）
+    common = {"freq_hz": 10e6, "sample_rate": 64e3, "detector": "quasi_peak"}
+    rx2 = open_sim_emi_receiver({**common, "rep_hz": 100.0})
+    iq = _tone(64, 8) + [0j] * 192
+    before = rx2.measure(iq)["power_dbm"]
+    rx2.rep_hz = 1e3  # 重频升高 → 曲线衰减变小 → QP 读数升高
+    after = rx2.measure(iq)["power_dbm"]
+    i = _argmax(after)
+    assert after[i] > before[i]
 
 
 def test_sim_emi_receiver_default_rbw_band_auto():

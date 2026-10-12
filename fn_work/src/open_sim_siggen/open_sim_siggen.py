@@ -19,6 +19,8 @@ _FREQ_ACCURACY_PPM = 1.0
 _FREQ_READBACK_FACTOR = 1.000001  # 1ppm 口径：回读 = 固定 1.000001×设定（+1ppm 正偏差）
 _DEFAULT_FREQ_HZ = 1e9
 _DEFAULT_POWER_DBM = 0.0
+# 相噪口径（B15三轴中②）：10kHz 偏移典型值仿真声明（静态口径键——不做 IQ 相噪注入）。
+_PHASE_NOISE_DBC_HZ_10K = -100.0
 
 # 注册名与自登记方法清单（caps 声明 tx=True → 契约要求 tx 三方法齐备；read_samples
 # 为统一接口兼容保留（恒 []，信号源无 RX），亦在契约约定方法全集内——一并声明受检）。
@@ -65,20 +67,37 @@ def _quantize_power_db(power_dbm: float) -> float:
 
 
 def _materialize_iq(iq: object) -> list[list]:
-    """IQ 物化：块迭代器 → list[list]；扁平复数序列视作单块；不可迭代的标量块包为单元素块。"""
+    """IQ 物化+逐样本校验：块迭代器 → list[list]；扁平复数序列视作单块；不可迭代的
+    标量块包为单元素块。
+
+    逐个样本校验（B15低#5）：bool/非数值样本（str/None/dict 等）一律 ValueError，
+    消息含块/样本位置（iq 块 {bi} 样本 {si}）；iq 本身为不可迭代标量（如 int）时
+    整体拒绝（无块/样本位置可言）。校验先于 start_tx 任何状态变更（原子拒绝）。
+    """
     if iq is None:
         return []
-    items = list(iq)
-    if items and all(
-        isinstance(s, numbers.Complex) and not isinstance(s, (str, bytes)) for s in items
-    ):
-        return [list(items)]  # 扁平 IQ 序列（[1+0j, 2+0j]）视作单块登记
-    blocks: list[list] = []
-    for block in items:
-        try:
-            blocks.append(list(block))
-        except TypeError:
-            blocks.append([block])
+    try:
+        items = list(iq)
+    except TypeError as exc:
+        raise ValueError(
+            f"iq 须为可迭代的 IQ 块/复数样本序列，实际为 {type(iq).__name__}: {iq!r}"
+        ) from exc
+    if items and all(isinstance(s, numbers.Complex) for s in items):
+        blocks = [list(items)]  # 扁平 IQ 序列（[1+0j, 2+0j]）视作单块登记
+    else:
+        blocks = []
+        for block in items:
+            try:
+                blocks.append(list(block))
+            except TypeError:
+                blocks.append([block])  # 不可迭代的标量块包为单元素块
+    for bi, block in enumerate(blocks):
+        for si, sample in enumerate(block):
+            if isinstance(sample, bool) or not isinstance(sample, numbers.Complex):
+                raise ValueError(
+                    f"iq 块 {bi} 样本 {si} 须为实数/复数样本，实际为 "
+                    f"{type(sample).__name__}: {sample!r}"
+                )
     return blocks
 
 
@@ -96,6 +115,9 @@ class SimSiggen1433D:
         get_power 返回量化生效值 + 量化标注；
       - 回读口径: get_freq = 固定 1.000001×设定（+1ppm 相对偏差——freq_accuracy_ppm=1.0
         口径的非随机仿真，每次回读同一偏差，文档注明）；get_power = 量化后生效值；
+      - 相噪口径（B15三轴中②）: 静态声明面——capabilities 'phase_noise_dbc_hz_10k'
+        缺省 -100 dBc/Hz（10kHz 偏移典型值仿真声明），set_phase_noise(≤0)/get_phase_noise
+        参数化，不做 IQ 相噪注入（start_tx 登记的 IQ 原样保留）；
       - start_tx 只登记不真发（记录 IQ + 当前参数并返回统计）；
         read_samples 恒 []（信号源无 RX 通道，方法仅为统一接口兼容保留，文档注明）。
     """
@@ -109,6 +131,7 @@ class SimSiggen1433D:
         self._freq_hz = _check_freq_hz(_as_real("freq_hz", freq_hz))
         self._requested_power_dbm = _check_power_dbm(_as_real("power_dbm", power_dbm))
         self._power_dbm = _quantize_power_db(self._requested_power_dbm)
+        self._phase_noise_dbc_hz = _PHASE_NOISE_DBC_HZ_10K
         self._output = False
         self._tx_active = False
         self._tx_iq_blocks: list[list] = []
@@ -227,6 +250,26 @@ class SimSiggen1433D:
             "quantized": self._requested_power_dbm != self._power_dbm,
         }
 
+    def set_phase_noise(self, db) -> float:
+        """设置相噪口径（静态声明面，B15三轴中②）：dBc/Hz @ 10kHz 偏移，须 ≤0。
+
+        输入: db 实数（bool/非实数/非有限 → ValueError；>0 → ValueError——dBc/Hz 相噪
+        为非正值）。输出: 生效声明值。
+        行为: 纯静态口径（capabilities 'phase_noise_dbc_hz_10k' 回显当前值）；
+        不做 IQ 相噪注入——start_tx 登记的 IQ 样本原样保留，文档注明。
+        """
+        val = _as_real("phase_noise_db", db)
+        if val > 0:
+            raise ValueError(
+                f"phase_noise_dbc_hz_10k 须为 ≤0 的 dBc/Hz 值（10kHz 偏移口径），实际为 {val!r}"
+            )
+        self._phase_noise_dbc_hz = val
+        return val
+
+    def get_phase_noise(self) -> float:
+        """相噪口径回读：当前生效的 dBc/Hz @ 10kHz 偏移声明值（静态口径，无读数偏差）。"""
+        return self._phase_noise_dbc_hz
+
     def capabilities(self) -> dict:
         """能力元数据（每次返回新 dict，调用方篡改不回写实例与注册表）。"""
         return {
@@ -235,6 +278,7 @@ class SimSiggen1433D:
             "power_range_dbm": (_POWER_MIN_DBM, _POWER_MAX_DBM),
             "power_resolution_db": _POWER_RESOLUTION_DB,
             "freq_accuracy_ppm": _FREQ_ACCURACY_PPM,
+            "phase_noise_dbc_hz_10k": self._phase_noise_dbc_hz,
             "simulated": True,
         }
 
@@ -248,6 +292,8 @@ class SimSiggen1433D:
         输出: 统计 dict {'simulated': True（仅登记标注）, 'blocks', 'samples',
           'freq_hz'（设定点）, 'power_dbm'（量化生效值）, 'output'（登记时刻开关态）,
           'effects'}；IQ 与参数快照另经 tx_iq_blocks / tx_params 属性核查。
+        错误: iq 不可迭代（标量 int 等）或块内/扁平序列内样本非数值（str/bool/None
+          等）→ ValueError（消息含块/样本位置；校验先于登记，失败不留半截状态）。
         """
         blocks = _materialize_iq(iq)
         self._tx_iq_blocks = blocks
