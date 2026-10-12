@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B12 | compute_alignment_error, record_run_streams, run_baseline_check, annotate_truth_labels, write_sigmf_recording | 对齐绿（align_streams）；放行/中止（baseline_guard）；SigMF 往返（sigmf_record） | 采集对齐族 |
-| B13 | check_failure, record_failure_level, execute_gb42590_protocol, compare_failure_boundaries, build_curve_frames, plot_triple_curves | 失效电平预期档±1（gb42590_executor）；定位（boundary_compare）；三图 PNG（triple_curves） | 测评族 |
+| ▶ B13 | check_failure, record_failure_level, execute_gb42590_protocol, compare_failure_boundaries, build_curve_frames, plot_triple_curves | 失效电平预期档±1（gb42590_executor）；定位（boundary_compare）；三图 PNG（triple_curves） | 测评族 |
 | B14 | dispatch_remote_training, train_classifier, make_group_splits, grouped_cv_evaluate, predict_style | sanity 收敛+拒训（train_classifier）；无泄漏（grouped_cv）；识别（infer_service） | AI 族 |
 | B15 | open_sim_siggen, open_sim_analyzer, upconvert_with_image_rejection, open_sim_mixer, open_sim_emi_receiver, open_sim_attenuator | 五模拟后端 wired（sim_1433d/sim_rsa513a/sim_mixer13g/sim_emi_receiver/sim_attenuator） | 远期仪表模拟族 |
 | B16 | make_disclaimer_block, run_emc_conduction_sim, run_emc_radiation_sim, plan_frequency_sweep, run_emc_sweep | 三流程 wired+口径声明（emc_conduction/emc_radiation/emc_sweep） | EMC 模拟+共享声明 |
@@ -36,4 +35,4 @@
 | 10-12 | Ruling⑯B10 双审 | 高1中1低4 全修+11 回归；泄漏表缓存语义取舍申报；B13 开批注意携带 JSR 接线条目 |
 | 10-12 | Ruling⑰B11 分歧 | NRF/ESP config 形状/None-vs-0/坏帧阈 三处口径分歧申报待双审统一 |
 | 10-12 | Ruling⑱B11 双审 | Ruling⑰ 三裁决落地+高1中3低3+ESP token；固件顺延集成批申报；预判反转留痕 |
-
+| 10-12 | Ruling⑲B12 集成 | read_samples 三方契约归一层+真后端 E2E；空读上限；esp err 回退对齐 |
