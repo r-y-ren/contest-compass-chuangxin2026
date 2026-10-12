@@ -442,7 +442,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] drive_esp32_link · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k dut_esp32 -q 2>&1 | tail -1 → 17 passed, 1775 deselected in 1.34s (10-12)
 - [x] drive_esp32_link · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b11.py | grep -q 'esp per=0.20' && echo 顶层实跑通过（lines 注入流） → 顶层实跑通过（lines 注入流） (10-12)
 - [x] drive_esp32_link · 清单进位 — 证据: bash -c grep -q '| drive_esp32_link | B11 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] drive_esp32_link · commit — 预告: fn(drive_esp32_link): wired 含四文档变更
+- [x] drive_esp32_link · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(drive_esp32_link)' && echo commit在案 → commit在案 (10-12)
 ### parse_nrf24_frame
 - [x] parse_nrf24_frame · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:parse_nrf24_frame' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
 - [x] parse_nrf24_frame · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/drive_nrf24_link/test_parse_nrf24_frame.py | tail -1 → 13 passed in 0.01s (10-12)
@@ -450,10 +450,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] parse_nrf24_frame · 清单进位 — 证据: bash -c grep -q '| parse_nrf24_frame | B11 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] parse_nrf24_frame · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(parse_nrf24_frame)' && echo commit在案 → commit在案 (10-12)
 ### drive_nrf24_link
-- [ ] drive_nrf24_link · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] drive_nrf24_link · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] drive_nrf24_link · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] drive_nrf24_link · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] drive_nrf24_link · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:drive_nrf24_link' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] drive_nrf24_link · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k dut_nrf24 -q 2>&1 | tail -1 → 15 passed, 1777 deselected in 1.30s (10-12)
+- [x] drive_nrf24_link · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b11.py | grep -q 'nrf per=0.45' && echo 顶层实跑通过（无 rssi 口径） → 顶层实跑通过（无 rssi 口径） (10-12)
+- [x] drive_nrf24_link · 清单进位 — 证据: bash -c grep -q '| drive_nrf24_link | B11 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] drive_nrf24_link · commit — 预告: fn(drive_nrf24_link): wired 含四文档变更
 ### apply_cliff_model
 - [x] apply_cliff_model · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:apply_cliff_model' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
