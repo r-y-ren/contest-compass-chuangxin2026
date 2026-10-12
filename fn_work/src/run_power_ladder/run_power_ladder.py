@@ -16,14 +16,17 @@ append_event、停发射归 stop_transmit_safely，本函数只做编排）：
   留痕于该档执行记录与 ladder_stop 事件（'judge_warning' 字段，B9低#4）；异常路径
   不补终止事件（落盘本身可能即失败源），仅停发射后原样透传。
 - reason 口径：'failure'=判据触发（stopped_at=触发档索引）；'truncated'=计划被
-  0dBm 红线截断（truncated_at 非 None，截断档未执行）；'max_steps'=max_steps 用尽
-  且未触红线的完整步数（truncated_at None 且步数==max_steps，B9低#5）；
-  'complete'=stop_db 命中的完整计划。
+  0dBm 红线截断（truncated_at 非 None，截断档未执行）；'complete'=stop_db 命中的
+  完整计划——含 stop 恰在第 max_steps 档命中（两条件同真时 stop 命中优先，复核遗留2）；
+  'max_steps'=max_steps 用尽且未命中 stop_db 的完整步数（GB 模式无 stop 概念，
+  步数尽即 max_steps，B9低#5）。
 - 每轮停发射保真（B9中#1）：ctx 未提供 run_token（缺键或 None）时每次调用自生成
-  uuid4().hex 写入 ctx 并贯通 set_channel_attenuation（经 ctx）/stop_transmit_safely
-  （经参数）链路——同 backend 连续多轮阶梯各配独立 token，停发射按 (backend, token)
-  运行级幂等，每轮收尾均实际停发射（缺省 None 会退化为进程级幂等，二轮
-  already_stopped 即漏停）。
+  '_auto:'+uuid4().hex 写入 ctx 并贯通 set_channel_attenuation（经 ctx）/
+  stop_transmit_safely（经参数）链路——同 backend 连续多轮阶梯各配独立 token，停发射按
+  (backend, token) 运行级幂等，每轮收尾均实际停发射（缺省 None 会退化为进程级幂等，
+  二轮 already_stopped 即漏停）。ctx 复用防误继承（复核遗留1）：再次进入时
+  ctx['run_token'] 为 '_auto:' 前缀 str 视为自家上轮旧 token 一律换新——同 ctx 跨轮
+  复用每轮仍实停；外部 token（无前缀）不覆盖，调用方口径优先。
 - 发射前拒绝（无需停发射）：dwell_s 为 bool/非实数/NaN/±inf/负 → ValueError；
   计划域错误（PlanError/ValueError）与 failure_cb 不可调用（TypeError）在发射前透传。
 """
@@ -42,6 +45,10 @@ from src.set_channel_attenuation.set_channel_attenuation import (
 )
 from src.shared.append_event import EventWriteError, append_event
 from src.shared.stop_transmit_safely import stop_transmit_safely
+
+#: 自生成 run_token 内部前缀：识别自家上轮旧 token——ctx 跨轮复用时换新防误继承
+#: （外部 token 无此前缀，不覆盖；前缀含 ':' 保证与常规 hex/业务 token 空间不相交）。
+_AUTO_TOKEN_PREFIX = "_auto:"
 
 #: 错误契约随本函数透传不捕获，重导出供调用方就地导入。
 __all__ = [
@@ -96,8 +103,10 @@ def run_power_ladder(
 
     :param ctx: 运行上下文（backend/run_dir/run_token/attenuator_cal 等，直传
         set_channel_attenuation；run_dir 亦为本函数事件落盘目录，缺省 None=纯执行不落事件；
-        未提供 run_token（缺键或 None）时自生成 uuid4().hex 写入 ctx 并贯通下发/停发射
-        链路——每轮独立 token 保证同 backend 连续多轮每轮实停，B9中#1）
+        未提供 run_token（缺键或 None）时自生成 '_auto:'+uuid4().hex 写入 ctx 并贯通
+        下发/停发射链路——每轮独立 token 保证同 backend 连续多轮每轮实停（B9中#1）；
+        ctx 跨轮复用时 '_auto:' 前缀旧 token 每轮换新防误继承（复核遗留1），
+        外部 token（无前缀）不覆盖）
     :param ladder_params: 梯度参数（start_db/step_db/stop_db/max_steps），None=GB 缺省口径
     :param failure_cb: 失效判据回调，逐档以该档记录 dict 征询，返回
         {'failed': bool, 'detail': …}；None=永不失效；形状错视为未失效记 warning
@@ -123,12 +132,16 @@ def run_power_ladder(
     ctx_fields = ctx if isinstance(ctx, dict) else {}
     backend = ctx_fields.get("backend")
     run_dir = ctx_fields.get("run_dir")
-    # 每轮停发射保真（B9中#1）：未提供 token 时自生成并写入 ctx——同 backend 连续
-    # 多轮各配独立 token，停发射按 (backend, token) 运行级幂等每轮实停；缺省 None
-    # 会退化为进程级幂等，第二轮收尾 already_stopped 即漏停。
+    # 每轮停发射保真（B9中#1 + 复核遗留1）：未提供 token 时自生成 '_auto:' 前缀
+    # token 写入 ctx——同 backend 连续多轮各配独立 token，停发射按 (backend, token)
+    # 运行级幂等每轮实停（缺省 None 退化为进程级幂等，二轮 already_stopped 即漏停）；
+    # 再次进入时识别到自家旧 '_auto:' token（同 ctx 跨轮复用残留）一律换新——
+    # 外部 token（无前缀的 str 或其他值）不覆盖，调用方口径优先。
     run_token = ctx_fields.get("run_token")
-    if run_token is None:
-        run_token = uuid4().hex
+    if run_token is None or (
+        isinstance(run_token, str) and run_token.startswith(_AUTO_TOKEN_PREFIX)
+    ):
+        run_token = f"{_AUTO_TOKEN_PREFIX}{uuid4().hex}"
         ctx_fields["run_token"] = run_token
 
     executed: list[dict] = []
@@ -173,9 +186,11 @@ def run_power_ladder(
         )
         raise
 
-    # ③ reason 判定：判据触发 > 红线截断 > max_steps 用尽 > stop_db 命中完整计划。
-    # max_steps 细分（B9低#5）：truncated_at 为 None 但步数恰用尽 max_steps（未触
-    # 红线也未命中 stop_db 提前收尾）——与 stop_db 命中的 complete 区分。
+    # ③ reason 判定：判据触发 > 红线截断 > stop_db 命中 > max_steps 用尽。
+    # stop 与步数同真优先级（复核遗留2）：stop 恰在第 max_steps 档命中时
+    # 「步数==max_steps」与「末档 target_db==stop_db」两条件同真——以 stop 命中
+    # 优先判 'complete'；仅步数==max_steps 且未命中 stop 才判 'max_steps'。
+    # GB 模式无 stop_db（无尽点口径），维持步数尽即 max_steps 的既有判法。
     if stopped_at is not None:
         reason = "failure"
     elif plan["truncated_at"] is not None:
@@ -183,7 +198,15 @@ def run_power_ladder(
     else:
         params = ladder_params if isinstance(ladder_params, dict) else {}
         max_steps = params.get("max_steps", _DEFAULT_MAX_STEPS)
-        reason = "max_steps" if len(plan["steps"]) == max_steps else "complete"
+        stop_db = params.get("stop_db")
+        stop_hit = (
+            stop_db is not None
+            and bool(plan["steps"])
+            and math.isclose(
+                plan["steps"][-1]["target_db"], float(stop_db), rel_tol=0.0, abs_tol=1e-9
+            )
+        )
+        reason = "complete" if stop_hit or len(plan["steps"]) != max_steps else "max_steps"
 
     # ③/②失效 统一收尾：先停发射，终止语义其后落盘（末行见证停发射在先）
     stop_result = stop_transmit_safely(

@@ -14,6 +14,7 @@ from src.run_power_ladder.run_power_ladder import (
     PlanError,
     run_power_ladder,
 )
+from src.shared.stop_transmit_safely import stop_transmit_safely
 
 _RETURN_KEYS = {"executed", "stopped_at", "reason", "plan", "stop_result"}
 _POWER_STEP_KEYS = {
@@ -347,8 +348,9 @@ def test_power_ladder_two_rounds_same_backend_each_round_stops(tmp_path):
     assert first["stop_result"]["status"] == "stopped"
     assert second["stop_result"]["status"] == "stopped"  # 独立 token → 每轮实停
     assert backend.stop_tx.call_count == 2
-    # 自生成 token 已写入 ctx：hex 串互异（uuid4），两轮 token 不同
-    assert all(isinstance(token, str) and len(token) == 32 for token in tokens)
+    # 自生成 token 已写入 ctx：'_auto:' 前缀+uuid4 hex（复核遗留1 口径），两轮互异
+    assert all(isinstance(token, str) and token.startswith("_auto:") for token in tokens)
+    assert all(len(token) == len("_auto:") + 32 for token in tokens)
     assert tokens[0] != tokens[1]
     # 外部已提供 token 时不覆盖（调用方口径优先）
     third_dir = tmp_path / "round3"
@@ -440,3 +442,87 @@ def test_power_ladder_max_steps_exhausted_reason_max_steps_not_complete(tmp_path
     # ladder_stop 事件同步细分口径
     stops = [event for event in _read_events(tmp_path) if event["type"] == "ladder_stop"]
     assert [event["reason"] for event in stops] == ["max_steps", "complete"]
+
+
+# ---- 复核遗留回归：ctx 复用 token 继承 / stop 与 max_steps 同真优先级 ----
+
+
+def test_power_ladder_same_ctx_reused_two_rounds_both_actually_stop(tmp_path):
+    """复核遗留1 同 ctx 跨轮复用：上轮自生成的 '_auto:' token 不被当作外部 token
+    继承——每轮换新 token，两轮收尾均实停（stopped），非第二轮 already_stopped。"""
+    backend = Mock(spec=["set_attenuation", "stop_tx"])
+    ctx = _ctx(tmp_path, backend)
+    first = run_power_ladder(ctx, {"start_db": -10.0, "stop_db": -10.0}, dwell_s=0.0)
+    token_first = ctx["run_token"]
+    second = run_power_ladder(ctx, {"start_db": -10.0, "stop_db": -10.0}, dwell_s=0.0)
+    token_second = ctx["run_token"]
+    assert token_first.startswith("_auto:") and token_second.startswith("_auto:")
+    assert token_first != token_second  # 旧 '_auto:' token 被换新，非继承
+    assert first["stop_result"]["status"] == "stopped"
+    assert second["stop_result"]["status"] == "stopped"  # 若误继承旧 token 此处 already_stopped
+    assert backend.stop_tx.call_count == 2
+
+
+def test_power_ladder_external_token_same_ctx_two_rounds_idempotent(tmp_path):
+    """复核遗留1b 外部 token 同 ctx 两轮：均不覆盖（每轮同 token）——停发射按
+    (backend, token) 幂等，第二轮 already_stopped 属调用方自带 token 的既定口径。"""
+    backend = Mock(spec=["set_attenuation", "stop_tx"])
+    ctx = _ctx(tmp_path, backend, run_token="caller-token")
+    first = run_power_ladder(ctx, {"start_db": -10.0, "stop_db": -10.0}, dwell_s=0.0)
+    second = run_power_ladder(ctx, {"start_db": -10.0, "stop_db": -10.0}, dwell_s=0.0)
+    assert ctx["run_token"] == "caller-token"  # 外部 token 两轮均不覆盖
+    assert first["stop_result"]["status"] == "stopped"
+    assert second["stop_result"]["status"] == "already_stopped"  # 同 token 幂等
+    assert backend.stop_tx.call_count == 1
+
+
+def test_power_ladder_stale_auto_prefix_token_replaced_per_call(tmp_path):
+    """复核遗留1c ctx 残留 '_auto:' 旧 token（含已被登记停发射的）：视为自家旧
+    token 换新而非外部继承——本轮以新 token 实停，不落 already_stopped 陷阱。"""
+    backend = Mock(spec=["set_attenuation", "stop_tx"])
+    stale = "_auto:leftover-from-previous-round"
+    # 预登记旧 token 已停：若被误当外部 token 继承，本轮收尾即 already_stopped
+    stop_transmit_safely(backend, context={"origin": "seed"}, run_token=stale)
+    ctx = _ctx(tmp_path, backend, run_token=stale)
+    result = run_power_ladder(ctx, {"start_db": -10.0, "stop_db": -10.0}, dwell_s=0.0)
+    assert ctx["run_token"] != stale and ctx["run_token"].startswith("_auto:")
+    assert result["stop_result"]["status"] == "stopped"
+    # stop_tx 两跳：预登记种子一次 + 本轮换新 token 重新全流程实停一次
+    assert backend.stop_tx.call_count == 2
+
+
+def test_power_ladder_stop_hit_at_exact_max_steps_reason_complete(tmp_path):
+    """复核遗留2 stop 恰在第 max_steps 档命中：实执 [−15,−10,−5] 命中 stop−5——
+    步数用尽与 stop 命中同真时 stop 优先，reason 'complete' 而非 'max_steps'。"""
+    backend = Mock(spec=["set_attenuation"])
+    result = run_power_ladder(
+        _ctx(tmp_path, backend),
+        {"start_db": -15.0, "step_db": 5.0, "stop_db": -5.0, "max_steps": 3},
+        dwell_s=0.0,
+    )
+    assert [rec["target_db"] for rec in result["executed"]] == [-15.0, -10.0, -5.0]
+    assert result["plan"]["truncated_at"] is None and result["plan"]["redline_hit"] is False
+    assert result["reason"] == "complete"  # 末档恰为 stop：命中完整计划
+    assert _read_events(tmp_path)[-1]["reason"] == "complete"  # ladder_stop 事件同步
+    # 同参收紧 max_steps=2 → 未及 stop 即步数用尽，维持 'max_steps'（对照例）
+    tight = run_power_ladder(
+        _ctx(tmp_path, backend),
+        {"start_db": -15.0, "step_db": 5.0, "stop_db": -5.0, "max_steps": 2},
+        dwell_s=0.0,
+    )
+    assert tight["reason"] == "max_steps"
+    assert [rec["target_db"] for rec in tight["executed"]] == [-15.0, -10.0]
+
+
+def test_power_ladder_gb_no_endpoint_30_rungs_reason_max_steps(tmp_path):
+    """复核遗留2b GB 无尽点（link 极低 30 档不触红线）：步数尽即 'max_steps'——
+    stop 优先级调整不改变 GB 模式（无 stop_db 概念）的既有口径。"""
+    backend = Mock(spec=["set_attenuation"])
+    # 宽域标定（细档实际×7.5 → 域顶 30+157.5）：30 档全可达（145dB 跨度超缺省域顶 50）
+    wide_cal = {float(step): step * 7.5 for step in range(0, 21)}
+    result = run_power_ladder(
+        _ctx(tmp_path, backend, attenuator_cal=wide_cal), None, dwell_s=0.0, link_power_db=-140.0
+    )
+    assert len(result["executed"]) == 30  # −145 起步 5dB 递增至恰 0（0dBm 恰过不截）
+    assert result["plan"]["truncated_at"] is None and result["plan"]["note"] == "gb42590"
+    assert result["reason"] == "max_steps"
