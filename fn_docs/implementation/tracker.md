@@ -618,10 +618,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] upconvert_with_image_rejection · 清单进位 — 证据: bash -c grep -q '| upconvert_with_image_rejection | B15 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] upconvert_with_image_rejection · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(upconvert_with_image_rejection)' && echo commit在案 → commit在案 (10-12)
 ### open_sim_mixer
-- [ ] open_sim_mixer · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] open_sim_mixer · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] open_sim_mixer · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] open_sim_mixer · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] open_sim_mixer · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:open_sim_mixer' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] open_sim_mixer · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k sim_mixer13g -q 2>&1 | tail -1 → 14 passed, 2252 deselected in 1.40s (10-12)
+- [x] open_sim_mixer · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b15.py | grep -q 'RF=13.00GHz' && echo 顶层实跑通过（13G 全链） → 顶层实跑通过（13G 全链） (10-12)
+- [x] open_sim_mixer · 清单进位 — 证据: bash -c grep -q '| open_sim_mixer | B15 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] open_sim_mixer · commit — 预告: fn(open_sim_mixer): wired 含四文档变更
 ### open_sim_emi_receiver
 - [x] open_sim_emi_receiver · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:open_sim_emi_receiver' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
@@ -634,7 +634,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] open_sim_attenuator · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k sim_attenuator -q 2>&1 | tail -1 → 20 passed, 2246 deselected in 1.39s (10-12)
 - [x] open_sim_attenuator · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b15.py | grep -q '衰减 30dB' && echo 顶层实跑通过（真衰减数学） → 顶层实跑通过（真衰减数学） (10-12)
 - [x] open_sim_attenuator · 清单进位 — 证据: bash -c grep -q '| open_sim_attenuator | B15 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] open_sim_attenuator · commit — 预告: fn(open_sim_attenuator): wired 含四文档变更
+- [x] open_sim_attenuator · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(open_sim_attenuator)' && echo commit在案 → commit在案 (10-12)
 
 ## B15 批间门
 - [ ] B15 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）

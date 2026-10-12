@@ -90,9 +90,9 @@
 | open_sim_siggen | B15 | wired 10-12 | 15 passed；0.5dB 量化+1ppm+SCPI 复用 | da76f24 |
 | open_sim_analyzer | B15 | wired 10-12 | 13 passed；DPX+±1.5dB 确定性偏差 | e40bed3 |
 | upconvert_with_image_rejection | B15 | wired 10-12 | 59 passed；公式(2)+镜像+杂散 | 2069ccf |
-| open_sim_mixer | B15 | stub 10-11 | pytest -k sim_mixer13g | — |
+| open_sim_mixer | B15 | wired 10-12 | 14 passed；13G 链+beyond_model+IQ 搬移 | pending |
 | open_sim_emi_receiver | B15 | wired 10-12 | 13 passed；三检波+CISPR 声明 | f7a5302 |
-| open_sim_attenuator | B15 | wired 10-12 | 20 passed；0.25 网格+真衰减数学 | pending |
+| open_sim_attenuator | B15 | wired 10-12 | 20 passed；0.25 网格+真衰减数学 | 0579c65 |
 | make_disclaimer_block | B16 | stub 10-11 | 上游覆盖: run_emc_conduction_sim | — |
 | run_emc_conduction_sim | B16 | stub 10-11 | pytest -k emc_conduction | — |
 | run_emc_radiation_sim | B16 | stub 10-11 | pytest -k emc_radiation | — |
