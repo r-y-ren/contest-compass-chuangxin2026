@@ -9,7 +9,9 @@
 """
 from __future__ import annotations
 
+import cmath
 import json
+import math
 import os
 
 import pytest
@@ -295,9 +297,11 @@ def test_gb42590_executor_exception_stops_tx_first_then_propagates(tmp_path):
     assert "stop_tx" in log
     assert log.index("stop_tx") > log.index("set_attenuation:30.0")  # 先停发射
     assert log.index("start_tx") < log.index("set_attenuation:30.0")
-    types = event_types(read_events(tmp_path))
-    assert set(types) == {"protocol_start", "baseline"}  # 异常路径不补终止事件
-    assert "protocol_stop" not in types
+    # B13 复审低#3：阶梯异常透传前补 protocol_stop aborted（error 摘要）
+    events = read_events(tmp_path)
+    assert events[-1]["type"] == "protocol_stop"
+    assert events[-1]["status"] == "aborted"
+    assert "RuntimeError" in events[-1]["error"] and "boom" in events[-1]["error"]
 
 
 # ---------------------------------------------------------------------------
@@ -389,3 +393,116 @@ def test_gb42590_executor_event_order_jsonl_parseable(tmp_path):
     assert types.index("ladder_stop") < types.index("failure_level")
     assert types.index("failure_level") < types.index("protocol_stop")
     assert types[-1] == "protocol_stop"
+
+
+# ---------------------------------------------------------------------------
+# ⑭ 嵌套 params 合并（B13 复审中#1）：n_samples/freq_offset_hz 生效——
+#    start_tx 实收 64 点 + 频偏对；protocol_start 的 n_samples 反映实际合成
+# ---------------------------------------------------------------------------
+class CaptureBackend(FakeJamBackend):
+    """探针后端：start_tx 捕获 IQ 块，见证实际装载的合成波形。"""
+
+    def __init__(self):
+        super().__init__()
+        self.captured = []
+
+    def start_tx(self, iq_blocks, effects=None):
+        self.captured.extend(iq_blocks)
+        super().start_tx(iq_blocks, effects)
+
+
+def _tone_freq_hz(iq) -> float:
+    """复指数相位增量均值→频率（fs=1e6 口径）：f = fs·mean(Δφ)/2π。"""
+    deltas = [
+        cmath.phase(iq[i + 1] * iq[i].conjugate()) for i in range(len(iq) - 1)
+    ]
+    return 1e6 * sum(deltas) / (2.0 * math.pi * len(deltas))
+
+
+def test_gb42590_executor_nested_params_n_samples_and_freq_effective(tmp_path):
+    backend = CaptureBackend()
+    scenario = sim_scenario(
+        style="tone",
+        params={"n_samples": 64, "freq_offset_hz": 125000.0},
+    )
+
+    result = execute_gb42590_protocol(
+        sim_ctx(tmp_path, backend=backend, scenario=scenario, n_events=3)
+    )
+
+    assert result["status"] == "completed"
+    assert len(backend.captured) == 1
+    iq = backend.captured[0]
+    assert len(iq) == 64  # 嵌套 n_samples 生效（tone 配方缺省 4096）
+    # 嵌套 freq_offset_hz 生效（配方缺省 1e5）：125k → 每样本相位增量 π/4
+    assert _tone_freq_hz(iq) == pytest.approx(125000.0)
+    # protocol_start 的 n_samples 反映实际合成（64 非 4096）
+    events = read_events(tmp_path)
+    assert events[0]["type"] == "protocol_start"
+    assert events[0]["n_samples"] == 64
+
+
+def test_gb42590_executor_nested_params_flat_keys_take_priority(tmp_path):
+    backend = CaptureBackend()
+    scenario = sim_scenario(
+        style="tone",
+        n_samples=32,  # 平铺波形键优先于嵌套 params 的 64
+        params={"n_samples": 64, "freq_offset_hz": 125000.0},
+    )
+
+    result = execute_gb42590_protocol(
+        sim_ctx(tmp_path, backend=backend, scenario=scenario, n_events=3)
+    )
+
+    assert result["status"] == "completed"
+    assert len(backend.captured[0]) == 32  # {**params, **平铺}：平铺优先
+    assert read_events(tmp_path)[0]["n_samples"] == 32
+
+
+# ---------------------------------------------------------------------------
+# ⑮ ctx 两级回落（B13 复审低#2）：scenario 缺键时 dwell_s/judge_min_samples
+#    回落 ctx 同名键（scenario>ctx>缺省）
+# ---------------------------------------------------------------------------
+def test_gb42590_executor_ctx_dwell_s_zero_passthrough(tmp_path):
+    scenario = sim_scenario(ladder={"max_steps": 2})
+    scenario.pop("dwell_s")  # scenario 缺键 → 回落 ctx['dwell_s']
+    ctx = sim_ctx(tmp_path, scenario=scenario, n_events=2, dwell_s=0.0)
+
+    result = execute_gb42590_protocol(ctx)
+
+    assert result["status"] == "completed"
+    steps = [e for e in read_events(tmp_path) if e["type"] == "power_step"]
+    assert len(steps) == 2
+    assert all(s["dwell_s"] == 0 for s in steps)  # ctx dwell_s=0 透传（sleep 0）
+
+
+def test_gb42590_executor_ctx_judge_min_samples_consulted(tmp_path):
+    # scenario 缺键 → ctx['judge_min_samples'] 被读到（非法值即拒——两级回落见证）
+    ctx = sim_ctx(tmp_path, scenario=sim_scenario(), n_events=3, judge_min_samples=0)
+    with pytest.raises(ProtocolError, match="judge_min_samples"):
+        execute_gb42590_protocol(ctx)
+
+
+# ---------------------------------------------------------------------------
+# ⑯ 判据回调异常（B13 复审低#3）→ events.jsonl 末行 protocol_stop aborted
+# ---------------------------------------------------------------------------
+def test_gb42590_executor_judge_exception_appends_aborted_stop(tmp_path, monkeypatch):
+    import src.execute_gb42590_protocol.execute_gb42590_protocol as proto
+    from src.normalize_kpi.normalize_kpi import KpiError
+
+    def exploding_normalize(sample, source):
+        raise KpiError("judge-side normalize exploded")
+
+    monkeypatch.setattr(proto, "normalize_kpi", exploding_normalize)
+    backend = make_backend()
+
+    with pytest.raises(ValueError) as excinfo:  # KpiError 属 ValueError 族，透传
+        execute_gb42590_protocol(sim_ctx(tmp_path, backend=backend, n_events=3))
+    assert "judge-side normalize exploded" in str(excinfo.value)
+
+    events = read_events(tmp_path)
+    assert events[-1]["type"] == "protocol_stop"  # 末行终止事件
+    assert events[-1]["status"] == "aborted"
+    assert "KpiError" in events[-1]["error"]
+    assert "judge-side normalize exploded" in events[-1]["error"]
+    assert "stop_tx" in backend.log  # ladder 先停发射再透传（安全序不变）

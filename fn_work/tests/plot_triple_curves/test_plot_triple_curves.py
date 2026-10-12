@@ -60,6 +60,7 @@ def test_triple_curves_full_data_three_pngs_with_magic_and_contract(tmp_path):
     assert Path(result["data_path"]).name == "curves_data.json"
     assert Path(result["data_path"]).is_file()
     assert result["partial"] is False
+    assert result["partial_reason"] is None  # B13 复审低#4：非 partial 无成因
     assert result["font"] in ("cjk", "fallback")
     assert result["missing"] == []
 
@@ -197,3 +198,52 @@ def test_triple_curves_kpi_only_partial_missing_frame_ab(tmp_path):
     assert set(result["missing"]) == {"frame_a", "frame_b"}
     # 图C（KPI 时间线点）仍出
     _assert_png(tmp_path / "curve_c_event_timeline.png")
+
+
+# ---------------------------------------------------------------------------
+# B13 复审低#4：图A x 非空但 y 全 None → 空轴+「partial：无判据数据」轴注，
+# partial_reason='no_judged_windows'；帧数据不足 → 'insufficient_frames'
+# ---------------------------------------------------------------------------
+def test_triple_curves_no_judged_windows_reason_and_annotation(tmp_path, monkeypatch):
+    annotated: list[int] = []
+    original = ptc._annotate_no_judged
+    monkeypatch.setattr(
+        ptc,
+        "_annotate_no_judged",
+        lambda ax: (annotated.append(1), original(ax))[1],
+    )
+    data = {
+        # 两窗均开但 KPI 行无判据样本（judge_per=None/缺）→ 帧A x 非空、y 全 None
+        "kpi": [{"ts_ms": 150, "judge_per": None}, {"ts_ms": 350}],
+        "events": [
+            {"type": "power_step", "ts_ms": 100, "step": 0, "target_db": -10.0},
+            {"type": "power_step", "ts_ms": 300, "step": 1, "target_db": -5.0},
+        ],
+        "failure_levels": [],
+    }
+
+    result = plot_triple_curves(data, str(tmp_path))
+
+    assert result["partial"] is True
+    assert result["partial_reason"] == "no_judged_windows"
+    assert annotated == [1]  # 图A 仍出空轴+「partial：无判据数据」轴注
+    _assert_png(tmp_path / "curve_a_per_vs_level.png")
+    payload = json.loads(Path(result["data_path"]).read_text(encoding="utf-8"))
+    assert payload["plot"]["partial_reason"] == "no_judged_windows"
+    assert payload["frames"]["frame_a"]["y"] == [None, None]
+
+
+def test_triple_curves_insufficient_frames_reason(tmp_path):
+    data = {  # 单窗单判据点：可绘点 <2 → partial_reason='insufficient_frames'
+        "kpi": [{"ts_ms": 150, "judge_per": 0.2}],
+        "events": [
+            {"type": "power_step", "ts_ms": 100, "step": 0, "target_db": -10.0}
+        ],
+        "failure_levels": [],
+    }
+
+    result = plot_triple_curves(data, str(tmp_path))
+
+    assert result["partial"] is True
+    assert result["partial_reason"] == "insufficient_frames"
+    assert result["missing"] == []  # 三帧均非空，仅可绘点不足（<2）

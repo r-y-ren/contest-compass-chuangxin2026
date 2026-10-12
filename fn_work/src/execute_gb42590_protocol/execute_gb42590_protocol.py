@@ -39,7 +39,9 @@
 错误契约：ProtocolError（本文件定义：带宽校验/编排形状错——发射前，不涉及停发射）；
 阶段②③的下游异常（LinkError/BackendError/AttenuationError/EventWriteError/
 ValueError 族）由 record_run_streams / run_power_ladder / drive_* 按「先停发射再
-透传」语义上抛，本函数原样透传不吞不换（ladder 判据回调自身的异常同语义）。
+透传」语义上抛，本函数原样透传不吞不换（ladder 判据回调自身的异常同语义）；
+阶梯段（含判据回调）异常透传前本函数尽力补 protocol_stop 事件（status='aborted'+
+error 摘要；append_event 失败不再二次抛，原异常透传优先——B13 复审低#3）。
 """
 from __future__ import annotations
 
@@ -168,7 +170,8 @@ def _build_style_params(scenario: dict) -> tuple[str, dict]:
 
     多音（multi_tone）无显式 components 时按两单音 composite 构造：分量频偏
     ±tone_separation_hz/2（缺省回落 jam_bw_hz → victim_bw_hz，须为正数）；
-    噪声缺省带宽回落 victim_bw_hz（干扰带宽≥链路带宽的缺省满足构造）。
+    噪声缺省带宽回落 victim_bw_hz（干扰带宽≥链路带宽的缺省满足构造）；
+    scenario['params'] 嵌套 dict 合并进合成参数（平铺波形键优先，B13 复审中#1）。
     """
     raw_style = scenario.get("style")
     if raw_style is None:
@@ -213,6 +216,15 @@ def _build_style_params(scenario: dict) -> tuple[str, dict]:
         victim = scenario.get("victim_bw_hz")
         if _finite_number(victim) and float(victim) > 0.0:
             params["bandwidth_hz"] = float(victim)
+
+    # B13 复审中#1：'params' 嵌套 dict 合并进合成参数——平铺波形键优先
+    # （{**scenario['params'], **平铺参数}，与 synthesize_style「显式参数优先于
+    # defaults」/switch_style 同口径）；嵌套-only 键（如 n_samples/freq_offset_hz）
+    # 生效，合并结果经实际合成反映进 meta（protocol_start 的 n_samples 即实际
+    # 合成点数，非配方缺省）。
+    nested = scenario.get("params")
+    if isinstance(nested, dict):
+        params = {**nested, **params}
     return canonical, params
 
 
@@ -538,10 +550,15 @@ def execute_gb42590_protocol(ctx: dict, scenario: dict | None = None) -> dict:
             配方样式名）、'fs'、'victim_bw_hz'（链路带宽，带宽校验基准）、
             'bandwidth_hz'（噪声干扰带宽，缺省回落 victim_bw_hz）、
             'tone_separation_hz'（多音两单音间距，缺省回落 jam_bw_hz/victim_bw_hz）、
-            'components'（composite 显式分量直给）、'baseline_samples'（基线窗口
+            'components'（composite 显式分量直给）、'params'（嵌套合成参数 dict：
+            合并进合成参数，平铺波形键优先——嵌套-only 键如 n_samples/
+            freq_offset_hz 生效，protocol_start 的 n_samples 反映实际合成，
+            B13 复审中#1）、'baseline_samples'（基线窗口
             行数，缺省 10）、'baseline'（run_baseline_check 阈值覆盖 dict）、
             'per_threshold'（失效判据阈，缺省 0.10）、'judge_min_samples'（判据路
-            每档窗口，缺省 10）、'dwell_s'（档间停留，缺省 1.0）、'ladder'
+            每档窗口，缺省 10；scenario 缺键回落 ctx 同名键，两级
+            scenario>ctx>缺省——B13 复审低#2）、'dwell_s'（档间停留，缺省 1.0；
+            同两级回落 ctx['dwell_s']）、'ladder'
             （ladder_params 覆盖：start_db/step_db/stop_db/max_steps）。
 
     输出:
@@ -554,7 +571,9 @@ def execute_gb42590_protocol(ctx: dict, scenario: dict | None = None) -> dict:
         ProtocolError: 干扰带宽<链路带宽（附 jam_bw_hz/victim_bw_hz）/ 场景与
         编排形状错 / StyleError 合成域错包装——均在发射前（不涉及停发射）；
         其余下游异常（LinkError/BackendError/AttenuationError/EventWriteError/
-        ValueError 族）按各编排函数「先停发射再透传」语义原样透传。
+        ValueError 族）按各编排函数「先停发射再透传」语义原样透传；其中阶梯段
+        （含判据回调）异常透传前尽力补 protocol_stop 事件（status='aborted'+
+        error 摘要；append_event 失败不再二次抛——B13 复审低#3）。
     """
     if not isinstance(ctx, dict):
         raise ProtocolError(f"ctx 必须为 dict，收到 {type(ctx).__name__}")
@@ -663,9 +682,14 @@ def execute_gb42590_protocol(ctx: dict, scenario: dict | None = None) -> dict:
         "per_threshold", scenario.get("failure_threshold", _DEFAULT_PER_THRESHOLD)
     )
     check_failure({"per": None}, threshold)  # 阈值域预检（发射前拒绝）
+    # B13 复审低#2：判据窗样本数两级回落 scenario > ctx > 缺省（同 dwell_s）。
+    min_samples_value = scenario.get("judge_min_samples")
+    if min_samples_value is None:
+        min_samples_value = ctx.get("judge_min_samples")
+    if min_samples_value is None:
+        min_samples_value = _DEFAULT_JUDGE_MIN_SAMPLES
     min_samples = _positive_int(
-        scenario.get("judge_min_samples", _DEFAULT_JUDGE_MIN_SAMPLES),
-        "scenario['judge_min_samples']",
+        min_samples_value, "scenario/ctx['judge_min_samples']"
     )
     dut_iter, source = _open_dut_source(ctx, scenario)
 
@@ -695,15 +719,40 @@ def execute_gb42590_protocol(ctx: dict, scenario: dict | None = None) -> dict:
     ladder_params = (
         scenario.get("ladder") if isinstance(scenario.get("ladder"), dict) else None
     )
-    dwell_s = scenario.get("dwell_s", _DEFAULT_DWELL_S)
+    # B13 复审低#2：档间停留两级回落 scenario > ctx > 缺省（域校验归
+    # run_power_ladder 发射前拒绝：负/bool/NaN/±inf → ValueError）。
+    dwell_s = scenario.get("dwell_s")
+    if dwell_s is None:
+        dwell_s = ctx.get("dwell_s")
+    if dwell_s is None:
+        dwell_s = _DEFAULT_DWELL_S
     # ladder 收尾（失效/走完/异常）均自停发射；判据回调异常同走先停发射再透传。
-    ladder = run_power_ladder(
-        ctx,
-        ladder_params,
-        failure_cb=_make_failure_cb(state),
-        dwell_s=dwell_s,
-        link_power_db=link_power_db,
-    )
+    try:
+        ladder = run_power_ladder(
+            ctx,
+            ladder_params,
+            failure_cb=_make_failure_cb(state),
+            dwell_s=dwell_s,
+            link_power_db=link_power_db,
+        )
+    except BaseException as exc:  # noqa: BLE001 - 透传前尽力补 aborted 终止事件
+        # B13 复审低#3：判据回调/阶梯异常透传路径补 protocol_stop（status=
+        # 'aborted'，error 摘要）尽力落盘——append_event 失败不再二次抛（原异常
+        # 透传优先；停发射已由 ladder 内部「先停发射再透传」完成）。
+        try:
+            append_event(
+                run_dir,
+                {
+                    "type": "protocol_stop",
+                    "status": "aborted",
+                    "stopped_at": None,
+                    "steps_executed": None,
+                    "error": f"{type(exc).__name__}: {exc}",
+                },
+            )
+        except Exception:  # noqa: BLE001 - 落盘尽力而为：绝不掩盖原异常
+            pass
+        raise
 
     # ---------- ④ 失效登记（P_crit）——发射已由 ladder 收尾停止 ----------
     failure_levels: list[dict] = []

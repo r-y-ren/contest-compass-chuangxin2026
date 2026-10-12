@@ -187,6 +187,7 @@ def test_boundary_compare_empty_list_returns_no_data():
         "weakest_freq_mhz": None,
         "tie": False,
         "n_unknown": 0,
+        "n_freq_invalid": 0,
         "conclusion": "无数据",
     }
 
@@ -222,3 +223,50 @@ def test_boundary_compare_conclusion_numeric_text_and_unknown_hint():
     assert "中位数 -21.0 dB" in result["conclusion"]  # 数值文案
     assert "unknown" in result["conclusion"] and "1 条" in result["conclusion"]
     assert result["n_unknown"] == 1
+
+
+# ---------------------------------------------------------------------------
+# B13 复审低#5：n_runs 口径按条目计数（docstring+结论文案「有效 N 条（按条目计）」）
+# ---------------------------------------------------------------------------
+def test_boundary_compare_n_runs_wording_counts_entries():
+    entries = [
+        _entry("chirp", -10),
+        _entry("chirp", -12),
+        _entry("chirp", -11),
+        _entry("chirp", "unknown"),
+    ]
+    result = compare_failure_boundaries(entries)
+    assert result["comparison"] == []  # 单样式降级：统计进结论
+    assert "有效 3 条（按条目计）" in result["conclusion"]  # 非「轮」口径
+
+
+# ---------------------------------------------------------------------------
+# B13 复审低#6：freq_mhz 字符串数字归一入频点维（'2480' 参与 weakest）；
+# 归一失败跳过频点维并计 n_freq_invalid（电平维不受影响）
+# ---------------------------------------------------------------------------
+def test_boundary_compare_string_freq_participates_in_weakest():
+    entries = [
+        _entry("tone", -20, freq="2480"),  # 字符串数字 → 归一 2480.0
+        _entry("tone", -24, freq="2480"),
+        _entry("chirp", -10, freq=2400),
+        _entry("chirp", -12, freq=2400),
+    ]
+    result = compare_failure_boundaries(entries)
+    assert result["weakest_freq_mhz"] == 2480.0  # '2480' 归一后参与 weakest
+    assert isinstance(result["weakest_freq_mhz"], float)
+    assert result["n_freq_invalid"] == 0
+    assert result["weakest_style"] == "tone"
+
+
+def test_boundary_compare_invalid_freq_skipped_and_counted():
+    entries = [
+        _entry("tone", -20, freq="not-a-number"),  # 非数字串 → 归一失败
+        _entry("tone", -22, freq="nan"),  # 可 float 但非有限 → 归一失败
+        _entry("chirp", -10, freq=2400),
+        _entry("chirp", -12, freq=2400),
+    ]
+    result = compare_failure_boundaries(entries)
+    assert result["n_freq_invalid"] == 2
+    assert result["weakest_freq_mhz"] is None  # 仅 1 个有效频点：无跨频点可比
+    assert result["weakest_style"] == "tone"  # 电平维统计不受频点归一失败影响
+    assert "2 条频点不可归一" in result["conclusion"]

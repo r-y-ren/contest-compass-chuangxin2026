@@ -14,9 +14,13 @@
   标注（中文渲染缺字警告不炸）→``font='fallback'``。
 - 落盘：三 PNG（150 dpi：curve_a_per_vs_level.png / curve_b_throughput_vs_per.png
   / curve_c_event_timeline.png）+ ``curves_data.json``（三帧+绘制参数，报告溯源）。
-- 降级：部分缺数据→已得图照出（空帧出标题+「partial：无数据」轴注），
-  ``partial=True`` 且 ``missing`` 列缺项帧名；三路全空→:class:`CurvesError`。
+- 降级：部分缺数据→已得图照出（空帧出标题+「partial：无数据」轴注；图A 有窗
+  （x 非空）但判据样本全缺（y 全 None）→空轴+「partial：无判据数据」轴注，
+  B13 复审低#4），``partial=True`` 且 ``missing`` 列缺项帧名、``partial_reason``
+  注明成因（'no_judged_windows'=有窗无判据样本 | 'insufficient_frames'=帧数据
+  不足（缺帧/可绘点<2）| None=非 partial）；三路全空→:class:`CurvesError`。
 - 返回：``{'png_paths': [三路径], 'data_path': str, 'partial': bool,
+  'partial_reason': 'no_judged_windows'|'insufficient_frames'|None,
   'font': 'cjk'|'fallback', 'missing': [帧名]}``。
 - 错误：matplotlib 缺（消息含 ``pip install matplotlib`` 提示）/三路全空/
   ``out_dir`` 不可写→:class:`CurvesError`；``data`` 形状错→
@@ -119,6 +123,19 @@ def _annotate_empty(ax) -> None:
     )
 
 
+def _annotate_no_judged(ax) -> None:
+    """有窗无判据轴注：x 非空但 y 全 None 的 partial 降级在图A上可见（B13 复审低#4）。"""
+    ax.text(
+        0.5,
+        0.5,
+        "partial：无判据数据",
+        ha="center",
+        va="center",
+        transform=ax.transAxes,
+        color="0.4",
+    )
+
+
 def _failure_points(frame_a: dict) -> list[tuple[float, float]]:
     """失效档红点坐标：failure_x 对位窗口；窗 PER None→按失效上界 1.0 口径。"""
     x, y = frame_a["x"], frame_a["y"]
@@ -132,22 +149,31 @@ def _failure_points(frame_a: dict) -> list[tuple[float, float]]:
 
 
 def _draw_frame_a(plt, frame: dict, suffix: str, font_mode: str):
-    """图A：PER–干扰电平 折线+失效档红点（y 轴 0–1；None 窗为折线断点）。"""
+    """图A：PER–干扰电平 折线+失效档红点（y 轴 0–1；None 窗为折线断点）。
+
+    B13 复审低#4：x 非空但 y 全 None（有窗无判据样本）→ 出空轴+「partial：
+    无判据数据」轴注（失效档红点按 PER=1 失效上界口径仍落点）。
+    """
     fig, ax = plt.subplots(figsize=(7.0, 4.5))
     ax.set_xlabel("干扰电平 (dBm)")
     ax.set_ylabel("误包率 PER")
     ax.set_title(f"误包率–干扰电平{suffix}")
     if frame["x"]:
-        ax.plot(
-            frame["x"], frame["y"], marker="o", color="#1f77b4", label="各档窗口 PER 均值"
-        )
+        judged = any(value is not None for value in frame["y"])
+        if judged:
+            ax.plot(
+                frame["x"], frame["y"], marker="o", color="#1f77b4", label="各档窗口 PER 均值"
+            )
+        else:
+            _annotate_no_judged(ax)
         failures = _failure_points(frame)
         if failures:
             failure_xs, failure_ys = zip(*failures)
             ax.scatter(failure_xs, failure_ys, color="red", s=70, zorder=3, label="失效档")
         ax.set_ylim(0.0, 1.0)
         ax.grid(True, alpha=0.3)
-        ax.legend()
+        if judged:
+            ax.legend()
     else:
         _annotate_empty(ax)
     _fallback_note(fig, font_mode)
@@ -208,6 +234,8 @@ def plot_triple_curves(data: dict, out_dir: str, run_label: str = "") -> dict:
         # result['partial'] False / result['font'] 'cjk'
 
     - 部分缺数据：已得图照出+空帧轴注「partial：无数据」，``partial=True``；
+      图A x 非空但 y 全 None → 空轴+轴注「partial：无判据数据」，成因入返回
+      ``partial_reason``（B13 复审低#4）；
     - 三路全空→:attr:`CurvesError`；matplotlib 缺/``out_dir`` 不可写→
       :attr:`CurvesError`（缺库消息含 ``pip install matplotlib`` 提示）；
     - ``data`` 形状错→:attr:`ValueError` 透传 build_curve_frames。
@@ -255,6 +283,7 @@ def plot_triple_curves(data: dict, out_dir: str, run_label: str = "") -> dict:
 
     plottable_a = sum(1 for value in frames["frame_a"]["y"] if value is not None)
     plottable_b = len(frames["frame_b"]["x"])
+    no_judged_windows = bool(frames["frame_a"]["x"]) and plottable_a == 0
     missing = [
         key
         for key, empty in (
@@ -265,6 +294,14 @@ def plot_triple_curves(data: dict, out_dir: str, run_label: str = "") -> dict:
         if empty
     ]
     partial = bool(missing) or plottable_a < 2 or plottable_b < 2
+    # B13 复审低#4：partial 成因入返回——有窗无判据样本（图A 轴注可见）优先于
+    # 帧数据不足（缺帧/可绘点<2）；非 partial 恒 None。
+    if no_judged_windows:
+        partial_reason = "no_judged_windows"
+    elif partial:
+        partial_reason = "insufficient_frames"
+    else:
+        partial_reason = None
 
     data_path = os.path.join(out_dir, "curves_data.json")
     payload = {
@@ -275,6 +312,7 @@ def plot_triple_curves(data: dict, out_dir: str, run_label: str = "") -> dict:
             "font": font_mode,
             "run_label": run_label,
             "partial": partial,
+            "partial_reason": partial_reason,
             "missing": missing,
         },
     }
@@ -290,6 +328,7 @@ def plot_triple_curves(data: dict, out_dir: str, run_label: str = "") -> dict:
         "png_paths": png_paths,
         "data_path": data_path,
         "partial": partial,
+        "partial_reason": partial_reason,
         "font": font_mode,
         "missing": missing,
     }

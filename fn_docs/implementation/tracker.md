@@ -559,8 +559,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] plot_triple_curves · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(plot_triple_curves)' && echo commit在案 → commit在案 (10-12)
 
 ## B13 批间门
-- [ ] B13 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B13 · 用户裁决 — 预告: 继续 B14 / 修订 / 裁决 blocked
+- [x] B13 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B13 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 2030 passed in 14.54s (10-12)
+- [x] B13 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b13.py | grep -q 'GB failed' && echo B13 双审收口（6 项修复） → B13 双审收口（6 项修复） (10-12)
 
 ## B14 — dispatch_remote_training, train_classifier, make_group_splits, grouped_cv_evaluate, predict_style
 ### dispatch_remote_training
@@ -886,4 +886,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B11 双审收口（Ruling⑰ 裁决落地）——①no-delta 统一 None（弃 ESP 0.0——不可比窗曾成零丢包判据证据，judge_per=None+per_unavailable）；②config 统一 ESP 形状（source serial/lines+lines 键）；③坏帧阈统一 bad_frame_limit=5；④delta 溢出 None+标注不杀流；⑤rssi 非有限拒；⑥整数字段严格化；⑦半指定计数 note；⑧ESP 停发射补 _auto: run_token（两轮实停）。**固件交付申报**：R18/R19 的 PlatformIO 固件工程顺延至集成批（B21 前）随真机联调交付（ESP32/NRF24 硬件未接，先行交付无法验证——三轴评审中项转申报） — 三轴+对抗合并（Ruling⑰② 预判反转如实记录：None 不断链、真危害在 0.0 侧） — 33 回归 — batches Ruling⑱ (10-12)
 - Ruling: B12 集成发现——①后端 read_samples 契约三方不一：B210=list[dict]、SimBackend=list[(samples,meta) 元组]、replay=单 dict——record_run_streams 增 _as_monitor_block 归一层+真后端 E2E 锚死（探针抓到的真缺陷：mock 契约漂移掩盖）；②监测空读连续 50 次自然收尾不抛；③B11 复核遗留 esp err 回退窗 counter_reset_err 对齐（B12 顺手修） — 准闭环探针+复核建议 — 无 — batches Ruling⑲ (10-12)
 - Ruling: B12 双审收口——对抗 中3低3 全修复（①sim 监测 ts 改主机单调钟盖戳（块号降级 block_index 附注）+自家 E2E 错误锚修正+对齐源统一 ts_ms 域；②基线恰等阈 fsum 精确舍入（朴素累加浮点误差击穿锁定口径）；③sample_rate/freq_hz 域校验全链；④失败路径孤儿 data 清理；⑤每 64 块磁盘复查；⑥标注域夹取+clamped 标注）+三轴 2 观察（annotate 必填严于规格回写 R27 口径；sim 时钟域统一落位） — 对抗审查（修复子代理中断但产物完整落盘，主会话复测确认） — 13 回归 — batches Ruling⑳ (10-12)
+- Ruling: B13 双审收口——对抗 中1低5 全修复（①scenario['params'] 嵌套合并进合成参数（平铺优先）+protocol_start 反映实际合成；②dwell/judge 两级回落 scenario>ctx>默认；③异常路径补 protocol_stop aborted 尽力落盘；④partial_reason 口径+空判据轴注；⑤n_runs 按条目计数注明；⑥freq 字符串数值归一+n_freq_invalid） — 对抗审查 — 10 回归 — batches Ruling㉑ (10-12)
 
