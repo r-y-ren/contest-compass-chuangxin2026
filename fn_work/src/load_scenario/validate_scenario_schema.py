@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import math
+import re
 from numbers import Integral
 
 __all__ = [
     "BANDWIDTH_HZ_MAX",
     "BANDWIDTH_REQUIRED_STYLES",
+    "ENVELOPE_KEY_WHITELIST",
     "SCENARIO_STYLE_WHITELIST",
+    "SCENARIO_TYPE_WHITELIST",
     "ScenarioError",
     "validate_scenario_schema",
 ]
@@ -35,6 +38,32 @@ BANDWIDTH_REQUIRED_STYLES = frozenset({"bandlimited_noise", "partial_band"})
 # 功率/频段红线才归 guard_compliance。
 BANDWIDTH_HZ_MAX = 56e6
 
+# 在册场景类型（execute_scenario 分派白名单；strip().lower() 归一后比对）。
+SCENARIO_TYPE_WHITELIST = frozenset({"gb42590", "distance", "custom", "emc"})
+
+# 台账条目号形状（update_ledger 在册条目 'A1'..'L99'）。
+_LEDGER_ENTRY_RE = re.compile(r"^[A-L]\d{1,2}$")
+
+# 执行信封键（B21 高#1）：run_demo/execute_scenario 消费的编排参数随场景文件
+# 进出——此前一律按未知键拒掉，场景文件路线整条死路。此处只做形状级检查
+# （值域宽松归下游：distances 逐元素正数之外不重复 map 的深度校验、
+# model_params/ladder 只查 dict 容器、sim_events 只查 list 容器）。
+_ENVELOPE_KEYS = frozenset(
+    {
+        "scenario_type",
+        "judge_min_samples",
+        "dwell_s",
+        "baseline_samples",
+        "ledger_entry",
+        "distances",
+        "model_params",
+        "ladder",
+        "ladder_params",
+        "record",
+        "sim_events",
+    }
+)
+
 # 场景在册键：'style'/'fs' 必填，其余可选。backend/judge_per_threshold 由
 # normalize_scenario 消费（归一/缺省填充），故此处在册，但仅做形状级检查
 # （backend 只查 str——'SIM' 等大小写变体须先通过本层再由 normalize 归一）。
@@ -52,7 +81,10 @@ _KNOWN_KEYS = frozenset(
         "backend",
         "judge_per_threshold",
     }
-)
+) | _ENVELOPE_KEYS
+
+#: 兼容别名：执行信封键集合（测试/文档引用）。
+ENVELOPE_KEY_WHITELIST = frozenset(_ENVELOPE_KEYS)
 
 
 def _is_finite_real(value: object) -> bool:
@@ -105,6 +137,113 @@ def _number_field(raw: dict, key: str, errors: list) -> float | None:
         return None
 
 
+def _int_field(raw: dict, key: str, errors: list) -> None:
+    """正 int 键形状检查：bool/float/非正一律拒（整数 str 如 '3' 宽容，同 repeats 口径）。
+
+    执行信封键专用（judge_min_samples/baseline_samples）；只判形状，深度域
+    （如每档窗口上限）归下游编排。
+    """
+    value = raw[key]
+    if isinstance(value, str):
+        try:
+            candidate = float(value.strip())
+        except ValueError:
+            candidate = float("nan")
+        if math.isfinite(candidate) and candidate.is_integer():
+            value = int(candidate)
+    if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
+        errors.append(
+            f"{key} 须为正 int（拒 bool/float；整数 str 如 '3' 可宽容），实际值 {raw[key]!r}"
+        )
+
+
+def _envelope_number(value: object) -> float | None:
+    """信封数值元素宽容解析：有限实数（拒 bool）或数字 str → float；其余 None。
+
+    与 _number_field 同口径（B17 中#4：PyYAML 1.1 把 '1e6' 解析为 str），
+    供 distances 逐元素检查复用；解析结果仅做形状判定，不写回场景。
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (Integral, float)):
+        number = float(value)
+        return number if math.isfinite(number) else None
+    if isinstance(value, str):
+        try:
+            number = float(value.strip())
+        except ValueError:
+            return None
+        return number if math.isfinite(number) else None
+    return None
+
+
+def _check_envelope_keys(raw: dict, errors: list) -> None:
+    """执行信封键形状检查（B21 高#1）：在册即查形状，值域宽松归下游。
+
+    - scenario_type: str 且 strip().lower() 落 {'gb42590','distance','custom',
+      'emc'}（大小写不敏感，分派归一归 execute_scenario）；
+    - judge_min_samples/baseline_samples: 正 int（bool/float 拒，整数 str 宽容）；
+    - dwell_s: 数值 ≥0（正 float 或 0；数字 str 宽容）；
+    - ledger_entry: str 匹配 ^[A-L]\\d{1,2}$（台账条目号形状）；
+    - distances: list 且逐元素数值>0（深度域如非空/map 参数形状归
+      map_distance_to_loss）；
+    - model_params/ladder/ladder_params: dict（内部键形状归各消费方）；
+    - record: bool；sim_events: list（元素形状归 simulate_link_degradation）。
+    """
+    if "scenario_type" in raw:
+        raw_type = raw["scenario_type"]
+        if not isinstance(raw_type, str) or raw_type.strip().lower() not in SCENARIO_TYPE_WHITELIST:
+            errors.append(
+                f"scenario_type 应为 str 四值 {sorted(SCENARIO_TYPE_WHITELIST)} 之一"
+                f"（大小写不敏感），实际值 {raw_type!r}"
+            )
+    if "judge_min_samples" in raw:
+        _int_field(raw, "judge_min_samples", errors)
+    if "baseline_samples" in raw:
+        _int_field(raw, "baseline_samples", errors)
+    if "dwell_s" in raw:
+        dwell = _number_field(raw, "dwell_s", errors)
+        if dwell is not None and dwell < 0:
+            errors.append(f"dwell_s 须为非负（正秒数或 0），实际值 {dwell!r}")
+    if "ledger_entry" in raw:
+        entry = raw["ledger_entry"]
+        if not isinstance(entry, str) or not _LEDGER_ENTRY_RE.match(entry.strip()):
+            errors.append(
+                f"ledger_entry 应为 str 且匹配 ^[A-L]\\d{{1,2}}$（如 'B1'），"
+                f"实际值 {entry!r}"
+            )
+    if "distances" in raw:
+        raw_distances = raw["distances"]
+        if not isinstance(raw_distances, list):
+            errors.append(
+                f"distances 应为 list（距离序列，米），"
+                f"实际为 {type(raw_distances).__name__}: {raw_distances!r}"
+            )
+        else:
+            for index, item in enumerate(raw_distances):
+                number = _envelope_number(item)
+                if number is None or number <= 0:
+                    errors.append(
+                        f"distances[{index}] 须为正数值（米，bool/NaN/inf/非数字拒），"
+                        f"实际值 {item!r}"
+                    )
+    for dict_key in ("model_params", "ladder", "ladder_params"):
+        if dict_key in raw and not isinstance(raw[dict_key], dict):
+            errors.append(
+                f"{dict_key} 应为 dict，"
+                f"实际为 {type(raw[dict_key]).__name__}: {raw[dict_key]!r}"
+            )
+    if "record" in raw and not isinstance(raw["record"], bool):
+        errors.append(
+            f"record 应为 bool（录制开关），实际为 {type(raw['record']).__name__}: {raw['record']!r}"
+        )
+    if "sim_events" in raw and not isinstance(raw["sim_events"], list):
+        errors.append(
+            f"sim_events 应为 list（sim 注入事件序列），"
+            f"实际为 {type(raw['sim_events']).__name__}: {raw['sim_events']!r}"
+        )
+
+
 def validate_scenario_schema(raw: dict) -> list:
     """字段完整性与取值域校验（形状层面，不判红线）。
 
@@ -124,6 +263,12 @@ def validate_scenario_schema(raw: dict) -> list:
       - repeats: 可选，正 int（拒 bool 与 float；整数 str 如 '3' 可宽容）；
       - judge_per_threshold: 可选数值，严格落于 (0,1)（PER 判据阈值域）；
       - backend: 可选，仅查 str 形状（白名单与小写归一归 normalize_scenario）；
+      - 执行信封键（B21 高#1，可选，仅形状检查——值域宽松归下游，详见
+        _check_envelope_keys）：scenario_type（str 四值 {'gb42590','distance',
+        'custom','emc'}，大小写不敏感归一）、judge_min_samples/baseline_samples
+        （正 int）、dwell_s（数值 ≥0）、ledger_entry（^[A-L]\\d{1,2}$）、
+        distances（list 逐元素数值>0）、model_params/ladder/ladder_params
+        （dict）、record（bool）、sim_events（list）；
       - components: composite 必填且为非空 list，元素须为 dict 并递归按
         同口径校验（错误前缀 'components[i]: '）；
       - 未知键 → 每键一条 error，消息形如「未知键: k」。
@@ -225,6 +370,9 @@ def validate_scenario_schema(raw: dict) -> list:
             f"backend 应为 str（白名单归一归 normalize），"
             f"实际为 {type(raw['backend']).__name__}: {raw['backend']!r}"
         )
+
+    # ---- 执行信封键（B21 高#1）：形状级检查，值域宽松归下游 ----
+    _check_envelope_keys(raw, errors)
 
     # ---- components：list 形状 + composite 必填非空 + 递归同口径 ----
     if "components" in raw:

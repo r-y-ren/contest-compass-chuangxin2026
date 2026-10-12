@@ -1,0 +1,103 @@
+{
+  "status": "done",
+  "exit_semantics": "done",
+  "started_at": 1791815845.393997,
+  "finished_at": 1791815845.7761,
+  "duration_ms": 382,
+  "backend": "SimBackend",
+  "clock_ref": "software",
+  "stop_result": {
+    "status": "stopped",
+    "steps": [
+      {
+        "op": "stop_tx",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "op": "set_tx_gain",
+        "ok": true,
+        "detail": "tx_gain=0"
+      }
+    ],
+    "ts": "2026-10-12T14:37:25.776001+00:00",
+    "context": {
+      "run_dir": "/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/runs/20261012-223725",
+      "reason": "正常完成"
+    }
+  },
+  "stop_result_recorded": true,
+  "missing": [],
+  "log_degraded": false,
+  "close_errors": [],
+  "traceability": {
+    "n_numbers": 0,
+    "n_traced": 0,
+    "n_contextual": 0,
+    "mismatches": [],
+    "passed": true
+  },
+  "scenario_result": {
+    "status": "completed",
+    "result": {
+      "status": "completed",
+      "plan": {
+        "steps": [
+          {
+            "step": 0,
+            "target_db": -25.0,
+            "relative_db": -5.0,
+            "note": "gb42590"
+          },
+          {
+            "step": 1,
+            "target_db": -20.0,
+            "relative_db": 0.0,
+            "note": "gb42590"
+          },
+          {
+            "step": 2,
+            "target_db": -15.0,
+            "relative_db": 5.0,
+            "note": "gb42590"
+          },
+          {
+            "step": 3,
+            "target_db": -10.0,
+            "relative_db": 10.0,
+            "note": "gb42590"
+          },
+          {
+            "step": 4,
+            "target_db": -5.0,
+            "relative_db": 15.0,
+            "note": "gb42590"
+          },
+          {
+            "step": 5,
+            "target_db": 0.0,
+            "relative_db": 20.0,
+            "note": "gb42590"
+          }
+        ],
+        "truncated_at": 6,
+        "redline_hit": true,
+        "note": "gb42590"
+      },
+      "failure_levels": [],
+      "steps_executed": 6,
+      "baseline": {
+        "passed": true,
+        "per_mean": 0.0,
+        "n_samples": 10,
+        "n_judged": 10,
+        "violations": [],
+        "stop_reason": null,
+        "advice": "基线健康，放行正式干扰注入"
+      },
+      "stopped_at": null,
+      "note": "ladder truncated: 计划触及 0dBm 红线截断，判据未触发（未失效）；victim_bw_hz 缺失，带宽校验跳过"
+    },
+    "streams_note": "gb42590: 判据路 KPI 与基线窗口由协议编排自管采集（基线经 record_run_streams 无干扰窗）；监测/录制三路（record_run_streams）归 run_demo 采集阶段另行执行；协议 status=completed"
+  }
+}

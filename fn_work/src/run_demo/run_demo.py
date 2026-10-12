@@ -7,8 +7,11 @@
 ③ resolve_clock_reference（永不抛）——clock_ref 口径贯通报告脚注与 result.json；
 ④ manage_run 全生命周期，execute 回调内：ctx['set_state']('running') →
   execute_scenario（四类型分派：gb42590/distance/custom/emc——判据路 KPI 与
-  gb 基线窗由各编排自管）→ record_run_streams（监测/录制采集路——'record'
-  开关取场景键，缺省 False）→ build_report → verify_report_traceability；
+  gb 基线窗由各编排自管；distance 档 KPI 行/事件自管落盘）→ record_run_streams
+  （监测/录制采集路——'record' 开关取场景键，缺省 False；其 'w' 重写 kpi.csv
+  后 distance 档 KPI 行按结果对象重追加，B21 中#2）→ build_report →
+  verify_report_traceability；execute 返回并入 ctx['result'] 并在收尾后就近
+  补写 result.json 的 'scenario_result' 键（尽力而为，B21 中#2）；
 ⑤ 溯源失败不致 run 失败：'traceability' 结果附 run result（result.json 就近
   补写（尽力而为，排版同 finalize）+摘要行与 run.log 三处留痕），build_report
   失败口径=运行失败 exit 1（异常经 manage_run 先停发射收尾标 failed 后重抛）；
@@ -44,7 +47,7 @@ from src.verify_report_traceability.verify_report_traceability import (
     verify_report_traceability,
 )
 
-from .execute_scenario import execute_scenario, record_run_streams
+from .execute_scenario import append_distance_kpi_rows, execute_scenario, record_run_streams
 
 __all__ = ["run_demo"]
 
@@ -304,12 +307,25 @@ def _execute_stage(
     # ---- 场景执行阶段（四类型分派；判据路 KPI/gb 基线窗由各编排自管） ----
     run_out = execute_scenario(ctx, scenario)
     state["execute_result"] = run_out
+    ctx["result"] = run_out  # B21 中#2：execute 返回并入 ctx['result']（result.json 口径）
 
     # ---- 监测/录制采集路（'record' 开关场景键；不继承停检凭据/基线录制关） ----
     streams_ctx = dict(ctx)
     streams_ctx["record"] = bool(scenario.get("record", False))
     streams_ctx["stop"] = None
     state["streams"] = record_run_streams(streams_ctx)
+
+    # ---- distance 档 KPI 行重追加（B21 中#2）：record_run_streams 以 'w' 重写
+    # kpi.csv，_run_distance 执行期写入的距离档行被截——采集后按结果对象重追加
+    # （列映射同 KPI_HEADER，与执行期逐档追加同一实现）。
+    scenario_type = scenario.get("scenario_type")
+    inner = run_out.get("result") if isinstance(run_out.get("result"), dict) else {}
+    if (
+        isinstance(scenario_type, str)
+        and scenario_type.strip().lower() == "distance"
+        and isinstance(inner.get("kpi_rows"), list)
+    ):
+        append_distance_kpi_rows(run_dir, inner["kpi_rows"])
 
     # ---- 报告（口径：报告失败=运行失败——异常经 manage_run 收尾 failed → exit 1） ----
     payload = _report_payload(run_dir, run_out, scenario, selection, clock_ref)
@@ -350,6 +366,36 @@ def _attach_traceability(run_record: dict, state: dict) -> None:
         if not isinstance(payload, dict):
             return
         payload["traceability"] = trace
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+    except Exception:  # noqa: BLE001 - 附注尽力而为：绝不反杀已成功的运行
+        return
+
+
+def _attach_scenario_result(run_record: dict, state: dict) -> None:
+    """场景执行结果附 run result（B21 中#2）：result.json 就近补写（尽力而为不抛）。
+
+    execute 回调把 execute_scenario 返回并入 ctx['result']，但 finalize 的
+    payload 只认停发射/时钟等收尾键——场景结果（distance 的 distance_plan/
+    kpi_rows 等）须在收尾后读回 result.json 补 'scenario_result' 键（排版对齐
+    finalize：indent=2、ensure_ascii=False，同 _attach_traceability 手法）；
+    补写失败仅放弃（执行结果已在 events/kpi.csv/result 对象三处留痕，不反杀）。
+    """
+    execute_result = state.get("execute_result")
+    if not isinstance(execute_result, dict):
+        return
+    result = run_record.get("result")
+    path = None
+    if isinstance(result, dict):
+        path = result.get("result_path")
+    if not isinstance(path, str) or not path:
+        path = os.path.join(run_record.get("run_dir", ""), "result.json")
+    try:
+        with open(path, encoding="utf-8") as handle:
+            payload = json.load(handle)
+        if not isinstance(payload, dict):
+            return
+        payload["scenario_result"] = execute_result
         with open(path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False, indent=2)
     except Exception:  # noqa: BLE001 - 附注尽力而为：绝不反杀已成功的运行
@@ -455,6 +501,7 @@ def run_demo(argv: list | None = None) -> int:
         and execute_result.get("status") == "completed"
     )
     _attach_traceability(run_record, state)  # 'traceability' 附 run result（尽力）
+    _attach_scenario_result(run_record, state)  # 'scenario_result' 附 run result（尽力）
 
     # ---- ⑥ 台账（--no-ledger 缺省启用；场景含 'ledger_entry' 才更新；失败仅警告） ----
     if args.no_ledger:

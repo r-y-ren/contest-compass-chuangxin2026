@@ -174,6 +174,180 @@ def test_unknown_key_reports_error():
     assert any("未知键: foo" in err for err in errors)
 
 
+# ---- 执行信封键（B21 高#1）：在册即过形状检查，坏形状逐键指名 ----
+
+
+def test_envelope_keys_full_legal_set_passes():
+    """执行信封键全量合法样例：错误清单为空（场景文件路线不再整条死路）。"""
+    raw = _legal_scenario("tone")
+    raw.update(
+        {
+            "scenario_type": "gb42590",
+            "judge_min_samples": 2,
+            "dwell_s": 0.0,
+            "baseline_samples": 10,
+            "ledger_entry": "B1",
+            "distances": [1.0, 10.0],
+            "model_params": {"d0_m": 1.0, "l0_db": 20.0, "n": 2.0},
+            "ladder": {"start_db": -6.0, "step_db": 3.0},
+            "ladder_params": {"stop_db": 0.0},
+            "record": False,
+            "sim_events": [{"type": "power_step", "jsr_db": -20.0, "ts": 0.0}],
+        }
+    )
+    assert validate_scenario_schema(raw) == []
+
+
+def test_envelope_scenario_type_case_insensitive_four_values():
+    for ok in ("gb42590", "GB42590", " Distance ", "Custom", "EMC"):
+        raw = _legal_scenario("tone")
+        raw["scenario_type"] = ok
+        assert validate_scenario_schema(raw) == [], ok
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["quantum", "", "gb42590/", 42, None, ["gb42590"]],
+)
+def test_envelope_scenario_type_bad_values_rejected(bad):
+    raw = _legal_scenario("tone")
+    raw["scenario_type"] = bad
+    errors = validate_scenario_schema(raw)
+    assert errors and any("scenario_type" in e for e in errors)
+
+
+@pytest.mark.parametrize("key", ["judge_min_samples", "baseline_samples"])
+@pytest.mark.parametrize("bad", [0, -3, 2.5, True, "abc", None])
+def test_envelope_positive_int_keys_reject_bad(key, bad):
+    raw = _legal_scenario("tone")
+    raw[key] = bad
+    errors = validate_scenario_schema(raw)
+    assert errors and any(key in e for e in errors)
+
+
+def test_envelope_positive_int_keys_integer_str_tolerated():
+    raw = _legal_scenario("tone")
+    raw["judge_min_samples"] = "3"
+    raw["baseline_samples"] = "10"
+    assert validate_scenario_schema(raw) == []
+
+
+@pytest.mark.parametrize("bad", [-0.5, "nan", "inf", True, "abc"])
+def test_envelope_dwell_s_negative_or_nonfinite_rejected(bad):
+    raw = _legal_scenario("tone")
+    raw["dwell_s"] = bad
+    errors = validate_scenario_schema(raw)
+    assert errors and any("dwell_s" in e for e in errors)
+
+
+def test_envelope_dwell_s_zero_and_positive_pass():
+    raw = _legal_scenario("tone")
+    raw["dwell_s"] = 0.0
+    assert validate_scenario_schema(raw) == []
+    raw["dwell_s"] = 1.5
+    assert validate_scenario_schema(raw) == []
+    raw["dwell_s"] = "0"  # 数字 str 宽容（B17 中#4 同口径）
+    assert validate_scenario_schema(raw) == []
+
+
+@pytest.mark.parametrize("ok", ["B1", "L99", "A0", "  K12  "])
+def test_envelope_ledger_entry_shape_passes(ok):
+    raw = _legal_scenario("tone")
+    raw["ledger_entry"] = ok
+    assert validate_scenario_schema(raw) == []
+
+
+@pytest.mark.parametrize("bad", ["M1", "B123", "b1", "B", 21, None, "B-7"])
+def test_envelope_ledger_entry_bad_shape_rejected(bad):
+    raw = _legal_scenario("tone")
+    raw["ledger_entry"] = bad
+    errors = validate_scenario_schema(raw)
+    assert errors and any("ledger_entry" in e for e in errors)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "1.0",  # 非 list
+        [1.0, "abc"],
+        [1.0, 0.0],  # 零距离
+        [1.0, -2.0],
+        [1.0, True],
+        [1.0, "nan"],
+    ],
+)
+def test_envelope_distances_bad_elements_rejected(bad):
+    raw = _legal_scenario("tone")
+    raw["distances"] = bad
+    errors = validate_scenario_schema(raw)
+    assert errors and any("distances" in e for e in errors)
+
+
+def test_envelope_distances_numeric_str_and_empty_list_loose():
+    # 数字 str 元素宽容（PyYAML '1e3' 口径）；空 list 不在本层拦（map 归下游）。
+    raw = _legal_scenario("tone")
+    raw["distances"] = ["1e1", 20]
+    assert validate_scenario_schema(raw) == []
+    raw["distances"] = []
+    assert validate_scenario_schema(raw) == []
+
+
+@pytest.mark.parametrize("key", ["model_params", "ladder", "ladder_params"])
+@pytest.mark.parametrize("bad", ["x", [1], 3, None])
+def test_envelope_dict_keys_reject_non_dict(key, bad):
+    raw = _legal_scenario("tone")
+    raw[key] = bad
+    errors = validate_scenario_schema(raw)
+    assert errors and any(key in e for e in errors)
+
+
+@pytest.mark.parametrize("bad", ["true", 1, 0, [True], None])
+def test_envelope_record_must_be_bool(bad):
+    raw = _legal_scenario("tone")
+    raw["record"] = bad
+    errors = validate_scenario_schema(raw)
+    assert errors and any("record" in e for e in errors)
+
+
+@pytest.mark.parametrize("bad", ["x", {"type": "power_step"}, 3, None])
+def test_envelope_sim_events_must_be_list(bad):
+    raw = _legal_scenario("tone")
+    raw["sim_events"] = bad
+    errors = validate_scenario_schema(raw)
+    assert errors and any("sim_events" in e for e in errors)
+
+
+def test_envelope_keys_survive_normalize_passthrough(tmp_path):
+    """normalize 透传（同功能块口径）：执行信封键原样落规范化输出顶层。"""
+    from src.load_scenario.normalize_scenario import normalize_scenario
+
+    raw = _legal_scenario("tone")
+    raw.update(
+        {
+            "scenario_type": "distance",
+            "judge_min_samples": 2,
+            "dwell_s": 0.5,
+            "baseline_samples": 10,
+            "ledger_entry": "B21",
+            "distances": [1.0, 10.0],
+            "model_params": {"d0_m": 1.0, "l0_db": 20.0, "n": 2.0},
+            "record": True,
+            "sim_events": [{"jsr_db": -20.0}],
+        }
+    )
+    out = normalize_scenario(raw)
+    assert out["scenario_type"] == "distance"  # 原样透传（归一归消费方）
+    assert out["judge_min_samples"] == 2
+    assert out["dwell_s"] == 0.5
+    assert out["baseline_samples"] == 10
+    assert out["ledger_entry"] == "B21"
+    assert out["distances"] == [1.0, 10.0]
+    assert out["model_params"] == {"d0_m": 1.0, "l0_db": 20.0, "n": 2.0}
+    assert out["record"] is True
+    assert out["sim_events"] == [{"jsr_db": -20.0}]
+    assert out["style"] == "tone" and out["fs"] == 4e6  # 规范字段照常
+
+
 # ---- raw 非 dict → 单条错误，不抛 ----
 
 

@@ -859,8 +859,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] run_demo · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(run_demo)' && echo commit在案 → commit在案 (10-12)
 
 ## B21 批间门
-- [ ] B21 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B21 · 用户裁决 — 预告: 继续 B22 / 修订 / 裁决 blocked
+- [x] B21 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B21 终批双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 2884 passed, 1 warning in 21.56s (10-12)
+- [x] B21 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b21.py | grep -q 'exit 0' && echo B21 终批双审收口（4 项修复） → B21 终批双审收口（4 项修复） (10-12)
 
 （Ruling 行与豁免行尾部追加、逐行读回：
 - Ruling: <偏离内容> — 原因 — 代价 — 落点
@@ -902,4 +902,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B19 双审收口——三轴修订后过门（中#4 slug：serve 25 用例改 test_console_api_ 前缀可发现；中#1 场景 CRUD：补 POST/PUT/DELETE /api/scenarios——写前 load_scenario 全口径校验+红线拒 400 不落盘）+对抗 中2低4（run 状态可查 GET /api/runs/{id}；新 run 复位 stop_flag——旧停机信号不吃；降频双判据 OR 断连≥2 不随帧数稀释；运行 loop 内 ensure_future 健康异步 socket 不误剔；trigger 顶层 stop_failed 联动；CDN 协议白名单）；低#5 计数勘误 functions.md 两处 — 三轴+对抗 — 25 回归 — batches Ruling㉞ (10-12)
 - Ruling: B20 两处申报——①RL 实现为 numpy 表格式 Q-learning（ε-greedy+动态状态登记，不引 torch——「D3QN 反向用作策略」的轻量软件替身，真 D3QN 归远期算力路径）；②SITL 真连走简化 mock MAVLink 层（心跳+SIM_PACKET_LOSS/SIM_LATENCY_MS 参数——pymavlink 延迟 import 缺库 SitlWarn 不抛） — 子代理申报 — 无 — batches Ruling㉟ (10-12)
 - Ruling: B20 双审收口——三轴过门（3 低：fallback 错误字段回写 ValueError/R55 时延缺位申报 latency_note simulated/history ⑮→㉟ 勘误）+对抗 中1低3（①rff hyperparams index_path/runs_root 透传 B14 同款 API（同键 hp 胜）——静默错数据堵死；②bridge 超时域校验；③rl env 契约错统一 PolicyError（ValueError 只留形状）；④单批次键包 TrainError） — 三轴+对抗 — 5 回归 — batches Ruling㊱ (10-12)
+- Ruling: B21 终批双审收口——对抗 高1中1低1+超范围 1 全修——①**场景文件路线死亡**（validate 未知键全拒与 execute scenario_type 必填互斥——白名单扩 11 个执行信封键+形状校验，场景文件四类型全可达）；②distance 产出落盘（distance_step 事件+kpi 行+result.json scenario_result 键）；③标定反杀改跳档+skipped 事件；④B210 真机 TX end_of_burst 空包形状 bug（1 vs 1 自相矛盾）——空包跳过发送，真机验证无告警 — 终批对抗审查（单测 mock load_scenario 全部绕过该集成缝——终局探针抓到） — 74 回归 — batches Ruling㊲ (10-12)
 

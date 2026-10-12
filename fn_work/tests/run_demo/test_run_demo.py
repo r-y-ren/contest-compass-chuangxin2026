@@ -411,3 +411,133 @@ def test_demo_pipeline_record_key_switch(tmp_path, monkeypatch):
     assert run_demo([str(tmp_path / "scene.yaml")]) == 0
     assert caps_on["streams"][0]["record"] is True  # 场景 record=True → 采集路开录制
     assert caps_on["streams"][0]["monitor"]["target_band"] == (2400.0, 2483.5)  # bands 首对
+
+
+# ---------- ⑦ B21 终批复核：场景文件路线（高#1）/ distance 落盘（中#2） ----------
+
+
+def _write_scenario_file(tmp_path, text, name="scenario.yaml"):
+    path = tmp_path / name
+    path.write_text(text, encoding="utf-8")
+    return str(path)
+
+
+#: 高#1 见证场景文件：执行信封键（scenario_type/judge_min_samples/dwell_s/
+#: baseline_samples/record/ledger_entry）+ 红线信封键齐备的合法 gb42590 场景。
+_GB_FILE_YAML = """\
+style: tone
+fs: 1.0e6
+freq_hz: 2.4e9
+power_dbm: -10
+duration_s: 0.005
+backend: sim
+scenario_type: gb42590
+judge_min_samples: 2
+dwell_s: 0.0
+baseline_samples: 10
+record: false
+ledger_entry: B21
+bands:
+  - [2400.0, 2483.5]
+shielded_box: true
+dut_scope: self_built
+"""
+
+#: 中#2 见证场景文件：distance 场景（执行信封 distances/model_params 随文件进出）。
+_DISTANCE_FILE_YAML = """\
+style: tone
+fs: 1.0e6
+freq_hz: 2.4e9
+power_dbm: -10
+duration_s: 0.005
+backend: sim
+scenario_type: distance
+judge_min_samples: 2
+distances:
+  - 1.0
+  - 10.0
+model_params:
+  d0_m: 1.0
+  l0_db: 20.0
+  n: 2.0
+  x_sigma: 0.0
+bands:
+  - [2400.0, 2483.5]
+shielded_box: true
+dut_scope: self_built
+"""
+
+
+def test_b21_high1_scenario_file_with_envelope_keys_full_run_exit0(
+    tmp_path, monkeypatch, capsys
+):
+    """高#1 回归：含 scenario_type 等执行信封键的合法场景文件经 run_demo 真跑 exit 0。
+
+    修复前 validate 未知键全拒（scenario_type/judge_min_samples/dwell_s/
+    baseline_samples/record/ledger_entry 均报「未知键」）——场景文件路线整条
+    死路；修复后装载通过、sim 后端全流程完成（真 run_dir/报告/台账 updated）。
+    """
+    monkeypatch.chdir(tmp_path)  # runs/ 与台账落 tmp，不污染仓库
+    # 台账文件就位（相对 CWD 的 docs/ 清单）：B21 行真实可更新（updated 见证）
+    ledger = tmp_path / "docs" / "全功能实现清单-技术支持版.md"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text(
+        "| 编号 | 描述 | 状态 |\n|---|---|---|\n| B21 | 一键命令编排 |  |\n",
+        encoding="utf-8",
+    )
+    path = _write_scenario_file(tmp_path, _GB_FILE_YAML)
+    rc = run_demo([path])
+    assert rc == 0
+    match = _summary_of(capsys)
+    assert match["status"] == "completed"
+    assert match["ledger"] == "updated"  # ledger_entry: B21 生效（台账真更新）
+    run_dir = match["run_dir"]
+    assert os.path.isfile(os.path.join(run_dir, "report.md"))  # 全流程走完
+    with open(os.path.join(run_dir, "result.json"), encoding="utf-8") as handle:
+        result_json = json.load(handle)
+    # execute 返回并入 result（B21 中#2 机制对全类型生效）：gb 内层结果可见
+    assert result_json["scenario_result"]["result"]["status"] == "completed"
+
+
+def test_b21_mid2_distance_run_leaves_traces_in_all_three_artifacts(
+    tmp_path, monkeypatch, capsys
+):
+    """中#2 回归：distance 真跑后 events.jsonl/kpi.csv/result.json 各含 distance 痕迹。
+
+    修复前 distance 结果（distance_plan/kpi_rows）只活在返回对象里不落盘；
+    修复后每档一条 type='distance_step' 事件 + kpi.csv 距离档行（record_run_streams
+    'w' 重写后重追加保住）+ result.json 'scenario_result' 携 distance_plan。
+    """
+    monkeypatch.chdir(tmp_path)
+    path = _write_scenario_file(tmp_path, _DISTANCE_FILE_YAML)
+    rc = run_demo([path, "--no-ledger"])
+    assert rc == 0
+    match = _summary_of(capsys)
+    assert match["status"] == "completed"
+    run_dir = match["run_dir"]
+
+    # a) events.jsonl：每档一条 distance_step 事件（d_m/loss_db/attenuation/judge_per_mean）
+    with open(os.path.join(run_dir, "events.jsonl"), encoding="utf-8") as handle:
+        events = [json.loads(line) for line in handle if line.strip()]
+    step_events = [e for e in events if e.get("type") == "distance_step"]
+    assert len(step_events) == 2  # distances 两个可达档
+    assert [e["d_m"] for e in step_events] == [1.0, 10.0]
+    assert all("attenuation" in e and "judge_per_mean" in e and "loss_db" in e for e in step_events)
+
+    # b) kpi.csv：距离档 KPI 行（采集路 'w' 重写后重追加仍在）
+    with open(os.path.join(run_dir, "kpi.csv"), encoding="utf-8") as handle:
+        kpi_text = handle.read()
+    assert kpi_text.count("distance_step") == 2  # per_note 列携档位溯源
+    header_cells = kpi_text.splitlines()[0].split(",")
+    assert header_cells[:3] == ["timestamp_ms", "link", "source"]  # record_run_streams 表头
+    distance_rows = [line for line in kpi_text.splitlines() if "distance_step" in line]
+    cells = distance_rows[0].split(",")
+    assert cells[header_cells.index("link")] == "distance"
+    assert cells[header_cells.index("per")] == cells[header_cells.index("judge_per")]
+
+    # c) result.json：'scenario_result' 携 distance_plan/kpi_rows
+    with open(os.path.join(run_dir, "result.json"), encoding="utf-8") as handle:
+        result_json = json.load(handle)
+    inner = result_json["scenario_result"]["result"]
+    assert [p["d_m"] for p in inner["distance_plan"]["points"]] == [1.0, 10.0]
+    assert len(inner["kpi_rows"]) == 2

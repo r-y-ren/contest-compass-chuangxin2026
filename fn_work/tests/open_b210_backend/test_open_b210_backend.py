@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from types import SimpleNamespace
 
 import pytest
 
@@ -557,3 +558,103 @@ def test_defect_b6_5_b210_real_hardware_clock_source_readonly():
         time_source = backend.get_time_source()
         assert isinstance(time_source, str) and time_source
     assert backend.closed
+
+
+# ---- B21 超范围观察回归：TX end_of_burst 空包形状 bug（空包跳过发送） ----
+
+
+class _FakeUhdStreamer:
+    """鸭子 tx_streamer：记录每次 send 的形状/标志；空包按真 uhd 4.9 口径抛错。
+
+    真机见证（UHD 4.9 / B210 serial 31B92DD）：send() 收到形状 (0,) 的空包报
+    「Number of TX channels (1) does not match the dimensions of the data
+    array (1)」——本假件同口径，保证「空包不进 send」的断言有真语义。
+    """
+
+    def __init__(self):
+        self.sends: list[tuple[tuple | None, dict]] = []
+
+    def send(self, arr, md, timeout=None):
+        shape = tuple(arr.shape) if hasattr(arr, "shape") else None
+        if shape is not None and 0 in shape:
+            raise RuntimeError(
+                "Number of TX channels (1) does not match the dimensions of the data array (1)"
+            )
+        self.sends.append(
+            (shape, {"sob": bool(md.start_of_burst), "eob": bool(md.end_of_burst)})
+        )
+        return int(arr.size)
+
+
+class _FakeUhdModule:
+    """鸭子 uhd 模块：usrp.StreamArgs / types.TXMetadata 最小面。"""
+
+    class usrp:  # noqa: N801 - 镜像 uhd.usrp 命名空间
+        class StreamArgs:  # noqa: N801
+            def __init__(self, cpu_format, otw_format):
+                self.cpu_format = cpu_format
+
+    class types:  # noqa: N801 - 镜像 uhd.types 命名空间
+        class TXMetadata:  # noqa: N801
+            def __init__(self):
+                self.has_time_spec = False
+                self.start_of_burst = False
+                self.end_of_burst = False
+
+
+def test_b21_tx_end_of_burst_empty_packet_never_reaches_send():
+    """B21 超范围观察：end() 空包直接跳过——mock 流层断言空包不进 send。
+
+    修复前 end() 以形状 (0,) 空包调 streamer.send（真 uhd 报 TX channels
+    不匹配告警）；修复后 end() 仅复位 SOB 标记不发任何包，后续 send 重新
+    start_of_burst。
+    """
+    streamer = _FakeUhdStreamer()
+    device = SimpleNamespace(get_tx_stream=lambda args: streamer)
+    txs = b210_module._UhdPyTxStream(device, _FakeUhdModule())
+
+    txs.start()
+    assert txs.send([1 + 1j, 2 + 2j]) == {"sent": 2}
+    txs.end()  # 修复点：空包不发（修复前此处触发假件空包 RuntimeError→告警路径）
+
+    assert len(streamer.sends) == 1  # send 只收到数据块，无 EOB 空包调用
+    assert streamer.sends[0][0] == (2,)
+    assert streamer.sends[0][1] == {"sob": True, "eob": False}
+    # end() 仅标记：SOB 复位——下一 send 重新 start_of_burst（突发边界可见）
+    assert txs.send([3 + 3j]) == {"sent": 1}
+    assert streamer.sends[1][1]["sob"] is True
+
+
+def test_b21_tx_end_of_burst_skip_survives_write_stream_lifecycle():
+    """B21 超范围观察：write_b210_tx_stream 全生命周期（start→send→end）不触发空包 send。"""
+    streamer = _FakeUhdStreamer()
+    device = SimpleNamespace(get_tx_stream=lambda args: streamer)
+    txs = b210_module._UhdPyTxStream(device, _FakeUhdModule())
+    stats = b210_module.write_b210_tx_stream(txs, [[(0.5 + 0.5j)] * 8])
+    assert stats == {"samples_sent": 8, "blocks": 1, "underruns": 0, "invalid_zeroed": 0}
+    assert all(0 not in (shape or (1,)) for shape, _ in streamer.sends)  # 无空包
+
+
+@pytest.mark.skipif(not _IS_B210_PRESENT, reason="B210 不在位")
+def test_b21_tx_short_burst_no_end_of_burst_warning_on_real_b210(caplog):
+    """B21 超范围观察真机验证：start_tx 短流 + stop_tx——无 end_of_burst 告警。
+
+    修复前真机（UHD 4.9）stop 路径必告警「TX end_of_burst 空包发送失败:
+    RuntimeError: Number of TX channels (1) does not match ...」；修复后
+    空包跳过发送，全程无该告警（短流 1024 样本@1MSps，100 MHz/0dB 增益）。
+    """
+    with open_b210_backend(
+        {
+            "transport": "uhd_py",
+            "freq_hz": 100e6,
+            "sample_rate": 1e6,
+            "tx_gain_db": 0.0,
+            "clock_ref": "internal",
+        }
+    ) as backend:
+        with caplog.at_level(logging.WARNING, logger=b210_module.__name__):
+            stats = backend.start_tx([[(0.1 + 0.1j)] * 1024])
+            backend.stop_tx()
+    assert stats["samples_sent"] == 1024  # 短流真发送
+    eob_warnings = [r for r in caplog.records if "end_of_burst" in r.getMessage()]
+    assert not eob_warnings  # 真机无该告警（B21 超范围观察修复见证）

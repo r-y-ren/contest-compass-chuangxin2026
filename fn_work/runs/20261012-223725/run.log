@@ -1,0 +1,6 @@
+{"ts": "2026-10-12T22:37:25.394", "level": "INFO", "module": "src.manage_run.manage_run", "msg": "工作区就绪（八件套骨架已创建）", "ctx": {"event": "workspace_ready", "files": ["scenario.yaml", "kpi.csv", "events.jsonl", "monitor.csv", "recordings", "report.md", "plots", "run.log"]}}
+{"ts": "2026-10-12T22:37:25.394", "level": "INFO", "module": "src.manage_run.manage_run", "msg": "状态迁移: starting -> armed", "ctx": {"event": "state_transition", "from": "starting", "to": "armed"}}
+{"ts": "2026-10-12T22:37:25.394", "level": "INFO", "module": "src.manage_run.manage_run", "msg": "状态迁移: armed -> running", "ctx": {"event": "state_transition", "from": "armed", "to": "running"}}
+{"ts": "2026-10-12T22:37:25.775", "level": "INFO", "module": "src.manage_run.manage_run", "msg": "溯源校验: passed=True", "ctx": {}}
+{"ts": "2026-10-12T22:37:25.775", "level": "INFO", "module": "src.manage_run.manage_run", "msg": "状态迁移: running -> stopping", "ctx": {"event": "state_transition", "from": "running", "to": "stopping"}}
+{"ts": "2026-10-12T22:37:25.776", "level": "INFO", "module": "src.manage_run.manage_run", "msg": "状态迁移: stopping -> done", "ctx": {"event": "state_transition", "from": "stopping", "to": "done"}}

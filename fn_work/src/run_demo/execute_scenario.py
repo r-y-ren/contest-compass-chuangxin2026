@@ -11,7 +11,12 @@ deps 注入本函数）。产出统一运行结果对象 {'status','result','str
   set_channel_attenuation 下发衰减 + KPI 采集窗口（复用 drive/sim 拉 DUT 样本——
   简化口径：每档拉 judge_min_samples 个样本经 normalize_kpi 归一）→ 结果
   {'status','distance_plan','kpi_rows'}；不可达点（含负损耗）按 map 口径容忍
-  跳过不抛（distance_plan.unreachable_count 如实计数）；
+  跳过不抛（distance_plan.unreachable_count 如实计数）；档下发遇
+  AttenuationError（计划/下发标定口径分歧，如 ctx['attenuator_cal'] 缩域）
+  同口径跳过该档不抛，落 type='distance_step_skipped' 事件（reason 含可达域，
+  B21 低#3）；每可达档落 type='distance_step' 事件（d_m/loss_db/attenuation/
+  judge_per_mean）+ KPI 行逐行追加 run_dir/kpi.csv（列映射 KPI_HEADER——
+  per/judge_per 列填 judge_per_mean，B21 中#2）；
 - 'custom'（自定义梯度）→ run_power_ladder（failure_cb 判据接线同 gb 口径：
   每档拉 judge_min_samples 个样本→聚合 compute_per→check_failure；判据工厂/
   DUT 源打开复用 execute_gb42590_protocol 的私有助手，保证两路判据逐字一致）；
@@ -39,6 +44,10 @@ EventWriteError/SweepError/ValueError 族等）原样透传不吞不换——各
 """
 from __future__ import annotations
 
+import csv
+import os
+import time
+
 from src.execute_gb42590_protocol.check_failure import check_failure
 from src.execute_gb42590_protocol.execute_gb42590_protocol import (
     _DEFAULT_DWELL_S,
@@ -50,17 +59,22 @@ from src.execute_gb42590_protocol.execute_gb42590_protocol import (
 )
 from src.map_distance_to_loss.map_distance_to_loss import map_distance_to_loss
 from src.normalize_kpi.normalize_kpi import normalize_kpi
-from src.record_run_streams.record_run_streams import record_run_streams
+from src.record_run_streams.record_run_streams import KPI_HEADER, record_run_streams
 from src.run_baseline_check.run_baseline_check import run_baseline_check
 from src.run_emc_sweep.run_emc_sweep import run_emc_sweep
 from src.run_power_ladder.run_power_ladder import run_power_ladder
-from src.set_channel_attenuation.set_channel_attenuation import set_channel_attenuation
+from src.set_channel_attenuation.set_channel_attenuation import (
+    AttenuationError,
+    set_channel_attenuation,
+)
+from src.shared.append_event import append_event
 
 #: record_run_streams / run_baseline_check 随 gb 路径在
 #: execute_gb42590_protocol 内部生效；重导出供上游（run_demo 采集阶段/
 #: serve_console）就地导入——与本分派器的 streams_note 分工口径一致。
 __all__ = [
     "ScenarioError",
+    "append_distance_kpi_rows",
     "execute_scenario",
     "record_run_streams",
     "run_baseline_check",
@@ -98,17 +112,77 @@ def _run_gb42590(ctx: dict, scenario: dict) -> dict:
     return execute_gb42590_protocol(ctx, scenario)
 
 
+#: distance KPI 行的 kpi.csv 列映射（KPI_HEADER=record_run_streams 表头口径）：
+#: per/judge_per 两列均填 judge_per_mean（档均值口径），rssi_dbm 填档均值，
+#: per_note 携带档位溯源（d/loss/att/n）。
+_DISTANCE_LINK = "distance"
+
+
+def _distance_kpi_cells(row: dict, source: str) -> list:
+    """distance 档 KPI 行 → KPI_HEADER 列序单元格（None → 空串）。"""
+    attenuation = row.get("attenuation") if isinstance(row.get("attenuation"), dict) else {}
+    note = (
+        f"distance_step d={row.get('d_m')!r}m loss={row.get('loss_db')!r}dB"
+        f" att={attenuation.get('achieved_db')!r}dB n={row.get('n_samples')!r}"
+    )
+    return [
+        "" if row.get("timestamp_ms") is None else str(row["timestamp_ms"]),
+        _DISTANCE_LINK,
+        "" if source is None else str(source),
+        "" if row.get("judge_per_mean") is None else str(row["judge_per_mean"]),
+        "" if row.get("judge_per_mean") is None else str(row["judge_per_mean"]),
+        "" if row.get("rssi_dbm_mean") is None else str(row["rssi_dbm_mean"]),
+        "",
+        note,
+    ]
+
+
+def append_distance_kpi_rows(run_dir: object, kpi_rows: list) -> int:
+    """distance 档 KPI 行逐行追加 run_dir/kpi.csv（列映射到 KPI_HEADER），返回写入行数。
+
+    B21 中#2：distance 结果此前只活在返回对象里不落盘。本函数供两处调用——
+    _run_distance 逐档即时追加（部分进展也留痕）；run_demo 采集阶段
+    record_run_streams 以 'w' 重写 kpi.csv 后重追加（保住距离档行）。
+    文件不存在时先补 KPI_HEADER 表头（直调/裸目录口径；run_demo 工作区骨架
+    与 record_run_streams 重写均自带表头，不重复写）。run_dir 为 None 或
+    kpi_rows 非 list/为空 → 0（纯计算模式，不抛）。
+    """
+    if run_dir is None or not isinstance(kpi_rows, list) or not kpi_rows:
+        return 0
+    owner = os.fspath(run_dir)
+    path = os.path.join(owner, "kpi.csv")
+    need_header = not os.path.exists(path) or os.path.getsize(path) == 0
+    written = 0
+    with open(path, "a", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        if need_header:
+            writer.writerow(KPI_HEADER)
+        for row in kpi_rows:
+            if not isinstance(row, dict):
+                continue
+            writer.writerow(_distance_kpi_cells(row, row.get("source")))
+            written += 1
+    return written
+
+
 def _run_distance(ctx: dict, scenario: dict) -> dict:
     """距离演变编排：map_distance_to_loss 产计划→逐可达档下发衰减+KPI 窗口归一。
 
     档位下发归 set_channel_attenuation（domain/cal_table 取自 model_params——
     与 map 计划同源，保证计划/下发一致；两者缺省 None 时下发回落
-    ctx['attenuator_cal']，与 map 按标称计划略有差异属标定口径，事件如实记录）。
+    ctx['attenuator_cal']，与 map 按标定计划略有差异属标定口径，事件如实记录）。
     不可达点跳过（不下发不采样——set_channel_attenuation 对超域目标抛
     AttenuationError，容忍语义在 map 层已消化）；DUT 样本源复用 gb 口径的
     _open_dut_source（sim→simulate_link_degradation；真链路→drive_esp32_link/
     drive_nrf24_link），每档拉 judge_min_samples 个样本经 normalize_kpi 归一
     （源耗尽如实计 n_samples，不补不造）。
+
+    落盘（B21 中#2）：每档一条 events.jsonl 事件——可达档 type='distance_step'
+    （d_m/loss_db/attenuation/judge_per_mean），档 KPI 行同时逐行追加
+    run_dir/kpi.csv（列映射见 _distance_kpi_cells）；结果对象由 run_demo 附入
+    result.json（就近补写口径）。标定反杀（B21 低#3）：下发口径与计划口径
+    分歧（ctx['attenuator_cal'] 缩域）致 AttenuationError 时跳过该档并落
+    type='distance_step_skipped' 事件（reason 含可达域）——不抛，整计划继续。
     """
     distances = scenario.get("distances")
     model_params = scenario.get("model_params")
@@ -120,14 +194,35 @@ def _run_distance(ctx: dict, scenario: dict) -> dict:
         "scenario/ctx['judge_min_samples']",
     )
     dut_iter, source = _open_dut_source(ctx, scenario)
+    run_dir = ctx.get("run_dir")
 
     kpi_rows: list[dict] = []
     for point_index, point in enumerate(plan["points"]):
         if not point["reachable"]:
             continue  # 不可达点（含负损耗）：map 口径容忍，跳过不下发不采样
-        attenuation = set_channel_attenuation(
-            ctx, float(point["loss_db"]), domain=domain, cal_table=cal_table
-        )
+        try:
+            attenuation = set_channel_attenuation(
+                ctx, float(point["loss_db"]), domain=domain, cal_table=cal_table
+            )
+        except AttenuationError as exc:
+            # 标定反杀（B21 低#3）：计划/下发标定口径分歧（如 ctx['attenuator_cal']
+            # 缩域）——该档跳过不采样，事件如实留痕（reason 含可达域），不抛。
+            skipped: dict = {
+                "type": "distance_step_skipped",
+                "step": len(kpi_rows),
+                "point_index": point_index,
+                "d_m": point["d_m"],
+                "loss_db": point["loss_db"],
+                "reason": (
+                    f"{exc}；该档按可达域 "
+                    f"[{exc.reachable_min_db}, {exc.reachable_max_db}] dB 跳过"
+                ),
+                "reachable_min_db": exc.reachable_min_db,
+                "reachable_max_db": exc.reachable_max_db,
+            }
+            if run_dir is not None:
+                append_event(run_dir, skipped)
+            continue
         pulled: list[dict] = []
         for _ in range(min_samples):
             try:
@@ -137,19 +232,36 @@ def _run_distance(ctx: dict, scenario: dict) -> dict:
         rows = [normalize_kpi(sample, source) for sample in pulled]
         judged = [row["judge_per"] for row in rows if row.get("judge_per") is not None]
         rssi = [row["rssi_dbm"] for row in rows if row.get("rssi_dbm") is not None]
-        kpi_rows.append(
-            {
-                "step": len(kpi_rows),
-                "point_index": point_index,
-                "d_m": point["d_m"],
-                "loss_db": point["loss_db"],
-                "combo": point["combo"],
-                "attenuation": {key: attenuation.get(key) for key in _ATTENUATION_KEYS},
-                "n_samples": len(pulled),
-                "judge_per_mean": (sum(judged) / len(judged)) if judged else None,
-                "rssi_dbm_mean": (sum(rssi) / len(rssi)) if rssi else None,
-            }
-        )
+        kpi_row = {
+            "step": len(kpi_rows),
+            "point_index": point_index,
+            "d_m": point["d_m"],
+            "loss_db": point["loss_db"],
+            "combo": point["combo"],
+            "attenuation": {key: attenuation.get(key) for key in _ATTENUATION_KEYS},
+            "n_samples": len(pulled),
+            "judge_per_mean": (sum(judged) / len(judged)) if judged else None,
+            "rssi_dbm_mean": (sum(rssi) / len(rssi)) if rssi else None,
+            "source": source,
+            "timestamp_ms": int(time.monotonic() * 1000),  # 档位时刻（重追加保真）
+        }
+        kpi_rows.append(kpi_row)
+        if run_dir is not None:
+            append_event(
+                run_dir,
+                {
+                    "type": "distance_step",
+                    "step": kpi_row["step"],
+                    "point_index": point_index,
+                    "d_m": kpi_row["d_m"],
+                    "loss_db": kpi_row["loss_db"],
+                    "attenuation": kpi_row["attenuation"],
+                    "judge_per_mean": kpi_row["judge_per_mean"],
+                    "rssi_dbm_mean": kpi_row["rssi_dbm_mean"],
+                    "n_samples": kpi_row["n_samples"],
+                },
+            )
+            append_distance_kpi_rows(run_dir, [kpi_row])
     return {"status": "completed", "distance_plan": plan, "kpi_rows": kpi_rows}
 
 

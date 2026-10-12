@@ -11,6 +11,8 @@
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 import src.run_demo.execute_scenario as es_mod
@@ -183,6 +185,76 @@ def test_distance_sample_source_exhaustion_counted_honestly(tmp_path):
     out = execute_scenario(ctx, scenario)
     row = out["result"]["kpi_rows"][0]
     assert row["n_samples"] == 2  # 耗尽如实计，不补不造
+
+
+# ---------- ②b B21 中#2/低#3：distance 落盘 + 标定反杀跳档 ----------
+
+
+def test_b21_mid2_distance_step_events_and_kpi_csv_written(tmp_path):
+    """中#2 回归：每可达档一条 distance_step 事件 + kpi.csv 逐档追加行。
+
+    kpi.csv 列映射 record_run_streams 表头：per/judge_per 两列填 judge_per_mean，
+    link='distance'，per_note 携档位溯源（d/loss/att/n）。
+    """
+    backend = FakeBackend()
+    ctx = make_ctx(tmp_path, backend=backend, n_events=6)
+    scenario = distance_scenario([1.0, 10.0], judge_min_samples=3)
+    execute_scenario(ctx, scenario)
+
+    # a) events.jsonl：每档一条 distance_step（d_m/loss_db/attenuation/judge_per_mean）
+    with open(tmp_path / "events.jsonl", encoding="utf-8") as handle:
+        events = [json.loads(line) for line in handle if line.strip()]
+    steps = [e for e in events if e.get("type") == "distance_step"]
+    assert [e["d_m"] for e in steps] == [1.0, 10.0]
+    assert [e["loss_db"] for e in steps] == pytest.approx([20.0, 40.0])
+    assert all(
+        set(("d_m", "loss_db", "attenuation", "judge_per_mean")) <= set(e) for e in steps
+    )
+    assert steps[0]["attenuation"]["achieved_db"] == pytest.approx(20.0)
+
+    # b) kpi.csv：表头（裸目录自动补）+ 逐档行，列映射到 KPI_HEADER
+    with open(tmp_path / "kpi.csv", encoding="utf-8") as handle:
+        lines = [line for line in handle.read().splitlines() if line]
+    assert lines[0].split(",")[:3] == ["timestamp_ms", "link", "source"]
+    rows = [line.split(",") for line in lines[1:]]
+    assert len(rows) == 2
+    header = lines[0].split(",")
+    assert all(r[header.index("link")] == "distance" for r in rows)
+    assert all(
+        r[header.index("per")] == r[header.index("judge_per")] for r in rows
+    )  # per/judge_per 列同填 judge_per_mean
+    assert all("distance_step" in r[header.index("per_note")] for r in rows)
+
+
+def test_b21_low3_attenuator_cal_shrunk_domain_skips_step_not_raises(tmp_path):
+    """低#3 回归：ctx['attenuator_cal'] 缩域致下发超域 → 跳档+skipped 事件，不抛。
+
+    计划按标称口径（model_params 无 cal_table）：d=20m→46.02dB 可达（≤50）；
+    下发回落 ctx['attenuator_cal']（细档实际值钳 10dB → 可达域顶 40dB）→
+    46.02dB 超域 → AttenuationError 被 _run_distance 消化为跳档：事件
+    type='distance_step_skipped'（reason 含可达域），后续档继续执行。
+    """
+    backend = FakeBackend()
+    shrunk_cal = {float(step): float(min(step, 10)) for step in range(0, 21)}
+    ctx = make_ctx(
+        tmp_path, backend=backend, n_events=6, attenuator_cal=shrunk_cal
+    )
+    scenario = distance_scenario([1.0, 20.0], judge_min_samples=3)
+    out = execute_scenario(ctx, scenario)  # 修复前此处 AttenuationError 反杀整跑
+
+    assert out["status"] == "completed"
+    rows = out["result"]["kpi_rows"]
+    assert [r["d_m"] for r in rows] == [1.0]  # 缩域档跳过不产 KPI 行
+    assert backend.att_calls == [30.0]  # 20dB 档按缩域标定择粗档接入（|20-30| 最小残差）
+
+    with open(tmp_path / "events.jsonl", encoding="utf-8") as handle:
+        events = [json.loads(line) for line in handle if line.strip()]
+    skipped = [e for e in events if e.get("type") == "distance_step_skipped"]
+    assert len(skipped) == 1
+    assert skipped[0]["d_m"] == 20.0
+    assert "可达域" in skipped[0]["reason"]  # reason 含可达域
+    assert skipped[0]["reachable_max_db"] == pytest.approx(40.0)
+    assert [e["d_m"] for e in events if e.get("type") == "distance_step"] == [1.0]
 
 
 # ---------- ③ custom 分派：ladder 透传（dwell/参数）+ 判据接线同 gb 口径 ----------

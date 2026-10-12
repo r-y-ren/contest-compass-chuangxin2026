@@ -165,8 +165,11 @@ class UhdPyTransport:
 class _UhdPyTxStream:
     """UHD 发射流适配器：write_b210_tx_stream 的鸭子句柄。
 
-    start() 标记下一 send 为 start_of_burst；end() 尽力发 end_of_burst 空包
-    （UHD 对 0 长数组可能 RuntimeError——吞掉记 warning，突发终止失败不视为发送失败）。
+    start() 标记下一 send 为 start_of_burst；end() 仅复位标记，不发
+    end_of_burst 空包——真 uhd（4.9 验证）send() 对形状 (0,) 的空包报
+    「Number of TX channels (1) does not match the dimensions of the data
+    array (1)」（send 期望 (n_channels, 0) 形状且空包在多数版本不可达），
+    空包直接跳过发送：突发终止由 stop_tx/流释放承载（B21 超范围观察修复）。
     """
 
     def __init__(self, device, uhd_module, timeout_s: float = 1.0) -> None:
@@ -192,17 +195,10 @@ class _UhdPyTxStream:
         return {"sent": int(sent)}
 
     def end(self) -> None:
-        try:
-            md = self._uhd.types.TXMetadata()
-            md.has_time_spec = False
-            md.end_of_burst = True
-            self._streamer.send(
-                self._np.zeros(0, dtype=self._np.complex64), md, timeout=self._timeout
-            )
-        except Exception as exc:  # EOB 空包在部分 UHD 版本拒收：尽力而为，不炸发送主流程
-            _LOGGER.warning("TX end_of_burst 空包发送失败（吞掉）: %s: %s", type(exc).__name__, exc)
-        finally:
-            self._pending_sob = True
+        # 空包跳过发送（len==0 → 不发 end_of_burst 包，仅标记）：真 uhd send()
+        # 对 (0,) 形状空包报 TX channels/dimensions 不匹配（见类 docstring），
+        # EOB 空包不可发送是常态而非异常——不重试不告警，仅复位 SOB 期待位。
+        self._pending_sob = True
 
 
 class _UhdPyRxStream:

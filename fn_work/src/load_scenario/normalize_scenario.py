@@ -225,6 +225,10 @@ def normalize_scenario(valid: dict) -> dict:
         )
 
     # 规范键序输出；未知键按原序保留透传（已由 validate 拒——此处防御保留）。
+    # 执行信封键（B21 高#1：scenario_type/judge_min_samples/dwell_s/
+    # baseline_samples/ledger_entry/distances/model_params/ladder(_params)/
+    # record/sim_events）不入规范序、经本尾循环原样透传——归一（如
+    # scenario_type 小写化）归消费方 execute_scenario 的 strip().lower() 口径。
     normalized: dict = {key: out[key] for key in _CANONICAL_KEY_ORDER if key in out}
     for key, value in out.items():
         if key not in normalized:
