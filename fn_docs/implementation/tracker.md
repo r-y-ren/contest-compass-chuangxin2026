@@ -684,10 +684,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] locate_ledger_row · 清单进位 — 证据: bash -c grep -q '| locate_ledger_row | B17 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] locate_ledger_row · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(locate_ledger_row)' && echo commit在案 → commit在案 (10-12)
 ### update_ledger
-- [ ] update_ledger · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] update_ledger · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] update_ledger · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] update_ledger · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] update_ledger · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:update_ledger' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] update_ledger · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k ledger_update -q 2>&1 | tail -1 → 17 passed, 2450 deselected in 1.41s (10-12)
+- [x] update_ledger · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b17.py | grep -q '写入往返' && echo 顶层实跑通过 → 顶层实跑通过 (10-12)
+- [x] update_ledger · 清单进位 — 证据: bash -c grep -q '| update_ledger | B17 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] update_ledger · commit — 预告: fn(update_ledger): wired 含四文档变更
 ### count_comment_ratio
 - [x] count_comment_ratio · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:count_comment_ratio' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
@@ -712,7 +712,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] normalize_scenario · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/load_scenario/test_normalize_scenario.py | tail -1 → 9 passed in 0.01s (10-12)
 - [x] normalize_scenario · wired — 证据: bash -c grep -rn 'normalize_scenario(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/load_scenario/load_scenario.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] normalize_scenario · 清单进位 — 证据: bash -c grep -q '| normalize_scenario | B17 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] normalize_scenario · commit — 预告: fn(normalize_scenario): wired 含四文档变更
+- [x] normalize_scenario · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(normalize_scenario)' && echo commit在案 → commit在案 (10-12)
 ### load_scenario
 - [ ] load_scenario · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] load_scenario · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
