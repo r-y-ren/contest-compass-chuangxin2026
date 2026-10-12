@@ -107,8 +107,8 @@
 | load_scenario | B17 | wired 10-12 | 16 passed；校验→红线→规范化 | 3775208 |
 | render_disclaimer_sections | B18 | wired 10-12 | 33 passed；基座+上下文+模拟段 | f4ac207 |
 | assemble_frequency_plots | B18 | wired 10-12 | 15 passed；≥5 位+缺额如实 | d92fac9 |
-| build_report | B18 | stub 10-11 | pytest -k report_builder | — |
-| extract_report_numbers | B18 | wired 10-12 | 24 passed；单位家族+科学计数 | pending |
+| build_report | B18 | wired 10-12 | 17 passed；总装+缺项+PNG 复用 | pending |
+| extract_report_numbers | B18 | wired 10-12 | 24 passed；单位家族+科学计数 | 1b0cdb4 |
 | verify_report_traceability | B18 | stub 10-11 | pytest -k report_traceability | — |
 | create_console_app | B19 | stub 10-11 | 上游覆盖: serve_console | — |
 | serve_console | B19 | stub 10-11 | pytest -k console_api | — |
