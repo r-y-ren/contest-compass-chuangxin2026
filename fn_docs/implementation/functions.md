@@ -81,7 +81,7 @@
 | execute_gb42590_protocol | B13 | wired 10-12 | 13 passed；五阶段编排+带宽校验+判据接线 | 1c77700 |
 | compare_failure_boundaries | B13 | wired 10-12 | 12 passed；中位数聚合+平手规则 | c2b6a96 |
 | build_curve_frames | B13 | wired 10-12 | 24 passed；三帧纯计算+开窗 | 5044bd0 |
-| plot_triple_curves | B13 | wired 10-12 | 12 passed；三 PNG+curves_data.json+字体回退 | pending |
+| plot_triple_curves | B13 | wired 10-12 | 12 passed；三 PNG+curves_data.json+字体回退 | 49e4665 |
 | dispatch_remote_training | B14 | stub 10-11 | 上游覆盖: train_classifier | — |
 | train_classifier | B14 | stub 10-11 | pytest -k train_classifier | — |
 | make_group_splits | B14 | stub 10-11 | 上游覆盖: grouped_cv_evaluate | — |
