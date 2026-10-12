@@ -102,7 +102,7 @@
 | update_ledger | B17 | wired 10-12 | 17 passed；原子写+覆盖守卫 | pending |
 | count_comment_ratio | B17 | wired 10-12 | 14 passed；tokenize 注释+docstring | 629df88 |
 | audit_ledger | B17 | wired 10-12 | 12 passed；死锚核验+注释率 | pending |
-| validate_scenario_schema | B17 | wired 10-12 | 21 passed；七类白名单+域 | pending |
+| validate_scenario_schema | B17 | wired 10-12 | 21 passed；七类白名单+域 | 957d0f2 |
 | normalize_scenario | B17 | wired 10-12 | 9 passed；默认填充+归一+深拷贝 | pending |
 | load_scenario | B17 | wired 10-12 | 16 passed；校验→红线→规范化 | pending |
 | render_disclaimer_sections | B18 | stub 10-11 | 上游覆盖: build_report | — |

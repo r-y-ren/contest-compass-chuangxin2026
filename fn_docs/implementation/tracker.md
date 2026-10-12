@@ -706,12 +706,12 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] validate_scenario_schema · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/load_scenario/test_validate_scenario_schema.py | tail -1 → 21 passed in 0.02s (10-12)
 - [x] validate_scenario_schema · wired — 证据: bash -c grep -rn 'validate_scenario_schema(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/load_scenario/load_scenario.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] validate_scenario_schema · 清单进位 — 证据: bash -c grep -q '| validate_scenario_schema | B17 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] validate_scenario_schema · commit — 预告: fn(validate_scenario_schema): wired 含四文档变更
+- [x] validate_scenario_schema · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(validate_scenario_schema)' && echo commit在案 → commit在案 (10-12)
 ### normalize_scenario
-- [ ] normalize_scenario · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] normalize_scenario · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] normalize_scenario · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] normalize_scenario · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] normalize_scenario · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:normalize_scenario' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] normalize_scenario · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/load_scenario/test_normalize_scenario.py | tail -1 → 9 passed in 0.01s (10-12)
+- [x] normalize_scenario · wired — 证据: bash -c grep -rn 'normalize_scenario(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/load_scenario/load_scenario.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] normalize_scenario · 清单进位 — 证据: bash -c grep -q '| normalize_scenario | B17 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] normalize_scenario · commit — 预告: fn(normalize_scenario): wired 含四文档变更
 ### load_scenario
 - [ ] load_scenario · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
