@@ -820,7 +820,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] bridge_to_sitl · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k sitl_bridge -q 2>&1 | tail -1 → 16 passed, 2749 deselected, 1 warning in 1.62s (10-12)
 - [x] bridge_to_sitl · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b20.py | grep -q 'SITL 注入表' && echo 顶层实跑通过（dry_run 表） → 顶层实跑通过（dry_run 表） (10-12)
 - [x] bridge_to_sitl · 清单进位 — 证据: bash -c grep -q '| bridge_to_sitl | B20 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] bridge_to_sitl · commit — 预告: fn(bridge_to_sitl): wired 含四文档变更
+- [x] bridge_to_sitl · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(bridge_to_sitl)' && echo commit在案 → commit在案 (10-12)
 ### fallback_fixed_strategy
 - [x] fallback_fixed_strategy · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:fallback_fixed_strategy' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
 - [x] fallback_fixed_strategy · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/run_rl_policy/ 2>&1 | tail -1 → 13 passed in 0.08s (10-12)
@@ -828,10 +828,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] fallback_fixed_strategy · 清单进位 — 证据: bash -c grep -q '| fallback_fixed_strategy | B20 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] fallback_fixed_strategy · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(fallback_fixed_strategy)' && echo commit在案 → commit在案 (10-12)
 ### run_rl_policy
-- [ ] run_rl_policy · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] run_rl_policy · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] run_rl_policy · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] run_rl_policy · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] run_rl_policy · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:run_rl_policy' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] run_rl_policy · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k rl_policy -q 2>&1 | tail -1 → 13 passed, 2752 deselected, 1 warning in 1.63s (10-12)
+- [x] run_rl_policy · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b20.py | grep -q 'ql_table' && echo 顶层实跑通过（玩具 env 收敛） → 顶层实跑通过（玩具 env 收敛） (10-12)
+- [x] run_rl_policy · 清单进位 — 证据: bash -c grep -q '| run_rl_policy | B20 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] run_rl_policy · commit — 预告: fn(run_rl_policy): wired 含四文档变更
 ### run_rff_pipeline
 - [ ] run_rff_pipeline · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
