@@ -1,4 +1,4 @@
-"""bridge_to_sitl 对抗单测：slug=sitl_bridge——map_per_to_injection 映射数值独立复算+饱和/空表/NaN 拒；bridge dry_run 参数表+缺库路径（monkeypatch sys.modules）+连接 None 跳过+缺 steps 拒+真连 mock 层参数下发。"""
+"""bridge_to_sitl 对抗单测：slug=sitl_bridge——map_per_to_injection 映射数值独立复算+饱和/空表/NaN 拒；bridge dry_run 参数表+缺库路径（monkeypatch sys.modules）+连接 None 跳过+缺 steps 拒+心跳超时域拒（负/0/bool/NaN）+真连 mock 层参数下发。"""
 from __future__ import annotations
 
 import sys
@@ -305,3 +305,35 @@ def test_sitl_bridge_empty_steps_dry_run_empty_table():
     assert out["bridged"] is True
     assert out["injections"] == []
     assert out["n_injections"] == 0
+
+
+def test_sitl_bridge_heartbeat_timeout_domain_rejected():
+    """heartbeat_timeout_s 域拒：负/0/bool/NaN/±inf → ValueError（前置校验，dry_run/跳过路径同拒）。"""
+    for bad in [-0.5, 0, 0.0, True, float("nan"), float("inf")]:
+        with pytest.raises(ValueError, match="heartbeat_timeout_s"):
+            bridge_to_sitl(_result(), {"connection": None, "heartbeat_timeout_s": bad})
+    # 前置校验：dry_run 与缺库路径同样先拒域错（不等到真连才暴露）
+    with pytest.raises(ValueError, match="heartbeat_timeout_s"):
+        bridge_to_sitl(
+            _result(), {"connection": None, "heartbeat_timeout_s": -1.0}, dry_run=True
+        )
+    monkey = pytest.MonkeyPatch()
+    try:
+        monkey.setitem(sys.modules, "pymavlink", None)
+        with pytest.raises(ValueError, match="heartbeat_timeout_s"):
+            bridge_to_sitl(
+                _result(),
+                {"connection": "udp:127.0.0.1:14540", "heartbeat_timeout_s": float("nan")},
+            )
+    finally:
+        monkey.undo()
+
+
+def test_sitl_bridge_heartbeat_timeout_passthrough_to_wait(monkeypatch):
+    """合法超时透传：heartbeat_timeout_s=5（int 秒可转 float）→ wait_heartbeat(5.0)。"""
+    recorder = _install_fake_pymavlink(monkeypatch, lambda rec: _FakeConn(rec))
+    out = bridge_to_sitl(
+        _result(), {"connection": "udp:127.0.0.1:14540", "heartbeat_timeout_s": 5}
+    )
+    assert out["bridged"] is True
+    assert ("heartbeat", 5.0) in recorder

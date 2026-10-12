@@ -1,4 +1,4 @@
-"""run_rff_pipeline 对抗单测：slug=rff_pipeline——合成 3 类 SigMF cf32 数据集（tmp 造 24 文件 3 类，B14 train 同口径）→管道 smoke（F1>0.8+endpoint+模型元数据）+run_id 分组+不足拒（零匹配/样本量）+短段跳段+形状错。"""
+"""run_rff_pipeline 对抗单测：slug=rff_pipeline——合成 3 类 SigMF cf32 数据集（tmp 造 24 文件 3 类，B14 train 同口径）→管道 smoke（F1>0.8+endpoint+模型元数据+latency_note）+run_id 分组+不足拒（零匹配/样本量）+短段跳段+hp 透传 index_path（同键冲突 hp 胜）+单批次键 TrainError+形状错。"""
 from __future__ import annotations
 
 import json
@@ -88,11 +88,12 @@ def test_rff_pipeline_end_to_end_three_class_high_f1(tmp_path):
     assert out["model"]["kind"] == "centroid"
     assert out["model"]["labels"] == sorted(_STYLES)
     assert len(out["model"]["centroids"]["tone_lo"]) == 64 // 2 + 1
-    # 部署模拟：本地推理端点+模型元数据
+    # 部署模拟：本地推理端点+模型元数据+时延缺位申报（latency_note='simulated'）
     assert out["endpoint"] == "local-inference"
     dep = out["deployment"]
     assert dep["endpoint"] == "local-inference"
     assert dep["deployed"] is True
+    assert dep["latency_note"] == "simulated"
     meta = dep["model_meta"]
     assert meta["kind"] == "centroid"
     assert meta["n_centroids"] == 3
@@ -167,6 +168,58 @@ def test_rff_pipeline_short_segments_counted_skipped(tmp_path):
     assert out["n_samples"] == 24
     assert out["skipped"] == 2
     assert out["evaluation"]["macro_f1"] > 0.8
+
+
+def test_rff_pipeline_hyperparams_index_path_passthrough(tmp_path):
+    """hp 透传 index_path/runs_root（B14 train 同款 API）：dataset_config 不带落点可取数；同键冲突 hp 胜。"""
+    cfg = _build_dataset(tmp_path)
+    real_index, real_root = cfg["index_path"], cfg["runs_root"]
+    # dataset_config 只带 query，落点全由 hyperparams 提供 → 成功取数
+    out = run_rff_pipeline(
+        {"query": {"style": list(_STYLES)}},
+        {"nfft": 64, "index_path": real_index, "runs_root": real_root},
+    )
+    assert out["n_samples"] == 24
+    assert out["skipped"] == 0
+    # 同键冲突：dataset_config 落点指向空索引（单用必零匹配），hp 指真索引 → hp 胜
+    empty_index = str(tmp_path / "empty-index.json")
+    out2 = run_rff_pipeline(
+        {"query": {"style": list(_STYLES)}, "index_path": empty_index},
+        {"nfft": 64, "index_path": real_index, "runs_root": real_root},
+    )
+    assert out2["n_samples"] == 24
+
+
+def test_rff_pipeline_single_batch_key_wrapped_train_error(tmp_path):
+    """单批次键：grouped_cv_evaluate 的 ValueError → TrainError 包装（附原文）。"""
+    # 手写索引：全部条目同一 run_id（登记口会拒重复 run_id，但索引是磁盘数据
+    # 可被改写——对抗口径）；path 直指 cf32 数据文件（直读分支）
+    entries = []
+    for k in range(20):
+        style = _STYLES[k % 3]
+        data_file = tmp_path / f"iq-{k}.cf32"
+        _tone_iq(_FREQS[style], seed=k).tofile(str(data_file))
+        entries.append(
+            {
+                "run_id": "20260104-same",
+                "path": str(data_file),
+                "style": style,
+                "freq_mhz": 100.0,
+                "date": "20260104",
+                "backend": "sim",
+            }
+        )
+    index_path = tmp_path / "index.json"
+    index_path.write_text(
+        json.dumps({"version": 1, "entries": entries}), encoding="utf-8"
+    )
+    cfg = {
+        "query": {"style": list(_STYLES)},
+        "index_path": str(index_path),
+        "runs_root": str(tmp_path),
+    }
+    with pytest.raises(TrainError, match="一个批次键"):
+        run_rff_pipeline(cfg, {"nfft": 64, "k": 5})
 
 
 def test_rff_pipeline_shape_errors():

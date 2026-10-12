@@ -15,6 +15,8 @@
 - ``dry_run=True``（不真连）：只产参数表返回
   ``{'bridged': True, 'dry_run': True, 'injections': 表}``
   ——验证映射口径的 mock 层，不 import pymavlink、不建任何连接；
+- ``sitl_config['heartbeat_timeout_s']`` 域校验前置（与路径无关）：
+  负/0/bool/NaN/±inf → ValueError（缺省 2.0；可转 float 的正有限秒数）；
 - 真连路径（简化 MAVLink mock 层口径，不依赖完整 ArduPilot 参数协议）：
   ``mavutil.mavlink_connection(connection)`` → ``wait_heartbeat`` → 逐注入档
   ``conn.mav.param_set_send`` 两条参数（SIM_PACKET_LOSS=丢包率、
@@ -23,6 +25,7 @@
 """
 from __future__ import annotations
 
+import math
 import warnings
 
 from .map_per_to_injection import map_per_to_injection
@@ -72,7 +75,8 @@ def bridge_to_sitl(result: dict, sitl_config: dict, dry_run: bool = False) -> di
         sitl_config: SITL 连接配置——``'connection'``（MAVLink 连接串如
             ``'udp:127.0.0.1:14540'`` 或 None=未配置跳过）、``'mapping_params'``
             （可选 dict，透传 map_per_to_injection 覆盖缺省映射参数）、
-            ``'heartbeat_timeout_s'``（缺省 2.0）。
+            ``'heartbeat_timeout_s'``（缺省 2.0，可转 float 的正有限秒数——
+            负/0/bool/NaN/±inf 一律 ValueError，校验前置与路径无关）。
         dry_run: True=只产参数表不真连（不 import pymavlink、不建连接），
             返回 ``{'bridged': True, 'dry_run': True, 'injections': 表}``。
 
@@ -85,7 +89,8 @@ def bridge_to_sitl(result: dict, sitl_config: dict, dry_run: bool = False) -> di
 
     Raises:
         ValueError: result/sitl_config 形状错（非 dict、缺 'steps_executed'、
-            steps_executed 非 list、映射参数非法由 map_per_to_injection 上抛）。
+            steps_executed 非 list、heartbeat_timeout_s 域错——负/0/bool/
+            NaN/±inf、映射参数非法由 map_per_to_injection 上抛）。
     """
     if not isinstance(result, dict):
         raise ValueError(f"result 必须为 dict（运行结果），实际: {type(result).__name__}")
@@ -114,6 +119,27 @@ def bridge_to_sitl(result: dict, sitl_config: dict, dry_run: bool = False) -> di
             f"{type(mapping_params).__name__}"
         )
     injections = map_per_to_injection(steps, mapping_params)
+
+    # 心跳超时域校验前置（路径无关：dry_run/跳过/真连一律先拒域错——
+    # 负/0/bool/NaN/±inf 不是合法等待时长，早拒胜过真连路径上才暴露）。
+    timeout_raw = sitl_config.get("heartbeat_timeout_s", _DEFAULT_HEARTBEAT_TIMEOUT_S)
+    if isinstance(timeout_raw, bool):
+        raise ValueError(
+            f"sitl_config['heartbeat_timeout_s'] 必须为正有限秒数（bool 拒），"
+            f"得到 {timeout_raw!r}"
+        )
+    try:
+        timeout = float(timeout_raw)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"sitl_config['heartbeat_timeout_s'] 必须为可转 float 的正有限秒数，"
+            f"得到 {timeout_raw!r}"
+        ) from None
+    if not math.isfinite(timeout) or timeout <= 0.0:
+        raise ValueError(
+            f"sitl_config['heartbeat_timeout_s'] 必须为正有限秒数（>0，拒 "
+            f"NaN/±inf/负/0），得到 {timeout_raw!r}"
+        )
 
     # ① dry_run：只产参数表（不 import pymavlink、不建连接——映射口径 mock 层）。
     if dry_run:
@@ -161,13 +187,6 @@ def bridge_to_sitl(result: dict, sitl_config: dict, dry_run: bool = False) -> di
         }
 
     # ④ 真连路径：连接+心跳 → 逐档下发简化参数 → 安全断开；失败均跳过+标注。
-    timeout_raw = sitl_config.get("heartbeat_timeout_s", _DEFAULT_HEARTBEAT_TIMEOUT_S)
-    try:
-        timeout = float(timeout_raw)
-    except (TypeError, ValueError):
-        raise ValueError(
-            f"sitl_config['heartbeat_timeout_s'] 必须为可转 float 的数值，得到 {timeout_raw!r}"
-        ) from None
     conn = None
     try:
         conn = mavutil.mavlink_connection(connection)

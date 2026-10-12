@@ -15,9 +15,11 @@
   ``converged=True``；不收敛 → ``fallback_fixed_strategy`` 兜底
   （scenario 取 ``train_config['scenario']``，缺省由 style/ladder_params/
   link_power_db 组装）——``fallback_used=True``、``policy='fallback_fixed'``；
-- 错误：train_config/env 形状错 → ValueError；env_factory/reset/step 抛 →
-  PolicyError（终止训练，附原文）；回退段的场景形状错由
-  fallback_fixed_strategy 以 ValueError 透传。
+- 错误二分：``train_config`` 形状错（非 dict/env_factory 不可调用/超参
+  域错）→ ValueError；env 契约错（缺 reset/step、env_factory/reset/step
+  抛、状态非数值/含 NaN、step 返回非三元组/奖励非有限实数/done 非
+  bool|int）→ PolicyError（终止训练，附原文）；回退段的场景形状错由
+  fallback_fixed_strategy 以 ValueError 透传（叶子自身口径）。
 
 返回：``{'q_table_shape': (n_states, n_actions), 'episodes', 'converged',
 'final_reward_mean', 'fallback_used', 'policy': 'ql_table'|'fallback_fixed',
@@ -54,7 +56,7 @@ _CONVERGE_MARGIN = 1e-9
 
 
 class PolicyError(Exception):
-    """策略训练环境异常：env_factory/reset/step 抛错（终止训练，附原文）。"""
+    """策略训练环境异常：env 契约错（缺 reset/step、env_factory/reset/step 抛错、状态/转移元组/奖励非法）——终止训练，附原文。"""
 
 
 def _pos_int(value: object, name: str, cap: int) -> int:
@@ -83,34 +85,35 @@ def _unit_interval(value: object, name: str, *, lo_inclusive: float, hi_inclusiv
 def _state_key(state: object) -> tuple:
     """环境状态 → 可哈希离散键（数值向量/标量 → float 元组）。
 
-    非数值状态/空向量/含 NaN/±inf → ValueError（环境契约形状错）。
+    非数值状态/空向量/含 NaN/±inf → PolicyError（env 契约错——环境产出的
+    状态非法属运行期环境异常族，非调用方配置形状错）。
     """
     if isinstance(state, (str, bytes, bool)) or state is None:
-        raise ValueError(
+        raise PolicyError(
             f"env 状态须为数值向量/标量（list/tuple/ndarray/number），得到 {state!r}"
         )
     try:
         arr = np.asarray(state, dtype=float).reshape(-1)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"env 状态须为数值向量/标量，无法解析: {state!r}") from exc
+        raise PolicyError(f"env 状态须为数值向量/标量，无法解析: {state!r}") from exc
     if arr.size == 0:
-        raise ValueError("env 状态向量不能为空")
+        raise PolicyError("env 状态向量不能为空")
     if not np.isfinite(arr).all():
-        raise ValueError(f"env 状态含非有限值（NaN/±inf）: {state!r}")
+        raise PolicyError(f"env 状态含非有限值（NaN/±inf）: {state!r}")
     # 离散化口径：数值规整到 1e-9 网格再取元组（吸收浮点抖动，等值状态同一行）。
     return tuple(float(v) for v in np.round(arr / 1e-9))
 
 
 def _env_methods(env: object):
-    """env（dict 或鸭子类型对象）→ (reset, step) 可调用对；缺一即 ValueError。"""
+    """env（dict 或鸭子类型对象）→ (reset, step) 可调用对；缺一即 PolicyError（env 契约错）。"""
     if isinstance(env, dict):
         reset, step = env.get("reset"), env.get("step")
     else:
         reset, step = getattr(env, "reset", None), getattr(env, "step", None)
     if not callable(reset) or not callable(step):
-        raise ValueError(
-            "env 必须含可调用 'reset'()→state 与 'step'(action_idx)→"
-            f"(state, reward, done)，实际 reset={reset!r}, step={step!r}"
+        raise PolicyError(
+            "env 契约错：必须含可调用 'reset'()→state 与 "
+            f"'step'(action_idx)→(state, reward, done)，实际 reset={reset!r}, step={step!r}"
         )
     return reset, step
 
@@ -130,9 +133,11 @@ def run_rl_policy(train_config: dict, env_factory) -> dict:
         见模块 docstring 返回口径（训练曲线 reward_history+回退标记如实记录）。
 
     Raises:
-        ValueError: train_config/env 形状错（非 dict/不可调用/缺方法/超参域错/
-            状态或转移元组形状错）。
-        PolicyError: env_factory/reset/step 运行期抛错（终止训练）。
+        ValueError: train_config 形状错（非 dict、env_factory 不可调用、
+            episodes/actions/max_steps/alpha/gamma/epsilon/seed 域错）。
+        PolicyError: env 契约错（缺 reset/step、env_factory/reset/step 运行
+            期抛错、状态非数值/含 NaN、step 返回非三元组/奖励非有限实数/
+            done 非 bool|int）——终止训练，附原文。
     """
     if not isinstance(train_config, dict):
         raise ValueError(
@@ -178,19 +183,19 @@ def run_rl_policy(train_config: dict, env_factory) -> dict:
         return row
 
     def _parse_step_return(raw: object, where: str):
-        """step 返回值 (next_state, reward, done) 契约校验：形状错 ValueError。"""
+        """step 返回值 (next_state, reward, done) 契约校验：违约 → PolicyError（env 契约错）。"""
         if not isinstance(raw, (tuple, list)) or len(raw) != 3:
-            raise ValueError(
-                f"env.step 须返回 (next_state, reward, done) 三元组，{where}返回: {raw!r}"
+            raise PolicyError(
+                f"env.step 契约错：须返回 (next_state, reward, done) 三元组，{where}返回: {raw!r}"
             )
         next_state, reward, done = raw
         if isinstance(reward, bool) or not isinstance(reward, Real):
-            raise ValueError(f"env.step 奖励须为实数（bool/非数值拒绝），得到 {reward!r}")
+            raise PolicyError(f"env.step 契约错：奖励须为实数（bool/非数值拒绝），得到 {reward!r}")
         reward_f = float(reward)
         if not math.isfinite(reward_f):
-            raise ValueError(f"env.step 奖励须为有限数（拒 NaN/±inf），得到 {reward!r}")
+            raise PolicyError(f"env.step 契约错：奖励须为有限数（拒 NaN/±inf），得到 {reward!r}")
         if not isinstance(done, (bool, np.bool_, int, np.integer)):
-            raise ValueError(f"env.step done 须为 bool/int，得到 {done!r}")
+            raise PolicyError(f"env.step 契约错：done 须为 bool/int，得到 {done!r}")
         return next_state, reward_f, bool(done)
 
     def _run_episode(epsilon: float) -> float:

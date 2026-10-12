@@ -4,8 +4,9 @@
 
 - 取数：``dataset_config['query']``（检索条件 dict）原样透传
   ``index_dataset('query')``——``index_path``/``runs_root`` 取
-  ``dataset_config`` 同名键（缺省用 index_dataset 缺省）；空 matched →
-  TrainError；QueryError（条件非法）包装为 TrainError（含原文）；
+  ``dataset_config`` 同名键（缺省用 index_dataset 缺省），``hyperparams``
+  同名键亦可透传（B14 train 同款 API 对齐——同键冲突 hp 胜）；空
+  matched → TrainError；QueryError（条件非法）包装为 TrainError（含原文）；
 - 特征：逐条目解析 SigMF cf32 数据（path 为目录→最早 .sigmf-meta 配对
   data；*.sigmf-meta→同名 data；其余按数据文件直读——与 train_classifier
   同口径）→ ``make_spectrogram``（nfft 透传 ``hyperparams['nfft']`` 缺省
@@ -14,10 +15,12 @@
   推理取欧氏距离最近类；模型元数据附参数量（质心数×维度）与类别清单；
 - 评测：``grouped_cv_evaluate``（k 透传 ``hyperparams['k']`` 缺省 5）——
   samples 构造 ``batch_key=run_id``（每个 run 自成一组，防段级泄漏）；
+  单批次键等评测不可行的 ValueError 包装为 TrainError（附原文）；
 - 部署模拟：本地推理端点（``'endpoint': 'local-inference'``）+模型元数据
-  dict（蒸馏口径：kind/labels/参数量入报告）；
+  dict（蒸馏口径：kind/labels/参数量入报告；时延缺位申报——endpoint 附
+  ``latency_note='simulated'``，非实测时延）；
 - 数据不足拒训（TrainError 自定义，附数与阈值）：查询零匹配/有效样本
-  < ``min_samples``（缺省 20）/类别覆盖 <2 类；
+  < ``min_samples``（缺省 20）/类别覆盖 <2 类/评测分组不可行（单批次键）；
 - 形状错 ValueError：dataset_config/hyperparams 非 dict（hyperparams 容
   None）/缺 'query' 或 query 非 dict/nfft、min_samples、k 不可转 int。
 
@@ -106,7 +109,9 @@ def run_rff_pipeline(dataset_config: dict, hyperparams: dict) -> dict:
         dataset_config: ``{'query': 检索条件 dict（必填，透传
             index_dataset('query')）, 'index_path'/'runs_root': 可选索引落点}``。
         hyperparams: ``nfft``（缺省 256）、``min_samples``（缺省 20）、
-            ``k``（缺省 5，≥2）；None 视同 {}。
+            ``k``（缺省 5，≥2）、``index_path``/``runs_root``（索引落点，
+            B14 train 同款——同键冲突时优先于 dataset_config 胜出）；
+            None 视同 {}。
 
     Returns:
         见模块 docstring 返回口径（evaluation 为 grouped_cv_evaluate 完整结果）。
@@ -114,7 +119,8 @@ def run_rff_pipeline(dataset_config: dict, hyperparams: dict) -> dict:
     Raises:
         ValueError: dataset_config/hyperparams/query 形状错、超参不可转 int、
             k<2、nfft 域错（make_spectrogram 上抛同语义）。
-        TrainError: 查询零匹配/有效样本不足/类别覆盖 <2 类。
+        TrainError: 查询零匹配/有效样本不足/类别覆盖 <2 类/评测分组不可行
+            （单批次键——grouped_cv_evaluate 的 ValueError 包装，附原文）。
     """
     if not isinstance(dataset_config, dict):
         raise ValueError(
@@ -144,9 +150,12 @@ def run_rff_pipeline(dataset_config: dict, hyperparams: dict) -> dict:
     make_spectrogram(_EMPTY_IQ, nfft=nfft)  # nfft 域干跑预检（空段只走参数校验分支）
 
     # ① 取数：query 原样透传；QueryError（未知字段等）包装 TrainError 含原文。
+    #    索引落点 dataset_config 与 hyperparams 均可给（B14 train 同款 API 对齐），
+    #    同键冲突 hyperparams 优先（hp 胜——后写入覆盖 dataset_config 取值）。
     index_kwargs = {
         key: dataset_config[key] for key in ("index_path", "runs_root") if key in dataset_config
     }
+    index_kwargs.update({key: hp[key] for key in ("index_path", "runs_root") if key in hp})
     try:
         found = index_dataset("query", query=query, **index_kwargs)
     except QueryError as exc:
@@ -209,8 +218,13 @@ def run_rff_pipeline(dataset_config: dict, hyperparams: dict) -> dict:
             f"（RFF 分类至少需 2 类可分；matched {matched} 条，跳段 {skipped} 条）"
         )
 
-    # ④ 评测：grouped_cv_evaluate（batch_key=run_id 分组，防段级泄漏）。
-    evaluation = grouped_cv_evaluate(samples, k=k)
+    # ④ 评测：grouped_cv_evaluate（batch_key=run_id 分组，防段级泄漏）——
+    #    单批次键等评测不可行的 ValueError 包装 TrainError（附原文，口径二分：
+    #    到样本集为止的形状错才走 ValueError，评测可行性属训练失败族）。
+    try:
+        evaluation = grouped_cv_evaluate(samples, k=k)
+    except ValueError as exc:
+        raise TrainError(f"分组评测不可行: {exc}") from exc
 
     # ⑤ 轻量模型：最近质心分类器（类均值，numpy）。
     buckets: dict[str, list[list[float]]] = {}
@@ -235,10 +249,12 @@ def run_rff_pipeline(dataset_config: dict, hyperparams: dict) -> dict:
         },
     }
 
-    # ⑥ 部署模拟：本地推理端点+模型元数据（蒸馏口径：参数量入报告）。
+    # ⑥ 部署模拟：本地推理端点+模型元数据（蒸馏口径：参数量入报告；
+    #    时延缺位申报 latency_note='simulated'——本地端点无实测时延）。
     deployment = {
         "endpoint": _ENDPOINT,
         "deployed": True,
+        "latency_note": "simulated",  # 时延元数据口径：申报缺位而非实测（R55）
         "model_meta": {
             "kind": "centroid",
             "labels": labels,

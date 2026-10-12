@@ -1159,7 +1159,7 @@
   - 核验命令：测试: rl_policy
   - **fallback_fixed_strategy** [L1|新增]
     - 职责：固定策略回退：按场景给定的样式/梯度序列执行（不学习），保证策略场景永有可执行路径。
-    - 签名意图：输入: 场景 / 输出: 动作序列 / 错误: 场景非法→PolicyError。
+    - 签名意图：输入: 场景 / 输出: 动作序列 / 错误: 场景非法→ValueError（B20+ Ruling 回写：实测落地为 ValueError——场景形状错口径；PolicyError 属 run_rl_policy 环境异常族，叶子不越权使用）。
     - 调用方：run_rl_policy
     - tested 策略：上游覆盖: run_rl_policy
     - 核验命令：上游覆盖: run_rl_policy
@@ -1169,7 +1169,7 @@
 （R55：RFF 指纹识别管道——自采+公开集子集、轻量模型训练、部署模拟、分组 CV 同口径。）
 
 - **run_rff_pipeline** [L0|新增]
-  - 职责：RFF 全管道：数据准备（自采 SigMF+公开集子集适配）→特征/轻量模型训练（蒸馏口径：参数量/时延实测入报告）→grouped_cv_evaluate 同口径评测→部署模拟（本地推理端点）；数据不足拒训。
+  - 职责：RFF 全管道：数据准备（自采 SigMF+公开集子集适配）→特征/轻量模型训练（蒸馏口径：参数量入报告；时延按元数据口径申报——endpoint 附 latency_note='simulated'，时延缺位申报非实测，B20+ Ruling 回写）→grouped_cv_evaluate 同口径评测→部署模拟（本地推理端点）；数据不足拒训。
   - 签名意图：输入: 数据集配置+训练超参 / 输出: 模型+评测报告+实测数字 / 错误: 数据不足→TrainError。
   - 调用方：CLI 入口；二期交付演示
   - tested 策略：自有单测（管道 smoke+无泄漏断言）

@@ -1,4 +1,4 @@
-"""run_rl_policy 对抗单测：slug=rl_policy——fallback GB 计划联动+动作序列+空场景+形状错；RL 玩具 env（4 状态 3 动作可学任务）收敛+不收敛回退 fallback_used+episodes 透传+env step 抛 PolicyError+形状错。"""
+"""run_rl_policy 对抗单测：slug=rl_policy——fallback GB 计划联动+动作序列+空场景+形状错；RL 玩具 env（4 状态 3 动作可学任务）收敛+不收敛回退 fallback_used+episodes 透传+env 契约错统一 PolicyError（缺 reset/step、NaN 奖励）+train_config 形状错 ValueError。"""
 from __future__ import annotations
 
 import pytest
@@ -193,14 +193,68 @@ def test_rl_policy_env_factory_raises_policy_error():
         run_rl_policy({"episodes": 2}, bad_factory)
 
 
+def test_rl_policy_env_contract_errors_unified_policy_error():
+    """env 契约错统一 PolicyError：缺 reset/缺 step/状态非数值/step 元组形状错/NaN 奖励。"""
+    # 缺 reset（鸭子对象）——B20 复审低#3 补例
+    class NoReset:
+        def step(self, action):
+            return [0.0], 0.0, True
+
+    with pytest.raises(PolicyError, match="reset=None"):
+        run_rl_policy({"episodes": 1, "actions": 2}, NoReset)
+
+    # 缺 step（鸭子对象）
+    class NoStep:
+        def reset(self):
+            return [0.0]
+
+    with pytest.raises(PolicyError, match="step=None"):
+        run_rl_policy({"episodes": 1, "actions": 2}, NoStep)
+
+    # 缺 step（dict env）
+    with pytest.raises(PolicyError, match="step=None"):
+        run_rl_policy({"episodes": 1, "actions": 2}, lambda: {"reset": ChainEnv().reset})
+
+    # reset 产非数值状态 → 契约错非配置形状错
+    class BadStateEnv:
+        def reset(self):
+            return "not-a-state"
+
+        def step(self, action):
+            return [0.0], 0.0, True
+
+    with pytest.raises(PolicyError, match="状态"):
+        run_rl_policy({"episodes": 1, "actions": 2}, BadStateEnv)
+
+    # step 返回非三元组
+    class BadTupleEnv:
+        def reset(self):
+            return [0.0]
+
+        def step(self, action):
+            return [0.0, 1.0]  # 二元组
+
+    with pytest.raises(PolicyError, match="三元组"):
+        run_rl_policy({"episodes": 1, "actions": 2}, BadTupleEnv)
+
+    # NaN 奖励
+    class NanRewardEnv:
+        def reset(self):
+            return [0.0]
+
+        def step(self, action):
+            return [0.0], float("nan"), True
+
+    with pytest.raises(PolicyError, match="奖励"):
+        run_rl_policy({"episodes": 1, "actions": 2}, NanRewardEnv)
+
+
 def test_rl_policy_shape_errors():
-    """形状错 ValueError：train_config 非 dict/env_factory 不可调用/env 缺方法/超参域错/状态非数值。"""
+    """形状错 ValueError（仅 train_config 侧）：非 dict/env_factory 不可调用/超参域错。"""
     with pytest.raises(ValueError):
         run_rl_policy(["cfg"], ChainEnv)
     with pytest.raises(ValueError):
         run_rl_policy({}, "not-callable")
-    with pytest.raises(ValueError):
-        run_rl_policy({}, lambda: {"reset": ChainEnv().reset})  # 缺 step
     with pytest.raises(ValueError):
         run_rl_policy({"episodes": 0}, ChainEnv)
     with pytest.raises(ValueError):
@@ -211,26 +265,6 @@ def test_rl_policy_shape_errors():
         run_rl_policy({"alpha": 2.0}, ChainEnv)
     with pytest.raises(ValueError):
         run_rl_policy({"seed": "seven"}, ChainEnv)
-
-    class BadStateEnv:
-        def reset(self):
-            return "not-a-state"
-
-        def step(self, action):
-            return [0.0], 0.0, True
-
-    with pytest.raises(ValueError):
-        run_rl_policy({"episodes": 1, "actions": 2}, BadStateEnv)
-
-    class BadTupleEnv:
-        def reset(self):
-            return [0.0]
-
-        def step(self, action):
-            return [0.0, 1.0]  # 非三元组
-
-    with pytest.raises(ValueError):
-        run_rl_policy({"episodes": 1, "actions": 2}, BadTupleEnv)
 
 
 def test_rl_policy_default_scenario_for_fallback():

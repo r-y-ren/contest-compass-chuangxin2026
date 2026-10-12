@@ -841,8 +841,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] run_rff_pipeline · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(run_rff_pipeline)' && echo commit在案 → commit在案 (10-12)
 
 ## B20 批间门
-- [ ] B20 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B20 · 用户裁决 — 预告: 继续 B21 / 修订 / 裁决 blocked
+- [x] B20 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B20 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 2770 passed, 1 warning in 18.85s (10-12)
+- [x] B20 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b20.py | grep -q '二期探针' && echo B20 双审收口（6 项修复） → B20 双审收口（6 项修复） (10-12)
 
 ## B21 — execute_scenario, run_demo
 ### execute_scenario
@@ -901,4 +901,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B19 三处申报——①环境装 fastapi/httpx 后 15 个原 skip TestClient 用例转实跑暴露 8 败（2 测试目录时序 bug+**6 源码真缺陷**：from __future__ import annotations 使 FastAPI 字符串注解解析失败→Request/WebSocket 误判 query 参数→POST 422/WS 1008——真运行也会炸，已修源码并禁用该 import）；②fastapi/uvicorn 延迟 import+缺库 AppError/ConsoleError pip 提示（原 skipless 环境策略）；③push 控制帧 emergency_stop 直调 trigger 不走广播 — 环境补装+子代理申报 — 26 用例实跑全绿 — batches Ruling㉝ (10-12)
 - Ruling: B19 双审收口——三轴修订后过门（中#4 slug：serve 25 用例改 test_console_api_ 前缀可发现；中#1 场景 CRUD：补 POST/PUT/DELETE /api/scenarios——写前 load_scenario 全口径校验+红线拒 400 不落盘）+对抗 中2低4（run 状态可查 GET /api/runs/{id}；新 run 复位 stop_flag——旧停机信号不吃；降频双判据 OR 断连≥2 不随帧数稀释；运行 loop 内 ensure_future 健康异步 socket 不误剔；trigger 顶层 stop_failed 联动；CDN 协议白名单）；低#5 计数勘误 functions.md 两处 — 三轴+对抗 — 25 回归 — batches Ruling㉞ (10-12)
 - Ruling: B20 两处申报——①RL 实现为 numpy 表格式 Q-learning（ε-greedy+动态状态登记，不引 torch——「D3QN 反向用作策略」的轻量软件替身，真 D3QN 归远期算力路径）；②SITL 真连走简化 mock MAVLink 层（心跳+SIM_PACKET_LOSS/SIM_LATENCY_MS 参数——pymavlink 延迟 import 缺库 SitlWarn 不抛） — 子代理申报 — 无 — batches Ruling㉟ (10-12)
+- Ruling: B20 双审收口——三轴过门（3 低：fallback 错误字段回写 ValueError/R55 时延缺位申报 latency_note simulated/history ⑮→㉟ 勘误）+对抗 中1低3（①rff hyperparams index_path/runs_root 透传 B14 同款 API（同键 hp 胜）——静默错数据堵死；②bridge 超时域校验；③rl env 契约错统一 PolicyError（ValueError 只留形状）；④单批次键包 TrainError） — 三轴+对抗 — 5 回归 — batches Ruling㊱ (10-12)
 
