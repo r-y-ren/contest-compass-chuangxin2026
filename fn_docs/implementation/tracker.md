@@ -736,7 +736,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] assemble_frequency_plots · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/build_report/test_assemble_frequency_plots.py | tail -1 → 13 passed in 0.02s (10-12)
 - [x] assemble_frequency_plots · wired — 证据: bash -c grep -rn 'assemble_frequency_plots(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/build_report/build_report.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] assemble_frequency_plots · 清单进位 — 证据: bash -c grep -q '| assemble_frequency_plots | B18 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] assemble_frequency_plots · commit — 预告: fn(assemble_frequency_plots): wired 含四文档变更
+- [x] assemble_frequency_plots · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(assemble_frequency_plots)' && echo commit在案 → commit在案 (10-12)
 ### build_report
 - [ ] build_report · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] build_report · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
@@ -744,10 +744,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] build_report · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] build_report · commit — 预告: fn(build_report): wired 含四文档变更
 ### extract_report_numbers
-- [ ] extract_report_numbers · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] extract_report_numbers · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] extract_report_numbers · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] extract_report_numbers · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] extract_report_numbers · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:extract_report_numbers' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] extract_report_numbers · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/verify_report_traceability/test_extract_report_numbers.py | tail -1 → 24 passed in 0.02s (10-12)
+- [x] extract_report_numbers · wired — 证据: bash -c grep -rn 'extract_report_numbers(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/verify_report_traceability/verify_report_traceability.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] extract_report_numbers · 清单进位 — 证据: bash -c grep -q '| extract_report_numbers | B18 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] extract_report_numbers · commit — 预告: fn(extract_report_numbers): wired 含四文档变更
 ### verify_report_traceability
 - [ ] verify_report_traceability · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
