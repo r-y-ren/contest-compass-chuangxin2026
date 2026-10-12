@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B15 | open_sim_siggen, open_sim_analyzer, upconvert_with_image_rejection, open_sim_mixer, open_sim_emi_receiver, open_sim_attenuator | 五模拟后端 wired（sim_1433d/sim_rsa513a/sim_mixer13g/sim_emi_receiver/sim_attenuator） | 远期仪表模拟族 |
-| B16 | make_disclaimer_block, run_emc_conduction_sim, run_emc_radiation_sim, plan_frequency_sweep, run_emc_sweep | 三流程 wired+口径声明（emc_conduction/emc_radiation/emc_sweep） | EMC 模拟+共享声明 |
+| ▶ B16 | make_disclaimer_block, run_emc_conduction_sim, run_emc_radiation_sim, plan_frequency_sweep, run_emc_sweep | 三流程 wired+口径声明（emc_conduction/emc_radiation/emc_sweep） | EMC 模拟+共享声明 |
 | B17 | locate_ledger_row, update_ledger, count_comment_ratio, audit_ledger, validate_scenario_schema, normalize_scenario, load_scenario | 台账写/自检绿（ledger_update/ledger_audit）；场景六非法拒（scenario_validate） | 台账+场景族 |
 | B18 | render_disclaimer_sections, assemble_frequency_plots, build_report, extract_report_numbers, verify_report_traceability | 报告字段/口径/溯源绿（report_builder/report_traceability） | 报告族 |
 | B19 | create_console_app, serve_console, build_scenario_cards, render_console_pages, measure_refresh_latency, trigger_emergency_stop, push_realtime_kpi | API 合约+急停+实时（console_api/console_ui/realtime_console） | Web 族 |
@@ -39,4 +38,5 @@
 | 10-12 | Ruling㉒B14 申报 | predict_style 本批 cnn_dummy 规则判据（真 CNN 远期 unsupported_model 如实）；grouped_cv 泄漏自检对照固定内置 dummy 口径（自定义回调不重复调用——docstring 裁决）；train local=cnn_dummy 类均值模型 |
 | 10-12 | Ruling㉓B14 双审 | 中3低3（修 5 申报 1）+18 回归；泄漏自检饥饿排除/pulse 重标定/序列化预检 |
 | 10-12 | Ruling㉔B14 复核 | 饥饿/泄漏并存三态文案；sweep 验收措辞如实 |
+| 10-12 | Ruling㉕B15 申报 | 混频 +3dB 简化/QP 简化曲线/500ns 标称/beyond_model/simulated 标记 |
 

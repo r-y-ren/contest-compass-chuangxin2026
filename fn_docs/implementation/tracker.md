@@ -622,7 +622,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] open_sim_mixer · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k sim_mixer13g -q 2>&1 | tail -1 → 14 passed, 2252 deselected in 1.40s (10-12)
 - [x] open_sim_mixer · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b15.py | grep -q 'RF=13.00GHz' && echo 顶层实跑通过（13G 全链） → 顶层实跑通过（13G 全链） (10-12)
 - [x] open_sim_mixer · 清单进位 — 证据: bash -c grep -q '| open_sim_mixer | B15 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] open_sim_mixer · commit — 预告: fn(open_sim_mixer): wired 含四文档变更
+- [x] open_sim_mixer · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(open_sim_mixer)' && echo commit在案 → commit在案 (10-12)
 ### open_sim_emi_receiver
 - [x] open_sim_emi_receiver · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:open_sim_emi_receiver' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
 - [x] open_sim_emi_receiver · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k sim_emi_receiver -q 2>&1 | tail -1 → 13 passed, 2253 deselected in 1.36s (10-12)

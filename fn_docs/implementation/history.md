@@ -33,4 +33,4 @@
 | 10-12 | B14 | make_group_splits, dispatch_remote_training, predict_style（波1）, train_classifier, grouped_cv_evaluate（波2） | 2118 全库绿；AI 管线探针（训练 48 两类/推理 tone 0.94/分组 CV F1=1.00 泄漏 False）；Ruling㉒ |
 | 10-12 | B14+ | 双审：三轴过门（2 低观察）+对抗 中3低3 → 5 修 1 申报+18 回归；Ruling㉓ | 2136 全库绿 |
 | 10-12 | B14++ | 修复后复核：5+1 全生效；2 新发现（饥饿吞泄漏/验收措辞）→ 当场修；Ruling㉔ | 2137 全库绿 |
-
+| 10-12 | B15 | upconvert_with_image_rejection, open_sim_siggen, open_sim_analyzer, open_sim_emi_receiver, open_sim_attenuator（波1）, open_sim_mixer（波2） | 2266 全库绿；五后端链探针（13G 混频/±1.5dB/底噪公式/30dB 数学/1ppm）；Ruling㉕ |
