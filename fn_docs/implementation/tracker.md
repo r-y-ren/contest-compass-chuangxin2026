@@ -586,7 +586,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] grouped_cv_evaluate · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k grouped_cv -q 2>&1 | tail -1 → 40 passed, 2078 deselected in 1.40s (10-12)
 - [x] grouped_cv_evaluate · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b14.py | grep -q 'F1=1.00' && echo 顶层实跑通过（分组 F1+泄漏自检） → 顶层实跑通过（分组 F1+泄漏自检） (10-12)
 - [x] grouped_cv_evaluate · 清单进位 — 证据: bash -c grep -q '| grouped_cv_evaluate | B14 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] grouped_cv_evaluate · commit — 预告: fn(grouped_cv_evaluate): wired 含四文档变更
+- [x] grouped_cv_evaluate · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(grouped_cv_evaluate)' && echo commit在案 → commit在案 (10-12)
 ### predict_style
 - [x] predict_style · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:predict_style' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
 - [x] predict_style · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k infer_service -q 2>&1 | tail -1 → 17 passed, 2101 deselected in 1.39s (10-12)
