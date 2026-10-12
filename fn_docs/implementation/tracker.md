@@ -768,10 +768,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] create_console_app · 清单进位 — 证据: bash -c grep -q '| create_console_app | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] create_console_app · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(create_console_app)' && echo commit在案 → commit在案 (10-12)
 ### serve_console
-- [ ] serve_console · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] serve_console · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] serve_console · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] serve_console · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] serve_console · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:serve_console' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] serve_console · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/serve_console/test_serve_console.py | tail -1 → 25 passed, 1 warning in 0.22s (10-12)
+- [x] serve_console · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b19.py | grep -q 'dry_run 服务' && echo 顶层实跑通过（dry_run+TestClient） → 顶层实跑通过（dry_run+TestClient） (10-12)
+- [x] serve_console · 清单进位 — 证据: bash -c grep -q '| serve_console | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] serve_console · commit — 预告: fn(serve_console): wired 含四文档变更
 ### build_scenario_cards
 - [x] build_scenario_cards · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:build_scenario_cards' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
@@ -796,7 +796,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] trigger_emergency_stop · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/push_realtime_kpi/test_trigger_emergency_stop.py | tail -1 → 7 passed in 0.01s (10-12)
 - [x] trigger_emergency_stop · wired — 证据: bash -c grep -rn 'trigger_emergency_stop(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/push_realtime_kpi/push_realtime_kpi.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] trigger_emergency_stop · 清单进位 — 证据: bash -c grep -q '| trigger_emergency_stop | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] trigger_emergency_stop · commit — 预告: fn(trigger_emergency_stop): wired 含四文档变更
+- [x] trigger_emergency_stop · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(trigger_emergency_stop)' && echo commit在案 → commit在案 (10-12)
 ### push_realtime_kpi
 - [ ] push_realtime_kpi · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] push_realtime_kpi · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
