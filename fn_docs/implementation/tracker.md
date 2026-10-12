@@ -534,10 +534,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] record_failure_level · 清单进位 — 证据: bash -c grep -q '| record_failure_level | B13 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] record_failure_level · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(record_failure_level)' && echo commit在案 → commit在案 (10-12)
 ### execute_gb42590_protocol
-- [ ] execute_gb42590_protocol · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] execute_gb42590_protocol · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] execute_gb42590_protocol · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] execute_gb42590_protocol · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] execute_gb42590_protocol · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:execute_gb42590_protocol' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] execute_gb42590_protocol · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k gb42590_executor -q 2>&1 | tail -1 → 13 passed, 2007 deselected in 1.90s (10-12)
+- [x] execute_gb42590_protocol · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b13.py | grep -q 'GB failed' && echo 顶层实跑通过（全链 failed+P_crit） → 顶层实跑通过（全链 failed+P_crit） (10-12)
+- [x] execute_gb42590_protocol · 清单进位 — 证据: bash -c grep -q '| execute_gb42590_protocol | B13 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] execute_gb42590_protocol · commit — 预告: fn(execute_gb42590_protocol): wired 含四文档变更
 ### compare_failure_boundaries
 - [x] compare_failure_boundaries · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:compare_failure_boundaries' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
@@ -550,7 +550,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] build_curve_frames · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/plot_triple_curves/test_build_curve_frames.py | tail -1 → 24 passed in 0.02s (10-12)
 - [x] build_curve_frames · wired — 证据: bash -c grep -rn 'build_curve_frames(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/plot_triple_curves/plot_triple_curves.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
 - [x] build_curve_frames · 清单进位 — 证据: bash -c grep -q '| build_curve_frames | B13 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] build_curve_frames · commit — 预告: fn(build_curve_frames): wired 含四文档变更
+- [x] build_curve_frames · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(build_curve_frames)' && echo commit在案 → commit在案 (10-12)
 ### plot_triple_curves
 - [ ] plot_triple_curves · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
 - [ ] plot_triple_curves · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
