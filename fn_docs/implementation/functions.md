@@ -71,7 +71,7 @@
 | simulate_link_degradation | B11 | wired 10-12 | 13 passed；JSR 三级推导 | a83b562 |
 | compute_per | B11 | wired 10-12 | 17 passed；样本量警告口径 | 88d76f6 |
 | normalize_kpi | B11 | wired 10-12 | 20 passed；异源冲突拒+BER 口径声明 | 7198a3e |
-| compute_alignment_error | B12 | stub 10-11 | 上游覆盖: record_run_streams | — |
+| compute_alignment_error | B12 | wired 10-12 | 28 passed；配对时延 p50/p95 | pending |
 | record_run_streams | B12 | stub 10-11 | pytest -k align_streams | — |
 | run_baseline_check | B12 | stub 10-11 | pytest -k baseline_guard | — |
 | annotate_truth_labels | B12 | stub 10-11 | 上游覆盖: write_sigmf_recording | — |

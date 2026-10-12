@@ -486,10 +486,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B12 — compute_alignment_error, record_run_streams, run_baseline_check, annotate_truth_labels, write_sigmf_recording
 ### compute_alignment_error
-- [ ] compute_alignment_error · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] compute_alignment_error · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] compute_alignment_error · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] compute_alignment_error · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] compute_alignment_error · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:compute_alignment_error' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] compute_alignment_error · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/record_run_streams/test_compute_alignment_error.py | tail -1 → 28 passed in 0.02s (10-12)
+- [x] compute_alignment_error · wired — 证据: bash -c grep -rn 'compute_alignment_error(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/record_run_streams/record_run_streams.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] compute_alignment_error · 清单进位 — 证据: bash -c grep -q '| compute_alignment_error | B12 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] compute_alignment_error · commit — 预告: fn(compute_alignment_error): wired 含四文档变更
 ### record_run_streams
 - [ ] record_run_streams · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -884,4 +884,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B10 双审收口——对抗 高1中1低4 全修复（①estimate_snr 重叠带 guard bin 泄入干扰桶堵死（干扰候选排除信号带全体，掐尽→None+snr=inf）；②计数不变式集合并集+fuzz 500 组锁定；③恰界 1e-9 容差+note 全精度；④末段频轴按实际 span 缩放不越带顶；⑤泄漏表单次读入+逐频点插值（放弃按频点缓存 corrected 的语义错误方案——子代理申报）；⑥flatness reason 前缀区分） — 对抗审查 — 无 — batches 变更记录 Ruling⑯ (10-12)
 - Ruling: B11 三处 NRF/ESP 口径分歧申报（交双审裁决）——①config 形状：esp={'source':'lines','lines':迭代器,port 可缺}，nrf={'port' 必填,'source' 直收迭代器}；②无增量窗：esp per_raw=0.0+note，nrf per_raw=None+note（下游 normalize_kpi 遇 None 会 KpiError——潜在断链）；③坏帧阈：esp 默认 20 连续，nrf 默认 5 连续 — 两个子代理并行实现各自申报同构但细节漂移 — 待双审统一 — batches 变更记录 Ruling⑰ (10-12)
 - Ruling: B11 双审收口（Ruling⑰ 裁决落地）——①no-delta 统一 None（弃 ESP 0.0——不可比窗曾成零丢包判据证据，judge_per=None+per_unavailable）；②config 统一 ESP 形状（source serial/lines+lines 键）；③坏帧阈统一 bad_frame_limit=5；④delta 溢出 None+标注不杀流；⑤rssi 非有限拒；⑥整数字段严格化；⑦半指定计数 note；⑧ESP 停发射补 _auto: run_token（两轮实停）。**固件交付申报**：R18/R19 的 PlatformIO 固件工程顺延至集成批（B21 前）随真机联调交付（ESP32/NRF24 硬件未接，先行交付无法验证——三轴评审中项转申报） — 三轴+对抗合并（Ruling⑰② 预判反转如实记录：None 不断链、真危害在 0.0 侧） — 33 回归 — batches Ruling⑱ (10-12)
+- Ruling: B12 集成发现——①后端 read_samples 契约三方不一：B210=list[dict]、SimBackend=list[(samples,meta) 元组]、replay=单 dict——record_run_streams 增 _as_monitor_block 归一层+真后端 E2E 锚死（探针抓到的真缺陷：mock 契约漂移掩盖）；②监测空读连续 50 次自然收尾不抛；③B11 复核遗留 esp err 回退窗 counter_reset_err 对齐（B12 顺手修） — 准闭环探针+复核建议 — 无 — batches Ruling⑲ (10-12)
 
