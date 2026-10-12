@@ -58,7 +58,7 @@
 | run_power_ladder | B9 | wired 10-12 | 56 passed；失效即停+异常先停发射 | 577c21d |
 | compute_pathloss | B9 | wired 10-12 | 60 passed；公式(3)+per-call 抽样 | deeadd0 |
 | map_distance_to_loss | B9 | wired 10-12 | 40 passed；不可达点如实标注 | 6c20b6f |
-| enforce_bandwidth_limit | B10 | stub 10-11 | 上游覆盖: capture_monitor_spectrum | — |
+| enforce_bandwidth_limit | B10 | wired 10-12 | 34 passed；分段无缝+能力域拒 | pending |
 | capture_monitor_spectrum | B10 | stub 10-11 | pytest -k monitor_capture | — |
 | estimate_snr | B10 | stub 10-11 | 上游覆盖: compute_spectrum_stats | — |
 | check_flatness | B10 | stub 10-11 | 上游覆盖: compute_spectrum_stats | — |

@@ -396,10 +396,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B10 — enforce_bandwidth_limit, capture_monitor_spectrum, estimate_snr, check_flatness, compute_spectrum_stats
 ### enforce_bandwidth_limit
-- [ ] enforce_bandwidth_limit · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] enforce_bandwidth_limit · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] enforce_bandwidth_limit · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] enforce_bandwidth_limit · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] enforce_bandwidth_limit · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:enforce_bandwidth_limit' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] enforce_bandwidth_limit · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/capture_monitor_spectrum/test_enforce_bandwidth_limit.py | tail -1 → 34 passed in 0.02s (10-12)
+- [x] enforce_bandwidth_limit · wired — 证据: bash -c grep -rn 'enforce_bandwidth_limit(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/capture_monitor_spectrum/capture_monitor_spectrum.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] enforce_bandwidth_limit · 清单进位 — 证据: bash -c grep -q '| enforce_bandwidth_limit | B10 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] enforce_bandwidth_limit · commit — 预告: fn(enforce_bandwidth_limit): wired 含四文档变更
 ### capture_monitor_spectrum
 - [ ] capture_monitor_spectrum · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
