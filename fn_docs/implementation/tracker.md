@@ -466,7 +466,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] simulate_link_degradation · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k dut_sim -q 2>&1 | tail -1 → 13 passed, 1779 deselected in 1.33s (10-12)
 - [x] simulate_link_degradation · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b11.py | grep -q '0.000→0.900' && echo 顶层实跑通过（PER 随 JSR 悬崖） → 顶层实跑通过（PER 随 JSR 悬崖） (10-12)
 - [x] simulate_link_degradation · 清单进位 — 证据: bash -c grep -q '| simulate_link_degradation | B11 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] simulate_link_degradation · commit — 预告: fn(simulate_link_degradation): wired 含四文档变更
+- [x] simulate_link_degradation · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(simulate_link_degradation)' && echo commit在案 → commit在案 (10-12)
 ### compute_per
 - [x] compute_per · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:compute_per' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
 - [x] compute_per · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/normalize_kpi/test_compute_per.py | tail -1 → 17 passed in 0.01s (10-12)
@@ -474,10 +474,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] compute_per · 清单进位 — 证据: bash -c grep -q '| compute_per | B11 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] compute_per · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(compute_per)' && echo commit在案 → commit在案 (10-12)
 ### normalize_kpi
-- [ ] normalize_kpi · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] normalize_kpi · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] normalize_kpi · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] normalize_kpi · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] normalize_kpi · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:normalize_kpi' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] normalize_kpi · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k kpi_model -q 2>&1 | tail -1 → 20 passed, 1772 deselected in 1.33s (10-12)
+- [x] normalize_kpi · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b11.py | grep -q '三源贯通' && echo 顶层实跑通过（三源归一） → 顶层实跑通过（三源归一） (10-12)
+- [x] normalize_kpi · 清单进位 — 证据: bash -c grep -q '| normalize_kpi | B11 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] normalize_kpi · commit — 预告: fn(normalize_kpi): wired 含四文档变更
 
 ## B11 批间门

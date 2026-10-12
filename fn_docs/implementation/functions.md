@@ -68,9 +68,9 @@
 | parse_nrf24_frame | B11 | wired 10-12 | 13 passed；无 rssi 口径 | 47482fc |
 | drive_nrf24_link | B11 | wired 10-12 | 15 passed；口径分歧 Ruling⑰ | 4430fa5 |
 | apply_cliff_model | B11 | wired 10-12 | 23 passed；sigmoid 悬崖+夹紧 | 2325a9c |
-| simulate_link_degradation | B11 | wired 10-12 | 13 passed；JSR 三级推导 | pending |
+| simulate_link_degradation | B11 | wired 10-12 | 13 passed；JSR 三级推导 | a83b562 |
 | compute_per | B11 | wired 10-12 | 17 passed；样本量警告口径 | 88d76f6 |
-| normalize_kpi | B11 | stub 10-11 | pytest -k kpi_model | — |
+| normalize_kpi | B11 | wired 10-12 | 20 passed；异源冲突拒+BER 口径声明 | pending |
 | compute_alignment_error | B12 | stub 10-11 | 上游覆盖: record_run_streams | — |
 | record_run_streams | B12 | stub 10-11 | pytest -k align_streams | — |
 | run_baseline_check | B12 | stub 10-11 | pytest -k baseline_guard | — |
