@@ -1,6 +1,160 @@
-"""render_console_pages 骨架占位：验收 slug=console_ui；行为用例于 fn-implement 阶段填充。"""
+"""render_console_pages 对抗测试：Vue CDN script+场景卡 JSON 内嵌+清单入口字样、
+空目录空态、out_dir 落盘/不落盘、cards 计数、CDN 覆盖、页面骨架标记、形状错 ValueError。
+"""
+from __future__ import annotations
+
+import json
+import re
+
+import pytest
+
 from src.render_console_pages.render_console_pages import render_console_pages
 
+#: 内嵌卡片 JSON 注入行（正则可提取对拍：window.__CONSOLE_CARDS__ = [...];）。
+_CARDS_LINE_RE = re.compile(r"window\.__CONSOLE_CARDS__ = (\[.*\]);\n", re.DOTALL)
 
-def test_console_ui_skeleton():
-    assert callable(render_console_pages)
+
+def _make_yaml(directory, name, text="style: tone\npower_dbm: -20\n"):
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / name
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_console_ui_page_embeds_vue_cdn_cards_and_ledger_entry(tmp_path):
+    """① 页面含 Vue CDN script（vue.global.prod.js/unpkg）+卡片 JSON 内嵌+清单入口字样。"""
+    sdir = tmp_path / "scenarios"
+    _make_yaml(sdir, "tone_demo.yaml", "# desc: 定频音\nstyle: tone\npower_dbm: -20\n")
+    _make_yaml(sdir, "noise_mid.yaml", "style: noise\npower_dbm: -5\n")
+    result = render_console_pages(str(sdir), {})
+    html = result["pages"]["index.html"]
+    assert "https://unpkg.com/vue@3/dist/vue.global.prod.js" in html
+    assert "<script" in html and "vue.global.prod.js" in html
+    assert "tone_demo" in html and "noise_mid" in html  # 场景卡 JSON 内嵌
+    assert "清单完成度" in html  # 清单完成度入口字样
+    assert result["assets"] == []  # 无 Node 构建——零本地资产
+
+
+def test_console_ui_embedded_cards_json_parses(tmp_path):
+    """② 内嵌 JSON 可解析：与目录内场景一一对应（name/risk 字段就位）。"""
+    sdir = tmp_path / "scenarios"
+    _make_yaml(sdir, "a.yaml", "# desc: 甲\nstyle: chirp\npower_dbm: -30\n")
+    _make_yaml(sdir, "b.yaml", "style: noise\npower_dbm: -3\n")
+    html = render_console_pages(str(sdir), {})["pages"]["index.html"]
+    m = _CARDS_LINE_RE.search(html)
+    assert m is not None
+    cards = json.loads(m.group(1))
+    by_name = {c["name"]: c for c in cards}
+    assert set(by_name) == {"a", "b"}
+    assert by_name["a"]["desc"] == "甲"
+    assert by_name["b"]["risk"] == "mid"  # -3dBm 高于 -10 分档线
+
+
+def test_console_ui_cards_count_and_non_yaml_ignored(tmp_path):
+    """③ cards 计数=目录内 yaml 数，散文件（txt/py）不计入。"""
+    sdir = tmp_path / "scenarios"
+    _make_yaml(sdir, "one.yaml")
+    _make_yaml(sdir, "two.yml")
+    _make_yaml(sdir, "three.yaml")
+    (sdir / "notes.txt").write_text("not a scenario", encoding="utf-8")
+    result = render_console_pages(str(sdir), {})
+    assert result["cards"] == 3
+    assert "notes" not in result["pages"]["index.html"]
+
+
+def test_console_ui_empty_dir_renders_empty_state(tmp_path):
+    """④ 空目录→空态页面：cards=0、空态标记就位、内嵌 JSON 为空数组（不报错）。"""
+    sdir = tmp_path / "empty"
+    sdir.mkdir()
+    result = render_console_pages(str(sdir), {})
+    html = result["pages"]["index.html"]
+    assert result["cards"] == 0
+    assert isinstance(html, str) and html
+    assert 'id="empty-state"' in html
+    assert "暂无场景" in html
+    assert "window.__CONSOLE_CARDS__ = [];" in html
+
+
+def test_console_ui_missing_dir_renders_empty_state(tmp_path):
+    """⑤ 目录不存在→同空态口径（cards=0，不抛）。"""
+    result = render_console_pages(str(tmp_path / "nope"), {})
+    assert result["cards"] == 0
+    assert 'id="empty-state"' in result["pages"]["index.html"]
+
+
+def test_console_ui_out_dir_writes_index_html(tmp_path):
+    """⑥ out_dir 给定→落盘 index.html（内容与返回 str 一致，written 列路径）。"""
+    sdir = tmp_path / "scenarios"
+    _make_yaml(sdir, "tone_demo.yaml")
+    out_dir = tmp_path / "out"
+    result = render_console_pages(str(sdir), {"out_dir": str(out_dir)})
+    written = result["written"]
+    assert len(written) == 1 and written[0].endswith("index.html")
+    page_file = out_dir / "index.html"
+    assert page_file.exists()
+    assert page_file.read_text(encoding="utf-8") == result["pages"]["index.html"]
+
+
+def test_console_ui_without_out_dir_writes_nothing(tmp_path):
+    """⑦ out_dir 缺省（None）→只返回 str 不落盘。"""
+    sdir = tmp_path / "scenarios"
+    _make_yaml(sdir, "tone_demo.yaml")
+    result = render_console_pages(str(sdir), {})
+    assert "written" not in result
+    assert not (tmp_path / "index.html").exists()
+
+
+def test_console_ui_cdn_base_override(tmp_path):
+    """⑧ config['cdn_base'] 覆盖缺省 unpkg（内网镜像换源）。"""
+    sdir = tmp_path / "scenarios"
+    _make_yaml(sdir, "tone_demo.yaml")
+    html = render_console_pages(
+        str(sdir), {"cdn_base": "https://cdn.example.com"}
+    )["pages"]["index.html"]
+    assert "https://cdn.example.com/vue@3/dist/vue.global.prod.js" in html
+    assert "unpkg.com" not in html
+
+
+def test_console_ui_page_skeleton_markers(tmp_path):
+    """⑨ 页面骨架标记：场景卡网格/滑杆/状态区/报告中心/清单入口/WS 图区+Canvas+
+    断线重连横幅一应俱全。"""
+    sdir = tmp_path / "scenarios"
+    _make_yaml(sdir, "tone_demo.yaml")
+    html = render_console_pages(str(sdir), {})["pages"]["index.html"]
+    assert 'id="scenario-grid"' in html
+    assert 'id="param-sliders"' in html and 'type="range"' in html
+    assert 'id="status-panel"' in html
+    assert 'id="report-center"' in html
+    assert 'id="ledger-entry"' in html
+    assert 'id="ws-charts"' in html and "<canvas" in html  # Canvas 实时图区
+    assert 'id="ws-banner"' in html and "自动重连" in html  # 断线横幅+自动重连
+    assert "WebSocket" in html  # WS 连接逻辑就位
+
+
+def test_console_ui_non_empty_page_has_no_empty_state(tmp_path):
+    """⑩ 空态块互斥注入：有卡片时页面不含 empty-state（空态仅 cards=0 出现）。"""
+    sdir = tmp_path / "scenarios"
+    _make_yaml(sdir, "tone_demo.yaml")
+    html = render_console_pages(str(sdir), {})["pages"]["index.html"]
+    assert 'id="empty-state"' not in html
+
+
+@pytest.mark.parametrize("bad_config", [None, "opts", 42])
+def test_console_ui_config_not_dict_valueerror(tmp_path, bad_config):
+    """⑪ config 非 dict→ValueError。"""
+    with pytest.raises(ValueError, match="config"):
+        render_console_pages(str(tmp_path), bad_config)
+
+
+def test_console_ui_scenario_dir_not_str_valueerror(tmp_path):
+    """⑫ scenario_dir 非 str（int/list）→ValueError。"""
+    with pytest.raises(ValueError, match="scenario_dir"):
+        render_console_pages(123, {})
+
+
+def test_console_ui_bad_out_dir_type_valueerror(tmp_path):
+    """⑬ out_dir 非 str|None（空串/数字）→ValueError。"""
+    with pytest.raises(ValueError, match="out_dir"):
+        render_console_pages(str(tmp_path), {"out_dir": ""})
+    with pytest.raises(ValueError, match="out_dir"):
+        render_console_pages(str(tmp_path), {"out_dir": 7})

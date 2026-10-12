@@ -772,7 +772,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] serve_console · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/serve_console/test_serve_console.py | tail -1 → 25 passed, 1 warning in 0.22s (10-12)
 - [x] serve_console · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b19.py | grep -q 'dry_run 服务' && echo 顶层实跑通过（dry_run+TestClient） → 顶层实跑通过（dry_run+TestClient） (10-12)
 - [x] serve_console · 清单进位 — 证据: bash -c grep -q '| serve_console | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] serve_console · commit — 预告: fn(serve_console): wired 含四文档变更
+- [x] serve_console · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(serve_console)' && echo commit在案 → commit在案 (10-12)
 ### build_scenario_cards
 - [x] build_scenario_cards · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:build_scenario_cards' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
 - [x] build_scenario_cards · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/render_console_pages/test_build_scenario_cards.py | tail -1 → 12 passed in 0.04s (10-12)
@@ -780,10 +780,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] build_scenario_cards · 清单进位 — 证据: bash -c grep -q '| build_scenario_cards | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [x] build_scenario_cards · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(build_scenario_cards)' && echo commit在案 → commit在案 (10-12)
 ### render_console_pages
-- [ ] render_console_pages · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] render_console_pages · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] render_console_pages · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] render_console_pages · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] render_console_pages · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:render_console_pages' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] render_console_pages · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k console_ui -q 2>&1 | tail -1 → 15 passed, 2692 deselected, 1 warning in 1.63s (10-12)
+- [x] render_console_pages · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b19.py | grep -q 'Vue CDN 页面落盘' && echo 顶层实跑通过（CDN 页+落盘） → 顶层实跑通过（CDN 页+落盘） (10-12)
+- [x] render_console_pages · 清单进位 — 证据: bash -c grep -q '| render_console_pages | B19 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] render_console_pages · commit — 预告: fn(render_console_pages): wired 含四文档变更
 ### measure_refresh_latency
 - [x] measure_refresh_latency · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:measure_refresh_latency' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
