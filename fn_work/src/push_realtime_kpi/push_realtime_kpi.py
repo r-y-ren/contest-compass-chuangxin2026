@@ -2,7 +2,8 @@
 
 口径（R49）：
 - source 迭代出的帧 dict 逐条 send_json 到 hub['sockets']；发送异常→该 socket
-  即时移除并计入 n_disconnected（断连计数）；广播异常率>50%（严格大于）→
+  即时移除并计入 n_disconnected（断连计数）；降频双判据（OR）——累计断连 ≥2
+  （订阅面故障信号，不随后续健康帧数稀释）或广播异常率>50%（严格大于）→
   degraded=True 且在 hub['degraded'] 落降频标志（生产侧据此降频+标注）；
 - 帧缺 'sent_ms'→盖当前毫秒墙钟戳（已有则保留事件原戳，端到端口径不低估）；
 - {'type': 'emergency_stop'} 控制帧不走广播——直调 trigger_emergency_stop
@@ -23,13 +24,22 @@ from collections import deque
 from .measure_refresh_latency import measure_refresh_latency
 from .trigger_emergency_stop import trigger_emergency_stop
 
-__all__ = ["DEGRADE_FAIL_RATE", "HISTORY_MAX", "push_realtime_kpi"]
+__all__ = [
+    "DEGRADE_DISCONNECT_FLOOR",
+    "DEGRADE_FAIL_RATE",
+    "HISTORY_MAX",
+    "push_realtime_kpi",
+]
 
 #: hub['history'] 环形上限（保最近 N 条，不无界增长）。
 HISTORY_MAX = 100
 
-#: 积压降频判据：广播异常率严格大于该值（50%）才降频——恰好一半不触发。
+#: 积压降频判据一：广播异常率严格大于该值（50%）才降频——恰好一半不触发。
 DEGRADE_FAIL_RATE = 0.5
+
+#: 积压降频判据二：累计断连数达到该下限即降频——订阅面故障信号不随后续
+#: 健康帧数稀释（2 连接掉线后 7 连接再收千帧，比率口径会稀释到 <50% 而漏报）。
+DEGRADE_DISCONNECT_FLOOR = 2
 
 
 def _now_ms() -> float:
@@ -49,16 +59,36 @@ def _drop_socket(sockets: object, sock: object) -> None:
         pass
 
 
+def _consume_task_error(task: object) -> None:
+    """吞掉 fire-and-forget 发送任务的异常（事件循环内调度路径的收尾卫生——
+    未取回异常的任务会在解释器关闭时刷 'exception was never retrieved' 警告；
+    真实掉线由下一帧发送的失败路径计断连，不靠本回调）。"""
+    try:
+        getattr(task, "exception", lambda: None)()
+    except Exception:  # noqa: BLE001 - 调度期取消等异常同样不留痕
+        pass
+
+
 def _send_json(sock: object, frame: dict) -> bool:
     """单连接 send_json：成功 True；任何异常 False（调用方移除+计数）。
 
-    异步 send（starlette WS 的 send_json 返回协程）以 asyncio.run 驱动——本函数
-    为同步枢纽契约；在运行中事件循环线程内调用属集成层职责，不在本层兜底。
+    异步 send（starlette WS 的 send_json 返回协程）分两路驱动：
+    - 无运行中事件循环→asyncio.run 同步驱动（同步枢纽契约原状）；
+    - 运行中事件循环内（ASGI 服务线程的常见形态）→asyncio.run 会因
+      「cannot be called from a running event loop」炸掉，把健康连接误判为
+      断连——改以 ensure_future 调度发送任务（不阻塞不误剔，发送任务自身
+      异常由回调吞掉）。
     """
     try:
         result = sock.send_json(frame)
         if inspect.isawaitable(result):
-            asyncio.run(result)
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                asyncio.run(result)  # 无运行循环：同步驱动（原状口径）
+            else:
+                task = asyncio.ensure_future(result)  # 运行循环内：调度不阻塞
+                task.add_done_callback(_consume_task_error)
         return True
     except Exception:  # noqa: BLE001 - 掉线/坏帧属广播常态，移除由调用方处理
         return False
@@ -113,7 +143,7 @@ def push_realtime_kpi(source, hub) -> dict:
     Returns:
         {'n_pushed': 消费广播帧数, 'n_disconnected': 断连移除计数,
         'latency': measure_refresh_latency 结果（hub['acks'] 回执戳流）,
-        'degraded': 广播异常率>50% 标志}。
+        'degraded': 降频标志——累计断连 ≥2 或广播异常率>50%（严格大于）}。
 
     Raises:
         ValueError: hub 非 dict。
@@ -171,8 +201,12 @@ def push_realtime_kpi(source, hub) -> dict:
         failure = exc
     finally:
         # 收尾 drain（正常与异常路径同口径）：acks 排空、降频标志落 hub。
+        # 降频双判据（OR）：累计断连 ≥2（订阅面故障信号不随帧数稀释）或
+        # 广播异常率严格 >50%（比率口径保留——恰好一半不触发）。
         drained_acks = _drain(acks)
-        degraded = n_attempts > 0 and (n_failures / n_attempts) > DEGRADE_FAIL_RATE
+        degraded = n_disconnected >= DEGRADE_DISCONNECT_FLOOR or (
+            n_attempts > 0 and (n_failures / n_attempts) > DEGRADE_FAIL_RATE
+        )
         if degraded:
             hub["degraded"] = True
 

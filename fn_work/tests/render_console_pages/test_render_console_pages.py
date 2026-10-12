@@ -1,5 +1,6 @@
 """render_console_pages 对抗测试：Vue CDN script+场景卡 JSON 内嵌+清单入口字样、
-空目录空态、out_dir 落盘/不落盘、cards 计数、CDN 覆盖、页面骨架标记、形状错 ValueError。
+空目录空态、out_dir 落盘/不落盘、cards 计数、CDN 覆盖+http(s) 前缀消毒、
+页面骨架标记、形状错 ValueError。
 """
 from __future__ import annotations
 
@@ -158,3 +159,30 @@ def test_console_ui_bad_out_dir_type_valueerror(tmp_path):
         render_console_pages(str(tmp_path), {"out_dir": ""})
     with pytest.raises(ValueError, match="out_dir"):
         render_console_pages(str(tmp_path), {"out_dir": 7})
+
+
+@pytest.mark.parametrize(
+    "evil_cdn",
+    [
+        "javascript:alert(1)",  # 脚本注入载体
+        "data:text/html;base64,e2g6MX0=",  # data 伪协议
+        "ftp://cdn.example.com",  # 非 http(s) scheme
+        "//evil.example.com",  # 协议相对（继承页面协议，可被降级利用）
+        "evil.example.com/vue",  # 裸主机名（src 变相对路径）
+    ],
+)
+def test_console_ui_cdn_base_scheme_sanitized_valueerror(tmp_path, evil_cdn):
+    """⑭（B19 对抗低#6）CDN 消毒：cdn_base 非 https://|http:// 前缀→ValueError
+    （<script src> 注入源只放行 http(s)）。"""
+    with pytest.raises(ValueError, match="cdn_base"):
+        render_console_pages(str(tmp_path), {"cdn_base": evil_cdn})
+
+
+def test_console_ui_cdn_base_http_mirror_allowed(tmp_path):
+    """⑮ http:// 内网镜像前缀放行（与 https 等权的换源口径）。"""
+    sdir = tmp_path / "scenarios"
+    _make_yaml(sdir, "tone_demo.yaml")
+    html = render_console_pages(
+        str(sdir), {"cdn_base": "http://mirror.intra"}
+    )["pages"]["index.html"]
+    assert "http://mirror.intra/vue@3/dist/vue.global.prod.js" in html

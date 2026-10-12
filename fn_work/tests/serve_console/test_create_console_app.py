@@ -1,5 +1,6 @@
-"""create_console_app 对抗测试：五路由合约（scenarios/run 202/runs/stop/ledger）、
-非法 body 400 字段指错、deps 缺键/类型拒、缺 fastapi→AppError pip 提示、WS 握手。
+"""create_console_app 对抗测试：路由合约（scenarios 列表+CRUD/run 202+stop 复位/
+runs 列表+单查/stop/ledger）、非法 body 400 字段指错、deps 缺键/类型拒、缺
+fastapi→AppError pip 提示、WS 握手。
 
 环境缺 fastapi（或 httpx）时 TestClient 族用例自动 skip——AppError 缺库路径用
 sys.modules 注入 None 独立覆盖（不依赖环境是否装了 fastapi）。
@@ -12,6 +13,7 @@ import time
 
 import pytest
 
+from src.load_scenario.load_scenario import load_scenario
 from src.serve_console.create_console_app import AppError, create_console_app
 
 try:  # TestClient 同源依赖 fastapi+httpx——任一缺失即整族 skip
@@ -340,3 +342,157 @@ def test_ws_handshake_echo_broadcast_and_hub_lifecycle(tmp_path):
             time.sleep(0.01)
         assert not app.state.hub["sockets"]
         assert app.state.hub["history"][-1] == {"kind": "kpi", "v": 1}
+
+
+# ---- 场景 CRUD（B19 三轴中#1：写侧三端点+写前 load_scenario 全口径校验） ----
+
+#: 完整合法场景文本（与 load_scenario 测试同源样本：字段+信封键均过红线）。
+_VALID_SCENARIO_YAML = (
+    "style: TONE\n"
+    "fs: 2000000\n"
+    "freq_hz: 2440000000\n"
+    "power_dbm: -10\n"
+    "duration_s: 2.5\n"
+    "repeats: 2\n"
+    "backend: SIM\n"
+    "bands:\n"
+    "  - [2400, 2483.5]\n"
+    "shielded_box: true\n"
+    "dut_scope: self_built\n"
+)
+
+#: 红线违例文本：power_dbm 5dBm 超上限（guard [power] 条款拒）。
+_REDLINE_SCENARIO_YAML = _VALID_SCENARIO_YAML.replace("power_dbm: -10", "power_dbm: 5")
+
+
+@needs_fastapi
+def test_post_scenario_saves_valid_yaml(tmp_path):
+    """㉒ POST /api/scenarios 合法保存：name+content→scenario_dir/<name>.yaml，
+    内容可经 load_scenario 装载（红线已过），列表端点即可见。"""
+    app = create_console_app(_base_deps(tmp_path))
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/scenarios",
+            json={"name": "demo_save", "content": _VALID_SCENARIO_YAML},
+        )
+        assert resp.status_code == 201
+        assert resp.json()["saved"] is True
+        listing = client.get("/api/scenarios")
+    target = tmp_path / "scenarios" / "demo_save.yaml"
+    assert target.is_file()
+    assert load_scenario(str(target))["style"] == "tone"  # 落盘件可装载
+    assert listing.json()["count"] == 1
+    assert listing.json()["cards"][0]["name"] == "demo_save"
+
+
+@needs_fastapi
+def test_post_scenario_redline_rejected_400_no_write(tmp_path):
+    """㉓ 红线拒：power 5dBm 超 guard 上限→400 field='content' 附红线原因，
+    scenario_dir 绝不落盘。"""
+    app = create_console_app(_base_deps(tmp_path))
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/scenarios",
+            json={"name": "evil_power", "content": _REDLINE_SCENARIO_YAML},
+        )
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail["field"] == "content"
+    assert "红线" in detail["error"]  # guard 条款原因透传
+    assert not (tmp_path / "scenarios" / "evil_power.yaml").exists()  # 不落盘
+
+
+@pytest.mark.parametrize(
+    "bad_name",
+    ["../evil", "a/b", "a\\b", "..", "", "   ", "demo.yaml", "demo.txt"],
+)
+@needs_fastapi
+def test_post_scenario_bad_name_rejected_400(tmp_path, bad_name):
+    """㉔ name 非法（路径穿越/空/非纯 stem 名）→400 field='name'，目录内外均无落盘。"""
+    app = create_console_app(_base_deps(tmp_path))
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/scenarios",
+            json={"name": bad_name, "content": _VALID_SCENARIO_YAML},
+        )
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["field"] == "name"
+    assert list((tmp_path / "scenarios").iterdir()) == []  # 目录内零写入
+    assert list(tmp_path.glob("*.yaml")) == []  # 穿越名不得逃出 scenario_dir
+
+
+@needs_fastapi
+def test_put_scenario_overwrites_with_same_validation(tmp_path):
+    """㉕ PUT /api/scenarios/{name} 覆写：合法内容覆写成功；红线内容 400 且旧件原样。"""
+    sdir = tmp_path / "scenarios"
+    sdir.mkdir()  # 先建目录再落既有场景（_base_deps 的 mkdir 在其后才执行）
+    target = sdir / "overwrite_me.yaml"
+    target.write_text(_VALID_SCENARIO_YAML, encoding="utf-8")
+    app = create_console_app(_base_deps(tmp_path))
+    updated = _VALID_SCENARIO_YAML.replace("duration_s: 2.5", "duration_s: 9.5")
+    with TestClient(app) as client:
+        ok = client.put(
+            "/api/scenarios/overwrite_me", json={"content": updated}
+        )
+        assert ok.status_code == 200
+        assert ok.json()["saved"] is True
+        bad = client.put(
+            "/api/scenarios/overwrite_me", json={"content": _REDLINE_SCENARIO_YAML}
+        )
+        assert bad.status_code == 400
+        assert bad.json()["detail"]["field"] == "content"
+        # URL 侧非法名（带后缀的 stem/编码穿越）不进写路径：路由可达→400 拒；
+        # %2F 解码后不匹配路由→404（同样未触写路径，安全属性等价）。
+        suffixed = client.put(
+            "/api/scenarios/evil.txt", json={"content": _VALID_SCENARIO_YAML}
+        )
+        assert suffixed.status_code == 400
+        encoded = client.put(
+            "/api/scenarios/..%2Fevil", json={"content": _VALID_SCENARIO_YAML}
+        )
+        assert encoded.status_code in (400, 404)
+    assert "duration_s: 9.5" in target.read_text(encoding="utf-8")  # 覆写生效
+    assert list(sdir.iterdir()) == [target]  # 逃逸/新增零落盘
+    assert not (tmp_path / "evil.yaml").exists()
+
+
+@needs_fastapi
+def test_delete_scenario_removes_and_missing_404(tmp_path):
+    """㉖ DELETE /api/scenarios/{name}：删已有→200 文件消失；不存在→404。"""
+    sdir = tmp_path / "scenarios"
+    sdir.mkdir()  # 先建目录再落既有场景（_base_deps 的 mkdir 在其后才执行）
+    target = sdir / "gone_soon.yaml"
+    target.write_text(_VALID_SCENARIO_YAML, encoding="utf-8")
+    app = create_console_app(_base_deps(tmp_path))
+    with TestClient(app) as client:
+        resp = client.delete("/api/scenarios/gone_soon")
+        assert resp.status_code == 200
+        assert resp.json() == {"deleted": True, "name": "gone_soon"}
+        again = client.delete("/api/scenarios/gone_soon")
+        assert again.status_code == 404
+    assert not target.exists()
+
+
+# ---- run 状态可查（B19 对抗中#1：202 只给 run_id，终态凭此端点轮询） ----
+
+
+@needs_fastapi
+def test_get_run_by_id_failed_run_queryable(tmp_path):
+    """㉗ GET /api/runs/{run_id}：failed run 可查（status/error 摘要）；未知 id→404。"""
+    def bad_runner(scenario):
+        raise RuntimeError("boom-in-runner")
+
+    app = create_console_app(_base_deps(tmp_path, runner=bad_runner))
+    with TestClient(app) as client:
+        run_id = client.post("/api/run", json={"scenario": {"style": "tone"}}).json()[
+            "run_id"
+        ]
+        assert _wait_status(app, run_id, "failed")
+        resp = client.get(f"/api/runs/{run_id}")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["run_id"] == run_id
+        assert body["status"] == "failed"
+        assert "RuntimeError" in body["error"]
+        missing = client.get("/api/runs/deadbeef")
+    assert missing.status_code == 404

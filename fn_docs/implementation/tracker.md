@@ -805,8 +805,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] push_realtime_kpi · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(push_realtime_kpi)' && echo commit在案 → commit在案 (10-12)
 
 ## B19 批间门
-- [ ] B19 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B19 · 用户裁决 — 预告: 继续 B20 / 修订 / 裁决 blocked
+- [x] B19 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B19 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 -m pytest -k console_api -q | tail -1 → 26 passed, 2706 deselected, 1 warning in 1.65s (10-12)
+- [x] B19 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b19.py | grep -q 'Web 探针' && echo B19 双审收口（9 项修复） → B19 双审收口（9 项修复） (10-12)
 
 ## B20 — map_per_to_injection, bridge_to_sitl, fallback_fixed_strategy, run_rl_policy, run_rff_pipeline
 ### map_per_to_injection
@@ -899,4 +899,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B18 双审收口——对抗 高2中8低6（修13申报3）——**R46 假阴性三路堵死**（①词界回查废子串命中；②白名单收缩仅 '>' 脚注行（判据/阈值/目标关键词豁免删除——正文测量数字必须回查）；③舍入候选去 .1f/.2f/.3f 只留等值形态）+科学计数双形族；R45 防自噬（failure 聚合段引用块化）+换行/管道注入消毒（表格字段/脚注行）；U+2212/dBµV/isfile/缺额分账/去重/emc 形状；申报 3（复合单位截抽/DB m 歧义/半存图全量重绘）；代价如实：尾零-短形不再互认（⑥c 固化） — 对抗审查 — 28 回归 — batches Ruling㉛ (10-12)
 - Ruling: B18 复核收口——13/13 复触发确认+2604 无回归；两个等值盲区如实记录（①数据侧尾零形 2438.000 与候选规范形互不认——**现产写入 str(float) 恒规范形不触发**，仅非规范外部数据受害；②U+2212 数据侧变体缺——同前）——申报留观（B21 终批若引入外部数据源再堵：extract 保留 raw literal 入候选） — 修复后复核 — 无代码改动 — batches Ruling㉜ (10-12)
 - Ruling: B19 三处申报——①环境装 fastapi/httpx 后 15 个原 skip TestClient 用例转实跑暴露 8 败（2 测试目录时序 bug+**6 源码真缺陷**：from __future__ import annotations 使 FastAPI 字符串注解解析失败→Request/WebSocket 误判 query 参数→POST 422/WS 1008——真运行也会炸，已修源码并禁用该 import）；②fastapi/uvicorn 延迟 import+缺库 AppError/ConsoleError pip 提示（原 skipless 环境策略）；③push 控制帧 emergency_stop 直调 trigger 不走广播 — 环境补装+子代理申报 — 26 用例实跑全绿 — batches Ruling㉝ (10-12)
+- Ruling: B19 双审收口——三轴修订后过门（中#4 slug：serve 25 用例改 test_console_api_ 前缀可发现；中#1 场景 CRUD：补 POST/PUT/DELETE /api/scenarios——写前 load_scenario 全口径校验+红线拒 400 不落盘）+对抗 中2低4（run 状态可查 GET /api/runs/{id}；新 run 复位 stop_flag——旧停机信号不吃；降频双判据 OR 断连≥2 不随帧数稀释；运行 loop 内 ensure_future 健康异步 socket 不误剔；trigger 顶层 stop_failed 联动；CDN 协议白名单）；低#5 计数勘误 functions.md 两处 — 三轴+对抗 — 25 回归 — batches Ruling㉞ (10-12)
 

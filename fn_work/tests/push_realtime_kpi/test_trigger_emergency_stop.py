@@ -99,7 +99,9 @@ def test_run_token_idempotency_passthrough():
 
 
 def test_backend_failure_recorded_flag_still_set():
-    """⑥ 发射侧两步全炸（含 KI）→结果标注 failed 不抛，停旗仍尽力置位。"""
+    """⑥ 发射侧两步全炸（含 KI）→结果标注 failed 不抛，停旗仍尽力置位；
+    顶层 status 随发射侧 failed 联动为 'stop_failed'（B19 对抗低#5——调用方
+    只读顶层即知急停未全成）。"""
     be = _FailingBackend()
     ctx = {"backend": be, "run_token": "tok-f"}
     result = trigger_emergency_stop(ctx, origin="watchdog")
@@ -107,4 +109,34 @@ def test_backend_failure_recorded_flag_still_set():
     assert result["stop_result"]["status"] == "failed"
     assert any(step["ok"] is False for step in result["stop_result"]["steps"])
     assert ctx["stop"]["flag"] is True  # 场景侧停旗不受发射失败牵连
-    assert result["status"] == "stopped"  # 路径本身完成（失败只标注在 stop_result）
+    assert result["status"] == "stop_failed"  # 顶层状态随发射侧 failed 联动
+
+
+@pytest.mark.parametrize(
+    ("backend", "want"),
+    [
+        (None, "stopped"),  # no_backend——无发射面即无失败
+        ("already", "stopped"),  # already_stopped——幂等重停视为已停
+        ("failing", "stop_failed"),  # 发射侧 failed→顶层 stop_failed
+    ],
+)
+def test_top_level_status_tracks_transmit_result(backend, want):
+    """⑦ 顶层 status 映射表：stop_result.status∈{no_backend, already_stopped,
+    stopped}→'stopped'；=='failed'→'stop_failed'（B19 对抗低#5）。"""
+    if backend == "already":
+        probe = _ProbeBackend({})
+        ctx = {"backend": probe, "run_token": "tok-x"}
+        trigger_emergency_stop(ctx, origin="first")  # 先停一次→token 幂等生效
+        result = trigger_emergency_stop(ctx, origin="second")
+        assert result["stop_result"]["status"] == "already_stopped"
+    elif backend == "failing":
+        result = trigger_emergency_stop(
+            {"backend": _FailingBackend(), "run_token": "tok-y"}, origin="probe"
+        )
+        assert result["stop_result"]["status"] == "failed"
+    else:
+        result = trigger_emergency_stop(
+            {"backend": None, "run_token": "tok-z"}, origin="probe"
+        )
+        assert result["stop_result"]["status"] == "no_backend"
+    assert result["status"] == want

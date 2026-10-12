@@ -1,6 +1,9 @@
 """serve_console 对抗测试：dry_run 装配+TestClient 路由可达/uvicorn 拉起 mock+
 缺库 ConsoleError pip 提示/端口占用拒（dry_run 不检）/config 形状错 ValueError。
 
+用例名统一 test_console_api_ 前缀——`pytest -k console_api` 可整体发现本文件
+用例（B19 三轴中#4 slug 可发现性修订）。
+
 测试不真起服务：真拉起路径以 sys.modules 注入假 uvicorn（MagicMock 断言调用，
 不真跑）；缺库路径以 sys.modules 注入 None（无论环境是否装有 uvicorn 均可复现）。
 """
@@ -8,6 +11,7 @@ from __future__ import annotations
 
 import socket
 import sys
+import time
 import types
 from unittest.mock import MagicMock
 
@@ -53,7 +57,7 @@ def _free_port() -> int:
 
 
 @needs_fastapi
-def test_serve_console_dry_run_returns_app_not_launched(tmp_path):
+def test_console_api_dry_run_returns_app_not_launched(tmp_path):
     """① dry_run=True→{'app', 'launched': False, 'port', 'host'}，不起服务。"""
     cfg = _base_config(tmp_path)
     cfg["dry_run"] = True
@@ -65,7 +69,7 @@ def test_serve_console_dry_run_returns_app_not_launched(tmp_path):
 
 
 @needs_fastapi
-def test_serve_console_dry_run_app_serves_scenarios_route(tmp_path):
+def test_console_api_dry_run_app_serves_scenarios_route(tmp_path):
     """② dry_run 返回的 app 可直接 TestClient 打 create 路由（/api/scenarios）。"""
     sdir = tmp_path / "scenarios"
     sdir.mkdir()  # 先落 yaml 再让 _base_config 的 mkdir 就位
@@ -84,7 +88,7 @@ def test_serve_console_dry_run_app_serves_scenarios_route(tmp_path):
 
 
 @needs_fastapi
-def test_serve_console_default_port_when_omitted(tmp_path):
+def test_console_api_default_port_when_omitted(tmp_path):
     """③ config 缺 port/host→缺省 8000/127.0.0.1 原样回显。"""
     cfg = _base_config(tmp_path)
     del cfg["port"]
@@ -95,7 +99,7 @@ def test_serve_console_default_port_when_omitted(tmp_path):
 
 
 @needs_fastapi
-def test_serve_console_default_runner_placeholder(tmp_path):
+def test_console_api_default_runner_placeholder(tmp_path):
     """④ 未注入 runner→deps 里为可调用占位（noop 回执），不炸装配。"""
     cfg = _base_config(tmp_path)
     assert "runner" not in cfg
@@ -106,7 +110,7 @@ def test_serve_console_default_runner_placeholder(tmp_path):
 
 
 @needs_fastapi
-def test_serve_console_shared_stop_flag_wired_by_identity(tmp_path):
+def test_console_api_shared_stop_flag_wired_by_identity(tmp_path):
     """⑤ config['stop_flag'] 原对象直通 app.state.deps（/api/stop 与急停共享）。"""
     cfg = _base_config(tmp_path)
     cfg["dry_run"] = True
@@ -117,7 +121,7 @@ def test_serve_console_shared_stop_flag_wired_by_identity(tmp_path):
 # ---- 真拉起：mock uvicorn，不真跑 ----
 
 
-def test_serve_console_real_launch_invokes_uvicorn_run(tmp_path, monkeypatch):
+def test_console_api_real_launch_invokes_uvicorn_run(tmp_path, monkeypatch):
     """⑥ 真拉起：假 uvicorn.run 被调一次（app+host+port），返回 launched True。"""
     fake_uvicorn = types.ModuleType("uvicorn")
     fake_uvicorn.run = MagicMock()
@@ -134,7 +138,7 @@ def test_serve_console_real_launch_invokes_uvicorn_run(tmp_path, monkeypatch):
     assert kwargs["port"] == cfg["port"]
 
 
-def test_serve_console_missing_uvicorn_console_error_pip_hint(tmp_path, monkeypatch):
+def test_console_api_missing_uvicorn_console_error_pip_hint(tmp_path, monkeypatch):
     """⑦ uvicorn 缺库（sys.modules 注入 None）→ConsoleError 且消息含 pip 提示。"""
     monkeypatch.setitem(sys.modules, "uvicorn", None)
     cfg = _base_config(tmp_path)
@@ -147,7 +151,7 @@ def test_serve_console_missing_uvicorn_console_error_pip_hint(tmp_path, monkeypa
 # ---- 端口占用 ----
 
 
-def test_serve_console_port_in_use_raises_console_error(tmp_path):
+def test_console_api_port_in_use_raises_console_error(tmp_path):
     """⑧ 端口被占→ConsoleError（消息含端口号）；检查先于 uvicorn import。"""
     blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     blocker.bind(("127.0.0.1", 0))
@@ -163,7 +167,7 @@ def test_serve_console_port_in_use_raises_console_error(tmp_path):
 
 
 @needs_fastapi
-def test_serve_console_dry_run_skips_port_check(tmp_path):
+def test_console_api_dry_run_skips_port_check(tmp_path):
     """⑨ 端口被占但 dry_run=True→不检端口，正常返回装配结果。"""
     blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     blocker.bind(("127.0.0.1", 0))
@@ -183,7 +187,7 @@ def test_serve_console_dry_run_skips_port_check(tmp_path):
 
 
 @pytest.mark.parametrize("bad", [None, "8000", 8000, [("port", 1)], set()])
-def test_serve_console_config_not_dict_valueerror(bad):
+def test_console_api_config_not_dict_valueerror(bad):
     """⑩ config 非 dict→ValueError。"""
     with pytest.raises(ValueError, match="config"):
         serve_console(bad)
@@ -249,9 +253,38 @@ def _static_pages_list(cfg):
         _static_pages_list,
     ],
 )
-def test_serve_console_bad_config_fields_valueerror(tmp_path, mutate):
+def test_console_api_bad_config_fields_valueerror(tmp_path, mutate):
     """⑪ 各键形状错（缺路径/类型不符/端口越界/runner 不可调用…）→ValueError 指错键。"""
     cfg = _base_config(tmp_path)
     mutate(cfg)
     with pytest.raises(ValueError):
         serve_console(cfg)
+
+
+# ---- stop 复位（B19 对抗中#2：新 run 不吃旧停机信号） ----
+
+
+@needs_fastapi
+def test_console_api_new_run_resets_stale_stop_flag(tmp_path):
+    """⑫ /api/stop 置旗后新 POST /api/run→启动即复位共享停旗（flag=False），
+    下一轮运行不再吃到上一轮的停机信号（runner 启动时刻快照为证）。"""
+    seen: dict = {}
+
+    def runner(scenario):
+        seen["flag_at_start"] = cfg["stop_flag"]["flag"]
+        return {"ok": True}
+
+    cfg = _base_config(tmp_path)
+    cfg["runner"] = runner
+    cfg["dry_run"] = True
+    result = serve_console(cfg)
+    with TestClient(result["app"]) as client:
+        stop_resp = client.post("/api/stop")  # 上一轮遗留停机信号
+        assert stop_resp.json() == {"stopped": True}
+        assert cfg["stop_flag"]["flag"] is True
+        run_resp = client.post("/api/run", json={"scenario": {"style": "tone"}})
+    assert run_resp.status_code == 202
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline and "flag_at_start" not in seen:
+        time.sleep(0.01)  # 等 runner 启动快照（线程调度时差容忍）
+    assert seen["flag_at_start"] is False  # 新 run 启动时旗标已复位

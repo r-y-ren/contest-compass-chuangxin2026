@@ -17,12 +17,15 @@
 import json
 import os
 import re
+import tempfile
 import threading
 import uuid
 from collections import deque
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from src.load_scenario.load_scenario import load_scenario
+from src.load_scenario.validate_scenario_schema import ScenarioError
 from src.render_console_pages.build_scenario_cards import build_scenario_cards
 
 if TYPE_CHECKING:  # 仅类型标注用——运行时延迟 import（缺库不炸模块装载）
@@ -116,18 +119,102 @@ def _count_ledger(path: str) -> dict:
     return {"done": done, "total": total, "available": True, "path": path}
 
 
+#: 场景名 stem 禁含字符（路径分隔/点号[穿越与双后缀]/NUL）——落盘统一 <name>.yaml。
+_FORBIDDEN_NAME_CHARS = ("/", "\\", ".", "\x00")
+
+#: 场景文件后缀（与 GET /api/scenarios 的 *.yaml|*.yml 扫描口径一致）。
+_SCENARIO_SUFFIX = ".yaml"
+
+
+def _validate_scenario_name(name: object) -> str:
+    """场景名消毒：非空 str、纯文件名 stem（无 / \\ . NUL、无首尾空白、非 ./..）。
+
+    合法→原样返回（落盘 scenario_dir/<name>.yaml）；非法→AppError(field='name')
+    ——路径穿越（../evil、a/b）与非 stem 名（demo.yaml/demo.txt——避免
+    <name>.yaml 双后缀与狸猫换后缀）一律拒 400。
+    """
+    if not isinstance(name, str) or not name.strip():
+        raise AppError(
+            f"场景名必须为非空 str（纯文件名 stem，落盘 <name>.yaml），实际: {name!r}",
+            field="name",
+        )
+    if name != name.strip():
+        raise AppError(f"场景名不得含首尾空白: {name!r}", field="name")
+    if any(ch in name for ch in _FORBIDDEN_NAME_CHARS) or name in {".", ".."}:
+        raise AppError(
+            f"非法场景名 {name!r}（路径穿越或非纯 stem 名——仅允许不含 "
+            f"{'/'.join(repr(c) for c in _FORBIDDEN_NAME_CHARS[:3])} 的文件名 stem，"
+            f"落盘为 <name>.yaml）",
+            field="name",
+        )
+    return name
+
+
+def _check_scenario_content(content: object) -> str:
+    """场景写前校验：内容先落临时文件→load_scenario 全口径把关（schema+guard
+    红线，不可跳）——失败即 AppError(field='content') 附原因，目标目录绝不落盘。"""
+    if not isinstance(content, str) or not content.strip():
+        raise AppError(
+            f"场景内容必须为非空 str（YAML 文本），实际: {type(content).__name__}",
+            field="content",
+        )
+    with tempfile.TemporaryDirectory(prefix="console-scenario-check-") as tmpdir:
+        probe = os.path.join(tmpdir, "probe.yaml")
+        try:
+            with open(probe, "w", encoding="utf-8") as fh:
+                fh.write(content)
+            load_scenario(probe)  # 校验即弃——规范化产物不落盘
+        except ScenarioError as exc:
+            raise AppError(
+                f"场景内容未过装载校验（schema/guard 红线）: {exc}", field="content"
+            ) from exc
+        except OSError as exc:
+            raise AppError(
+                f"校验临时文件不可写（内容校验无法进行）: {exc}", field="content"
+            ) from exc
+    return content
+
+
+def _write_scenario(deps: dict, name: str, content: str) -> str:
+    """把已校验的场景文本写盘 scenario_dir/<name>.yaml，返回落盘路径。
+
+    scenario_dir 缺失/不可写→AppError(field='scenario_dir')（与 GET 列表同口径）。
+    """
+    path = os.path.join(deps["scenario_dir"], name + _SCENARIO_SUFFIX)
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(content)
+    except OSError as exc:
+        raise AppError(
+            f"场景写盘失败（scenario_dir 不存在或不可写）: {exc}",
+            field="scenario_dir",
+        ) from exc
+    return path
+
+
 def create_console_app(deps: dict) -> "FastAPI":
     """ASGI 应用纯工厂：组装路由/WS hub/静态资源/异常处理为 FastAPI 实例。
 
     路由合约（R47）：
       - GET  /api/scenarios——扫 scenario_dir 下 *.yaml|*.yml→build_scenario_cards
         卡片数据（损坏场景以 error 卡占位，不炸请求）；目录缺失→400 field='scenario_dir'；
+      - POST /api/scenarios——保存场景：body {'name', 'content'}→写
+        scenario_dir/<name>.yaml；name 非法（路径穿越/空/非纯 stem 名）→400
+        field='name'；content 写前经 load_scenario 全口径校验（schema+guard 红线，
+        临时文件承载）——失败 400 field='content' 附原因，目录不落盘；成功 201；
+      - PUT  /api/scenarios/{name}——覆写同名场景（校验同 POST：name 消毒+内容
+        红线把关；upsert 语义，不存在即建）；失败 400 同 POST 口径；
+      - DELETE /api/scenarios/{name}——删除 <name>.yaml（不存在→404；name 非法
+        →400 同 POST 口径）；
       - POST /api/run——JSON body {'scenario': dict}→后台线程调 runner，202 {'run_id'}；
-        body 非 JSON 对象→400 field='body'，scenario 缺失/非 dict→400 field='scenario'；
-      - POST /api/stop——置 deps['stop_flag']['flag']=True，返回 {'stopped': True}
-        （trigger_emergency_stop 的发射侧语义由上层端点叠加）；
+        启动即复位 stop_flag（新 run 不吃旧停机信号）；body 非 JSON 对象→400
+        field='body'，scenario 缺失/非 dict→400 field='scenario'；
       - GET  /api/runs——report_root 子目录名列表（新建在前）；根缺失→400
         field='report_root'；
+      - GET  /api/runs/{run_id}——运行状态查询（app.state.runs：running/failed/
+        done+result/error 摘要；未知 run_id→404）；
+      - POST /api/stop——置 deps['stop_flag']['flag']=True，返回 {'stopped': True}
+        （trigger_emergency_stop 的发射侧语义由上层端点叠加）；
       - GET  /api/ledger——清单完成度 done/total 简数（deps 可选 'ledger_path'，
         缺省 DEFAULT_LEDGER_PATH；文件缺失→零值+available False）；
       - WS   /ws——实时流 hub：app.state.hub（sockets/history/broadcast dict），
@@ -192,6 +279,58 @@ def create_console_app(deps: dict) -> "FastAPI":
         cards = build_scenario_cards(files)
         return {"cards": cards, "count": len(cards)}
 
+    @app.post("/api/scenarios", status_code=201)
+    async def save_scenario(request: Request) -> JSONResponse:
+        try:
+            body = await request.json()
+        except Exception as exc:  # JSONDecodeError/空 body 等→统一 400 field='body'
+            raise AppError(
+                f"请求体须为 JSON 对象 {{'name', 'content'}}: {type(exc).__name__}: {exc}",
+                field="body",
+            ) from exc
+        if not isinstance(body, dict):
+            raise AppError(
+                f"请求体须为 JSON 对象，实际 {type(body).__name__}: {body!r}", field="body"
+            )
+        name = _validate_scenario_name(body.get("name"))
+        content = _check_scenario_content(body.get("content"))
+        path = _write_scenario(deps, name, content)
+        return JSONResponse(
+            status_code=201, content={"saved": True, "name": name, "path": path}
+        )
+
+    @app.put("/api/scenarios/{name}")
+    async def overwrite_scenario(name: str, request: Request) -> dict:
+        name = _validate_scenario_name(name)  # 与 POST 同口径消毒（URL 侧穿越也拒）
+        try:
+            body = await request.json()
+        except Exception as exc:
+            raise AppError(
+                f"请求体须为 JSON 对象 {{'content'}}: {type(exc).__name__}: {exc}",
+                field="body",
+            ) from exc
+        if not isinstance(body, dict):
+            raise AppError(
+                f"请求体须为 JSON 对象，实际 {type(body).__name__}: {body!r}", field="body"
+            )
+        content = _check_scenario_content(body.get("content"))
+        path = _write_scenario(deps, name, content)  # upsert：不存在即建，存在即覆写
+        return {"saved": True, "name": name, "path": path}
+
+    @app.delete("/api/scenarios/{name}")
+    async def delete_scenario(name: str) -> dict:
+        name = _validate_scenario_name(name)
+        path = os.path.join(deps["scenario_dir"], name + _SCENARIO_SUFFIX)
+        if not os.path.isfile(path):
+            raise HTTPException(status_code=404, detail=f"场景不存在: {name}")
+        try:
+            os.remove(path)
+        except OSError as exc:
+            raise AppError(
+                f"场景删除失败（scenario_dir 不可写）: {exc}", field="scenario_dir"
+            ) from exc
+        return {"deleted": True, "name": name}
+
     @app.post("/api/run")
     async def start_run(request: Request) -> JSONResponse:
         try:
@@ -214,6 +353,9 @@ def create_console_app(deps: dict) -> "FastAPI":
                 field="scenario",
             )
         run_id = uuid.uuid4().hex[:8]
+        # 启动即复位共享停机旗标——上一轮 /api/stop 的遗留信号不牵连本次运行
+        # （新 run 不吃旧停机信号；对在途旧 run 的共享旗影响属共享旗设计固有口径）。
+        deps["stop_flag"]["flag"] = False
         app.state.runs[run_id] = {
             "run_id": run_id,
             "status": "running",
@@ -258,6 +400,15 @@ def create_console_app(deps: dict) -> "FastAPI":
             (n for n in entries if os.path.isdir(os.path.join(root, n))), reverse=True
         )
         return {"runs": names, "count": len(names)}
+
+    @app.get("/api/runs/{run_id}")
+    async def get_run(run_id: str) -> dict:
+        # 运行状态可查（app.state.runs 运行表）：running/failed/done+result/error
+        # 摘要；POST /api/run 的 202 只给 run_id，客户端凭此端点轮询终态。
+        entry = app.state.runs.get(run_id)
+        if entry is None:
+            raise HTTPException(status_code=404, detail=f"运行不存在: {run_id}")
+        return dict(entry)
 
     @app.get("/api/ledger")
     async def ledger_progress() -> dict:

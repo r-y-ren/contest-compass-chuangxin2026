@@ -1,9 +1,11 @@
 """push_realtime_kpi 对抗测试：3 帧 2 假 socket 接收计数/sent_ms 盖戳/断连移除/
 history 环形截尾/latency 键集与量值/空流/source 异常先 drain 后透传/积压降频
-（恰好 50% 不降）/无订阅者不报错/急停控制帧本地直达/hub 形状错 ValueError。
+（恰好 50% 不降；累计断连 ≥2 不随帧数稀释）/运行中事件循环内广播不误剔健康
+异步连接/无订阅者不报错/急停控制帧本地直达/hub 形状错 ValueError。
 """
 from __future__ import annotations
 
+import asyncio
 from collections import deque
 
 import pytest
@@ -212,3 +214,51 @@ def test_realtime_console_non_dict_frames_skipped():
     assert result["n_pushed"] == 2
     assert [f["v"] for f in sock.frames] == [1, 2]
     assert len(hub["history"]) == 2
+
+
+def test_realtime_console_dead_sockets_degrade_not_diluted_by_frames():
+    """⑮（B19 对抗低#3）降频不随帧数稀释：2 死连接首帧即剔（断连计数=2），
+    好连接后续 8 帧把异常率稀释到 1/10<50%——按旧比率口径会漏报，新双判据
+    （累计断连 ≥2 OR 比率>50%）仍 degraded。"""
+    good = FakeSocket()
+    dead1, dead2 = FakeSocket(fail=True), FakeSocket(fail=True)
+    hub = {"sockets": [good, dead1, dead2], "history": []}
+    result = push_realtime_kpi(iter([{"v": i} for i in range(9)]), hub)
+    assert result["n_disconnected"] == 2
+    assert result["n_pushed"] == 9  # 死连接不中断流——好连接收满 9 帧
+    assert len(good.frames) == 9
+    # 旧口径：attempts=3+8=11、failures=2→18% 不降频（稀释漏报）；新口径必降。
+    assert result["degraded"] is True
+    assert hub["degraded"] is True
+
+
+class AsyncFakeSocket:
+    """返回协程的假 WS 端点（starlette WebSocket.send_json 形态：同步调用回协程）。"""
+
+    def __init__(self) -> None:
+        self.frames: list = []
+
+    async def _deliver(self, frame: dict) -> None:
+        self.frames.append(frame)
+
+    def send_json(self, frame: dict):
+        return self._deliver(frame)  # 返回 coroutine，不立即执行
+
+
+def test_realtime_console_running_loop_healthy_socket_not_dropped():
+    """⑯（B19 对抗低#4）运行中事件循环内广播：asyncio.run 在 loop 内会炸
+    （RuntimeError）→旧实现把健康异步连接误判断连剔除；新实现 ensure_future
+    调度发送——socket 不误剔、帧送达、不计断连不降频。"""
+
+    async def _drive():
+        result = push_realtime_kpi(iter([{"v": 1}, {"v": 2}]), hub)
+        await asyncio.sleep(0)  # 让 ensure_future 调度的发送任务跑完
+        return result
+
+    sock = AsyncFakeSocket()
+    hub = {"sockets": {sock}, "history": []}
+    result = asyncio.run(_drive())  # push 在运行 loop 线程内被调用
+    assert result["n_disconnected"] == 0
+    assert result["degraded"] is False
+    assert sock in hub["sockets"]  # 健康连接未被误剔
+    assert [f["v"] for f in sock.frames] == [1, 2]  # 调度的发送确实送达

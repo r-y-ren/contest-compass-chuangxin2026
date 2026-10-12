@@ -31,7 +31,8 @@ def trigger_emergency_stop(ctx: dict, origin: str) -> dict:
         {'stopped_at': UTC ISO, 'origin', 'stop_result': stop_transmit_safely
         返回值（发射侧结果，含 status），'events': 有序事件列表
         [requested→transmit_stopped→stop_flag_set（失败时追加 stop_failed）],
-        'status': 'stopped'|'stop_failed'}。
+        'status': 'stopped'|'stop_failed'——发射侧 stop_result.status=='failed'
+        或路径异常（含 stop 子 dict 腐化）均 'stop_failed'，否则 'stopped'}。
     """
     stopped_at = datetime.now(timezone.utc).isoformat()
     events: list[dict] = [{"event": "emergency_stop_requested", "origin": origin, "ts": stopped_at}]
@@ -47,6 +48,11 @@ def trigger_emergency_stop(ctx: dict, origin: str) -> dict:
         events.append(
             {"event": "transmit_stopped", "result_status": stop_result.get("status")}
         )
+        # 顶层状态随发射侧结果联动：stop_result 标注 failed（发射侧尽力但失败）
+        # →顶层 stop_failed——调用方只读顶层 status 即知急停未全成，不必再探
+        # stop_result 内层（'stopped'/'no_backend'/'already_stopped' 均视为已停）。
+        if stop_result.get("status") == "failed":
+            status = "stop_failed"
 
         # ② 场景侧停旗（缺 stop 子 dict→建；垃圾类型→赋值炸→记 stop_failed）。
         stop_box = ctx.setdefault("stop", {}) if isinstance(ctx, dict) else None

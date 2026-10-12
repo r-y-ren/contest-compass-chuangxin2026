@@ -203,6 +203,13 @@ def _validate_config(config: dict, scenario_dir: str) -> "tuple[str, object, str
     cdn_base = config.get("cdn_base", DEFAULT_CDN_BASE)
     if not isinstance(cdn_base, str) or not cdn_base:
         raise ValueError(f"config['cdn_base'] 必须为非空 str，实际 {cdn_base!r}")
+    if not cdn_base.startswith(("https://", "http://")):
+        # CDN 源直接注入 <script src=...>——仅放行 http(s) 前缀，拒 javascript:/
+        # data:/协议相对等注入载体（值消毒在源头做，模板侧不重复转义）。
+        raise ValueError(
+            f"config['cdn_base'] 仅接受 https:// 或 http:// 前缀（防脚本注入源），"
+            f"实际 {cdn_base!r}"
+        )
     out_dir = config.get("out_dir")
     if out_dir is not None and (not isinstance(out_dir, str) or not out_dir):
         raise ValueError(
@@ -228,7 +235,8 @@ def render_console_pages(scenario_dir: str, config: dict) -> dict:
         落盘时附 'written': [index.html 绝对/相对落盘路径列表]。
 
     Raises:
-        ValueError: config 非 dict / scenario_dir 非 str / 键类型不符。
+        ValueError: config 非 dict / scenario_dir 非 str / 键类型不符 /
+            cdn_base 非 https://|http:// 前缀（拒 javascript: 等注入源）。
     """
     cdn_base, out_dir, title = _validate_config(config, scenario_dir)
 
