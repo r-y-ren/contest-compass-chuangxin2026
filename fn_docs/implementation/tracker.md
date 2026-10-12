@@ -757,8 +757,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] verify_report_traceability · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(verify_report_traceability)' && echo commit在案 → commit在案 (10-12)
 
 ## B18 批间门
-- [ ] B18 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B18 · 用户裁决 — 预告: 继续 B19 / 修订 / 裁决 blocked
+- [x] B18 · 评审三轴 — 证据: bash -c grep -q 'Ruling: B18 双审收口' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/tracker.md && cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 → 2604 passed in 18.02s (10-12)
+- [x] B18 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && python3 scripts/probes/probe_b18.py | grep -q 'passed=True' && echo B18 双审收口（修13申报3） → B18 双审收口（修13申报3） (10-12)
 
 ## B19 — create_console_app, serve_console, build_scenario_cards, render_console_pages, measure_refresh_latency, trigger_emergency_stop, push_realtime_kpi
 ### create_console_app
@@ -896,4 +896,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B16 双审收口——对抗 高1中2低3+三轴 1 观察全修（①扫描点数上限 10000 可调（1e-9 步 OOM/挂起堵死）；②EMI NaN 家族口径对齐逐样本拒；③辐射补偿空表 False+confidence 汇总；④band 短路 start/stop（占位删除）；⑤sweep detector/rbw 可观测；⑥参数先全验后设+回滚；⑦SweepError(ValueError) 命名收口） — 对抗+三轴 — 19 回归 — batches Ruling㉘ (10-12)
 - Ruling: B17 三处申报——①update_ledger 统计节不自动滚动（人工维护，TODO(manual) 注明）；②load_scenario 无 PyYAML 回退解析仅支持平铺+单层嵌套+简单列表（复杂结构提示装 PyYAML；yaml 的 1e6 科学计数在 PyYAML 中本身是 str——探针遇 fallback 路径证实）；③audit 死锚核验含裸 snake_case token（len≥4 含 _，台账文件自身排除防自引用） — 子代理申报+探针实证 — 无 — batches Ruling㉙ (10-12)
 - Ruling: B17 双审收口——对抗 高1中4低2（修7申报2+三轴低1）——①**状态列结构守卫**（真清单 4 列无状态列：locate 表头检测三形态自适应，update 以 append 列方案动态加「完成状态」列——描述列零破坏、表头/分隔行/条目行三行合法扩展、同表后续原位补槽）；②\| 转义管道 Markdown 感知切列；③newline='' 保行尾；④数值 str 双路径统一（validate 宽数+normalize 化达）；⑤audit done 口径同源 has_done_mark（wired 纳入锚点核验）；⑥anchor 120 上限；⑨⑩⑪低三申报（幂等拒/overwrite 无痕/弱存在性）；history ⑨→㉙ 字符修正 — 对抗审查（高#1 为台账机制关键设计缺陷：真清单形态与函数假设不符，冒烟测试曾掩盖） — 24 回归 — batches Ruling㉚ (10-12)
+- Ruling: B18 双审收口——对抗 高2中8低6（修13申报3）——**R46 假阴性三路堵死**（①词界回查废子串命中；②白名单收缩仅 '>' 脚注行（判据/阈值/目标关键词豁免删除——正文测量数字必须回查）；③舍入候选去 .1f/.2f/.3f 只留等值形态）+科学计数双形族；R45 防自噬（failure 聚合段引用块化）+换行/管道注入消毒（表格字段/脚注行）；U+2212/dBµV/isfile/缺额分账/去重/emc 形状；申报 3（复合单位截抽/DB m 歧义/半存图全量重绘）；代价如实：尾零-短形不再互认（⑥c 固化） — 对抗审查 — 28 回归 — batches Ruling㉛ (10-12)
 

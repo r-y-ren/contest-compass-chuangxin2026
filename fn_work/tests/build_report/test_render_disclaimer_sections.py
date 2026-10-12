@@ -1,6 +1,7 @@
 """render_disclaimer_sections 对抗测试：基座关键词、上下文行 '> ' 前缀、per_basis
 BER→PER 句、simulated_parts 追加 emc 级块、空 ctx 缺省补"未记录"、段序与幂等、
-非 dict/字段类型错拒绝。"""
+非 dict/字段类型错拒绝、注入字段消毒（多行逐行补 '> '、'|' 转义）、
+simulated_parts 去重保序。"""
 from __future__ import annotations
 
 import pytest
@@ -129,3 +130,41 @@ def test_bad_simulated_parts_rejected():
             render_disclaimer_sections({"simulated_parts": bad})
     with pytest.raises(ValueError, match="simulated_parts"):
         render_disclaimer_sections({"simulated_parts": ["emc", 3]})
+
+
+def test_injected_multiline_field_keeps_quote_block():
+    """⑭ 换行注入消毒（B18 中#8/#9）：backend 含 '\\n' → 逐行补 '> ' 前缀，
+    上下文段无裸行——注入行不逃出引用块（不会伪装成正文行绕过 '>' 白名单）。"""
+    out = render_disclaimer_sections({"backend": "sim\nreplay"})
+    context_block = out.split("\n\n")[1]
+    lines = context_block.split("\n")
+    assert "> 报告上下文：后端 = sim" in lines
+    assert "> replay" in lines
+    assert all(line.startswith("> ") for line in lines), f"裸行逃逸: {lines!r}"
+    assert "sim\nreplay" not in out  # 原始换行不再透传
+
+
+def test_injected_pipe_field_escaped():
+    """⑭b 竖线注入消毒：backend 含 '|' → 转义 '\\|'（不产伪表格定界）。"""
+    out = render_disclaimer_sections({"backend": "a|b"})
+    assert "> 报告上下文：后端 = a\\|b" in out.split("\n")
+    assert "后端 = a|b" not in out  # 未转义形态不出现
+
+
+def test_simulated_parts_deduped_preserving_order():
+    """⑮ simulated_parts 去重保序（B18 低#14）：重复段只留首现位，清单行不重复。"""
+    out = render_disclaimer_sections(
+        {"simulated_parts": ["emc", "mixer", "emc", "mixer", "emc"]}
+    )
+    assert "emc、mixer（读数适用下方 emc 级声明）" in out
+    assert "emc、mixer、emc" not in out
+    assert out.count("报告涉及模拟段：") == 1
+    assert make_disclaimer_block("emc") in out  # 去重后仍非空 → emc 块仍拼接
+
+
+def test_simulated_parts_multiline_element_sanitized():
+    """⑮b 清单元素含换行/竖线 → 行内折叠 ' / ' + 转义，清单仍单行引用。"""
+    out = render_disclaimer_sections({"simulated_parts": ["emc\nx", "a|b"]})
+    line = next(ln for ln in out.split("\n") if ln.startswith("> 报告涉及模拟段："))
+    assert "emc / x、a\\|b" in line
+    assert "\n" not in line

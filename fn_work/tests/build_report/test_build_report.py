@@ -2,7 +2,8 @@
 返回路径、缺数据文件缺项标注、无失效数据跳段、无模型未识别、PNG 齐备复用不重绘
 （mock 不调用）、EMC 段引用行嵌入、数字全部可回查数据文件（虚构检测）、频点
 图谱位直传/缺省占位、模型在位识别、全空目录缺项、result/路径形状错拒绝、
-上下文字段缺→未记录。"""
+上下文字段缺→未记录、失效对比段整段引用块（聚合值口径行）、注入字段消毒
+（换行折叠/竖线转义）、emc 非 dict 不附 simulated_parts。"""
 from __future__ import annotations
 
 import json
@@ -336,3 +337,87 @@ def test_report_builder_failure_table_styles_and_weakest(tmp_path):
     assert "| pulse | -3.0 dB | 1 | -3.0 dB | -3.0 dB |" in text
     assert "最薄弱样式为 tone" in text
     assert "最薄弱频点为 2412.5 MHz" in text
+
+
+def test_report_builder_failure_section_quoted_as_caliber_block(tmp_path):
+    """⑰b 失效对比段整段引用块（B18 中#7）：表行与结论行均 '> ' 前缀——
+    中位数等聚合值呈现在口径行（R46 白名单覆盖），不再以正文测量行形态
+    出现（防聚合值自噬）。"""
+    _write_full_run(tmp_path)
+    text = Path(build_report(str(tmp_path), _full_result())).read_text(encoding="utf-8")
+
+    assert "> | 样式 | 失效电平中位数 (dB) | 有效条目数（按条目计） | 最小 (dB) | 最大 (dB) |" in text
+    assert "> | tone | -5.0 dB | 1 | -5.0 dB | -5.0 dB |" in text
+    assert "> 结论：跨样式对比（按失效电平中位数升序）" in text
+    bare = [ln for ln in text.splitlines() if ln.startswith("| tone ") or ln.startswith("结论：")]
+    assert bare == []  # 无未引用的裸表行/裸结论行
+
+
+def test_report_builder_injected_context_fields_sanitized(tmp_path):
+    """⑱ 注入消毒（B18 中#8/#9）：backend/run_id 含 '\\n' 或 '|' → 概要表
+    单元格折叠 ' / ' + 转义 '\\|'（表格结构不破），脚注引用块逐行 '> '。"""
+    _write_full_run(tmp_path)
+    result = _full_result()
+    result["backend"] = "sim\nreplay"
+    result["run_id"] = "RUN|07\nX"
+    text = Path(build_report(str(tmp_path), result)).read_text(encoding="utf-8")
+
+    # 概要表：单元格消毒后仍是完整表格行（无注入换行/裸竖线分列）
+    assert "| 后端 | sim / replay |" in text
+    assert "| 运行标识 | RUN\\|07 / X |" in text
+    assert "\nreplay |" not in text
+    assert "sim\nreplay" not in text
+    # 标题同样消毒（换行不注入新行）
+    assert "# Run Report（RUN\\|07 / X）" in text
+    # 脚注引用块：多行值逐行 '> '，无裸行逃逸
+    assert "> 报告上下文：后端 = sim" in text.split("\n")
+    assert "> replay" in text.split("\n")
+    assert "> 报告上下文：运行标识 = RUN\\|07" in text.split("\n")
+    assert "> X" in text.split("\n")
+    footnote_zone = text.split("## 口径声明（脚注）")[1]
+    body_lines = [
+        ln for ln in footnote_zone.split("\n") if ln.strip() and not ln.startswith("#")
+    ]
+    assert all(ln.startswith(">") for ln in body_lines), "脚注区出现非引用行"
+
+
+def test_report_builder_emc_non_dict_no_simulated_parts(tmp_path):
+    """⑲ emc 形状防御（B18 低#15）：result['emc'] 非 dict → EMC 缺项段仍在，
+    但不据此附 simulated_parts（脚注无 emc 级声明/CISPR 16-1-1 句）。"""
+    _write_full_run(tmp_path)
+    result = _full_result()
+    result["emc"] = "not-a-dict"
+    text = Path(build_report(str(tmp_path), result)).read_text(encoding="utf-8")
+
+    assert "## EMC 传导摸底（模拟）" in text
+    assert "形状异常（非 dict）" in text
+    assert "emc（result['emc'] 非 dict——EMC 段缺项）" in text  # 进缺项汇总
+    assert "CISPR 16-1-1" not in text  # 无模拟段 → 不拼 emc 级声明块
+
+
+def test_report_builder_emc_text_injection_does_not_break_quote_table(tmp_path):
+    """⑲b EMC 文本注入消毒（B18 中#8/#9）：detector/读数含换行竖线 → 折叠
+    ' / '+转义，EMC 引用表/引用行结构不被破坏。"""
+    _write_full_run(tmp_path)
+    result = _full_result()
+    result["emc"] = {
+        "readings": [
+            {
+                "freq_hz": "150000.0\nINJ",
+                "power_dbm": "-57.0|x",
+                "power_dbuv": 50.0,
+                "margin_db": 10.0,
+            }
+        ],
+        "detector": "peak\navg",
+        "passed": True,
+        "simulated": True,
+    }
+    text = Path(build_report(str(tmp_path), result)).read_text(encoding="utf-8")
+
+    assert "> 150000.0 / INJ Hz | -57.0\\|x dBm | 50.0 dBµV | 10.0 dB" in text
+    assert "> 检波器：peak" in text.split("\n")
+    assert "> avg" in text.split("\n")  # 多行值逐行补 '> '（保持引用块）
+    emc_zone = text.split("## EMC 传导摸底（模拟）")[1].split("\n\n")[0]
+    quoted = [ln for ln in emc_zone.split("\n") if ln.strip()]
+    assert all(ln.startswith(">") for ln in quoted), "EMC 段出现非引用行"

@@ -1,9 +1,11 @@
 """≥5 频点图谱位组装（不足如实标注）——重写规约与签名意图详见 fn_docs/responsibility.md。
 
 plots 形状：{'freq_mhz': [多频点谱图路径键], 'images': {路径键: 存在性 bool 或路径}}。
-按 freq_mhz 顺序逐键判存（bool 表项直接采信，str/PathLike 表项落盘 os.path.exists
-实测），产出图谱位计数（slots）/要求数（required=5）/可用图谱键列表（images）/
-缺额注记（deficit_note，<5 时如实列缺哪些频点）/满足标志（satisfied=slots≥5）。
+按 freq_mhz 顺序逐键判存（bool 表项直接采信，str/PathLike 表项落盘 os.path.isfile
+实测——目录不算图谱位，B18 中#10），产出图谱位计数（slots）/要求数（required=5）/
+可用图谱键列表（images）/缺额注记（deficit_note，<5 时如实列缺哪些频点——数量
+分账自洽：按 5 位口径报缺额、按登记键报无图数，实有 3/登记 10 键时不出现
+「缺 7」与「缺 2」互相矛盾的口径）/满足标志（satisfied=slots≥5）。
 plots 空/全缺→slots 0+注记；plots 非 dict、freq_mhz 非 list[str]、images 非 dict
 或表项类型异类→ValueError。
 """
@@ -18,11 +20,12 @@ REQUIRED_SLOTS = 5
 
 
 def _entry_available(key: str, entry: object) -> bool:
-    """images 表项判存：bool 直接采信；str/os.PathLike 路径落盘实测；其余形状错。"""
+    """images 表项判存：bool 直接采信；str/os.PathLike 路径 isfile 实测（目录
+    不算图谱位——os.path.exists 会把目录误计为图，B18 中#10）；其余形状错。"""
     if isinstance(entry, bool):
         return entry
     if isinstance(entry, (str, os.PathLike)):
-        return os.path.exists(os.fspath(entry))
+        return os.path.isfile(os.fspath(entry))
     raise ValueError(
         f"images[{key!r}] 必须为存在性 bool 或路径，"
         f"实际 {type(entry).__name__}: {entry!r}"
@@ -33,10 +36,13 @@ def assemble_frequency_plots(plots: dict) -> dict:
     """≥5 频点图谱位组装（不足如实标注）。
 
     返回 {'slots': 实际可用频点图数, 'required': 5, 'images': [可用路径键列表
-    （按 freq_mhz 顺序）], 'deficit_note': 缺 N 个频点图注记（<5 时如实列出缺失
-    频点；满足时为空串）, 'satisfied': slots>=5}。freq_mhz 中未在 images 登记、
-    登记为 False 或路径不存在者均计入缺失。plots 非 dict、freq_mhz 非 list 或
-    元素非 str、images 非 dict、images 表项非 bool/路径 → ValueError。
+    （按 freq_mhz 顺序）], 'deficit_note': 缺额注记（<5 时给出：按 5 位口径的
+    缺额数 + 实有/需 + 登记键中无图键数与清单——数量分账自洽，实有 3/登记 10 键
+    时报「缺 2 个频点图（实有 3/需 5；登记 10 键中 7 键无图…）」不互相矛盾，
+    B18 中#11；满足时为空串）, 'satisfied': slots>=5}。freq_mhz 中未在 images
+    登记、登记为 False 或路径不存在/为目录者均计入缺失。plots 非 dict、
+    freq_mhz 非 list 或元素非 str、images 非 dict、images 表项非 bool/路径 →
+    ValueError。
     """
     if not isinstance(plots, dict):
         raise ValueError(
@@ -75,8 +81,11 @@ def assemble_frequency_plots(plots: dict) -> dict:
     if deficit <= 0:
         deficit_note = ""
     elif missing:
+        # 数量分账自洽（B18 中#11）：缺额按 5 位口径计，无图键按登记口径计，
+        # 登记多于 5 位时两者不相等也如实并列——不再互斥矛盾。
         deficit_note = (
             f"缺 {deficit} 个频点图（实有 {slots}/需 {REQUIRED_SLOTS}；"
+            f"登记 {len(freq_mhz)} 键中 {len(missing)} 键无图——"
             f"缺失频点：{'、'.join(missing)}）"
         )
     elif freq_mhz:

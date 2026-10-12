@@ -1,6 +1,7 @@
 """extract_report_numbers 对抗测试：单值/行多值抽取、单位家族参数化、科学计数、
 表格行、行号 1-based、上下文截短 60 字符、无非数值空列表、非 str 拒绝、
-重复值保留、单位词界（dBi/samples 不抽）、负号词界与紧贴/隔空白两式。"""
+重复值保留、单位词界（dBi/samples 不抽）、负号词界（含 U+2212 减号）与
+紧贴/隔空白两式、dBµV/dBuV 单位族（µ/u 双形）、复合单位 dBm/Hz 口径。"""
 from __future__ import annotations
 
 import pytest
@@ -50,6 +51,36 @@ def test_unit_family_parametrized(text, value, unit):
     assert len(entries) == 1
     assert entries[0]["value"] == value
     assert entries[0]["unit"] == unit
+
+
+@pytest.mark.parametrize(
+    "text,value,unit",
+    [
+        ("换算 50 dBµV", 50.0, "dBµV"),  # µ（U+00B5 MICRO SIGN）形
+        ("换算 50 dBuV", 50.0, "dBuV"),  # u（ASCII）形
+        ("限值 46.2 dBµV 紧贴", 46.2, "dBµV"),
+        ("准峰值 39.5 dBuV", 39.5, "dBuV"),
+    ],
+)
+def test_dbuv_family_both_spellings(text, value, unit):
+    """③b dBµV/dBuV 单位族（B18 中#4）：µ 与 u 双形各抽一例，单位词原样保留。"""
+    entries = extract_report_numbers(text)
+    assert len(entries) == 1
+    assert entries[0]["value"] == value
+    assert entries[0]["unit"] == unit
+
+
+def test_dbuv_not_truncated_to_db():
+    """③c '50 dBµV' 不被截短成 'dB'（长前缀优先）；'46 dBµ'（半截单位）不抽。"""
+    entries = extract_report_numbers("换算 50 dBµV，另一处 46 dBµ")
+    assert [(e["value"], e["unit"]) for e in entries] == [(50.0, "dBµV")]
+
+
+def test_composite_unit_dbm_per_hz_kept():
+    """③d 复合单位口径（B18 中#4 验证保留）：'-30 dBm/Hz' 抽 (-30, 'dBm')——
+    '/' 非 \\w，词界 (?!\\w) 放行，功率谱密度行如实抽出数值侧。"""
+    entries = extract_report_numbers("功率谱密度 -30 dBm/Hz")
+    assert [(e["value"], e["unit"]) for e in entries] == [(-30.0, "dBm")]
 
 
 @pytest.mark.parametrize(
@@ -134,6 +165,20 @@ def test_minus_sign_word_boundary():
     entries = extract_report_numbers("扫频 3-4 dB")
     assert [e["value"] for e in entries] == [4.0]
     assert extract_report_numbers("括号 (-20.5 dBm) 内")[0]["value"] == -20.5
+
+
+def test_unicode_minus_u2212_negative_value():
+    """⑬b U+2212 减号（B18 中#3）：'−20.5 dBm'（UNICODE MINUS SIGN）取 -20.5。"""
+    entries = extract_report_numbers("电平 −20.5 dBm")
+    assert len(entries) == 1
+    assert entries[0]["value"] == -20.5
+    assert entries[0]["unit"] == "dBm"
+
+
+def test_unicode_minus_range_hyphen_not_negative():
+    """⑬c U+2212 区间减号非负号：'3−4 dB' 取 4 不取 -4（与 ASCII '-' 同规）。"""
+    entries = extract_report_numbers("扫频 3−4 dB")
+    assert [e["value"] for e in entries] == [4.0]
 
 
 def test_spacing_between_number_and_unit_both_forms():

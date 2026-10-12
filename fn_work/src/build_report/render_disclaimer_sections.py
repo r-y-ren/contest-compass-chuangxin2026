@@ -2,10 +2,11 @@
 
 基座为 make_disclaimer_block('report') 全局口径块（屏蔽盒/仅自建链路/GB 42590 预研/
 非 CISPR/数字纪律）；报告上下文（后端/时钟/运行标识/口径选择/模拟段清单）以 '> '
-引用行追加其后；simulated_parts 非空（涉及模拟段）时整块拼接
+引用行追加其后（多行字段值逐行补 '> ' 前缀、'|' 转义 '\\|'——注入字段不破坏引用
+块结构，B18 中#8/#9）；simulated_parts 非空（涉及模拟段）时整块拼接
 make_disclaimer_block('emc')（emc 级声明，含非 CISPR 16-1-1 测量接收机句），
-两级声明文案互不混写。上下文字段缺失/空白补"未记录"（不虚构上下文）；
-report_ctx 非 dict 或已给字段类型错→ValueError。
+两级声明文案互不混写；simulated_parts 去重保序（B18 低#14）。上下文字段缺失/
+空白补"未记录"（不虚构上下文）；report_ctx 非 dict 或已给字段类型错→ValueError。
 """
 from __future__ import annotations
 
@@ -21,6 +22,38 @@ BER_TO_PER_LINE = "口径：误码指标以 PER（分组差错率）呈现，由
 
 #: 模拟段清单行前缀（simulated_parts 非空时列出涉及段，随后拼 emc 级声明整块）。
 SIM_PARTS_PREFIX = "报告涉及模拟段："
+
+
+def _escape_pipe(text: str) -> str:
+    """行内消毒：'|' → '\\|'（markdown 表格/引用块定界符转义——防注入破结构）。"""
+    return text.replace("|", "\\|")
+
+
+def _sanitize_inline(text: str) -> str:
+    """行内文本消毒：'|' 转义 + 换行折叠 ' / '（单行嵌入场景——模拟段清单等）。"""
+    return _escape_pipe(text.replace("\n", " / "))
+
+
+def _context_field_lines(label: str, value: str) -> list[str]:
+    """上下文字段 → 引用行组：首行带标签，多行值逐行补 '> '（保持引用块完整）。
+
+    '\n' 不再原样透传（防注入伪造脚注区外行——B18 中#8/#9）；每行 '|' 转义。
+    """
+    parts = value.split("\n")
+    lines = [f"> 报告上下文：{label} = {_escape_pipe(parts[0])}"]
+    lines.extend(f"> {_escape_pipe(part)}" for part in parts[1:])
+    return lines
+
+
+def _dedupe_in_order(parts: list[str]) -> list[str]:
+    """去重保序（B18 低#14）：重复段名只留首次出现位。"""
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for part in parts:
+        if part not in seen:
+            seen.add(part)
+            ordered.append(part)
+    return ordered
 
 
 def _context_text(report_ctx: dict, key: str) -> str:
@@ -40,8 +73,9 @@ def render_disclaimer_sections(report_ctx: dict) -> str:
 
     组装顺序（各段之间空行分隔，上下文行逐行带 '> ' 前缀）：
     1. 基座：make_disclaimer_block('report') 全局口径块原文；
-    2. 上下文：后端/时钟基准/运行标识三行（字段缺失或空白补"未记录"），
-       per_basis=True 追加 BER→PER 声明句，simulated_parts 非空追加模拟段清单行；
+    2. 上下文：后端/时钟基准/运行标识三行（字段缺失或空白补"未记录"；多行值
+       逐行补 '> ' 前缀、'|' 转义——注入不破坏引用块），per_basis=True 追加
+       BER→PER 声明句，simulated_parts 非空（去重保序）追加模拟段清单行；
     3. 模拟段：simulated_parts 非空时整块拼接 make_disclaimer_block('emc')。
 
     report_ctx 非 dict、str 字段（backend/clock_ref/run_id）非 str、per_basis 非
@@ -76,17 +110,20 @@ def render_disclaimer_sections(report_ctx: dict) -> str:
                 f"实际 {type(part).__name__}: {part!r}"
             )
 
-    context_lines = [
-        f"> 报告上下文：后端 = {backend}",
-        f"> 报告上下文：时钟基准 = {clock_ref}",
-        f"> 报告上下文：运行标识 = {run_id}",
-    ]
+    context_lines: list[str] = []
+    for label, value in (
+        ("后端", backend),
+        ("时钟基准", clock_ref),
+        ("运行标识", run_id),
+    ):
+        context_lines.extend(_context_field_lines(label, value))
     if per_basis:
         context_lines.append(f"> {BER_TO_PER_LINE}")
     if simulated_parts:
-        context_lines.append(
-            f"> {SIM_PARTS_PREFIX}{'、'.join(simulated_parts)}（读数适用下方 emc 级声明）"
+        parts_line = "、".join(
+            _sanitize_inline(part) for part in _dedupe_in_order(simulated_parts)
         )
+        context_lines.append(f"> {SIM_PARTS_PREFIX}{parts_line}（读数适用下方 emc 级声明）")
     sections = [make_disclaimer_block("report"), "\n".join(context_lines)]
     if simulated_parts:
         sections.append(make_disclaimer_block("emc"))

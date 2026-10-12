@@ -7,12 +7,15 @@
 - ② 三元曲线：run_dir/plots/ 三 PNG 齐备→复用不重绘；否则 plot_triple_curves
   以读回数据绘制（三路全空/绘制失败→该段标缺项，不抛）；
 - ③ 失效电平对比：result['failure_levels'] 非空才调 compare_failure_boundaries
-  （空→跳段标「无失效数据」）；
+  （空→跳段标「无失效数据」）；对比表+结论整段以 '> ' 引用块嵌入（中位数等
+  聚合值非数据原文——R46 按口径行计 contextual，防聚合值自噬，B18 中#7）；
 - ④ 样式识别：run_dir/models/style_classifier.json 存在才载入 predict_style
   （不存在→段标「未识别（无模型）」，R32 口径不阻塞；IQ 取 result['iq_source']，
   缺则 recordings/ 首个 .sigmf-meta，再缺→no_iq 如实标注）；
 - ⑤ EMC 段：result 含 'emc' 键（run_emc_conduction_sim 输出形状）才嵌入，全段
   以 '> ' 引用行呈现（模拟读数非实测——R46 溯源时按口径行白名单计 contextual）；
+  'emc' 非 dict → 缺项段且不据此附 simulated_parts/emc 级声明（B18 低#15）；
+  动态文本单元格消毒（换行折叠 ' / '、'|' 转义——B18 中#8/#9）；
 - ⑥ 口径脚注：render_disclaimer_sections——backend/clock_ref/run_id 取自
   result，per_basis 恒 True（PER 口径平台级）；涉 EMC 段时 simulated_parts
   附「EMC 传导摸底段」；
@@ -152,8 +155,19 @@ def _read_monitor(path: str) -> tuple[int | None, list[str] | None]:
 
 
 def _quote_line(line: str) -> str:
-    """引用行规整：已是 '> ' 前缀原样；否则补 '> '（EMC/声明区统一引用口径）。"""
+    """引用行规整：已是 '>' 前缀原样；否则补 '> '（EMC/声明区统一引用口径）。"""
     return line if line.startswith(">") else f"> {line}"
+
+
+def _sanitize_cell(text: str) -> str:
+    """表格/单行单元格消毒：'\\n' → ' / '、'|' → '\\|'（注入字段不破坏表格与
+    行结构——B18 中#8/#9）。"""
+    return text.replace("\n", " / ").replace("|", "\\|")
+
+
+def _quoted_text_lines(text: str) -> list[str]:
+    """多行文本 → 逐行 '|'-转义 + '> ' 引用行组（换行不逃出引用块——B18 中#8）。"""
+    return [_quote_line(_sanitize_cell(part)) for part in text.splitlines()]
 
 
 def _summary_md(
@@ -165,7 +179,8 @@ def _summary_md(
     events: list[dict] | None,
     monitor_n: int | None,
 ) -> str:
-    """运行概要表：目录/标识/后端/时钟 + 三数据文件在位性与行数（缺→缺项）。"""
+    """运行概要表：目录/标识/后端/时钟 + 三数据文件在位性与行数（缺→缺项）。
+    动态 str 单元格消毒（换行折叠 ' / '、'|' 转义——注入不破表格，B18 中#8/#9）。"""
     kpi_cell = f"存在，{len(kpi_rows)} 行" if kpi_rows is not None else "缺项（文件不存在）"
     events_cell = (
         f"存在，{len(events)} 条" if events is not None else "缺项（文件不存在）"
@@ -179,10 +194,10 @@ def _summary_md(
             "",
             "| 项 | 值 |",
             "| --- | --- |",
-            f"| 运行目录 | {run_dir} |",
-            f"| 运行标识 | {run_id_disp} |",
-            f"| 后端 | {backend_disp} |",
-            f"| 时钟基准 | {clock_disp} |",
+            f"| 运行目录 | {_sanitize_cell(run_dir)} |",
+            f"| 运行标识 | {_sanitize_cell(run_id_disp)} |",
+            f"| 后端 | {_sanitize_cell(backend_disp)} |",
+            f"| 时钟基准 | {_sanitize_cell(clock_disp)} |",
             f"| kpi.csv | {kpi_cell} |",
             f"| events.jsonl | {events_cell} |",
             f"| monitor.csv | {monitor_cell} |",
@@ -239,7 +254,9 @@ def _curves_md(
 
 
 def _failure_md(failure_levels: list, missing: list[str]) -> str:
-    """失效电平对比段：compare_failure_boundaries 表+结论；空→无失效数据跳段。"""
+    """失效电平对比段：compare_failure_boundaries 表+结论，整段 '> ' 引用块嵌入
+    （中位数等聚合值非数据文件原文——R46 溯源按口径行白名单计 contextual，
+    防「报告自产聚合值反被自检判虚构」的自噬，B18 中#7）；空→无失效数据跳段。"""
     lines = ["## 失效电平对比", ""]
     if not failure_levels:
         lines.append(_NO_FAILURE_NOTE)
@@ -252,16 +269,17 @@ def _failure_md(failure_levels: list, missing: list[str]) -> str:
         return "\n".join(lines)
     if boundary["comparison"]:
         lines.append(
-            "| 样式 | 失效电平中位数 (dB) | 有效条目数（按条目计） | 最小 (dB) | 最大 (dB) |"
+            "> | 样式 | 失效电平中位数 (dB) | 有效条目数（按条目计） | 最小 (dB) | 最大 (dB) |"
         )
-        lines.append("| --- | --- | --- | --- | --- |")
+        lines.append("> | --- | --- | --- | --- | --- |")
         for row in boundary["comparison"]:
             lines.append(
-                f"| {row['style']} | {row['median_level_db']} dB | {row['n_runs']}"
+                f"> | {_sanitize_cell(str(row['style']))} | {row['median_level_db']} dB"
+                f" | {row['n_runs']}"
                 f" | {row['min_db']} dB | {row['max_db']} dB |"
             )
         lines.append("")
-    lines.append(f"结论：{boundary['conclusion']}")
+    lines.extend(f"> 结论：{part}" for part in str(boundary["conclusion"]).splitlines())
     return "\n".join(lines)
 
 
@@ -314,7 +332,8 @@ def _style_md(result: dict, run_dir: str, missing: list[str]) -> str:
 
 
 def _emc_md(result: dict, missing: list[str]) -> str | None:
-    """EMC 传导摸底段（result 含 'emc' 才嵌入）：全段 '> ' 引用行（模拟读数）。"""
+    """EMC 传导摸底段（result 含 'emc' 才嵌入）：全段 '> ' 引用行（模拟读数）。
+    动态文本单元格消毒（换行折叠 ' / '、'|' 转义——注入不破引用表，B18 中#8/#9）。"""
     emc = result.get("emc")
     if emc is None:
         return None
@@ -340,13 +359,19 @@ def _emc_md(result: dict, missing: list[str]) -> str | None:
                 "未判定（未提供限值线）" if margin is None else f"{margin} dB"
             )
             lines.append(
-                f"> {reading.get('freq_hz')} Hz | {reading.get('power_dbm')} dBm"
-                f" | {reading.get('power_dbuv')} dBµV | {margin_text}"
+                f"> {_sanitize_cell(str(reading.get('freq_hz')))} Hz"
+                f" | {_sanitize_cell(str(reading.get('power_dbm')))} dBm"
+                f" | {_sanitize_cell(str(reading.get('power_dbuv')))} dBµV"
+                f" | {_sanitize_cell(margin_text)}"
             )
     else:
         lines.append("> 缺项：无读数（readings 为空）——不虚构。")
     if emc.get("detector") is not None:
-        lines.append(f"> 检波器：{emc.get('detector')}")
+        detector = str(emc.get("detector"))
+        lines.append(f"> 检波器：{_sanitize_cell(detector.splitlines()[0])}")
+        lines.extend(
+            f"> {_sanitize_cell(part)}" for part in detector.splitlines()[1:]
+        )
     passed = emc.get("passed")
     if passed is None:
         lines.append("> passed：未判定（未提供限值线）")
@@ -356,14 +381,14 @@ def _emc_md(result: dict, missing: list[str]) -> str | None:
     for key in ("compliance_note", "limit_note", "reading_note", "conversion_note"):
         value = emc.get(key)
         if isinstance(value, str):
-            lines.extend(_quote_line(part) for part in value.splitlines())
+            lines.extend(_quoted_text_lines(value))
     warnings = emc.get("warnings")
     if isinstance(warnings, list):
         for item in warnings:
-            lines.append(_quote_line(str(item)))
+            lines.extend(_quoted_text_lines(str(item)))
     disclaimer = emc.get("disclaimer")
     if isinstance(disclaimer, str):
-        lines.extend(_quote_line(part) for part in disclaimer.splitlines())
+        lines.extend(_quoted_text_lines(disclaimer))
     lines.append("> simulated = True（本段全部读数带模拟标记）")
     return "\n".join(lines)
 
@@ -468,7 +493,10 @@ def build_report(run_dir: str, result: dict) -> str:
 
     # ②~⑦ 各节组装（各节函数按需向 missing 追加缺项）
     sections: list[str] = []
-    sections.append("# Run Report" + (f"（{run_id}）" if run_id else ""))
+    safe_run_id = _sanitize_cell(run_id)
+    sections.append(
+        "# Run Report" + (f"（{safe_run_id}）" if run_id else "")
+    )
     sections.append(
         _summary_md(
             run_dir,
@@ -486,6 +514,9 @@ def build_report(run_dir: str, result: dict) -> str:
     sections.append(_failure_md(failure_levels, missing))
     sections.append(_style_md(result, run_dir, missing))
     emc_section = _emc_md(result, missing)
+    # 仅 dict 形状的 emc 才算真有模拟读数段（非 dict → 缺项段，不算模拟段——
+    # 不据此附 simulated_parts/emc 级声明，B18 低#15）。
+    emc_is_simulated = isinstance(result.get("emc"), dict)
     if emc_section is not None:
         sections.append(emc_section)
     sections.append(_freq_md(result, monitor_n, monitor_freqs, missing))
@@ -496,7 +527,7 @@ def build_report(run_dir: str, result: dict) -> str:
     if not isinstance(simulated_parts, list) or not all(
         isinstance(part, str) for part in simulated_parts
     ):
-        simulated_parts = ["EMC 传导摸底段"] if emc_section is not None else []
+        simulated_parts = ["EMC 传导摸底段"] if emc_is_simulated else []
     footnote = render_disclaimer_sections(
         {
             "backend": backend,

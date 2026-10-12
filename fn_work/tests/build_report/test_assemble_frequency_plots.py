@@ -1,6 +1,7 @@
-"""assemble_frequency_plots 对抗测试：5 图满足、缺额注记如实列缺、空/全缺、bool
-False 排除、路径表项落盘实测、未登记键计缺、登记数不足口径、超 5 满足、
-非 dict/键类型错/表项异类拒绝、输出键集合恰为五键。"""
+"""assemble_frequency_plots 对抗测试：5 图满足、缺额注记如实列缺（数量分账
+自洽——5 位口径缺额与登记键无图数并列不矛盾）、空/全缺、bool False 排除、
+路径表项落盘 isfile 实测（目录不算位）、未登记键计缺、登记数不足口径、超 5
+满足、非 dict/键类型错/表项异类拒绝、输出键集合恰为五键。"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -87,6 +88,36 @@ def test_path_entries_measured_on_disk(tmp_path: Path):
     assert result["images"] == ["real_str", "real_path"]
     assert result["slots"] == 2
     assert "gone" in result["deficit_note"]
+
+
+def test_directory_path_entry_not_counted(tmp_path: Path):
+    """⑥b 目录不算图谱位（B18 中#10）：登记目录路径 → isfile False，计缺。"""
+    adir = tmp_path / "as_dir"
+    adir.mkdir()
+    result = assemble_frequency_plots(
+        {"freq_mhz": ["dir_key"], "images": {"dir_key": str(adir)}}
+    )
+    assert result["images"] == []
+    assert result["slots"] == 0
+    assert "dir_key" in result["deficit_note"]
+
+
+def test_deficit_note_accounting_consistent_over_registration(tmp_path: Path):
+    """⑧b 缺额分账自洽（B18 中#11）：登记 10 键、3 可用 → note 按 5 位口径报
+    缺 2、按登记口径报 7 键无图（「实有 3/需 5；登记 10 键中 7 键无图」），
+    不再出现缺额数与缺失清单长度互相矛盾。"""
+    keys = [f"ch{i}" for i in range(10)]
+    images = {key: (True if i < 3 else False) for i, key in enumerate(keys)}
+    result = assemble_frequency_plots({"freq_mhz": keys, "images": images})
+
+    assert result["slots"] == 3
+    assert result["satisfied"] is False
+    note = result["deficit_note"]
+    assert "缺 2 个频点图" in note  # 5 位口径：5-3=2
+    assert "实有 3/需 5" in note
+    assert "登记 10 键中 7 键无图" in note  # 登记口径：10-3=7
+    assert note.count("ch") == 7  # 缺失清单恰列 7 键
+    assert "缺 7 个频点图" not in note  # 不与 5 位口径缺额自相矛盾
 
 
 def test_keys_absent_from_images_count_missing():
