@@ -432,10 +432,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B11 — parse_esp32_frame, drive_esp32_link, parse_nrf24_frame, drive_nrf24_link, apply_cliff_model, simulate_link_degradation, compute_per, normalize_kpi
 ### parse_esp32_frame
-- [ ] parse_esp32_frame · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] parse_esp32_frame · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] parse_esp32_frame · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] parse_esp32_frame · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] parse_esp32_frame · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:parse_esp32_frame' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] parse_esp32_frame · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/drive_esp32_link/test_parse_esp32_frame.py | tail -1 → 34 passed in 0.02s (10-12)
+- [x] parse_esp32_frame · wired — 证据: bash -c grep -rn 'parse_esp32_frame(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/drive_esp32_link/drive_esp32_link.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] parse_esp32_frame · 清单进位 — 证据: bash -c grep -q '| parse_esp32_frame | B11 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] parse_esp32_frame · commit — 预告: fn(parse_esp32_frame): wired 含四文档变更
 ### drive_esp32_link
 - [ ] drive_esp32_link · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -882,4 +882,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B9 一处算术勘误——提示文本「link=−10→−15..0 六档」与 5dB 网格算术不符（实为 −15/−10/−5/0 四档），子代理按规则实现并断言 4 档；阶梯下发口径=target_db 绝对值作衰减请求（干扰功率=满增益−衰减）入 run_power_ladder docstring — 实现申报+主会话探针勘误（60/80dB 损耗超域顶 reachable=False 属正确行为） — 无 — batches 变更记录 Ruling⑭ (10-12)
 - Ruling: B9 双审收口——对抗 中3低2 全修复（①run_power_ladder 每轮自生成 run_token 传停发射链（B3 高#2 同型残留堵死）；②map 负损耗 reachable=False 容错；③set_tx_gain 回退路径增益地板如实（partial/gain_floor/unknown_gain，事件不再虚报）；④判据警告入 ladder_stop 事件；⑤reason 细分 max_steps） — 对抗审查 — 无 — batches 变更记录 Ruling⑮ (10-12)
 - Ruling: B10 双审收口——对抗 高1中1低4 全修复（①estimate_snr 重叠带 guard bin 泄入干扰桶堵死（干扰候选排除信号带全体，掐尽→None+snr=inf）；②计数不变式集合并集+fuzz 500 组锁定；③恰界 1e-9 容差+note 全精度；④末段频轴按实际 span 缩放不越带顶；⑤泄漏表单次读入+逐频点插值（放弃按频点缓存 corrected 的语义错误方案——子代理申报）；⑥flatness reason 前缀区分） — 对抗审查 — 无 — batches 变更记录 Ruling⑯ (10-12)
+- Ruling: B11 三处 NRF/ESP 口径分歧申报（交双审裁决）——①config 形状：esp={'source':'lines','lines':迭代器,port 可缺}，nrf={'port' 必填,'source' 直收迭代器}；②无增量窗：esp per_raw=0.0+note，nrf per_raw=None+note（下游 normalize_kpi 遇 None 会 KpiError——潜在断链）；③坏帧阈：esp 默认 20 连续，nrf 默认 5 连续 — 两个子代理并行实现各自申报同构但细节漂移 — 待双审统一 — batches 变更记录 Ruling⑰ (10-12)
 
