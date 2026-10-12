@@ -32,4 +32,5 @@
 | 10-12 | B13+ | 双审：三轴全过+对抗 中1低5 → 6 项修复+10 回归；Ruling㉑ | 2030 全库绿 |
 | 10-12 | B14 | make_group_splits, dispatch_remote_training, predict_style（波1）, train_classifier, grouped_cv_evaluate（波2） | 2118 全库绿；AI 管线探针（训练 48 两类/推理 tone 0.94/分组 CV F1=1.00 泄漏 False）；Ruling㉒ |
 | 10-12 | B14+ | 双审：三轴过门（2 低观察）+对抗 中3低3 → 5 修 1 申报+18 回归；Ruling㉓ | 2136 全库绿 |
+| 10-12 | B14++ | 修复后复核：5+1 全生效；2 新发现（饥饿吞泄漏/验收措辞）→ 当场修；Ruling㉔ | 2137 全库绿 |
 

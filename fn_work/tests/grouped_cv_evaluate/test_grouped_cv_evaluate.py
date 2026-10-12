@@ -90,15 +90,16 @@ def test_grouped_cv_leak_not_triggered_on_clean_data():
     assert res["below_target"] is False
 
 
-# --- B14 中#2 类饥饿排除：折构造饥饿不误报泄漏 ---
+# --- B14 中#2 类饥饿排除 → B14 复核发现1 修正：两旗标可并存、警告分三态 ---
 
 
 def _starved_folds_scenario(maj_batches=9, per_maj=10):
-    """审查复现场景：90 个多类样本分 9 批 + 2 个少类各 5 样本单批，k=5。
+    """并存态构造（审查复现场景）：90 个多类样本分 9 批 + 2 个少类各 5 样本单批，k=5。
 
     make_group_splits 贪心均衡把两个少类批（计数 5 最小）堆进同一个 test 折 →
-    该折训练集只剩多类（类别覆盖 1<2）——随机口径近乎满分 vs 分组口径少类全错，
-    差>0.15：属折构造饥饿而非泄漏。
+    该折训练集只剩多类（类别覆盖 1<2）→ fold_class_starvation=True；同时各类中心
+    可分 → 随机口径近乎满分 vs 分组口径少类全错，差>0.15 → leak_suspect=True
+    （批纯结构下饥饿与泄漏的贡献不可分——发现1：泄漏不再被饥饿静默改判）。
     """
     data = []
     for bi in range(maj_batches):
@@ -108,21 +109,49 @@ def _starved_folds_scenario(maj_batches=9, per_maj=10):
     return data
 
 
+def _starved_folds_indivisible_scenario(maj_batches=9, per_maj=10):
+    """仅饥饿态构造：与 _starved_folds_scenario 同折布局（两个少类批堆进同一 test 折 →
+    该折训练集只剩多类，fold_class_starvation=True），但三类中心完全相同且零噪声——
+    特征完全不可分，随机/分组两口径同样失败（macro_f1 相等）→ 差距 0（≤0.15），
+    leak_suspect=False：饥饿旗标独立成立而不涉泄漏改判。"""
+    data = []
+    for bi in range(maj_batches):
+        data += _mk("A", [8.0, 0.0, 0.0], f"maj{bi}", per_maj, 0.0, seed=bi)
+    data += _mk("B", [8.0, 0.0, 0.0], "minB", 5, 0.0, seed=90)
+    data += _mk("C", [8.0, 0.0, 0.0], "minC", 5, 0.0, seed=91)
+    return data
+
+
 def test_grouped_cv_class_starvation_not_misreported_as_leak():
-    """类饥饿场景（审查复现）：随机/分组差>0.15 但存在训练集类别覆盖<2 的折 →
-    fold_class_starvation=True、leak_suspect=False（饥饿非泄漏），警告文案报饥饿。"""
-    data = _starved_folds_scenario()
-    with pytest.warns(RuntimeWarning, match="饥饿"):
+    """仅饥饿态：折构造饥饿存在但随机/分组差距≤0.15（特征完全不可分，两口径同低）→
+    fold_class_starvation=True、leak_suspect=False（差距不达标即非泄漏，与饥饿无关），
+    警告文案报仅饥饿。"""
+    data = _starved_folds_indivisible_scenario()
+    with pytest.warns(RuntimeWarning, match="折构造饥饿"):
         res = grouped_cv_evaluate(data, k=5)
     assert res["fold_class_starvation"] is True
     assert res["leak_suspect"] is False
-    assert res["macro_f1"] < 0.85  # 分组口径少类不可学，如实压低
+    assert res["macro_f1"] < 0.85  # 不可分+饥饿：分组口径如实低
+    assert res["below_target"] is True
+
+
+def test_grouped_cv_starvation_and_leak_flags_coexist():
+    """并存态（B14 复核发现1）：批纯（可泄漏结构）数据+饥饿折并存、随机/分组差>0.15 →
+    两旗标齐 True（leak_suspect 不再被饥饿否决、饥饿旗标保留），警告报并存文案。"""
+    data = _starved_folds_scenario()
+    with pytest.warns(
+        RuntimeWarning, match="差距或由饥饿与泄漏共同贡献——建议增批后再评"
+    ):
+        res = grouped_cv_evaluate(data, k=5)
+    assert res["fold_class_starvation"] is True
+    assert res["leak_suspect"] is True
+    assert res["macro_f1"] < 0.85  # 分组口径（防泄漏）分数被如实压低
     assert res["below_target"] is True
 
 
 def test_grouped_cv_starvation_scenario_gap_actually_large():
     """同场景补证：随机口径确实虚高（>0.15 差距真实存在）——排除「差本来就不大」
-    的平凡通过，确保改判逻辑真正吃到了类饥饿排除分支。"""
+    的平凡通过，确保并存分支真正吃到了大差距（两旗标齐 True 的前提成立）。"""
     data = _starved_folds_scenario()
     labels = {s["label"] for s in data}
     assert labels == {"A", "B", "C"}

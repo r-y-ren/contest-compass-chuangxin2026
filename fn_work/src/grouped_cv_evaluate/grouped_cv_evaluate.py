@@ -12,12 +12,14 @@ R31 评测协议（简化签名：本函数收样本数据、不查库——调�
     ③ 汇总混淆矩阵（labels=真值∪预测标签并集排序）+macro_f1（每类 F1 平均——
        零除类 F1=0 计入）+per_fold {'fold','n_train','n_test','accuracy'}；
     ④ 泄漏自检（自证机制）：固定用内置 dummy 口径，把同一数据在「分组划分」与
-       「随机逐样本划分（random.Random(0) 洒点）」下对照——若随机口径 macro_f1 比分组
-       口径高出 >0.15 且各折训练集类别覆盖≥2→'leak_suspect': True+警告（段级泄漏会让
-       随机口径虚高）；**类饥饿排除**（B14 中#2）：任一折训练集类别覆盖<2 类（少数类
-       批次全被分进同一 test 折）时，随机/分组差大属折构造饥饿非泄漏——改报
-       'fold_class_starvation': True+饥饿警告文案（区别于泄漏）。对照实验不调用传入的
-       自定义 train_fn/predict_fn（不产生隐藏重复调用副作用）；
+       「随机逐样本划分（random.Random(0) 洒点）」下对照——随机口径 macro_f1 比分组
+       口径高出 >0.15→'leak_suspect': True+警告（段级泄漏会让随机口径虚高；泄漏判定
+       不被饥饿否决——B14 复核发现1）；**类饥饿旗标与泄漏可并存**（B14 中#2 引入、
+       复核修正互斥改判）：任一折训练集类别覆盖<2 类（少数类批次全被分进同一 test
+       折）→'fold_class_starvation': True——独立于泄漏判定。警告文案分三态：仅泄漏/
+       仅饥饿（饥饿存在但差距≤0.15）/并存（两旗标齐 True——差距或由饥饿与泄漏共同
+       贡献，建议增批后再评）。对照实验不调用传入的自定义 train_fn/predict_fn
+       （不产生隐藏重复调用副作用）；
     ⑤ 内部目标 0.85：macro_f1 < 0.85→'below_target': True 如实记录（不粉饰）。
 
 输入:
@@ -226,16 +228,26 @@ def grouped_cv_evaluate(samples: list, k: int = 5, train_fn=None, predict_fn=Non
     random_pairs, _ = _run_folds(samples, random_folds_idx, _dummy_train, _dummy_predict)
     random_f1 = _macro_f1(_confusion_matrix(random_pairs, labels))
 
-    # 类饥饿排除（B14 中#2）：分组口径下任一折训练集类别覆盖<2 类（少数类批次全被
-    # 分进同一 test 折）时，随机/分组差大属折构造饥饿非泄漏——leak_suspect 追加
-    # 「且各折训练集类别覆盖≥2」，饥饿场景改报 fold_class_starvation+独立警告文案。
+    # 类饥饿与泄漏两旗标可并存（B14 复核发现1）：fold_class_starvation 独立判（任一折
+    # 训练集类别覆盖<2 类——少数类批次全被分进同一 test 折的折构造饥饿）；leak_suspect
+    # 不再被饥饿否决——随机口径显著高于分组（差>0.15）即 True（批纯可泄漏数据+饥饿折
+    # 并存时泄漏不得被静默改判）。警告分三态：仅泄漏/仅饥饿（差距≤0.15）/并存。
     fold_class_starvation = any(
         len({samples[i]["label"] for i in train_idx}) < 2
         for train_idx, _ in folds_idx
     )
     gap = random_f1 - grouped_f1
-    leak_suspect = gap > _LEAK_MARGIN and not fold_class_starvation
-    if leak_suspect:
+    leak_suspect = gap > _LEAK_MARGIN
+    if leak_suspect and fold_class_starvation:
+        warnings.warn(
+            f"分组 CV 自检：随机逐样本划分 macro_f1={random_f1:.3f} 比分组划分 "
+            f"{grouped_f1:.3f} 高出 {gap:.3f}(>0.15)，且存在训练集类别覆盖<2 类的折"
+            "（少数类批次全被分进同一 test 折）——差距或由饥饿与泄漏共同贡献——"
+            "建议增批后再评（评测以分组口径为准）",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    elif leak_suspect:
         warnings.warn(
             f"分组 CV 泄漏自检：随机逐样本划分 macro_f1={random_f1:.3f} 比分组划分 "
             f"{grouped_f1:.3f} 高出 {gap:.3f}(>0.15)——疑似批次级"
