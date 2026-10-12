@@ -388,7 +388,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] map_distance_to_loss · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k pathloss_map -q 2>&1 | tail -1 → 40 passed, 1454 deselected in 1.29s (10-12)
 - [x] map_distance_to_loss · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b9.py | grep -q '30→50dB' && echo 顶层实跑通过（距离→损耗→组合） → 顶层实跑通过（距离→损耗→组合） (10-12)
 - [x] map_distance_to_loss · 清单进位 — 证据: bash -c grep -q '| map_distance_to_loss | B9 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] map_distance_to_loss · commit — 预告: fn(map_distance_to_loss): wired 含四文档变更
+- [x] map_distance_to_loss · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(map_distance_to_loss)' && echo commit在案 → commit在案 (10-12)
 
 ## B9 批间门
 - [ ] B9 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）

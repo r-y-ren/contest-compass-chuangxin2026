@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B9 | plan_ladder_steps, run_power_ladder, compute_pathloss, map_distance_to_loss | 阶梯/失效即停绿（power_ladder）；L(d) 断言（pathloss_map） | 功率/距离族 |
-| B10 | enforce_bandwidth_limit, capture_monitor_spectrum, estimate_snr, check_flatness, compute_spectrum_stats | 限带/分段绿（monitor_capture）；SNR/平坦度（spectrum_stats） | 监测族 |
+| ▶ B10 | enforce_bandwidth_limit, capture_monitor_spectrum, estimate_snr, check_flatness, compute_spectrum_stats | 限带/分段绿（monitor_capture）；SNR/平坦度（spectrum_stats） | 监测族 |
 | B11 | parse_esp32_frame, drive_esp32_link, parse_nrf24_frame, drive_nrf24_link, apply_cliff_model, simulate_link_degradation, compute_per, normalize_kpi | dut 四树 wired（dut_esp32/dut_nrf24/dut_sim/kpi_model） | 被测链路族 |
 | B12 | compute_alignment_error, record_run_streams, run_baseline_check, annotate_truth_labels, write_sigmf_recording | 对齐绿（align_streams）；放行/中止（baseline_guard）；SigMF 往返（sigmf_record） | 采集对齐族 |
 | B13 | check_failure, record_failure_level, execute_gb42590_protocol, compare_failure_boundaries, build_curve_frames, plot_triple_curves | 失效电平预期档±1（gb42590_executor）；定位（boundary_compare）；三图 PNG（triple_curves） | 测评族 |
@@ -34,3 +33,4 @@
 | 10-11 | Ruling⑪B7 双审 | 中5低7 全修+82 回归；探针 fs 参数随欠定域新口径更新 |
 | 10-11 | Ruling⑫B8 申报 | synthesize 单参签名；style 键归注册表；衰减残差最优先 |
 | 10-11 | Ruling⑬B8 双审 | R12 档位标定口径回写；高1中2低3 全修+26 回归 |
+| 10-12 | Ruling⑭B9 勘误 | ladder link=−10 实为 4 档（提示算术错）；阶梯下发=|target| 作衰减；探针损耗改域内 |
