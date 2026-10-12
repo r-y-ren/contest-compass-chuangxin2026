@@ -46,4 +46,4 @@
 | 10-12 | B19+ | 双审：三轴修订后过门+对抗 中2低4 → 9 项修复+25 回归；Ruling㉞ | 2732 全库绿 |
 | 10-12 | B20 | map_per_to_injection, fallback_fixed_strategy, bridge_to_sitl, run_rl_policy, run_rff_pipeline | 2765 全库绿；二期探针（SITL 注入表/固定策略 5 动作/RL ql_table 收敛）；Ruling㉟ |
 | 10-12 | B20+ | 双审：三轴过门+对抗 中1低3 → 6 项修复+5 回归；Ruling㊱ | 2770 全库绿 |
-
+| 10-12 | B21 | execute_scenario（波1）, run_demo（波2 终装）——**全员 wired 119/119、桩归零** | 2810 全库绿；真 --demo 实跑 exit 0（0.63s 八件套+报告+溯源 passed） |

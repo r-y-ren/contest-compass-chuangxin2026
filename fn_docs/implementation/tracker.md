@@ -856,7 +856,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] run_demo · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -k demo_pipeline -q 2>&1 | tail -1 → 23 passed, 2787 deselected, 1 warning in 2.36s (10-12)
 - [x] run_demo · wired — 证据: bash -c python3 /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/scripts/probes/probe_b21.py | grep -q 'exit 0' && echo 顶层实跑通过（--demo 0.63s 全流程） → 顶层实跑通过（--demo 0.63s 全流程） (10-12)
 - [x] run_demo · 清单进位 — 证据: bash -c grep -q '| run_demo | B21 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
-- [ ] run_demo · commit — 预告: fn(run_demo): wired 含四文档变更
+- [x] run_demo · commit — 证据: bash -c git -C /mnt/data/Code/autoC/workspace/chuangxin2026 log --format=%s | head -1 | grep -q 'fn(run_demo)' && echo commit在案 → commit在案 (10-12)
 
 ## B21 批间门
 - [ ] B21 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
