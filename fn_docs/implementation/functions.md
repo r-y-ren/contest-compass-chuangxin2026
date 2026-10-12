@@ -89,7 +89,7 @@
 | predict_style | B14 | wired 10-12 | 17 passed；cnn_dummy+全状态机不抛 | 61716a4 |
 | open_sim_siggen | B15 | stub 10-11 | pytest -k sim_1433d | — |
 | open_sim_analyzer | B15 | stub 10-11 | pytest -k sim_rsa513a | — |
-| upconvert_with_image_rejection | B15 | stub 10-11 | 上游覆盖: open_sim_mixer | — |
+| upconvert_with_image_rejection | B15 | wired 10-12 | 59 passed；公式(2)+镜像+杂散 | pending |
 | open_sim_mixer | B15 | stub 10-11 | pytest -k sim_mixer13g | — |
 | open_sim_emi_receiver | B15 | stub 10-11 | pytest -k sim_emi_receiver | — |
 | open_sim_attenuator | B15 | stub 10-11 | pytest -k sim_attenuator | — |

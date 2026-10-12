@@ -612,10 +612,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] open_sim_analyzer · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] open_sim_analyzer · commit — 预告: fn(open_sim_analyzer): wired 含四文档变更
 ### upconvert_with_image_rejection
-- [ ] upconvert_with_image_rejection · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
-- [ ] upconvert_with_image_rejection · tested — 预告: 叶子自有单测绿/中上层上游覆盖，预期 pytest → passed
-- [ ] upconvert_with_image_rejection · wired — 预告: 调用点存在（grep/ast-grep 命中）；顶层入口实跑一次
-- [ ] upconvert_with_image_rejection · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] upconvert_with_image_rejection · implemented — 证据: bash -c ! grep -rn --include='*.py' -q 'unimplemented:fn:upconvert_with_image_rejection' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src && echo 桩已归零 → 桩已归零 (10-12)
+- [x] upconvert_with_image_rejection · tested — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q tests/open_sim_mixer/test_upconvert_with_image_rejection.py | tail -1 → 59 passed in 0.04s (10-12)
+- [x] upconvert_with_image_rejection · wired — 证据: bash -c grep -rn 'upconvert_with_image_rejection(' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work/src/open_sim_mixer/open_sim_mixer.py | head -1 && echo 生产调用点存在 → 生产调用点存在 (10-12)
+- [x] upconvert_with_image_rejection · 清单进位 — 证据: bash -c grep -q '| upconvert_with_image_rejection | B15 | wired' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/functions.md && echo 已进位 → 已进位 (10-12)
 - [ ] upconvert_with_image_rejection · commit — 预告: fn(upconvert_with_image_rejection): wired 含四文档变更
 ### open_sim_mixer
 - [ ] open_sim_mixer · implemented — 预告: 桩替换为真值，预期本函数桩 grep 归零
@@ -890,4 +890,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B14 三处申报——①predict_style kind='cnn_dummy' 规则判据（质心/带宽特征），'cnn'→unsupported_model not_implemented_yet 如实；②grouped_cv_evaluate 泄漏自检对照组固定内置 dummy（自定义 fn 不重复调用，docstring 裁决）；③train_classifier local 产 cnn_dummy 类均值模型（真训练归 remote 路径） — 子代理实现申报 — 无 — batches Ruling㉒ (10-12)
 - Ruling: B14 双审收口——对抗 中3低3（修 5 申报 1）——①hyperparams 序列化预检（真派发 RemoteError/dry_run serializable 标注）；②泄漏自检类饥饿排除（fold_class_starvation 旗标区别于泄漏——每 run 单样式规范布局下少数类批次少的常态误报堵死）；③pulse 判据重标定（全段 duty+门控自相关）验收：六类中 pulse/tone/chirp/partial_band 默认参数命中；sweep/bandlimited_noise 默认参数落入邻接类（dummy 覆盖域申报⑤的交叠，宽参数可命中）；④零能量退化标注；⑥code_root 绝对化；⑤dummy 覆盖域申报不修（partial_band 覆盖 fraction≤0.06 邻域、sweep/chirp 单向规则不可分——真 CNN 归 remote） — 对抗审查 — 18 回归 — batches Ruling㉓ (10-12)
 - Ruling: B14 复核收口——①饥饿/泄漏两旗标改可并存（泄漏判定不再被饥饿否决，三态警告文案，原仅饥饿例按新语义重构为确定性场景）；②Ruling㉓ sweep 验收措辞如实修正（4/6 默认命中，2 类邻交叠） — 修复后复核发现 — 1 回归 — batches Ruling㉔ (10-12)
+- Ruling: B15 五后端简化口径申报——①混频 rf_power=IF+3dB（LO 搬移能量近似）；②EMI QP=简化衰减曲线（非 CISPR 16-1-1 规范 QP 模型，文档注明）；③衰减器切换时延 nominal 500ns 声明（实测仅程序级记录）；④RF 超 20G 标注 beyond_model；⑤所有读数 simulated:True 标记（R42 规约） — 子代理实现申报 — 无 — batches Ruling㉕ (10-12)
 
