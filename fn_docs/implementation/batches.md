@@ -3,7 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B24 | edit_scenario_ui, render_triple_stream_charts, stream_realtime_console, harden_emergency_stop | 四函数 wired + scenario_editor_e2e/realtime_streams_e2e/emergency_stop 绿 | 实时与安全+运行页编辑器（R57-R59）；改造点×2：serve_console runner 挂 hub、create_console_app 停止路由委托；**随批整改（对抗 I1/M1）**：e2e 补 ws 拦截+零外链断言升大小写不敏感/协议相对 |
+| ▶ B24 | edit_scenario_ui, render_triple_stream_charts, stream_realtime_console, harden_emergency_stop | 四函数 wired + scenario_editor_e2e/realtime_streams_e2e/emergency_stop 绿 | 实时与安全+运行页编辑器（R57-R59）；改造点×2：serve_console runner 挂 hub、create_console_app 停止路由委托；**随批整改（对抗 I1+定向复审 N1）**：e2e 补 ws 拦截（route_web_socket）；零外链守卫收尾——无引号属性值/srcset/action/CSS url( 协议相对形态纳入 |
 | B25 | render_report_html, serve_run_artifacts, list_run_summaries, view_failure_comparison | 四函数 wired + report_view/report_center_e2e/boundary_view 绿 | 报告站内可读（R60–R62） |
 | B26 | browse_dataset_library, build_replay_scenario, launch_replay_run | 三函数 wired + dataset_view_e2e/replay_run 绿 | 数据与回放（R63+R64）；改造点：run_demo._backend_params 透传 replay 参数 |
 | B27 | launch_classifier_training, view_cv_evaluation, infer_style_entry | 三函数 wired + ai_train_view/ai_eval_view/ai_infer_view 绿 | AI 三件（R65–R67） |

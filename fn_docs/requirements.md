@@ -479,7 +479,7 @@
 | pip 依赖 | sigmf、pyvisa（+PyVISA-Py）、fastapi、uvicorn、matplotlib、pytest、pyserial、pymavlink（最全集；定桩时按 R 条目收敛） |
 | GNU Radio 3.10 + UHD | pacman 已装（3.10.12.0-18）；python 绑定解释器待核实（环境决策表待办） |
 | 标准文本 | GB 42590-2023 §5.11、EN 300 328 V2.2.2（出处见补充文档引用清单，不重复存档） |
-| vue.global.prod.js（vendor 入仓，演进轮） | 前端框架本地化，断网可用；随 /pages 静态托管 |
+| vue.global.prod.js（vendor 入仓，演进轮） | 前端框架本地化，断网可用；经 /assets/vendor 路由托管（mount_console_extensions 注册） |
 | markdown（pip，演进轮） | report.md 服务端渲染为 HTML |
 | playwright + chromium（pip，仅测试，演进轮） | 浏览器自动化 E2E 验收；生产运行零依赖 |
 
