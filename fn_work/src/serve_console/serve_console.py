@@ -6,9 +6,13 @@
   全口径装载→薄字段覆盖合并→run_scenario 真跑测试，「开始」即真跑；R58 快速
   通道：缺省 runner 同时挂实时流桥——运行期三路帧经 push_realtime_kpi 推共享
   hub，延迟统计并入运行结果 'realtime' 键）、stop_flag 共享 dict（config 提供
-  则原对象直通，供 /api/stop 与急停路径共享）、scenario_dir/report_root/
-  static_pages 直传 create_console_app（deps 另携 'hub' 共享 /ws hub 容器——
-  create_console_app 原对象优先，极小改造已申报；显式 runner 不挂桥）；
+  则原对象直通，供 /api/stop 与急停路径共享；B24 C1：缺省 runner 把它经
+  run_scenario(stop=…) 贯通管线协作停，后端句柄写回其 'backend' 键）、
+  run_ctx 急停运行上下文（B24 C1：deps['run_ctx']→app.state.run_ctx——停止
+  路由把 stop_flag['backend'] 同步进去供 trigger_emergency_stop 直停真后端）、
+  scenario_dir/report_root/static_pages 直传 create_console_app（deps 另携
+  'hub' 共享 /ws hub 容器——create_console_app 原对象优先，极小改造已申报；
+  显式 runner 不挂桥也不接停容器贯通）；
 - 开箱即用（README 方式三）：scenario_dir 缺失→os.makedirs(exist_ok=True) 按
   config 路径建空目录（相对 cwd），/api/scenarios 即空卡而非 400；
 - static_pages 未传（None）→ 七页产出（R56 断网全可用口径）：localize_console_assets
@@ -101,7 +105,7 @@ def _snapshot_run_dirs(report_root: str) -> "list[str]":
     return [n for n in names if os.path.isdir(os.path.join(report_root, n))]
 
 
-def _make_default_runner(scenario_dir: str, report_root: str, hub: dict):
+def _make_default_runner(scenario_dir: str, report_root: str, hub: dict, stop_flag: dict):
     """构造缺省真实 runner（config['runner'] 未注入时）：网页「开始」真跑测试。
 
     载荷两形态（POST /api/run 的 scenario dict）：
@@ -123,6 +127,15 @@ def _make_default_runner(scenario_dir: str, report_root: str, hub: dict):
     measure_refresh_latency 口径）并入运行结果 'realtime' 键——
     app.state.runs 条目即「写入运行结果 JSON」的操控台侧落点。runner 的
     装载/合并语义不变；桥线程异常隔离（统计缺省不并入，绝不反杀运行）。
+
+    B24 C1（急停真停接线，申报）：stop_flag 由 serve_console 传入（共享停容器
+    ——/api/run 启动复位、/api/stop 置位的同一 dict）：① 经 run_scenario(stop=…)
+    贯通管线协作检查（功率档间/阶段边界），后端打开后管线把句柄写回
+    stop_flag['backend']，停止路由（create_console_app）同步进 deps['run_ctx']
+    供 trigger_emergency_stop 直停真后端；② 桥停旗同用 stop_flag——/api/stop
+    即刻冻结帧流（不再等运行收尾）；③ 运行收尾的 finally 置
+    stop_flag['flag']=True（桥冲刷退出语义不变——共享旗由下一次 /api/run
+    启动复位）。
     """
 
     def _runner(scenario: dict) -> dict:
@@ -154,17 +167,18 @@ def _make_default_runner(scenario_dir: str, report_root: str, hub: dict):
             )
             merged = base
         # R58：实时流桥——尾随线程与运行线程并行，收尾 stop→join 后并入统计。
-        run_ctx = {
+        # B24 C1：桥停旗=共享停容器 stop_flag（/api/stop 即刻冻结帧流）。
+        run_ctx_local = {
             "report_root": report_root,
             "baseline_runs": set(_snapshot_run_dirs(report_root)),
             "result": {},
-            "stop": {"flag": False},
+            "stop": stop_flag,
         }
         bridge_stats: dict = {}
 
         def _run_bridge() -> None:
             try:
-                bridge_stats["realtime"] = stream_realtime_console(run_ctx, hub)
+                bridge_stats["realtime"] = stream_realtime_console(run_ctx_local, hub)
             except Exception:  # noqa: BLE001 - 桥绝不反杀运行（统计缺省不并入）
                 bridge_stats["realtime"] = None
 
@@ -173,9 +187,9 @@ def _make_default_runner(scenario_dir: str, report_root: str, hub: dict):
         )
         bridge.start()
         try:
-            result = run_scenario(merged, out_root=report_root)
+            result = run_scenario(merged, out_root=report_root, stop=stop_flag)
         finally:
-            run_ctx["stop"]["flag"] = True  # 运行收尾：桥最终冲刷后退出
+            stop_flag["flag"] = True  # 运行收尾：桥最终冲刷后退出
             bridge.join(timeout=10)
         realtime = bridge_stats.get("realtime")
         if isinstance(result, dict) and isinstance(realtime, dict):
@@ -308,17 +322,26 @@ def serve_console(config: dict) -> dict:
     # 流桥此刻就要持有 hub 引用（create_console_app 稍后才创建 app：deps 携
     # 'hub' 则原对象优先——create_console_app 极小改造，已申报）。
     hub: dict = {}
+    # B24 C1：急停运行上下文（deps['run_ctx']→app.state.run_ctx）——含 backend
+    # 通道：缺省 runner 的共享停容器在 run_scenario 后端打开后写回 'backend'
+    # 键，create_console_app 停止路由同步进本 ctx，trigger_emergency_stop 即
+    # 直停真后端（此前 console 侧恒拿不到句柄→no_backend 空转）；急停结果落
+    # run_ctx['emergency_stop']。显式 runner 不写回句柄，维持缺省 None 口径。
+    run_ctx: dict = {}
     deps = {
         "runner": (
             config["runner"]
             if "runner" in config
-            else _make_default_runner(scenario_dir, config["report_root"], hub)
+            else _make_default_runner(
+                scenario_dir, config["report_root"], hub, stop_flag
+            )
         ),
         "stop_flag": stop_flag,
         "scenario_dir": scenario_dir,
         "report_root": config["report_root"],
         "static_pages": static_pages,
         "hub": hub,
+        "run_ctx": run_ctx,
     }
     app = create_console_app(deps)
 

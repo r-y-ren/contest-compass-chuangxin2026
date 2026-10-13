@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from pathlib import Path
 
 import pytest
@@ -736,3 +737,121 @@ def test_run_scenario_backend_param_precedence_over_scenario_key(tmp_path, monke
     assert caps["explicit"][-1] == "sim"  # 缺省回落场景键（非 auto）
     assert run_scenario(headless_scenario(backend="auto"))["exit_code"] == 0
     assert caps["explicit"][-1] is None  # 'auto' → 探测
+
+
+# ---------- B24 C1：run_scenario 急停协作停（stop 容器贯通/档间检查/归一 stopped） ----------
+
+
+def test_run_scenario_stop_none_keeps_existing_semantics(tmp_path, monkeypatch):
+    """stop=None（缺省，无急停方）语义不变：正常 completed，容器不参与。"""
+    caps = wire(monkeypatch, tmp_path)
+    result = run_scenario(headless_scenario(), out_root=str(tmp_path / "r"))
+    assert result["status"] == "completed" and result["exit_code"] == 0
+    assert caps["es"]  # 执行分派照常发生
+
+
+def test_run_scenario_stop_container_receives_backend_handle(tmp_path, monkeypatch):
+    """后端句柄注册：stop 容器传入后，autodetect 打开的后端写回 stop['backend']
+    ——急停方直停真后端的通道（B24 C1）。"""
+    wire(monkeypatch, tmp_path)
+    stop = {"flag": False}
+    assert run_scenario(headless_scenario(), out_root=str(tmp_path / "r"), stop=stop)[
+        "status"
+    ] == "completed"
+    assert isinstance(stop.get("backend"), _FakeBackend)  # 真实句柄写回
+
+
+def test_run_scenario_stop_bad_shape_raises_valueerror():
+    """stop 非 dict|None→ValueError（入参形状错早暴露，同 dwell_s 口径）。"""
+    with pytest.raises(ValueError, match="stop"):
+        run_scenario(headless_scenario(), stop=["flag"])
+
+
+def test_run_scenario_preset_stop_flag_aborts_at_stage_boundary(tmp_path, monkeypatch):
+    """旗先置位（阶段边界检查）：运行启动边界即协作中止——status='stopped'、
+    exit_code=1（未完成口径）、events.jsonl 落 emergency_stop 事件留痕。"""
+    caps = wire(monkeypatch, tmp_path)
+    stop = {"flag": True}
+    result = run_scenario(headless_scenario(), out_root=str(tmp_path / "r"), stop=stop)
+    assert result["status"] == "stopped"
+    assert result["exit_code"] == 1  # 中断语义：场景执行未完成
+    assert result["run_dir"] and Path(result["run_dir"]).is_dir()
+    assert "急停" in result["summary"] and "stopped" in result["summary"]
+    assert result["error"] and "协作中止" in result["error"]
+    assert caps["es"] == []  # 执行分派前即中止（运行启动边界）
+    events_path = Path(result["run_dir"]) / "events.jsonl"
+    lines = [json.loads(x) for x in events_path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    assert any(e.get("type") == "emergency_stop" and e.get("status") == "stopped" for e in lines)
+
+
+def test_run_scenario_stop_between_stages_aborts_before_report(tmp_path, monkeypatch):
+    """阶段边界检查（采集→报告）：执行完成后、报告前置旗——报告不落盘，
+    归一 stopped（事件留痕同口径）。"""
+    caps = wire(monkeypatch, tmp_path)
+    stop = {"flag": False}
+
+    def _raise_after_streams(ctx, max_kpi_rows=10000, max_monitor_blocks=1000):
+        caps["streams"].append(ctx)
+        stop["flag"] = True  # 采集完成后置旗（下一阶段边界=报告前）
+        return {"kpi_rows": 0, "monitor_blocks": 0, "stats_rows": 0,
+                "alignment": {}, "recording": None, "streams_note": []}
+
+    monkeypatch.setattr(rd, "record_run_streams", _raise_after_streams)
+    result = run_scenario(headless_scenario(), out_root=str(tmp_path / "r"), stop=stop)
+    assert result["status"] == "stopped" and result["exit_code"] == 1
+    assert caps["es"]  # 执行分派已发生
+    assert caps["build"] == []  # 报告前中止——build_report 未被调
+    assert result["report_path"] is None
+
+
+def test_stop_checked_events_generator_raises_when_flag_set():
+    """sim 事件流协作停包装（功率档间检查点）：旗置位后下一次拉事件即抛
+    EmergencyStopRequested；旗未置位时事件原样透传。"""
+    events = [{"type": "power_step", "jsr_db": -20.0, "ts": float(i)} for i in range(4)]
+    stop = {"flag": False}
+    wrapped = rd._stop_checked_events(iter(events), stop)
+    assert next(wrapped) == events[0]  # 旗未置位：透传
+    stop["flag"] = True
+    with pytest.raises(rd.EmergencyStopRequested, match="档间检查"):
+        next(wrapped)
+    # stop=None（非 dict）形状忽略：永远透传
+    plain = list(rd._stop_checked_events(iter(events), None))
+    assert plain == events
+
+
+def test_run_scenario_mid_ladder_stop_real_sim_terminates_early(tmp_path):
+    """真管线档间急停（决定性单测路径）：dwell 0.4×6 档自然时长 ≥2.4s，运行
+    ~0.55s 置旗——sim 事件流档间检查触发「先停发射再退出」，wall time 明显
+    短于自然时长，结果归一 stopped（status/事件/提前终止三要素齐）。"""
+    import threading
+
+    out_root = tmp_path / "reports"
+    stop = {"flag": False}
+    # 事件源须覆盖阶梯（档间检查点=逐事件拉取；缺省 _sim_events 10 事件 ≥ 6 档）：
+    # jsr=-20 恒不触发判据，6 档全走 = 自然时长 ≥6×dwell。
+    scenario = headless_scenario(
+        dwell_s=0.4,
+        sim_events=[
+            {"type": "power_step", "jsr_db": -20.0, "ts": float(i)} for i in range(10)
+        ],
+    )
+    timer = threading.Timer(0.55, lambda: stop.update(flag=True))
+    timer.start()
+    started = time.monotonic()
+    try:
+        result = run_scenario(scenario, out_root=str(out_root), stop=stop)
+    finally:
+        timer.cancel()
+    elapsed = time.monotonic() - started
+    assert result["status"] == "stopped" and result["exit_code"] == 1
+    assert elapsed < 2.2  # 明显短于自然时长（≥2.4s 纯 dwell + 基线/收尾）
+    run_dir = Path(result["run_dir"])
+    events = [
+        json.loads(x)
+        for x in (run_dir / "events.jsonl").read_text(encoding="utf-8").splitlines()
+        if x.strip()
+    ]
+    types = [e.get("type") for e in events]
+    assert "emergency_stop" in types  # 急停原因入事件流
+    assert "power_step" in types  # 确曾进入阶梯（档间中止而非启动边界）
+    assert types.count("power_step") < 6  # 阶梯未走完（提前终止实证）

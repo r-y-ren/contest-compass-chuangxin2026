@@ -198,6 +198,9 @@ def test_realtime_streams_e2e_run_frames_reach_charts(console_server, charts_pag
     realtime = res["realtime"]
     assert realtime["frames"]["kpi"] > 0 and realtime["frames"]["event"] > 0
     assert realtime["latency"]["n_measured"] > 0  # 行可见→广播发送戳样本入档
+    # B24 I3 方向铆（e2e）：行可见戳先于广播发送戳（同源墙钟）——无负延迟
+    # 样本；交换 sent/acked 配对的变异令全样本入 skew，此处即杀。
+    assert realtime["latency"]["n_clock_skew"] == 0
     assert realtime["followed_run"]  # 真实尾随到本运行目录
     assert errors == []  # 全程无 console error 级 JS 报错
 

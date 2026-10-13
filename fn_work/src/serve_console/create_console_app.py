@@ -13,7 +13,9 @@
   （先 trigger_emergency_stop 停发射+事件留痕，再置共享 stop_flag——安全顺序
   不可倒置）；急停运行上下文 deps 可选 'run_ctx' 注入（backend/run_token 等，
   console 拿不到 backend 时缺省 None），app.state.run_ctx 承接（急停结果落
-  run_ctx['emergency_stop']）。
+  run_ctx['emergency_stop']）。B24 C1 补全（急停真停）：停止路由把共享停容器
+  deps['stop_flag'].get('backend')（run_scenario 后端打开后写回）同步进 run_ctx
+  ——trigger 直停真后端；harden 后经 hub 广播 emergency_stopped 帧（叶子红标）。
 
 注意：本模块**不可**使用 `from __future__ import annotations`——FastAPI 以字符串形式
 对路由签名做注解解析时只查模块全局名，而 Request/WebSocket 等是工厂内延迟 import
@@ -26,6 +28,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 import uuid
 from collections import deque
 from datetime import datetime, timezone
@@ -442,10 +445,39 @@ def create_console_app(deps: dict) -> "FastAPI":
         # 顺序不可倒置；停发射失败仍保证旗置位并在结果报错，绝不 500）。
         # 响应向后兼容：保留既有 'stopped' 键（编排旗已置 True），新增
         # 'emergency_stop' 硬停结果键（停发射状态/事件序/来源——页面按钮
-        # 状态与广播帧消费）。
+        # 状态与广播帧消费；真停 vs no_backend 如实呈现，不虚报「发射已停」）。
+        #
+        # B24 C1（急停真停接线，申报）：
+        # ① 后端句柄贯通——serve_console 缺省 runner 的共享停容器
+        #   （deps['stop_flag']）在 run_scenario 后端打开后写回 'backend' 键
+        #   （stop 容器形状登记见 run_demo.run_scenario docstring）：此处同步
+        #   进急停上下文 run_ctx，trigger_emergency_stop 即直停真后端（此前
+        #   console 侧恒拿不到句柄→no_backend 空转）；显式 runner 未写回时
+        #   维持缺省（no_backend 幂等口径）。
+        # ② 旗真终止编排——stop_flag 即缺省 runner 传入 run_scenario(stop=…)
+        #   的同一容器：置位后管线在功率档间/阶段边界协作检查并走「先停发射
+        #   再退出」中止路径（status='stopped'），不再是仅置旗空转。
+        # ③ harden 完成后经 hub 广播 emergency_stopped 帧（形状对齐
+        #   push_realtime_kpi 既有控制帧族：type/origin/status/stopped_at+
+        #   sent_ms 发送戳）——叶子三路图区已会渲染急停红标，此处补发送方；
+        #   广播失败不影响急停响应（安全动作已完成，帧尽力而为）。
+        shared_stop = deps["stop_flag"]
+        if isinstance(shared_stop, dict) and shared_stop.get("backend") is not None:
+            run_ctx["backend"] = shared_stop["backend"]
         result = harden_emergency_stop(
             source="console", run_ctx=run_ctx, stop_flag=deps["stop_flag"]
         )
+        frame = {
+            "type": "emergency_stopped",
+            "origin": result.get("source"),
+            "status": result.get("status"),
+            "stopped_at": result.get("stopped_at"),
+            "sent_ms": int(time.time() * 1000),
+        }
+        try:
+            await hub["broadcast"](frame)
+        except Exception:  # noqa: BLE001 - 广播尽力而为：绝不反杀急停响应
+            pass
         return {"stopped": result.get("stop_flag_set") is True, "emergency_stop": result}
 
     @app.get("/api/runs")

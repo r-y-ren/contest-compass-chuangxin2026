@@ -125,3 +125,23 @@ def test_scenario_editor_card_refresh_after_success():
     assert 'id="editor-cards"' in block
     assert "refreshCards" in block
     assert "fetch('/api/scenarios')" in block
+
+
+def test_scenario_editor_form_mode_multi_band_guard_wired():
+    """⑧ B24 N2 多频段丢带防护：表单仅表达单一频段——countBands 检测 YAML
+    文本频段条目数，>1 时（切表单即警示+）表单保存被阻止（saveFromForm 先于
+    save() 检查），警示文案原文在位；表单面板附单频段提示。"""
+    block = edit_scenario_ui([])
+    assert "countBands" in block  # 频段计数助手在位
+    assert "warnMultiBandInForm" in block  # 切表单时的实时警示
+    # saveFromForm 内守门：countBands 检查先于 save(formToYaml(), target) 调用
+    form_save = block.split("function saveFromForm", 1)[1].split("function ", 1)[0]
+    assert "countBands" in form_save and "return;" in form_save
+    assert "save(formToYaml(), target)" in form_save
+    guard_pos = form_save.index("countBands")
+    save_pos = form_save.index("save(formToYaml(), target)")
+    assert guard_pos < save_pos  # 守门先于提交
+    assert (
+        "该场景含多频段，表单模式保存将只保留所选频段——请用 YAML 模式" in block
+    )  # 警示文案原文（B24 N2 规约口径）
+    assert "表单模式仅能表达单一频段" in block  # 表单面板静态提示

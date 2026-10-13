@@ -2,11 +2,19 @@
 
 双入口共享同一执行管线（_execute_pipeline/_execute_stage，避免复制）：
 - run_demo(argv)——CLI（文件/--demo 装载 + 退出码 + stdout 摘要行 + 台账缺省开）；
-- run_scenario(scenario, *, backend, out_root, dwell_s, ledger)——无头入口
+- run_scenario(scenario, *, backend, out_root, dwell_s, ledger, stop)——无头入口
   （收已解析场景 dict；validate→guard→normalize 同 load_scenario 三件套口径；
   一切入返回值 {'run_dir','status','report_path','exit_code','failure_levels',
   'summary'}，台账缺省不动）——网页操控台（serve_console 缺省 runner）与
   程序化复用由此进入，不打印不退出。
+
+急停协作停（B24 C1，R59 规约「旗要终止编排」的兑现）：run_scenario 可选参数
+stop=共享停容器 {'flag': bool, 'backend': …}——后端打开后管线把发射后端句柄写回
+stop['backend']（急停方直停真后端的通道，docstring 见 run_scenario）；管线在
+功率档间（sim 事件流逐事件检查）与阶段边界（运行启动/采集/报告前）协作检查
+stop['flag']，置位即抛 EmergencyStopRequested 走既有「先停发射再退出」中止路径
+（ladder/协议编排异常路径自停发射+manage_run 收尾铁律），run_scenario 归一
+status='stopped'（exit_code=1 未完成口径）并在 events.jsonl 落 emergency_stop 事件。
 
 编排链（一键命令串联主链，分阶段退出码；任何异常先停发射经 manage_run 收尾）：
 ① load_scenario（'--demo' 用内置 sim 场景）——LoadScenarioError → exit 2 摘要行；
@@ -61,9 +69,49 @@ from src.verify_report_traceability.verify_report_traceability import (
     verify_report_traceability,
 )
 
+from src.shared.append_event import append_event
+
 from .execute_scenario import append_distance_kpi_rows, execute_scenario, record_run_streams
 
-__all__ = ["run_demo", "run_scenario"]
+__all__ = ["EmergencyStopRequested", "run_demo", "run_scenario"]
+
+
+class EmergencyStopRequested(RuntimeError):
+    """急停协作中止信号（B24 C1）：共享停容器 stop['flag'] 被置位后，管线在
+    协作检查点（功率档间 sim 事件流逐事件/采集与报告等阶段边界）抛出——沿
+    既有「先停发射再退出」中止路径传播（ladder/协议编排的异常路径自停发射，
+    manage_run 收尾铁律再兜），run_scenario 捕获后归一 status='stopped'。"""
+
+
+def _stop_requested(stop: object) -> bool:
+    """协作停判定：stop 为 dict 且 'flag' 为真（None/非 dict 形状忽略，不抛）。"""
+    return isinstance(stop, dict) and bool(stop.get("flag"))
+
+
+def _raise_if_stopped(stop: object, where: str) -> None:
+    """阶段边界协作检查（B24 C1）：停旗已置位即抛 EmergencyStopRequested——
+    异常沿 manage_run 收尾路径先停发射再退出（发射侧静默由收尾铁律保证）。"""
+    if _stop_requested(stop):
+        raise EmergencyStopRequested(
+            f"急停旗已置位（stop['flag']=True，{where}——协作中止）"
+        )
+
+
+def _stop_checked_events(events, stop: object):
+    """sim 事件流的协作停包装（B24 C1 功率档间检查点）：逐事件产出前检查停旗，
+    置位即抛 EmergencyStopRequested——判据窗每档拉样必经此流，异常沿
+    ladder「先停发射再透传」路径接管中止（档间即时生效，不等阶梯走完）。
+
+    覆盖口径（如实登记）：检查点=逐事件拉取；事件流耗尽后判据窗拉样得
+    StopIteration（源耗尽如实计，属既有语义），档间检查随之不再触发——
+    此后急停退化为下一阶段边界中止（结果仍 stopped，但等待阶梯走完）。
+    缺省 _sim_events 产 10 事件 ≥ GB 缺省阶梯 6 档，常规场景全覆盖。"""
+    for event in events:
+        if _stop_requested(stop):
+            raise EmergencyStopRequested(
+                "急停旗已置位（stop['flag']=True，sim 事件流档间检查——协作中止）"
+            )
+        yield event
 
 #: 退出码三态（R44 签名意图：校验失败=2；运行失败=1；均已停发射）。
 EXIT_OK = 0
@@ -344,6 +392,7 @@ def _execute_stage(
     selection: dict,
     clock_ref: str,
     state: dict,
+    stop: object = None,
 ) -> None:
     """manage_run 的 execute 回调主体（发射态迁移→执行分派→采集→报告→溯源）。
 
@@ -351,10 +400,18 @@ def _execute_stage(
     重抛）——run_demo 捕获后按运行失败 exit 1；其中 build_report 失败同口径
     （报告失败=运行失败）。溯源自捕获：失败只标注（'traceability' 附 run
     结果——state/run.log/摘要行三处留痕），绝不反杀运行。
+
+    急停协作检查（B24 C1）：stop=共享停容器时——①运行启动（running 置位后）、
+    采集阶段前、报告阶段前三个阶段边界检查 stop['flag']，置位即抛
+    EmergencyStopRequested（沿 manage_run「先停发射再退出」收尾传播）；
+    ②sim 事件流包 _stop_checked_events（判据窗每档拉样必经——功率档间检查点）；
+    ③采集路 record_run_streams 的协作停凭据透传（streams_ctx['stop']=stop，
+    其三路 drain 原生支持）。stop=None（CLI/无急停方）时一切保持既有语义。
     """
     run_dir = ctx["run_dir"]
     state["run_dir"] = run_dir
     ctx["set_state"]("running")
+    _raise_if_stopped(stop, "运行启动边界（running 置位后）")
     ctx["clock_ref"] = clock_ref  # result.json 口径贯通（finalize 拷贝该键）
 
     # ---- 判据路 DUT 源接线（两级回落 scenario>ctx>缺省 sim；sim 源事件兜底生成） ----
@@ -364,8 +421,12 @@ def _execute_stage(
     if not isinstance(dut, dict) or "source" not in dut:
         dut = {"source": "sim", "samples_per_event": _DEMO_SAMPLES_PER_EVENT}
     ctx["dut"] = dut
-    if dut.get("source") == "sim" and ctx.get("sim_events") is None:
-        ctx["sim_events"] = _sim_events(scenario)
+    if dut.get("source") == "sim":
+        if ctx.get("sim_events") is None:
+            ctx["sim_events"] = _sim_events(scenario)
+        if stop is not None:
+            # 功率档间检查点：判据窗逐档拉样必经 sim 事件流——包装后逐事件查停旗
+            ctx["sim_events"] = _stop_checked_events(ctx["sim_events"], stop)
     if "link_power_db" not in ctx:
         ctx["link_power_db"] = scenario.get("link_power_db", _DEMO_LINK_POWER_DB)
     if ctx.get("monitor") is None:  # gb 基线窗（协议编排内部）同用监测参数
@@ -377,9 +438,10 @@ def _execute_stage(
     ctx["result"] = run_out  # B21 中#2：execute 返回并入 ctx['result']（result.json 口径）
 
     # ---- 监测/录制采集路（'record' 开关场景键；不继承停检凭据/基线录制关） ----
+    _raise_if_stopped(stop, "采集阶段边界（execute→streams）")
     streams_ctx = dict(ctx)
     streams_ctx["record"] = bool(scenario.get("record", False))
-    streams_ctx["stop"] = None
+    streams_ctx["stop"] = stop  # B24 C1：协作停凭据透传（None=既有不停检口径）
     state["streams"] = record_run_streams(streams_ctx)
 
     # ---- distance 档 KPI 行重追加（B21 中#2）：record_run_streams 以 'w' 重写
@@ -395,6 +457,7 @@ def _execute_stage(
         append_distance_kpi_rows(run_dir, inner["kpi_rows"])
 
     # ---- 报告（口径：报告失败=运行失败——异常经 manage_run 收尾 failed → exit 1） ----
+    _raise_if_stopped(stop, "报告阶段边界（streams→report）")
     payload = _report_payload(run_dir, run_out, scenario, selection, clock_ref)
     report_path = build_report(run_dir, payload)
     state["report_path"] = report_path
@@ -546,7 +609,12 @@ def _normalize_scenario_object(scenario: dict) -> dict:
 
 
 def _execute_pipeline(
-    scenario: dict, state: dict, *, backend: str | None, runs_root: str
+    scenario: dict,
+    state: dict,
+    *,
+    backend: str | None,
+    runs_root: str,
+    stop: object = None,
 ) -> "tuple[dict, bool]":
     """共享执行管线（CLI run_demo 与无头入口 run_scenario 同构，避免复制）：
     后端决策→时基→manage_run 全生命周期（execute 回调=执行分派+采集+报告+
@@ -557,17 +625,27 @@ def _execute_pipeline(
     traceability 就地落位）——异常路径（经 manage_run 先停发射收尾后重抛）
     调用方仍能从 state 取到已建 run_dir 等进展留痕。
 
+    stop=共享停容器（B24 C1）：后端打开后把句柄写回 stop['backend']（急停方
+    直停真后端的注册通道——此后 trigger_emergency_stop/stop_transmit_safely
+    经该句柄实停，不再是 no_backend 空转）；容器随后贯通 _execute_stage 的
+    协作检查点（档间/阶段边界）。None=无急停方，既有语义不变。
+
     返回 (run_record, completed)；异常原样上抛（BackendError/RunDirError/
-    execute 阶段任何异常（后者已经 manage_run 先停发射收尾））——失败语义归
-    调用方：CLI 转 exit 1 摘要行，run_scenario 转 failed 返回 dict。
+    execute 阶段任何异常（后者已经 manage_run 先停发射收尾）——含
+    EmergencyStopRequested（协作中止，run_scenario 捕获归一 stopped））——
+    失败语义归调用方：CLI 转 exit 1 摘要行，run_scenario 转 failed 返回 dict。
     """
     backend_obj, selection = autodetect_backend(
         _explicit_backend_name(backend, scenario), _backend_params(scenario)
     )
+    if stop is not None:
+        # 后端句柄注册（B24 C1）：写回共享停容器——急停方经 stop['backend']
+        # 直停真后端（形状登记见 run_scenario docstring）。
+        stop["backend"] = backend_obj
     clock_ref = resolve_clock_reference(backend_obj)["clock_ref"]
 
     def _execute(ctx: dict) -> None:
-        _execute_stage(ctx, scenario, selection, clock_ref, state)
+        _execute_stage(ctx, scenario, selection, clock_ref, state, stop)
 
     run_record = manage_run(scenario, _execute, runs_root=runs_root, backend=backend_obj)
     execute_result = (
@@ -634,6 +712,45 @@ def _result_json_field(run_record: dict, key: str) -> str:
         return "?"
 
 
+def _stopped_result(state: dict, exc: EmergencyStopRequested) -> dict:
+    """急停协作中止的结果归一（B24 C1）：status='stopped'、exit_code=1（未完成
+    口径——中断语义沿用「场景执行未完成即 exit 1」）；events.jsonl 就近补一条
+    emergency_stop 事件留痕（尽力而为——发射侧静默已由传播路径的停发射铁律
+    完成，事件写失败不反杀 stopped 结果）。"""
+    run_dir = state.get("run_dir")
+    execute_result = (
+        state.get("execute_result")
+        if isinstance(state.get("execute_result"), dict)
+        else {}
+    )
+    if isinstance(run_dir, str) and run_dir:
+        try:
+            append_event(
+                run_dir,
+                {
+                    "type": "emergency_stop",
+                    "status": "stopped",
+                    "reason": str(exc),
+                },
+            )
+        except Exception:  # noqa: BLE001 - 留痕尽力而为：不反杀 stopped 归一
+            pass
+    return {
+        "run_dir": run_dir,
+        "status": "stopped",
+        "report_path": state.get("report_path"),
+        "exit_code": EXIT_RUN_FAILED,
+        "backend": _result_json_field({"run_dir": run_dir}, "backend"),
+        "clock_ref": _result_json_field({"run_dir": run_dir}, "clock_ref"),
+        "failure_levels": len(_failure_levels(execute_result)),
+        "summary": (
+            f"run_scenario: 急停协作中止（status=stopped，未完成口径 exit 1）"
+            f": run_dir={run_dir or '<未建>'} {exc}"
+        ),
+        "error": str(exc),
+    }
+
+
 def run_scenario(
     scenario: dict,
     *,
@@ -641,12 +758,13 @@ def run_scenario(
     out_root: str = RUNS_ROOT,
     dwell_s: float | None = None,
     ledger: bool = False,
+    stop: "dict | None" = None,
 ) -> dict:
     """无头单场景运行入口（网页操控台/程序化复用；不打印不退出，一切入返回值）。
 
     与 CLI run_demo 同构的编排链（共享 _execute_pipeline/_execute_stage）：
     场景校验+规范化（validate→guard→normalize，load_scenario 三件套同口径）
-    → 后端决策（backend 参数 > 场景 'backend' > 自动探测）→ 时基 →
+    → 后端决策（backend 参数 > 场景 'backend' > 自动探测） → 时基 →
     manage_run（执行分派+采集+报告+溯源）→ 附注 result.json；台账缺省不动
     （ledger=False；True 时同 CLI --no-ledger 未给口径：场景含 ledger_entry
     才更新，LedgerError 只降 warning）。
@@ -661,17 +779,27 @@ def run_scenario(
         dwell_s: 档间停留秒覆盖（None=不覆盖；非法值 ValueError 早拒）。
         ledger: 是否在场景含 ledger_entry 时更新台账（缺省 False——操控台
             不动台账，CLI 语义归 run_demo）。
+        stop: 急停协作停共享容器（B24 C1，缺省 None=无急停方）。形状登记：
+            {'flag': bool}——编排终止旗，急停方置 True 后管线在功率档间
+            （sim 事件流逐事件）与阶段边界（运行启动/采集/报告前）协作检查，
+            触发即走既有「先停发射再退出」中止路径（本函数归一
+            status='stopped'，exit_code=1 未完成口径，events.jsonl 落
+            emergency_stop 事件）；'backend'——后端打开后由管线写回发射后端
+            句柄（急停方直停真后端的通道：serve_console 停止路由同步进
+            run_ctx 供 trigger_emergency_stop 消费）；其余键不消费。运行
+            生命周期外该容器由调用方管理（操控台 /api/run 启动即复位旗）。
 
     Returns:
         {'run_dir': str|None（校验失败/后端失败为 None）, 'status':
-        'completed'|'failed'|'validation_failed', 'report_path': str|None,
-        'exit_code': 0|1|2（与 CLI 三态同口径）, 'failure_levels': int,
-        'summary': 摘要行文本, 'error': 失败原因（仅失败分支携带）}。
+        'completed'|'failed'|'stopped'|'validation_failed', 'report_path': str|None,
+        'exit_code': 0|1|2（与 CLI 三态同口径；stopped=1 未完成口径）,
+        'failure_levels': int, 'summary': 摘要行文本, 'error': 失败/中止原因
+        （仅失败与 stopped 分支携带）}。
         预期失败路径不抛（返回失败 dict）；仅入参形状错（非 dict 场景/非法
-        dwell_s）抛 ValueError——调用方编程错误早暴露。
+        dwell_s/stop 非 dict）抛 ValueError——调用方编程错误早暴露。
 
     Raises:
-        ValueError: scenario 非 dict / dwell_s 非非负有限秒。
+        ValueError: scenario 非 dict / dwell_s 非非负有限秒 / stop 非 dict|None。
     """
     if not isinstance(scenario, dict):
         raise ValueError(
@@ -679,6 +807,11 @@ def run_scenario(
         )
     if dwell_s is not None and not _is_finite_nonneg_seconds(dwell_s):
         raise ValueError(f"dwell_s 须为非负有限秒数，实际 {dwell_s!r}")
+    if stop is not None and not isinstance(stop, dict):
+        raise ValueError(
+            f"stop 须为共享停容器 dict（{{'flag': bool}}）或 None，实际 "
+            f"{type(stop).__name__}: {stop!r}"
+        )
 
     def _failed(text: str, exc: BaseException | None) -> dict:
         execute_result = (
@@ -718,8 +851,12 @@ def run_scenario(
     # ---- ②③④ 共享执行管线（后端→时基→manage_run→附注；异常转失败 dict） ----
     try:
         run_record, completed = _execute_pipeline(
-            prepared, state, backend=backend, runs_root=out_root
+            prepared, state, backend=backend, runs_root=out_root, stop=stop
         )
+    except EmergencyStopRequested as exc:
+        # B24 C1：急停协作中止——发射侧静默已由传播路径完成（ladder/协议编排
+        # 异常路径+manage_run 收尾铁律），此处归一 stopped（exit 1 未完成口径）。
+        return _stopped_result(state, exc)
     except BackendError as exc:
         return _failed(_backend_error_text(exc), exc)
     except RunDirError as exc:

@@ -3,7 +3,10 @@
 产出口径（R57：纯静态资产 HTML+内联 JS，原生 fetch 自足，不依赖页面 Vue 实例）：
 - 双模式切换：表单模式（字段级控件——style 七类白名单/fs/可选数值键/频段
   2.4G|5.8G 预设+安全声明必选项 shielded_box/dut_scope）与 YAML 文本模式
-  （textarea 直接粘贴场景文本），一键互切；
+  （textarea 直接粘贴场景文本），一键互切；B24 N2 丢带防护——表单仅能表达
+  单一频段，YAML 载入多带场景时切表单即警示、表单保存被阻止（countBands
+  前端启发式：数 bands 行内流式对/块序列条目；服务端 load_scenario 仍为
+  唯一权威校验）；
 - 三操作接线既有场景 CRUD 端点：新建→POST /api/scenarios {'name','content'}、
   编辑→PUT /api/scenarios/{name} {'content'}（目标取场景下拉）、删除→DELETE
   /api/scenarios/{name}；表单模式提交前在浏览器内组装等价 YAML 文本，校验
@@ -114,6 +117,7 @@ _BLOCK_TEMPLATE = r"""<section id="scenario-editor" aria-label="场景编辑器"
       <option value="5725.0,5829.0">5.8G（5725–5829 MHz）</option>
     </select>
   </label>
+  <p class="sce-hint">表单模式仅能表达单一频段——多频段场景请用 YAML 模式（保存时表单只保留上方所选频段）。</p>
   <label>安全声明（红线必选，缺一即 400）：
     <input type="checkbox" id="editor-f-shield"> 屏蔽盒环境确认 shielded_box
     <input type="checkbox" id="editor-f-dut"> 仅测自建链路 dut_scope=self_built
@@ -186,9 +190,30 @@ window.__EDITOR_CARDS__ = __CARDS_JSON__;
     $('editor-btn-yaml-save').hidden = isForm;
     $('editor-btn-mode-form').classList.toggle('active', isForm);
     $('editor-btn-mode-yaml').classList.toggle('active', !isForm);
+    if (isForm) { warnMultiBandInForm(); }
   }
   $('editor-btn-mode-form').addEventListener('click', function () { setMode('form'); });
   $('editor-btn-mode-yaml').addEventListener('click', function () { setMode('yaml'); });
+
+  // ---- B24 N2：多频段场景的表单丢带防护 ----
+  // 表单只能表达单一频段（bands 单选）：YAML 载入多带场景后若以表单模式保存，
+  // 将只保留所选频段静默丢带——此处检测 YAML 文本中的频段条目数，>1 时警示
+  // 并阻止表单保存（前端启发式守门，服务端 load_scenario 仍是唯一权威校验）。
+  var MULTI_BAND_WARNING = '该场景含多频段，表单模式保存将只保留所选频段——请用 YAML 模式';
+  function countBands(text) {
+    if (!text) { return 0; }
+    var m = String(text).match(/^[^\S\n]*bands[^\S\n]*:[^\S\n]*(.*)$/m);
+    if (!m) { return 0; }
+    if (m[1].trim()) {  // 行内流式表：bands: [[a, b], [c, d]] ——数 [..] 对
+      return (m[1].match(/\[[^\[\]]*\]/g) || []).length || 1;
+    }
+    var rest = String(text).slice(m.index + m[0].length);
+    var block = rest.split(/^[^\s#-]/m)[0];  // bands: 之下、下一非缩进行之前的条目行
+    return (block.match(/^[^\S\n]*-[^\S\n]/gm) || []).length;
+  }
+  function warnMultiBandInForm() {
+    if (countBands($('editor-yaml').value) > 1) { showErrors([MULTI_BAND_WARNING]); }
+  }
 
   // ---- 表单 → YAML 文本（数值域交服务端 load_scenario 把关，前端不影子校验） ----
   function fieldNum(id) {
@@ -323,6 +348,11 @@ window.__EDITOR_CARDS__ = __CARDS_JSON__;
   function saveFromForm() {
     var target = targetSel.value;
     if (!target && !requireNewName()) { return; }
+    if (countBands($('editor-yaml').value) > 1) {  // B24 N2：多频段丢带防护
+      showErrors([MULTI_BAND_WARNING]);
+      setStatus('表单模式已阻止保存（多频段场景不可由表单表达）', false);
+      return;
+    }
     save(formToYaml(), target);
   }
   function saveFromYaml() {

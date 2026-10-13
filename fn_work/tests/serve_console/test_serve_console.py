@@ -486,3 +486,38 @@ def test_console_api_explicit_runner_not_overridden(tmp_path):
     cfg["dry_run"] = True
     result = serve_console(cfg)
     assert result["app"].state.deps["runner"] is cfg["runner"]  # 同一对象身份
+
+
+# ---- B24 C1：缺省 runner 急停接线（stop 容器贯通 + run_ctx 注册） ----
+
+
+@needs_fastapi
+def test_console_api_default_runner_threads_shared_stop_into_run_scenario(
+    tmp_path, monkeypatch
+):
+    """B24 C1 接线回归：缺省 runner 把共享停容器（config['stop_flag'] 原对象）
+    经 run_scenario(stop=…) 贯通管线协作停——猴补 run_scenario 捕获 kwargs 证
+    同一性；run_ctx 注册进 deps 并直通 app.state.run_ctx（含 backend 通道）。"""
+    import src.serve_console.serve_console as svs
+
+    seen: dict = {}
+
+    def fake_run_scenario(scenario, **kwargs):
+        seen["stop"] = kwargs.get("stop")
+        return {"status": "completed", "exit_code": 0, "run_dir": None,
+                "report_path": None, "failure_levels": 0, "summary": "stub"}
+
+    monkeypatch.setattr(svs, "run_scenario", fake_run_scenario)
+    cfg = _base_config(tmp_path)  # 先建目录再落场景文件
+    cfg["dry_run"] = True
+    (tmp_path / "scenarios" / "gb_stub.yaml").write_text(_GB_FAST_YAML, encoding="utf-8")
+    result = serve_console(cfg)
+    with TestClient(result["app"]) as client:
+        resp = client.post("/api/run", json={"scenario": {"name": "gb_stub"}})
+        assert resp.status_code == 202
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and "stop" not in seen:
+            time.sleep(0.02)
+    assert seen["stop"] is cfg["stop_flag"]  # 共享停容器原对象贯通（/api/stop 同一 dict）
+    # run_ctx 注册：deps 与 app.state.run_ctx 同一对象（backend 通道容器）
+    assert result["app"].state.deps["run_ctx"] is result["app"].state.run_ctx

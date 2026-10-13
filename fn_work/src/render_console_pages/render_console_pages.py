@@ -193,11 +193,23 @@ const app = Vue.createApp({
     },
     async applyParams() { this.connState = '参数已更新'; },
     async emergencyStop() {
-      // 急停：POST /api/stop（先停发射再置 flag），显示结果。
+      // 急停：POST /api/stop（先停发射再置 flag），按响应真值显示结果——
+      // emergency_stop.transmit.status 携真停/无后端/失败实况时优先渲染真值，
+      // 不再旗置位即宣称「发射已停」（B24 C1b 假反馈修复，申报）。
       try {
         const resp = await fetch('/api/stop', { method: 'POST' });
         const body = resp.ok ? await resp.json() : { stopped: false };
-        this.connState = body.stopped ? '急停已执行（发射已停）' : '急停请求发送（无在途发射）';
+        const es = body.emergency_stop || {};
+        const tx = es.transmit || {};
+        if (es.status === 'stop_failed') {
+          this.connState = '急停异常（发射侧失败，旗已置位）: ' + (es.error || '未知原因');
+        } else if (tx.status === 'stopped' || tx.status === 'already_stopped') {
+          this.connState = '急停已执行（发射已停）';
+        } else if (tx.status === 'no_backend') {
+          this.connState = '急停旗已置（当前无发射后端在途）';
+        } else {
+          this.connState = body.stopped ? '急停旗已置' : '急停请求发送（无在途发射）';
+        }
       } catch (err) { this.connState = '急停失败: ' + err.message; }
     },
     async loadStatus() {

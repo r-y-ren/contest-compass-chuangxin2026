@@ -557,3 +557,62 @@ def test_get_ledger_default_path_reads_real_ledger_from_fn_work_cwd(
     assert body["available"] is True
     assert body["total"] == 100
     assert body["done"] > 0
+
+
+# ---- B24 C1：停止路由 backend 贯通 + emergency_stopped 广播帧 ----
+
+
+class _ProbeBackend:
+    """停发射探针后端：记录 stop_tx/set_tx_gain 调用（真停直证）。"""
+
+    def __init__(self):
+        self.calls: list = []
+
+    def stop_tx(self):
+        self.calls.append("stop_tx")
+
+    def set_tx_gain(self, gain):
+        self.calls.append(("set_tx_gain", gain))
+
+
+@needs_fastapi
+def test_post_stop_syncs_backend_channel_from_shared_stop(tmp_path):
+    """B24 C1①：共享停容器携 'backend'（run_scenario 后端打开后写回）→停止路由
+    同步进 run_ctx，trigger 直停真后端（transmit.status='stopped' 且探针被实调）
+    ——不再是 no_backend 空转。"""
+    deps = _base_deps(tmp_path)
+    backend = _ProbeBackend()
+    deps["stop_flag"]["backend"] = backend
+    app = create_console_app(deps)
+    with TestClient(app) as client:
+        resp = client.post("/api/stop")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["emergency_stop"]["status"] == "stopped"
+    assert body["emergency_stop"]["transmit"]["status"] == "stopped"  # 真停（非 no_backend）
+    assert backend.calls[0] == "stop_tx"  # 真后端被实停
+    assert app.state.run_ctx["backend"] is backend  # 通道同步进急停上下文
+
+
+@needs_fastapi
+def test_post_stop_broadcasts_emergency_stopped_frame(tmp_path):
+    """B24 C1③：harden 后经 hub 广播 emergency_stopped 帧（形状对齐
+    push_realtime_kpi 控制帧族：type/origin/status/stopped_at+sent_ms）——
+    在线 WS 客户端收到帧（叶子红标的发送方补全）。"""
+    deps = _base_deps(tmp_path)
+    app = create_console_app(deps)
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws") as ws:
+            hello = ws.receive_json()  # connected 握手帧
+            assert hello["type"] == "connected"
+            resp = client.post("/api/stop")
+            assert resp.status_code == 200
+            frame = ws.receive_json()  # 急停广播帧
+    assert frame["type"] == "emergency_stopped"
+    assert frame["origin"] == "console"
+    assert frame["status"] == "stopped"
+    assert frame["stopped_at"]
+    assert isinstance(frame["sent_ms"], int)  # 发送戳在位（push 口径）
+    assert any(
+        f.get("type") == "emergency_stopped" for f in app.state.hub["history"]
+    )  # 帧入广播历史（断线重连补画素材）

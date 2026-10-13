@@ -171,6 +171,12 @@ def test_latency_stats_land_in_result_container(tmp_path):
     assert latency["status"] == "ok" and latency["n_measured"] == 6
     assert latency["p50_ms"] is not None and latency["p95_ms"] is not None
     assert latency["threshold_ms"] == 500
+    # B24 I3 方向铆：配对方向为 行可见戳(sent_ms)→广播发送戳(acked_ms)——
+    # 广播必晚于行可见（同源墙钟），延迟恒 ≥0 且无 clock_skew 样本；交换
+    # sent/acked 配对的变异会令全样本变负（被钳 0+计入 skew）——n_clock_skew
+    # 断言即杀。分位单调（P50≤P95）同铆统计语义。
+    assert latency["n_clock_skew"] == 0
+    assert latency["p50_ms"] >= 0 and latency["p50_ms"] <= latency["p95_ms"]
     assert ctx["result"]["realtime"] is stats  # 落点容器同对象
 
 
