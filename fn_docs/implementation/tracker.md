@@ -974,7 +974,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] harden_emergency_stop · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/harden_emergency_stop/ -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-13)
 - [x] harden_emergency_stop · wired — 证据: bash -c grep -n "result = harden_emergency_stop" fn_work/src/serve_console/create_console_app.py && cd fn_work && .venv/bin/python -m pytest -k emergency_stop -q 2>&1 | tail -1 && echo WIRED_OK_停止路由委托 → WIRED_OK_停止路由委托 (10-13)
 - [x] harden_emergency_stop · 清单进位 — 证据: bash -c grep -n "^| harden_emergency_stop | B24 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-13)
-- [ ] harden_emergency_stop · commit — 预告: fn(harden_emergency_stop): wired 含四文档变更
+- [x] harden_emergency_stop · commit — 证据: bash -c git log --format=%h%n%s -1 && echo COMMIT_OK → COMMIT_OK (10-13)
 ## B24 批间门
 - [ ] B24 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
 - [ ] B24 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零

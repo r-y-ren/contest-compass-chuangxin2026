@@ -128,11 +128,11 @@
 <!-- 演进周期追加（2026-10-13，域二十 25 函数） -->
 | render_console_navigation | B23 | wired 10-13 | pytest tests/localize_console_assets/test_render_console_navigation.py → 41 passed；调用点 render_console_pages.py:345；存量 108 passed 无回归 | b72b261 |
 | mount_console_extensions | B23 | wired 10-13 | pytest tests/localize_console_assets/test_mount_console_extensions.py → 14 passed；接线 create_console_app.py:471；vendor 路由 200/157924B；全套件 2972 绿 | d7000fc |
-| localize_console_assets | B23 | wired 10-13 | pytest -k console_offline → 52 passed（含对抗修复后三旁路变体拒收）；-k console_pages_e2e → 8 passed（断网真装载 window.Vue）；装配 serve_console.py:209；全套件 3028 零回归 | 401ccd8 |
-| render_triple_stream_charts | B24 | wired 10-13 | pytest tests/stream_realtime_console/test_render_triple_stream_charts.py → 27 passed；调用点 stream_realtime_console.py:40/521（装配助手经手）；帧协议四型+断线横幅+skip 计数+window 计数钩 | — |
-| stream_realtime_console | B24 | wired 10-13 | pytest tests/stream_realtime_console/test_stream_realtime_console.py → 22 passed；-k realtime_streams_e2e → 2 passed（真 sim 运行帧到达浏览器）；挂载 serve_console.py:167；全套件 3093 | — |
-| harden_emergency_stop | B24 | wired 10-13 | pytest tests/harden_emergency_stop/ → 12 passed；-k emergency_stop → 24 passed（含 R49 族）；委托 create_console_app.py:446；顺序断言停发射先于旗置位 | — |
-| edit_scenario_ui | B24 | wired 10-13 | pytest tests/edit_scenario_ui/ → 8 passed；-k scenario_editor_e2e → 1 passed（表单/YAML 双模式+400 逐条上屏+卡片刷新）；注入 serve_console.py:238；存量 189 无回归 | — |
+| localize_console_assets | B23 | wired 10-13 | pytest -k console_offline → 57 passed（含三旁路+N1 四形态拒收）；-k console_pages_e2e → 8 passed（断网真装载 window.Vue）；装配 serve_console.py:209；全套件 3028 零回归 | 401ccd8 |
+| render_triple_stream_charts | B24 | wired 10-13 | pytest tests/stream_realtime_console/test_render_triple_stream_charts.py → 27 passed；调用点 stream_realtime_console.py:40/521（装配助手经手）；帧协议四型+断线横幅+skip 计数+window 计数钩 | a794e50 |
+| stream_realtime_console | B24 | wired 10-13 | pytest tests/stream_realtime_console/test_stream_realtime_console.py → 22 passed；-k realtime_streams_e2e → 2 passed（真 sim 运行帧到达浏览器）；挂载 serve_console.py:167；全套件 3093 | 962e9f8 |
+| harden_emergency_stop | B24 | wired 10-13 | pytest tests/harden_emergency_stop/ → 12 passed；-k emergency_stop → 24 passed（含 R49 族）；委托 create_console_app.py:446；顺序断言停发射先于旗置位 | 6c90e2b |
+| edit_scenario_ui | B24 | wired 10-13 | pytest tests/edit_scenario_ui/ → 8 passed；-k scenario_editor_e2e → 1 passed（表单/YAML 双模式+400 逐条上屏+卡片刷新）；注入 serve_console.py:238；存量 189 无回归 | b125d10 |
 | render_report_html | B25 | stub 10-13 | pytest -k report_view | — |
 | serve_run_artifacts | B25 | stub 10-13 | pytest -k report_view | — |
 | list_run_summaries | B25 | stub 10-13 | pytest -k report_center_e2e | — |
