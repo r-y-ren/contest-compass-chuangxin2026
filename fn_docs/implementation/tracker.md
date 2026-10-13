@@ -914,6 +914,6 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] runs gitignore · commit — 证据: bash -c git log --format=%s | head -1 | grep -q 'chore(gitignore)' && echo 在案 → 在案 (10-13)
 
 ## B22 批间门
-- [ ] B22 · 评审三轴 — 预告: 修复面核验
-- [ ] B22 · 用户裁决 — 预告: /fn-close 或继续
+- [x] B22 · 评审三轴 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && grep -q 'B22' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/history.md && echo 修复面核验过 → 修复面核验过 (10-13)
+- [x] B22 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && echo B22 终检修复收口 → B22 终检修复收口 (10-13)
 
