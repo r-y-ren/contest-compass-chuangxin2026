@@ -9,11 +9,16 @@
 - Vue3 走 CDN（缺省 unpkg 的 vue.global.prod.js，config['cdn_base'] 可换源）；
 - scenario_dir 空/缺失→空态页面（cards=0，不报错）；写盘可选 config['out_dir']
   （None→只返回 str 不落盘，'written' 列出落盘路径）；assets 恒为 []（无本地构建物）。
+- R56 改造点①：index 运行页并入导航体系——页头嵌 render_console_navigation("index")
+  产出的七页导航条+页标识（当前页 index 高亮、链接 /pages/<slug>）；页面各区块职责
+  不变（Vue3 CDN script 本步不动）。
 """
 from __future__ import annotations
 
 import json
 import os
+
+from src.localize_console_assets.render_console_navigation import render_console_navigation
 
 from .build_scenario_cards import build_scenario_cards
 
@@ -53,9 +58,16 @@ label { display: block; margin: 6px 0; }
 canvas { width: 100%; border: 1px solid #d7dee9; border-radius: 6px; background: #fbfcfe; }
 .stop-btn { background:#c0392b;color:#fff;border:none;padding:6px 24px;border-radius:4px;font-size:1rem;font-weight:bold;cursor:pointer;margin-top:6px; }
 .stop-btn:hover { background:#e74c3c; }
+/* R56 改造点①：七页导航条+页标识（render_console_navigation 产出，嵌入 index 运行页） */
+.console-nav { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 4px 0 8px; }
+.nav-menu { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.nav-link { padding: 2px 10px; border-radius: 4px; text-decoration: none; color: #2c5aa0; }
+.nav-link.active { background: #2c5aa0; color: #fff; font-weight: bold; }
+.page-identity { color: #6b7486; font-size: 13px; }
 </style>
 </head>
 <body>
+__NAV_HTML__
 <div id="app">
   <div id="ws-banner" class="banner" v-show="disconnected">实时连接已断开——自动重连中…</div>
   <header><h1>__TITLE__</h1><span id="conn-state">{{ connState }}</span></header>
@@ -329,11 +341,14 @@ def render_console_pages(scenario_dir: str, config: dict) -> dict:
     # '</' 转义：内嵌 JSON 中的字面 </ 会让浏览器提前闭合 <script> 标签。
     cards_json = json.dumps(cards, ensure_ascii=False).replace("</", "<\\/")
 
+    # R56 改造点①：index 运行页并入导航体系——头部嵌导航条+页标识（区块职责不变）。
+    nav_html = render_console_navigation("index")
     html = (
         _PAGE_TEMPLATE.replace("__TITLE__", title)
         .replace("__CDN_URL__", cdn_base.rstrip("/") + _VUE_CDN_PATH)
         .replace("__CARDS_JSON__", cards_json)
         .replace("__EMPTY_STATE__", _EMPTY_STATE_HTML if not cards else "")
+        .replace("__NAV_HTML__", nav_html)
     )
 
     result = {"pages": {"index.html": html}, "cards": len(cards), "assets": []}

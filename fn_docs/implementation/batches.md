@@ -3,6 +3,15 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
+| ▶ B23 | render_console_navigation, mount_console_extensions, localize_console_assets | localize_console_assets wired + console_offline 绿 + 七页 e2e | 演进地基（R56）；改造点×2：render_console_pages 导航并入、create_console_app 接 mount_console_extensions |
+| B24 | render_triple_stream_charts, stream_realtime_console, harden_emergency_stop | 三函数 wired + realtime_streams_e2e/emergency_stop 绿 | 实时与安全（R58+R59）；改造点×2：serve_console runner 挂 hub、create_console_app 停止路由委托 |
+| B25 | render_report_html, serve_run_artifacts, list_run_summaries, view_failure_comparison | 四函数 wired + report_view/report_center_e2e/boundary_view 绿 | 报告站内可读（R60–R62） |
+| B26 | browse_dataset_library, build_replay_scenario, launch_replay_run | 三函数 wired + dataset_view_e2e/replay_run 绿 | 数据与回放（R63+R64）；改造点：run_demo._backend_params 透传 replay 参数 |
+| B27 | launch_classifier_training, view_cv_evaluation, infer_style_entry | 三函数 wired + ai_train_view/ai_eval_view/ai_infer_view 绿 | AI 三件（R65–R67） |
+| B28 | demo_emc_flows, demo_instrument_panels | 两函数 wired + emc_view/instruments_view 绿 | EMC 与仪表（R68+R69）；改造点：execute_scenario emc 子类型分派 |
+| B29 | view_calibration_status, view_ledger_audit | 两函数 wired + calibration_view/ledger_audit_view 绿 | 标定与台账（R70+R71），只读口径 |
+| B30 | demo_sitl_bridge, demo_rl_policy, demo_rff_pipeline | 三函数 wired + sitl_view/rl_view/rff_view 绿 | 二期演示入口（R72–R74） |
+| B31 | audit_responsibility_alignment | wired + responsibility_alignment 绿 + fn-check①桩归零 | 对账收尾（R75）；旧块回登记：run_scenario 入口/双载荷契约/63 键域/R48 元素枚举 |
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
 | 日期 | 事件 | 说明 |
@@ -45,3 +54,4 @@
 | 10-12 | Ruling㉟B20 申报 | RL=numpy Q-learning 轻量替身；SITL 简化 mock MAVLink 层 |
 | 10-12 | Ruling㊱B20 双审 | 三轴 3 低+对抗 中1低3 全修+5 回归；rff hp 透传/PolicyError 统一/时延申报 |
 | 10-12 | Ruling㊲B21 终批 | 高1中1低1+TX 真机 bug 全修+74 回归；场景文件路线复活（信封键白名单）；119/119 wired 收官 |
+| 10-13 | 演进周期初建 9 批（B23–B31） | 域二十 25 函数+6 改造点，垂直切片：地基→实时安全→报告→数据回放→AI→EMC 仪表→标定台账→二期→对账收尾 |

@@ -917,3 +917,207 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] B22 · 评审三轴 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && grep -q 'B22' /mnt/data/Code/autoC/workspace/chuangxin2026/fn_docs/implementation/history.md && echo 修复面核验过 → 修复面核验过 (10-13)
 - [x] B22 · 用户裁决 — 证据: bash -c cd /mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && python3 -m pytest -q | tail -1 && echo B22 终检修复收口 → B22 终检修复收口 (10-13)
 
+## 演进周期进入五步（2026-10-13）
+- [x] 演进·1 前置检查 — 证据: bash -c test -f fn_docs/responsibility.md && test $(grep -rh "unimplemented:fn:" fn_work/src --include="*.py" | wc -l) -eq 25 && fn_work/.venv/bin/python -c "import markdown, playwright" && echo E1_OK_responsibility在+桩25+依赖齐 → E1_OK_responsibility在+桩25+依赖齐 (10-13)
+- [x] 演进·2 轻量对账 — 证据: bash -c test $(grep -c "| wired" fn_docs/implementation/functions.md) -eq 119 && echo E2_OK_119wired在案_对账子代理四段结论已收 → E2_OK_119wired在案_对账子代理四段结论已收 (10-13)
+- [x] 演进·3 批次计划 — 证据: bash -c test $(grep -cP "^| (▶ )?B(2[3-9]|3[01])" fn_docs/implementation/batches.md) -eq 9 && grep -q "localize_console_assets" fn_docs/implementation/functions.md && grep -q "B23 — " fn_docs/implementation/tracker.md && echo E3_OK_三盘B23-B31写齐 → E3_OK_三盘B23-B31写齐 (10-13)
+- [x] 演进·4 中断恢复检查 — 证据: bash -c ! grep -q "^| B1" fn_docs/implementation/batches.md && ! grep -q "^| B2[0-2]" fn_docs/implementation/batches.md && echo E4_OK_旧批无滞留_仅演进9批在表 → E4_OK_旧批无滞留_仅演进9批在表 (10-13)
+- [x] 演进·5 功能演进判定 — 证据: bash -c test -f fn_docs/acceptance.md && grep -q "R75" fn_docs/requirements.md && echo E5_OK_演进模式确认_手动改动漂移由B31承接 → E5_OK_演进模式确认_手动改动漂移由B31承接 (10-13)
+
+## B23 — render_console_navigation, mount_console_extensions, localize_console_assets
+### render_console_navigation
+- [x] render_console_navigation · implemented — 证据: bash -c cd fn_work && ! grep -q "unimplemented:fn:render_console_navigation" src/localize_console_assets/render_console_navigation.py && .venv/bin/python -m py_compile src/localize_console_assets/render_console_navigation.py && echo IMPL_OK_桩已替换且可编译 → IMPL_OK_桩已替换且可编译 (10-13)
+- [x] render_console_navigation · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/localize_console_assets/test_render_console_navigation.py -q 2>&1 | tail -1 && test ${PIPESTATUS[0]:-0} -eq 0 || .venv/bin/python -m pytest tests/localize_console_assets/test_render_console_navigation.py -q | tail -1 → 41 passed in 0.03s (10-13)
+- [x] render_console_navigation · wired — 证据: bash -c grep -n "render_console_navigation("index")" fn_work/src/render_console_pages/render_console_pages.py && cd fn_work && .venv/bin/python -m pytest tests/render_console_pages/ tests/serve_console/ -q 2>&1 | tail -1 && echo WIRED_OK_存量无回归 → WIRED_OK_存量无回归 (10-13)
+- [x] render_console_navigation · 清单进位 — 证据: bash -c grep -n "^| render_console_navigation | B23 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK_读回在案 → LEDGER_OK_读回在案 (10-13)
+- [ ] render_console_navigation · commit — 预告: fn(render_console_navigation): wired 含四文档变更
+### mount_console_extensions
+- [ ] mount_console_extensions · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] mount_console_extensions · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] mount_console_extensions · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] mount_console_extensions · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] mount_console_extensions · commit — 预告: fn(mount_console_extensions): wired 含四文档变更
+### localize_console_assets
+- [ ] localize_console_assets · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] localize_console_assets · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] localize_console_assets · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] localize_console_assets · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] localize_console_assets · commit — 预告: fn(localize_console_assets): wired 含四文档变更
+## B23 批间门
+- [ ] B23 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B23 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [ ] B23 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+
+## B24 — render_triple_stream_charts, stream_realtime_console, harden_emergency_stop
+### render_triple_stream_charts
+- [ ] render_triple_stream_charts · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] render_triple_stream_charts · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] render_triple_stream_charts · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] render_triple_stream_charts · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] render_triple_stream_charts · commit — 预告: fn(render_triple_stream_charts): wired 含四文档变更
+### stream_realtime_console
+- [ ] stream_realtime_console · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] stream_realtime_console · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] stream_realtime_console · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] stream_realtime_console · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] stream_realtime_console · commit — 预告: fn(stream_realtime_console): wired 含四文档变更
+### harden_emergency_stop
+- [ ] harden_emergency_stop · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] harden_emergency_stop · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] harden_emergency_stop · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] harden_emergency_stop · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] harden_emergency_stop · commit — 预告: fn(harden_emergency_stop): wired 含四文档变更
+## B24 批间门
+- [ ] B24 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B24 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [ ] B24 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+
+## B25 — render_report_html, serve_run_artifacts, list_run_summaries, view_failure_comparison
+### render_report_html
+- [ ] render_report_html · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] render_report_html · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] render_report_html · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] render_report_html · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] render_report_html · commit — 预告: fn(render_report_html): wired 含四文档变更
+### serve_run_artifacts
+- [ ] serve_run_artifacts · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] serve_run_artifacts · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] serve_run_artifacts · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] serve_run_artifacts · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] serve_run_artifacts · commit — 预告: fn(serve_run_artifacts): wired 含四文档变更
+### list_run_summaries
+- [ ] list_run_summaries · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] list_run_summaries · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] list_run_summaries · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] list_run_summaries · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] list_run_summaries · commit — 预告: fn(list_run_summaries): wired 含四文档变更
+### view_failure_comparison
+- [ ] view_failure_comparison · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] view_failure_comparison · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] view_failure_comparison · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] view_failure_comparison · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] view_failure_comparison · commit — 预告: fn(view_failure_comparison): wired 含四文档变更
+## B25 批间门
+- [ ] B25 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B25 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [ ] B25 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+
+## B26 — browse_dataset_library, build_replay_scenario, launch_replay_run
+### browse_dataset_library
+- [ ] browse_dataset_library · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] browse_dataset_library · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] browse_dataset_library · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] browse_dataset_library · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] browse_dataset_library · commit — 预告: fn(browse_dataset_library): wired 含四文档变更
+### build_replay_scenario
+- [ ] build_replay_scenario · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] build_replay_scenario · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] build_replay_scenario · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] build_replay_scenario · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] build_replay_scenario · commit — 预告: fn(build_replay_scenario): wired 含四文档变更
+### launch_replay_run
+- [ ] launch_replay_run · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] launch_replay_run · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] launch_replay_run · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] launch_replay_run · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] launch_replay_run · commit — 预告: fn(launch_replay_run): wired 含四文档变更
+## B26 批间门
+- [ ] B26 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B26 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [ ] B26 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+
+## B27 — launch_classifier_training, view_cv_evaluation, infer_style_entry
+### launch_classifier_training
+- [ ] launch_classifier_training · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] launch_classifier_training · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] launch_classifier_training · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] launch_classifier_training · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] launch_classifier_training · commit — 预告: fn(launch_classifier_training): wired 含四文档变更
+### view_cv_evaluation
+- [ ] view_cv_evaluation · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] view_cv_evaluation · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] view_cv_evaluation · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] view_cv_evaluation · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] view_cv_evaluation · commit — 预告: fn(view_cv_evaluation): wired 含四文档变更
+### infer_style_entry
+- [ ] infer_style_entry · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] infer_style_entry · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] infer_style_entry · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] infer_style_entry · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] infer_style_entry · commit — 预告: fn(infer_style_entry): wired 含四文档变更
+## B27 批间门
+- [ ] B27 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B27 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [ ] B27 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+
+## B28 — demo_emc_flows, demo_instrument_panels
+### demo_emc_flows
+- [ ] demo_emc_flows · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] demo_emc_flows · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] demo_emc_flows · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] demo_emc_flows · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] demo_emc_flows · commit — 预告: fn(demo_emc_flows): wired 含四文档变更
+### demo_instrument_panels
+- [ ] demo_instrument_panels · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] demo_instrument_panels · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] demo_instrument_panels · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] demo_instrument_panels · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] demo_instrument_panels · commit — 预告: fn(demo_instrument_panels): wired 含四文档变更
+## B28 批间门
+- [ ] B28 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B28 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [ ] B28 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+
+## B29 — view_calibration_status, view_ledger_audit
+### view_calibration_status
+- [ ] view_calibration_status · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] view_calibration_status · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] view_calibration_status · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] view_calibration_status · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] view_calibration_status · commit — 预告: fn(view_calibration_status): wired 含四文档变更
+### view_ledger_audit
+- [ ] view_ledger_audit · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] view_ledger_audit · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] view_ledger_audit · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] view_ledger_audit · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] view_ledger_audit · commit — 预告: fn(view_ledger_audit): wired 含四文档变更
+## B29 批间门
+- [ ] B29 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B29 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [ ] B29 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+
+## B30 — demo_sitl_bridge, demo_rl_policy, demo_rff_pipeline
+### demo_sitl_bridge
+- [ ] demo_sitl_bridge · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] demo_sitl_bridge · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] demo_sitl_bridge · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] demo_sitl_bridge · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] demo_sitl_bridge · commit — 预告: fn(demo_sitl_bridge): wired 含四文档变更
+### demo_rl_policy
+- [ ] demo_rl_policy · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] demo_rl_policy · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] demo_rl_policy · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] demo_rl_policy · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] demo_rl_policy · commit — 预告: fn(demo_rl_policy): wired 含四文档变更
+### demo_rff_pipeline
+- [ ] demo_rff_pipeline · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] demo_rff_pipeline · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] demo_rff_pipeline · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] demo_rff_pipeline · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] demo_rff_pipeline · commit — 预告: fn(demo_rff_pipeline): wired 含四文档变更
+## B30 批间门
+- [ ] B30 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B30 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [ ] B30 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+
+## B31 — audit_responsibility_alignment
+### audit_responsibility_alignment
+- [ ] audit_responsibility_alignment · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] audit_responsibility_alignment · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] audit_responsibility_alignment · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] audit_responsibility_alignment · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] audit_responsibility_alignment · commit — 预告: fn(audit_responsibility_alignment): wired 含四文档变更
+## B31 批间门
+- [ ] B31 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B31 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [ ] B31 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked

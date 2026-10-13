@@ -124,3 +124,29 @@
 | run_rff_pipeline | B20 | wired 10-12 | 7 组；端到端 F1 1.0 | 2b3917e |
 | execute_scenario | B21 | wired 10-12 | 18 passed；四类型分派 | 471e6bb |
 | run_demo | B21 | wired 10-12 | 23 passed；CLI 总装+真 --demo 0 退出 | 857f436 |
+
+<!-- 演进周期追加（2026-10-13，域二十 25 函数） -->
+| render_console_navigation | B23 | wired 10-13 | pytest tests/localize_console_assets/test_render_console_navigation.py → 41 passed；调用点 render_console_pages.py:345；存量 108 passed 无回归 | — |
+| mount_console_extensions | B23 | stub 10-13 | pytest -k console_offline | — |
+| localize_console_assets | B23 | stub 10-13 | pytest -k console_offline | — |
+| render_triple_stream_charts | B24 | stub 10-13 | pytest -k realtime_streams_e2e | — |
+| stream_realtime_console | B24 | stub 10-13 | pytest -k realtime_streams_e2e | — |
+| harden_emergency_stop | B24 | stub 10-13 | pytest -k emergency_stop | — |
+| render_report_html | B25 | stub 10-13 | pytest -k report_view | — |
+| serve_run_artifacts | B25 | stub 10-13 | pytest -k report_view | — |
+| list_run_summaries | B25 | stub 10-13 | pytest -k report_center_e2e | — |
+| view_failure_comparison | B25 | stub 10-13 | pytest -k boundary_view | — |
+| browse_dataset_library | B26 | stub 10-13 | pytest -k dataset_view_e2e | — |
+| build_replay_scenario | B26 | stub 10-13 | pytest -k replay_run | — |
+| launch_replay_run | B26 | stub 10-13 | pytest -k replay_run | — |
+| launch_classifier_training | B27 | stub 10-13 | pytest -k ai_train_view | — |
+| view_cv_evaluation | B27 | stub 10-13 | pytest -k ai_eval_view | — |
+| infer_style_entry | B27 | stub 10-13 | pytest -k ai_infer_view | — |
+| demo_emc_flows | B28 | stub 10-13 | pytest -k emc_view | — |
+| demo_instrument_panels | B28 | stub 10-13 | pytest -k instruments_view | — |
+| view_calibration_status | B29 | stub 10-13 | pytest -k calibration_view | — |
+| view_ledger_audit | B29 | stub 10-13 | pytest -k ledger_audit_view | — |
+| demo_sitl_bridge | B30 | stub 10-13 | pytest -k sitl_view | — |
+| demo_rl_policy | B30 | stub 10-13 | pytest -k rl_view | — |
+| demo_rff_pipeline | B30 | stub 10-13 | pytest -k rff_view | — |
+| audit_responsibility_alignment | B31 | stub 10-13 | pytest -k responsibility_alignment | — |
