@@ -955,13 +955,13 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] edit_scenario_ui · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/edit_scenario_ui/ -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-13)
 - [x] edit_scenario_ui · wired — 证据: bash -c grep -n "edit_scenario_ui(_index_cards" fn_work/src/serve_console/serve_console.py && cd fn_work && .venv/bin/python -m pytest -k scenario_editor_e2e -q 2>&1 | tail -1 && echo WIRED_OK_e2e实跑 → WIRED_OK_e2e实跑 (10-13)
 - [x] edit_scenario_ui · 清单进位 — 证据: bash -c grep -n "^| edit_scenario_ui | B24 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-13)
-- [ ] edit_scenario_ui · commit — 预告: fn(edit_scenario_ui): wired 含四文档变更
+- [x] edit_scenario_ui · commit — 证据: bash -c git log --format=%h%n%s -1 && echo COMMIT_OK → COMMIT_OK (10-13)
 
 ### render_triple_stream_charts
-- [ ] render_triple_stream_charts · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] render_triple_stream_charts · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] render_triple_stream_charts · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] render_triple_stream_charts · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] render_triple_stream_charts · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn:render_triple_stream_charts src/stream_realtime_console/render_triple_stream_charts.py && .venv/bin/python -m py_compile src/stream_realtime_console/render_triple_stream_charts.py && echo IMPL_OK → IMPL_OK (10-13)
+- [x] render_triple_stream_charts · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/stream_realtime_console/test_render_triple_stream_charts.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-13)
+- [x] render_triple_stream_charts · wired — 证据: bash -c grep -n "from .render_triple_stream_charts import" fn_work/src/stream_realtime_console/stream_realtime_console.py && cd fn_work && .venv/bin/python -m pytest tests/stream_realtime_console/test_render_triple_stream_charts.py -q 2>&1 | tail -1 && echo WIRED_OK_父模块经手叶子 → WIRED_OK_父模块经手叶子 (10-13)
+- [x] render_triple_stream_charts · 清单进位 — 证据: bash -c grep -n "^| render_triple_stream_charts | B24 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-13)
 - [ ] render_triple_stream_charts · commit — 预告: fn(render_triple_stream_charts): wired 含四文档变更
 ### stream_realtime_console
 - [ ] stream_realtime_console · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
