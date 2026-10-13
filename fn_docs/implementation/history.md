@@ -49,3 +49,4 @@
 | 10-12 | B21 | execute_scenario（波1）, run_demo（波2 终装）——**全员 wired 119/119、桩归零** | 2810 全库绿；真 --demo 实跑 exit 0（0.63s 八件套+报告+溯源 passed） |
 | 10-12 | B21+ | 终批双审：三轴过门+对抗 高1中1低1+TX 真机 → 全修+74 回归；Ruling㊲——**21/21 批·119/119 函数 wired 收官** | 2884 全库绿 |
 | 10-13 | B22 | write_b210_tx_stream np.complexfloating 修复（终检发现 1，真机验证零置零）+runs gitignore（发现 2） | 2890 全库绿；真机 1024 样本全量送达 |
+| 10-13 | B23 | render_console_navigation（41 测）+render_console_pages 改造点①导航并入、mount_console_extensions（14 测）+create_console_app 改造点②一处接线+vendor 资产路由、localize_console_assets（console_offline 48+断网 e2e 8）+serve_console 七页装配（Ruling 第 3 触点） | R56 验收双绿（console_offline/console_pages_e2e）；全套件 3028 零回归；commits b72b261/d7000fc/401ccd8 |

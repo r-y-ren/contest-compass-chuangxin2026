@@ -126,12 +126,13 @@
 | run_demo | B21 | wired 10-12 | 23 passed；CLI 总装+真 --demo 0 退出 | 857f436 |
 
 <!-- 演进周期追加（2026-10-13，域二十 25 函数） -->
-| render_console_navigation | B23 | wired 10-13 | pytest tests/localize_console_assets/test_render_console_navigation.py → 41 passed；调用点 render_console_pages.py:345；存量 108 passed 无回归 | — |
-| mount_console_extensions | B23 | wired 10-13 | pytest tests/localize_console_assets/test_mount_console_extensions.py → 14 passed；接线 create_console_app.py:471；vendor 路由 200/157924B；全套件 2972 绿 | — |
-| localize_console_assets | B23 | wired 10-13 | pytest -k console_offline → 48 passed；-k console_pages_e2e → 8 passed（断网真装载 window.Vue）；装配 serve_console.py:209；全套件 3028 零回归 | — |
+| render_console_navigation | B23 | wired 10-13 | pytest tests/localize_console_assets/test_render_console_navigation.py → 41 passed；调用点 render_console_pages.py:345；存量 108 passed 无回归 | b72b261 |
+| mount_console_extensions | B23 | wired 10-13 | pytest tests/localize_console_assets/test_mount_console_extensions.py → 14 passed；接线 create_console_app.py:471；vendor 路由 200/157924B；全套件 2972 绿 | d7000fc |
+| localize_console_assets | B23 | wired 10-13 | pytest -k console_offline → 48 passed；-k console_pages_e2e → 8 passed（断网真装载 window.Vue）；装配 serve_console.py:209；全套件 3028 零回归 | 401ccd8 |
 | render_triple_stream_charts | B24 | stub 10-13 | pytest -k realtime_streams_e2e | — |
 | stream_realtime_console | B24 | stub 10-13 | pytest -k realtime_streams_e2e | — |
 | harden_emergency_stop | B24 | stub 10-13 | pytest -k emergency_stop | — |
+| edit_scenario_ui | B24 | stub 10-13 | pytest -k scenario_editor_e2e | — |
 | render_report_html | B25 | stub 10-13 | pytest -k report_view | — |
 | serve_run_artifacts | B25 | stub 10-13 | pytest -k report_view | — |
 | list_run_summaries | B25 | stub 10-13 | pytest -k report_center_e2e | — |

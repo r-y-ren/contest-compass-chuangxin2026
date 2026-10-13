@@ -920,7 +920,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 ## 演进周期进入五步（2026-10-13）
 - [x] 演进·1 前置检查 — 证据: bash -c test -f fn_docs/responsibility.md && test $(grep -rh "unimplemented:fn:" fn_work/src --include="*.py" | wc -l) -eq 25 && fn_work/.venv/bin/python -c "import markdown, playwright" && echo E1_OK_responsibility在+桩25+依赖齐 → E1_OK_responsibility在+桩25+依赖齐 (10-13)
 - [x] 演进·2 轻量对账 — 证据: bash -c test $(grep -c "| wired" fn_docs/implementation/functions.md) -eq 119 && echo E2_OK_119wired在案_对账子代理四段结论已收 → E2_OK_119wired在案_对账子代理四段结论已收 (10-13)
-- [x] 演进·3 批次计划 — 证据: bash -c test $(grep -cP "^| (▶ )?B(2[3-9]|3[01])" fn_docs/implementation/batches.md) -eq 9 && grep -q "localize_console_assets" fn_docs/implementation/functions.md && grep -q "B23 — " fn_docs/implementation/tracker.md && echo E3_OK_三盘B23-B31写齐 → E3_OK_三盘B23-B31写齐 (10-13)
+- [x] 演进·3 批次计划 — 证据: bash -c test $(grep -c "^| ▶ B" fn_docs/implementation/batches.md) -eq 1 && test $(grep -c "^| B2" fn_docs/implementation/batches.md) -eq 6 && test $(grep -c "^| B3" fn_docs/implementation/batches.md) -eq 2 && grep -q localize_console_assets fn_docs/implementation/functions.md && echo E3_OK_三盘B23-B31写齐 (10-13)
 - [x] 演进·4 中断恢复检查 — 证据: bash -c ! grep -q "^| B1" fn_docs/implementation/batches.md && ! grep -q "^| B2[0-2]" fn_docs/implementation/batches.md && echo E4_OK_旧批无滞留_仅演进9批在表 → E4_OK_旧批无滞留_仅演进9批在表 (10-13)
 - [x] 演进·5 功能演进判定 — 证据: bash -c test -f fn_docs/acceptance.md && grep -q "R75" fn_docs/requirements.md && echo E5_OK_演进模式确认_手动改动漂移由B31承接 → E5_OK_演进模式确认_手动改动漂移由B31承接 (10-13)
 
@@ -942,13 +942,20 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] localize_console_assets · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k console_offline -q 2>&1 | tail -1 && echo TESTED_OK_R56验收 → TESTED_OK_R56验收 (10-13)
 - [x] localize_console_assets · wired — 证据: bash -c grep -n "skeleton = localize_console_assets" fn_work/src/serve_console/serve_console.py && cd fn_work && .venv/bin/python -m pytest -k console_pages_e2e -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/serve_console/ -q 2>&1 | tail -1 && echo WIRED_OK_e2e实跑加存量无回归 → WIRED_OK_e2e实跑加存量无回归 (10-13)
 - [x] localize_console_assets · 清单进位 — 证据: bash -c grep -n "^| localize_console_assets | B23 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-13)
-- [ ] localize_console_assets · commit — 预告: fn(localize_console_assets): wired 含四文档变更
+- [x] localize_console_assets · commit — 证据: bash -c git log --format=%h%n%s -1 && echo COMMIT_OK → COMMIT_OK (10-13)
 ## B23 批间门
 - [ ] B23 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
 - [ ] B23 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
 - [ ] B23 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
 
-## B24 — render_triple_stream_charts, stream_realtime_console, harden_emergency_stop
+## B24 — edit_scenario_ui, render_triple_stream_charts, stream_realtime_console, harden_emergency_stop
+### edit_scenario_ui
+- [ ] edit_scenario_ui · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
+- [ ] edit_scenario_ui · tested — 预告: 自有单测绿，预期 pytest → passed
+- [ ] edit_scenario_ui · wired — 预告: 调用点存在，预期 grep 命中
+- [ ] edit_scenario_ui · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] edit_scenario_ui · commit — 预告: fn(edit_scenario_ui): wired 含四文档变更
+
 ### render_triple_stream_charts
 - [ ] render_triple_stream_charts · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
 - [ ] render_triple_stream_charts · tested — 预告: 自有单测绿，预期 pytest → passed
@@ -1123,3 +1130,4 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] B31 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
 - Ruling: B23 serve_console 缺省装配七页产出（R56 改造点枚举遗漏的第 3 触点） — 原因：七页经 /pages 托管+断网可加载是 R56 验收硬件，装配逻辑只在 serve_console — 代价：serve_console.py L194-210 最小侵入+1 存量用例期望同步（CDN 单页→七页 vendor） — 落点：batches 变更记录互指
 - Ruling: B23 实现口径校正两处（mount_console_extensions 的 app 能力探测用 get+routes 而非 route 属性——starlette 1.8 已移除；AppError 延迟 import 防与 create_console_app 循环互导） — 原因：环境实测与既有口径 — 代价：无 — 落点：批间评审复核
+- Ruling: fn-step-done 落盘剥反斜杠（E3/wired 行证据文本被 awk 吃掉转义致不可复现） — 原因：脚本写径对反斜杠敏感（本批两次读回误报同源） — 代价：E3 证据文本已按实跑口径改写、wired 行 931 同类但不影响判定 — 落点：后续核验命令一律零反斜杠；流程坑入记忆

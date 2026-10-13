@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B23 | render_console_navigation, mount_console_extensions, localize_console_assets | localize_console_assets wired + console_offline 绿 + 七页 e2e | 演进地基（R56）；改造点×2：render_console_pages 导航并入、create_console_app 接 mount_console_extensions |
-| B24 | render_triple_stream_charts, stream_realtime_console, harden_emergency_stop | 三函数 wired + realtime_streams_e2e/emergency_stop 绿 | 实时与安全（R58+R59）；改造点×2：serve_console runner 挂 hub、create_console_app 停止路由委托 |
+| ▶ B24 | edit_scenario_ui, render_triple_stream_charts, stream_realtime_console, harden_emergency_stop | 四函数 wired + scenario_editor_e2e/realtime_streams_e2e/emergency_stop 绿 | 实时与安全+运行页编辑器（R57-R59）；改造点×2：serve_console runner 挂 hub、create_console_app 停止路由委托；**随批整改（对抗 I1/M1）**：e2e 补 ws 拦截+零外链断言升大小写不敏感/协议相对 |
 | B25 | render_report_html, serve_run_artifacts, list_run_summaries, view_failure_comparison | 四函数 wired + report_view/report_center_e2e/boundary_view 绿 | 报告站内可读（R60–R62） |
 | B26 | browse_dataset_library, build_replay_scenario, launch_replay_run | 三函数 wired + dataset_view_e2e/replay_run 绿 | 数据与回放（R63+R64）；改造点：run_demo._backend_params 透传 replay 参数 |
 | B27 | launch_classifier_training, view_cv_evaluation, infer_style_entry | 三函数 wired + ai_train_view/ai_eval_view/ai_infer_view 绿 | AI 三件（R65–R67） |
@@ -55,3 +54,7 @@
 | 10-12 | Ruling㊱B20 双审 | 三轴 3 低+对抗 中1低3 全修+5 回归；rff hp 透传/PolicyError 统一/时延申报 |
 | 10-12 | Ruling㊲B21 终批 | 高1中1低1+TX 真机 bug 全修+74 回归；场景文件路线复活（信封键白名单）；119/119 wired 收官 |
 | 10-13 | 演进周期初建 9 批（B23–B31） | 域二十 25 函数+6 改造点，垂直切片：地基→实时安全→报告→数据回放→AI→EMC 仪表→标定台账→二期→对账收尾 |
+| 10-13 | Ruling：serve_console 缺省装配七页产出（R56 第 3 触点） | 七页托管是 R56 验收硬件；tracker Ruling 行互指；存量用例 way3 期望同步（CDN 单页→七页 vendor） |
+| 10-13 | Ruling：B23 实现口径校正两处 | starlette 1.8 无 route 属性→get+routes 探测；AppError 延迟 import 防循环互导；批间评审复核 |
+| 10-13 | 对抗审查 I2 修复：edit_scenario_ui 补排 B24 | 切批遗漏（24≠25，B31 桩归零门会撞）；批间门裁决前置修正 |
+| 10-13 | 对抗审查 I3 修复：E3 证据文本校正 | fn-step-done 落盘剥反斜杠致命令不可复现；已按实跑口径改写并留 Ruling |
