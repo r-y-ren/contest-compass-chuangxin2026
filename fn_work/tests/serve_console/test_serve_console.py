@@ -193,6 +193,38 @@ def test_console_api_explicit_static_pages_not_overridden(tmp_path):
 
 
 @needs_fastapi
+def test_console_api_default_index_injects_scenario_editor(tmp_path):
+    """R57 wired 回归：缺省装配的 index 运行页注入场景编辑器区块（serve_console
+    运行页区块挂载点）——区块根 id+CRUD 接线+装配期场景卡片内嵌均在位；
+    显式 static_pages 直通则不注入（区块注入仅缺省七页产出路径）。"""
+    sdir = tmp_path / "scenarios"
+    sdir.mkdir()
+    (sdir / "tone_seed.yaml").write_text(
+        "style: tone\nfs: 1.0e6\npower_dbm: -20\nbands:\n  - [2400.0, 2483.5]\n"
+        "shielded_box: true\ndut_scope: self_built\n",
+        encoding="utf-8",
+    )
+    cfg = _base_config(tmp_path)
+    cfg["dry_run"] = True
+    result = serve_console(cfg)
+    with TestClient(result["app"]) as client:
+        page = client.get("/pages/index").text
+        skeleton = client.get("/pages/overview").text  # 其余六页不受注入影响
+    assert 'id="scenario-editor"' in page
+    assert "method: 'PUT'" in page and "method: 'DELETE'" in page  # CRUD 接线在位
+    assert '<option value="tone_seed">' in page  # 装配期卡片进目标下拉
+    assert 'id="scenario-editor"' not in skeleton
+
+    cfg2 = _base_config(tmp_path)
+    cfg2["dry_run"] = True
+    cfg2["static_pages"] = {"index.html": "<html><body>x</body></html>"}
+    result2 = serve_console(cfg2)
+    with TestClient(result2["app"]) as client2:
+        page2 = client2.get("/pages/index").text
+    assert "scenario-editor" not in page2  # 显式直通：不注入
+
+
+@needs_fastapi
 def test_console_api_scenario_dir_uncreatable_console_error(tmp_path):
     """scenario_dir 不可创建（父为文件）→ConsoleError 指明路径（不静默 400 路由）。"""
     blocker = tmp_path / "afile"

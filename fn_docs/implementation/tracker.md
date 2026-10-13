@@ -951,10 +951,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B24 — edit_scenario_ui, render_triple_stream_charts, stream_realtime_console, harden_emergency_stop
 ### edit_scenario_ui
-- [ ] edit_scenario_ui · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] edit_scenario_ui · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] edit_scenario_ui · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] edit_scenario_ui · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] edit_scenario_ui · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn:edit_scenario_ui src/edit_scenario_ui/edit_scenario_ui.py && .venv/bin/python -m py_compile src/edit_scenario_ui/edit_scenario_ui.py && echo IMPL_OK → IMPL_OK (10-13)
+- [x] edit_scenario_ui · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/edit_scenario_ui/ -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-13)
+- [x] edit_scenario_ui · wired — 证据: bash -c grep -n "edit_scenario_ui(_index_cards" fn_work/src/serve_console/serve_console.py && cd fn_work && .venv/bin/python -m pytest -k scenario_editor_e2e -q 2>&1 | tail -1 && echo WIRED_OK_e2e实跑 → WIRED_OK_e2e实跑 (10-13)
+- [x] edit_scenario_ui · 清单进位 — 证据: bash -c grep -n "^| edit_scenario_ui | B24 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-13)
 - [ ] edit_scenario_ui · commit — 预告: fn(edit_scenario_ui): wired 含四文档变更
 
 ### render_triple_stream_charts

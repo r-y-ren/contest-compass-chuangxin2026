@@ -14,7 +14,8 @@
   samefile 守卫短路跳过复制），运行页 index 的真实内容由 render_console_pages(
   scenario_dir, {}) 产出后经 replace_cdn_with_vendor 切本地 vendor（CDN script→
   /assets/vendor/vue.global.prod.js）覆盖注入 deps——用户无需预渲染即可 GET
-  /pages/<七页 slug>，全站零 CDN；
+  /pages/<七页 slug>，全站零 CDN；运行页另在 </body> 前注入 R57 场景编辑器
+  区块（edit_scenario_ui 产出，装配期场景卡片为下拉/卡片视图初值）；
 - config['dry_run']=True→不拉起不检端口，返回 {'app', 'launched': False, 'port',
   'host'}（测试经 TestClient 直接打 create 路由）；
 - 真拉起序：先探端口占用→ConsoleError（dry_run 下不检）；再延迟 import uvicorn
@@ -26,6 +27,7 @@
 import os
 import socket
 
+from src.edit_scenario_ui.edit_scenario_ui import edit_scenario_ui
 from src.load_scenario.load_scenario import ScenarioError, load_scenario
 from src.load_scenario.load_scenario import _ENVELOPE_KEYS as _SCENARIO_ENVELOPE_KEYS
 from src.load_scenario.validate_scenario_schema import _KNOWN_KEYS as _SCENARIO_KNOWN_KEYS
@@ -34,6 +36,7 @@ from src.localize_console_assets.localize_console_assets import (
     replace_cdn_with_vendor,
 )
 from src.localize_console_assets.mount_console_extensions import VENDOR_VUE_PATH
+from src.render_console_pages.build_scenario_cards import build_scenario_cards
 from src.render_console_pages.render_console_pages import render_console_pages
 from src.run_demo.run_demo import run_scenario
 
@@ -60,6 +63,19 @@ UVICORN_PIP_HINT = "pip install 'uvicorn[standard]'（见 requirements.txt）"
 #: 'name'（名解析专用）与 UI 专用键（如 'atten_db'，schema 不在册）不并入，
 #: 否则合并产物过不了 run_scenario 的未知键校验。
 _MERGEABLE_KEYS = frozenset(_SCENARIO_KNOWN_KEYS) | frozenset(_SCENARIO_ENVELOPE_KEYS)
+
+
+def _index_cards(scenario_dir: str) -> list:
+    """index 页编辑器区块的装配期卡片数据（与 render_console_pages 的内嵌口径
+    一致：*.yaml|*.yml 排序→build_scenario_cards；目录不可读→[] 空卡不报错）。"""
+    try:
+        names = os.listdir(scenario_dir)
+    except OSError:
+        return []
+    files = sorted(
+        os.path.join(scenario_dir, n) for n in names if n.endswith((".yaml", ".yml"))
+    )
+    return build_scenario_cards(files)
 
 
 class ConsoleError(RuntimeError):
@@ -211,8 +227,16 @@ def serve_console(config: dict) -> dict:
     if static_pages is None:
         skeleton = localize_console_assets(str(VENDOR_VUE_PATH.parent.parent))
         static_pages = {f"{slug}.html": doc for slug, doc in skeleton.items()}
-        static_pages["index.html"] = replace_cdn_with_vendor(
+        index_html = replace_cdn_with_vendor(
             render_console_pages(scenario_dir, {})["pages"]["index.html"]
+        )
+        # R57 快速通道：场景编辑器区块注入 index 运行页（调用方=serve_console
+        # 运行页区块挂载）——纯静态资产，在 </body> 前单点插入（Vue 的 #app
+        # 之外，区块自足不依赖 Vue 实例）；显式 static_pages 直通不注入。
+        static_pages["index.html"] = index_html.replace(
+            "</body>",
+            edit_scenario_ui(_index_cards(scenario_dir)) + "\n</body>",
+            1,
         )
 
     stop_flag = config.get("stop_flag")

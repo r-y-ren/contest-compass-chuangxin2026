@@ -132,7 +132,7 @@
 | render_triple_stream_charts | B24 | stub 10-13 | pytest -k realtime_streams_e2e | — |
 | stream_realtime_console | B24 | stub 10-13 | pytest -k realtime_streams_e2e | — |
 | harden_emergency_stop | B24 | stub 10-13 | pytest -k emergency_stop | — |
-| edit_scenario_ui | B24 | stub 10-13 | pytest -k scenario_editor_e2e | — |
+| edit_scenario_ui | B24 | wired 10-13 | pytest tests/edit_scenario_ui/ → 8 passed；-k scenario_editor_e2e → 1 passed（表单/YAML 双模式+400 逐条上屏+卡片刷新）；注入 serve_console.py:238；存量 189 无回归 | — |
 | render_report_html | B25 | stub 10-13 | pytest -k report_view | — |
 | serve_run_artifacts | B25 | stub 10-13 | pytest -k report_view | — |
 | list_run_summaries | B25 | stub 10-13 | pytest -k report_center_e2e | — |
