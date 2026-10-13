@@ -416,3 +416,4 @@
 | 2026-10-13 | 环境配置改虚拟环境：fn_work/.venv（--system-site-packages 继承 UHD 绑定）；requirements.txt 补 httpx；本会话误装入全局用户站的 fastapi 族已卸载（全局零残留验证）；README 前置依赖/三式命令/FAQ 全切 .venv/bin/python 口径；3 个缺守卫测试补 skipif（全局 2852+47skip/venv 2894+5skip 双绿） | 用户要求：环境配置改虚拟环境不走全局 |
 | 2026-10-13 | 第 3 轮深度走查修复（6 项）：网页「开始」真跑测试（run_scenario 无头入口+serve_console 缺省 runner 装载场景+页面轮询显示结果）+/api/ledger 仓库根锚定+update_ledger 默认路径锚定与覆盖提示+卡片剥行内注释+README 三处口径（cd fn_work 指引/覆盖措辞/开始按钮行为） | 用户实际使用仍出问题——深度走查定位网页端到端链路 |
 | 2026-10-13 | 第 4 轮走查收尾：scenario_type 缺省 gb42590（execute_scenario 缺省分派+旧契约测试更新+新回归；最小五项场景端到端 exit 0 实证——真机 B210 自动探测路径亦过）+README 缺省口径 | 第 3 轮复核附注的口径差 |
+| 2026-10-13 | 第 5 轮 GUI 完整走查修复（7 项）：根路径 / 307→/pages/index；急停按钮；状态区运行后从 result.json 刷新 backend/clock；清单完成度内联(done/total)替代裸 JSON 链接；场景白名单扩 52 键（freq_offset_hz/n_samples/signal_power_db 等）；测试正则 DOTALL 贪婪修正；IAB locator 兼容（Vue evaluate 直点） | 用户报告 GET / 404——真实浏览器操作暴露 |
