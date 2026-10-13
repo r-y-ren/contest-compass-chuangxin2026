@@ -946,6 +946,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 ## B23 批间门
 - [x] B23 · 评审三轴 — 证据: bash -c git log --format=%s -1 | grep -q "B23 出批次表入历史表" && grep -c "^- Ruling:" fn_docs/implementation/tracker.md && echo 评审三轴过_Critical0_Important1已收口655fe0c → 评审三轴过_Critical0_Important1已收口655fe0c (10-13)
 - [x] B23 · 对抗审查 — 证据: bash -c grep -q "edit_scenario_ui 补排 B24" fn_docs/implementation/batches.md && git show 655fe0c --stat | tail -1 && echo 对抗Critical0_I2I3已修复落盘 → 对抗Critical0_I2I3已修复落盘 (10-13)
+- [ ] B23 · 对抗审查重跑 — 预告: 零喂料对抗（F1/F3/F13 批内修复+F2/F14 主会话收尾），修复面定向复审后呈门
 - [ ] B23 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
 
 ## B24 — edit_scenario_ui, render_triple_stream_charts, stream_realtime_console, harden_emergency_stop
@@ -1132,3 +1133,4 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B23 实现口径校正两处（mount_console_extensions 的 app 能力探测用 get+routes 而非 route 属性——starlette 1.8 已移除；AppError 延迟 import 防与 create_console_app 循环互导） — 原因：环境实测与既有口径 — 代价：无 — 落点：批间评审复核
 - Ruling: fn-step-done 落盘剥反斜杠（E3/wired 行证据文本被 awk 吃掉转义致不可复现） — 原因：脚本写径对反斜杠敏感（本批两次读回误报同源） — 代价：E3 证据文本已按实跑口径改写、wired 行 931 同类但不影响判定 — 落点：后续核验命令一律零反斜杠；流程坑入记忆
 - Ruling: B23 对抗审查重跑（用户裁决） — 原因：首轮对抗子代理被主会话喂了 8 条假设清单，射程被引导、立场不独立，违背对抗契约本意 — 代价：一轮重审 — 落点：首轮报告作废不作为门依据；此后对抗子代理一律零假设喂料，仅给审查对象与契约六要素
+- Ruling: 对抗修复附带存量清理——serve_console.py 与其测试移除批前既存的 from __future__ import annotations（白名单内文件、Python 3.14 无兼容负担、FastAPI 邻接模块统一口径） — 原因：修复子代理顺手统一 — 代价：无（3033 绿） — 落点：render_console_pages.py 的同类批前存量未动（不在白名单），B31 旧块回登记时统一处置

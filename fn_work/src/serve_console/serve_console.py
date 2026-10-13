@@ -8,12 +8,13 @@
   scenario_dir/report_root/static_pages 直传 create_console_app；
 - 开箱即用（README 方式三）：scenario_dir 缺失→os.makedirs(exist_ok=True) 按
   config 路径建空目录（相对 cwd），/api/scenarios 即空卡而非 400；
-  static_pages 未传（None）→ 七页产出（R56 断网全可用口径）：localize_console_assets
-  缺省产出七区骨架（vendor 落盘 scenario_dir/vendor/，仓内源经 /assets/vendor/
-  路由托管），运行页 index 的真实内容由 render_console_pages(scenario_dir, {})
-  产出后经 replace_cdn_with_vendor 切本地 vendor（CDN script→/assets/vendor/
-  vue.global.prod.js）覆盖注入 deps——用户无需预渲染即可 GET /pages/<七页 slug>，
-  全站零 CDN；
+- static_pages 未传（None）→ 七页产出（R56 断网全可用口径）：localize_console_assets
+  缺省产出七区骨架（vendor 不向 scenario_dir 落死副本——/assets/vendor 路由恒
+  服务仓内源文件，落盘无人消费即 157KB 白写；assets_dir 传仓内 vendor 自身位置，
+  samefile 守卫短路跳过复制），运行页 index 的真实内容由 render_console_pages(
+  scenario_dir, {}) 产出后经 replace_cdn_with_vendor 切本地 vendor（CDN script→
+  /assets/vendor/vue.global.prod.js）覆盖注入 deps——用户无需预渲染即可 GET
+  /pages/<七页 slug>，全站零 CDN；
 - config['dry_run']=True→不拉起不检端口，返回 {'app', 'launched': False, 'port',
   'host'}（测试经 TestClient 直接打 create 路由）；
 - 真拉起序：先探端口占用→ConsoleError（dry_run 下不检）；再延迟 import uvicorn
@@ -22,8 +23,6 @@
 - create_console_app 的装配错误（deps 缺键/fastapi 缺库）以 AppError 原样上抛
   （ValueError 子类，fastapi 缺库消息自带 pip 提示，不在此重复包装）。
 """
-from __future__ import annotations
-
 import os
 import socket
 
@@ -34,6 +33,7 @@ from src.localize_console_assets.localize_console_assets import (
     localize_console_assets,
     replace_cdn_with_vendor,
 )
+from src.localize_console_assets.mount_console_extensions import VENDOR_VUE_PATH
 from src.render_console_pages.render_console_pages import render_console_pages
 from src.run_demo.run_demo import run_scenario
 
@@ -200,13 +200,16 @@ def serve_console(config: dict) -> dict:
         ) from exc
 
     # ---- 开箱即用：static_pages 未传 → 七页产出（R56 断网全可用口径） ----
-    # localize_console_assets 缺省产出七区骨架（vendor 落盘 scenario_dir/vendor/，
-    # 仓内源文件经 mount_console_extensions 注册的 /assets/vendor 路由托管）；
-    # 运行页 index 的真实内容由 render_console_pages 产出后经 replace_cdn_with_vendor
-    # 切本地 vendor 覆盖（键带 .html 后缀，对齐 /pages 无后缀名回退口径）。
+    # localize_console_assets 缺省产出七区骨架；assets_dir 指到仓内 vendor 自身
+    # 所在位置（VENDOR_VUE_PATH 的上两级=localize 模块目录），落盘目标恰为仓内
+    # vendor 源文件自身——samefile 守卫短路跳过复制，scenario_dir 零 vendor 落盘
+    # （/assets/vendor 路由恒服务仓内文件，副本无人消费即白写；vendor 源缺失仍
+    # 照常 ConsoleAssetError 禁回退 CDN）。运行页 index 的真实内容由
+    # render_console_pages 产出后经 replace_cdn_with_vendor 切本地 vendor 覆盖
+    # （键带 .html 后缀，对齐 /pages 无后缀名回退口径）。
     static_pages = config.get("static_pages")
     if static_pages is None:
-        skeleton = localize_console_assets(scenario_dir)
+        skeleton = localize_console_assets(str(VENDOR_VUE_PATH.parent.parent))
         static_pages = {f"{slug}.html": doc for slug, doc in skeleton.items()}
         static_pages["index.html"] = replace_cdn_with_vendor(
             render_console_pages(scenario_dir, {})["pages"]["index.html"]

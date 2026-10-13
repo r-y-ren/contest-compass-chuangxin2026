@@ -1228,7 +1228,7 @@
 （R56：操控台依赖本地化与多页骨架——Vue3 生产版 vendor 入仓零 CDN、断网全可用；七区导航页骨架。改造点·快速通道：①`render_console_pages` [改造] index 运行页并入导航体系（加导航条+页标识，页面区块职责不变）；②`create_console_app` [改造] 增加一处 `mount_console_extensions` 接线（其余演进端点全部经该挂载点注册，旧函数不再逐个改）。）
 
 - **localize_console_assets** [L0|新增]
-  - 职责：操控台资产本地化与骨架产出：把 Vue3 生产版单文件落盘为仓内 vendor 资产并纳入 /pages 静态托管；产出七区页面骨架（总览/运行/报告/数据/AI/仪表/台账），每页零外链（断言无 http(s) 外部资源引用，断网全可用）。
+  - 职责：操控台资产本地化与骨架产出：把 Vue3 生产版单文件落盘为仓内 vendor 资产并经 mount_console_extensions 注册的 /assets/vendor 路由托管；产出七区页面骨架（总览/运行/报告/数据/AI/仪表/台账），每页零外链（断言无 http(s) 外部资源引用，断网全可用）。
   - 签名意图：输入: 资产目标目录+页面配置 / 输出: vendor 文件+七页骨架资产字典 / 错误: vendor 源缺失→ConsoleAssetError（禁止静默回退 CDN）。
   - 调用方：serve_console（装配时产出）
   - tested 策略：自有单测（vendor 在位+零外链断言）

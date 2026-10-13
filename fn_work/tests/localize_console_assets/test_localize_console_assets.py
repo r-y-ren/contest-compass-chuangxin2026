@@ -5,9 +5,11 @@
 CDN/落盘 IO 失败）、七页骨架形状（导航条+页标识+title+完整文档）、六页 mounts
 占位逐 id 在位、index 无容器（复用运行页区块口径）、每页本地 vendor script+
 零外链、pages 子集（canonical 序/去重/未知 slug/形状错）、replace_cdn_with_vendor
-（unpkg 缺省源/自定义镜像前缀/残留外链拒绝/干净直通/形状错）、仓内锚定与
+（unpkg 缺省源/自定义镜像前缀/残留外链拒绝/干净直通/形状错）、B23-F1 零外链守卫
+旁路变体回归（属性级协议相对 src="//、大写 HTTPS://、HTML 实体编码 https&#x3a;//
+一律 ConsoleAssetError；大写 CDN 形态仍可换源）、仓内锚定与
 mount_console_extensions 不漂移、serve_console 缺省装配七页经 /pages 托管+vendor
-路由可达（R56 验收口径的 TestClient 侧证据）。
+路由可达（R56 验收口径的 TestClient 侧证据）+B23-F3 scenario_dir 不落 vendor 副本。
 
 环境缺 fastapi（或 httpx）时 TestClient 族用例自动 skip。
 """
@@ -145,8 +147,13 @@ def test_console_offline_six_pages_have_spec_mounts(tmp_path, slug):
     assert f'<main id="page-{slug}"' in doc
     mount_ids = set(re.findall(r'<div class="block-mount" id="([^"]+)"', doc))
     assert mount_ids == SPEC_MOUNTS[slug]
-    for mid in mount_ids:
-        assert f'data-mount=' in doc  # 每个占位都带说明属性
+    for mid in mount_ids:  # 逐 mid 断言：该 mid 的占位元素完整在页内且说明属性
+        # 带非空具体值（B23-F13：原 `f'data-mount=' in doc` 与 mid 无关恒真；
+        # data-mount 属性承载规约说明文本，故锚定"id=mid 的完整元素+非空说明"）。
+        assert re.search(
+            rf'<div class="block-mount" id="{re.escape(mid)}" data-mount="[^"]+"',
+            doc,
+        ), mid
 
 
 def test_console_offline_index_skeleton_no_mounts_container(tmp_path):
@@ -268,6 +275,20 @@ def test_console_offline_replace_cdn_swaps_custom_mirror(tmp_path):
     assert "https://" not in out
 
 
+def test_console_offline_replace_cdn_swaps_uppercase_cdn():
+    """⑲b B23-F1：CDN script 大写形态（HTTPS://UNPKG.COM/VUE@3/…）同样被替换
+    （CDN 正则大小写不敏感）——可本地化的大写 CDN 引用不因大小写被整体拒绝。"""
+    html_doc = (
+        "<html><head>"
+        '<script src="HTTPS://UNPKG.COM/VUE@3/DIST/VUE.GLOBAL.PROD.JS"></script>'
+        "</head><body>x</body></html>"
+    )
+    out = replace_cdn_with_vendor(html_doc)
+    assert VENDOR_SCRIPT_TAG in out
+    assert "UNPKG.COM" not in out
+    assert "http://" not in out and "https://" not in out
+
+
 def test_console_offline_replace_cdn_rejects_leftover_external():
     """⑳ CDN script 之外还残留其他外链→ConsoleAssetError（无法本地化，不静默
     放行）。"""
@@ -279,6 +300,25 @@ def test_console_offline_replace_cdn_rejects_leftover_external():
     )
     with pytest.raises(ConsoleAssetError, match="外部资源引用"):
         replace_cdn_with_vendor(html)
+
+
+@pytest.mark.parametrize(
+    "evil",
+    [
+        '<script src="//evil.example/x.js"></script>',
+        '<script src="HTTPS://evil.example/x.js"></script>',
+        '<script src="https&#x3a;//evil.example/x.js"></script>',
+    ],
+    ids=["proto-relative-src", "uppercase-https", "entity-encoded"],
+)
+def test_console_offline_replace_cdn_rejects_bypass_variants(evil):
+    """⑳b B23-F1 回归：零外链守卫三种旁路变体——属性值形态协议相对 ``src="//``、
+    大写 ``HTTPS://``、HTML 实体编码 ``https&#x3a;//``——替换后复查一律
+    ConsoleAssetError（守卫先实体解码再大小写不敏感匹配+识别属性级协议相对），
+    不静默放行。"""
+    html_doc = f"<html><head>{VENDOR_SCRIPT_TAG}{evil}</head><body>x</body></html>"
+    with pytest.raises(ConsoleAssetError, match="外部资源引用"):
+        replace_cdn_with_vendor(html_doc)
 
 
 def test_console_offline_replace_cdn_clean_passthrough():
@@ -338,4 +378,5 @@ def test_console_offline_serve_console_default_seven_pages_hosted(tmp_path):
         vendor = client.get("/assets/vendor/vue.global.prod.js")
     assert vendor.status_code == 200
     assert vendor.content == VENDOR_VUE_PATH.read_bytes()
-    assert (sdir / "vendor" / "vue.global.prod.js").is_file()  # vendor 落盘目标目录
+    # B23-F3：缺省装配不向 scenario_dir 落 vendor 死副本（路由恒服务仓内文件）。
+    assert not (sdir / "vendor").exists()

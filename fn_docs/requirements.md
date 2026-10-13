@@ -375,7 +375,7 @@
 > 受众定位=多受众、答辩优先；现场真跑（sim）为主+历史可翻；载体沿用 FastAPI+WS+Vue3+Canvas 无 Node 构建链。参考资料：无（用户裁决）。前置审计 fn-review 2026-10-13（Critical 0/Important 4，由 R75 承接闭环）。
 
 **R56 操控台依赖本地化与多页骨架 [P0]**
-- 内容：Vue3 生产版单文件 vendor 入仓、经 /pages 静态托管，全部页面零外网依赖（断网全可用）；页面从单页扩为七区导航（总览/运行/报告/数据/AI/仪表/台账），路由复用 /pages/{name} 机制。输入=浏览器请求；输出=多页 HTML+本地 vendor JS；错误=未知页名 404（沿用现状）。
+- 内容：Vue3 生产版单文件 vendor 入仓、经 mount_console_extensions 注册的 /assets/vendor 路由托管，全部页面零外网依赖（断网全可用）；页面从单页扩为七区导航（总览/运行/报告/数据/AI/仪表/台账），路由复用 /pages/{name} 机制。输入=浏览器请求；输出=多页 HTML+本地 vendor JS；错误=未知页名 404（沿用现状）。
 - 验收：`pytest -k console_offline`（vendor 资产在位+页面零外链断言）；`pytest -k console_pages_e2e`（playwright 断网加载七页关键元素）。
 
 **R57 场景编辑器 UI [P0]**
@@ -516,3 +516,4 @@
 | 2026-10-13 | 第 4 轮走查收尾：scenario_type 缺省 gb42590（execute_scenario 缺省分派+旧契约测试更新+新回归；最小五项场景端到端 exit 0 实证——真机 B210 自动探测路径亦过）+README 缺省口径 | 第 3 轮复核附注的口径差 |
 | 2026-10-13 | 第 5 轮 GUI 完整走查修复（7 项）：根路径 / 307→/pages/index；急停按钮；状态区运行后从 result.json 刷新 backend/clock；清单完成度内联(done/total)替代裸 JSON 链接；场景白名单扩 52 键（freq_offset_hz/n_samples/signal_power_db 等）；测试正则 DOTALL 贪婪修正；IAB locator 兼容（Vue evaluate 直点） | 用户报告 GET / 404——真实浏览器操作暴露 |
 | 2026-10-13 | 演进轮 fn-grill（展示层全能力）：R56–R75 共 20 条（P0=13/P1=7）；环境增量=Vue3 vendor 本地化+markdown 服务端渲染+playwright 测试依赖；非功能+离线可用+管线顺手改登记规则；范围外+4 条；术语+4 条。三轮前沿问答+fn-review 前置审计（Critical 0/Important 4 由 R75 承接） | 用户要求：面向用户的页面与展示设计——沿用 web 做深、全能力面一步到位、多受众答辩优先、依赖全本地化、验收加浏览器自动化 |
+| 10-13 | R56 文字对齐（快速通道，Ruling③先例）：vendor 托管路径 /pages 静态托管→/assets/vendor 路由托管 | 零喂料对抗审查 F2 行为级实锤（/pages/vendor 实测 404，实际路由 /assets/vendor 200）；意图不变仅文字对齐实现真值 |

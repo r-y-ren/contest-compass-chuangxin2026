@@ -16,13 +16,17 @@
   clock/ledger/recent-runs；报告 run-list/report-view/comparison；数据 dataset-grid/
   filters；AI train-panel/eval-panel/infer-panel；仪表 instrument-panels/visa-status；
   台账 audit-report/ledger-detail。
-- 零外链断言：每个产出页断言无 http(s) 外部资源引用（"http://"/"https://" 子串
-  口径，与 render_console_navigation 测试同纪律），发现即 ConsoleAssetError。
+- 零外链断言：每个产出页断言无 http(s) 外部资源引用（html.unescape 实体解码后
+  大小写不敏感匹配 http:///https:// 子串+属性值形态协议相对 src="//"/href="//"——
+  大写/HTML 实体编码/协议相对三种旁路变体同判违规，与 render_console_navigation
+  测试同纪律的宁严勿漏），发现即 ConsoleAssetError。
 - replace_cdn_with_vendor(html)->str：把 render_console_pages 产出的 Vue3 CDN
-  script 引用（<script src="https?://…/vue@3/dist/vue.global.prod.js"></script>，
-  cdn_base 可换源故前缀宽容）替换为本地 vendor 路由，替换后复查零外链——残留
-  外链（CDN script 形态之外的外部引用）→ConsoleAssetError（不静默放行）。
+  script 引用（<script src="https?://…/vue@3/dist/vue.global.prod.js"></script>
+  形态，大小写不敏感——HTTPS:// 等大写变体同被替换；cdn_base 可换源故前缀宽容）
+  替换为本地 vendor 路由，替换后复查零外链——残留外链（CDN script 形态之外的
+  外部引用，含协议相对/大写/实体编码变体）→ConsoleAssetError（不静默放行）。
 """
+import html
 import os
 import re
 import shutil
@@ -96,9 +100,21 @@ _PAGE_MOUNTS = {
 
 #: Vue3 CDN script 引用形态（render_console_pages 恒以
 #: cdn_base.rstrip('/') + '/vue@3/dist/vue.global.prod.js' 注入 __CDN_URL__——
-#: 前缀随 config['cdn_base'] 变，尾部路径固定，故正则仅锚定尾部确切形态）。
+#: 前缀随 config['cdn_base'] 变，尾部路径固定，故正则仅锚定尾部确切形态；
+#: 大小写不敏感——HTTPS://…/VUE@3/… 等大写变体同样命中换源，不因大小写漏过
+#: 后被零外链断言整体拒绝）。
 _CDN_SCRIPT_RE = re.compile(
-    r'<script src="https?://[^"]*/vue@3/dist/vue\.global\.prod\.js"></script>'
+    r'<script src="https?://[^"]*/vue@3/dist/vue\.global\.prod\.js"></script>',
+    re.IGNORECASE,
+)
+
+#: 外链协议标记（大小写不敏感：HTTP:///HTTPS:// 与混合大小写同违规）。
+_EXTERNAL_PROTOCOL_RE = re.compile(r"https?://", re.IGNORECASE)
+
+#: 属性值形态的协议相对外链（src="//…"、href="//…"——只认属性值形态，注释/
+#: 正文里的 "//" 字样不误杀；大小写不敏感覆盖 SRC=/HREF=，容忍 = 与引号间空白）。
+_PROTO_RELATIVE_ATTR_RE = re.compile(
+    r"""(?:src|href)\s*=\s*["']\s*//""", re.IGNORECASE
 )
 
 #: 单文件页面骨架文档：__TITLE__/__NAV_HTML__ 两令牌 str.replace 注入（不用
@@ -142,17 +158,28 @@ class ConsoleAssetError(RuntimeError):
 
 
 def _assert_no_external_links(page_html: str, context: str) -> None:
-    """零外链断言：html 含 "http://"/"https://" 子串即 ConsoleAssetError。
+    """零外链断言：命中即 ConsoleAssetError（R56 断网全可用红线，不静默放行）。
 
-    与 render_console_navigation 测试同口径的子串判定（严格：文本/注释里的
-    外链字样同样算违规——骨架与模板自产内容可控，宁严勿漏）。
+    判定口径（宁严勿漏，与 render_console_navigation 测试同纪律）：
+    - 先 html.unescape 实体解码再匹配——``https&#x3a;//…`` 等编码形态无处遁形；
+    - http:///https:// 子串判定大小写不敏感（HTTP:///HTTPS:// 同违规——文本/
+      注释里的外链字样同样算违规，骨架与模板自产内容可控）；
+    - 协议相对 ``//`` 只认属性值形态（src="//…/href="//…）——避免误杀注释/
+      正文里的 "//" 字样（如 JS 注释），属性名大小写不敏感。
     """
-    for marker in ("http://", "https://"):
-        if marker in page_html:
-            raise ConsoleAssetError(
-                f"页面含外部资源引用（{marker}…，R56 断网全可用红线：零外链）"
-                f"——{context}"
-            )
+    decoded = html.unescape(page_html)
+    protocol_hit = _EXTERNAL_PROTOCOL_RE.search(decoded)
+    if protocol_hit:
+        raise ConsoleAssetError(
+            f"页面含外部资源引用（{protocol_hit.group(0)}…，R56 断网全可用红线：零外链）"
+            f"——{context}"
+        )
+    relative_hit = _PROTO_RELATIVE_ATTR_RE.search(decoded)
+    if relative_hit:
+        raise ConsoleAssetError(
+            f"页面含协议相对外部资源引用（{relative_hit.group(0)}…，"
+            f"R56 断网全可用红线：零外链）——{context}"
+        )
 
 
 def replace_cdn_with_vendor(page_html: str) -> str:

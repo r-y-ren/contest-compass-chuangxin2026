@@ -7,8 +7,6 @@
 测试不真起服务：真拉起路径以 sys.modules 注入假 uvicorn（MagicMock 断言调用，
 不真跑）；缺库路径以 sys.modules 注入 None（无论环境是否装有 uvicorn 均可复现）。
 """
-from __future__ import annotations
-
 import socket
 import sys
 import time
@@ -17,6 +15,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from src.localize_console_assets.mount_console_extensions import VENDOR_VUE_PATH
 from src.serve_console.serve_console import ConsoleError, serve_console
 
 try:  # TestClient 同源依赖 fastapi+httpx——任一缺失即整族 skip
@@ -145,14 +144,15 @@ def test_console_api_readme_way3_out_of_box(tmp_path, monkeypatch):
     )
     assert result["launched"] is False
     assert os.path.isdir(tmp_path / "scenarios")  # ① 缺失目录自动建
-    # ② 七页产出注入（键带 .html 后缀；vendor 落盘 scenarios/vendor/）
+    # ② 七页产出注入（键带 .html 后缀；B23-F3：vendor 不落盘 scenarios/——
+    # /assets/vendor 路由恒服务仓内文件，死副本无人消费）
     assert set(result["app"].state.deps["static_pages"]) == {
         f"{slug}.html"
         for slug in (
             "overview", "index", "reports", "data", "ai", "instruments", "ledger",
         )
     }
-    assert (tmp_path / "scenarios" / "vendor" / "vue.global.prod.js").is_file()
+    assert not (tmp_path / "scenarios" / "vendor").exists()
     with TestClient(result["app"]) as client:
         page = client.get("/pages/index")  # ③ 无后缀名 → index.html 回退
         overview = client.get("/pages/overview")  # 骨架页同经 /pages 托管
@@ -165,6 +165,21 @@ def test_console_api_readme_way3_out_of_box(tmp_path, monkeypatch):
     assert cards.status_code == 200  # 空目录不再 400
     assert cards.json() == {"cards": [], "count": 0}
     assert miss.status_code == 400
+
+
+@needs_fastapi
+def test_console_api_default_assembly_no_vendor_copy_in_scenario_dir(tmp_path):
+    """B23-F3 回归：tmp scenario_dir 缺省装配→不向 scenario_dir 落 vendor 死副本
+    （157KB 白写无人消费——路由恒服务仓内文件）；vendor 路由仍 200 且逐字节
+    对拍仓内源文件（断网全可用不受影响）。"""
+    cfg = _base_config(tmp_path)
+    cfg["dry_run"] = True
+    result = serve_console(cfg)
+    assert not (tmp_path / "scenarios" / "vendor").exists()  # 零 vendor 落盘
+    with TestClient(result["app"]) as client:
+        resp = client.get("/assets/vendor/vue.global.prod.js")
+    assert resp.status_code == 200  # 路由照常服务仓内文件
+    assert resp.content == VENDOR_VUE_PATH.read_bytes()
 
 
 @needs_fastapi
