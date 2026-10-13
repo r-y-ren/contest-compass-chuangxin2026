@@ -403,7 +403,7 @@ def test_console_api_new_run_resets_stale_stop_flag(tmp_path):
     result = serve_console(cfg)
     with TestClient(result["app"]) as client:
         stop_resp = client.post("/api/stop")  # 上一轮遗留停机信号
-        assert stop_resp.json() == {"stopped": True}
+        assert stop_resp.json()["stopped"] is True  # R59 后另携 'emergency_stop' 键
         assert cfg["stop_flag"]["flag"] is True
         run_resp = client.post("/api/run", json={"scenario": {"style": "tone"}})
     assert run_resp.status_code == 202

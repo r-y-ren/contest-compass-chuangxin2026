@@ -9,6 +9,11 @@
   import（AppError/依赖校验路径可独立测试）。
 - 路由内一切参数/配置错误统一抛 AppError→400 JSON {'detail': {'field', 'error'}}
   （字段级指错口径，R47）；runner 后台线程异常只记入运行表，绝不炸服务。
+- R59 快速通道（急停硬接线，申报）：POST /api/stop 委托 harden_emergency_stop
+  （先 trigger_emergency_stop 停发射+事件留痕，再置共享 stop_flag——安全顺序
+  不可倒置）；急停运行上下文 deps 可选 'run_ctx' 注入（backend/run_token 等，
+  console 拿不到 backend 时缺省 None），app.state.run_ctx 承接（急停结果落
+  run_ctx['emergency_stop']）。
 
 注意：本模块**不可**使用 `from __future__ import annotations`——FastAPI 以字符串形式
 对路由签名做注解解析时只查模块全局名，而 Request/WebSocket 等是工厂内延迟 import
@@ -27,6 +32,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from src.harden_emergency_stop.harden_emergency_stop import harden_emergency_stop
 from src.load_scenario.load_scenario import load_scenario
 from src.load_scenario.validate_scenario_schema import ScenarioError
 from src.localize_console_assets.mount_console_extensions import mount_console_extensions
@@ -118,6 +124,15 @@ def _validate_deps(deps: dict) -> None:
             f"deps['hub'] 须为 dict（操控台 /ws hub 共享容器），实际 "
             f"{type(deps['hub']).__name__}",
             field="hub",
+        )
+    # R59 快速通道（急停硬接线，申报）：可选 'run_ctx'——急停运行上下文
+    # （harden_emergency_stop→trigger_emergency_stop 消费：backend/run_token
+    # 等；console 上下文拿不到 backend 时缺省 None）；非 dict 拒。
+    if "run_ctx" in deps and not isinstance(deps["run_ctx"], dict):
+        raise AppError(
+            f"deps['run_ctx'] 须为 dict（急停运行上下文），实际 "
+            f"{type(deps['run_ctx']).__name__}",
+            field="run_ctx",
         )
 
 
@@ -231,8 +246,12 @@ def create_console_app(deps: dict) -> "FastAPI":
         field='report_root'；
       - GET  /api/runs/{run_id}——运行状态查询（app.state.runs：running/failed/
         done+result/error 摘要；未知 run_id→404）；
-      - POST /api/stop——置 deps['stop_flag']['flag']=True，返回 {'stopped': True}
-        （trigger_emergency_stop 的发射侧语义由上层端点叠加）；
+      - POST /api/stop——委托 harden_emergency_stop（R59 快速通道）：先
+        trigger_emergency_stop（内部先 stop_transmit_safely 停发射并记录急停
+        事件）再置 deps['stop_flag']['flag']=True（安全顺序不可倒置，停发射
+        失败仍保证旗置位并在结果报错）；响应向后兼容——保留 'stopped' 键
+        （编排旗已置 True），新增 'emergency_stop' 硬停结果键
+        （harden_emergency_stop 返回值原样：停发射状态/事件序/来源）；
       - GET  /api/ledger——清单完成度 done/total 简数（deps 可选 'ledger_path'，
         缺省 DEFAULT_LEDGER_PATH；文件缺失→零值+available False）；
       - WS   /ws——实时流 hub：app.state.hub（sockets/history/broadcast dict），
@@ -280,6 +299,16 @@ def create_console_app(deps: dict) -> "FastAPI":
     app.state.deps = deps
     app.state.hub = hub
     app.state.runs: dict = {}
+
+    # ---- R59 快速通道（急停硬接线）：急停运行上下文 ----
+    # console 侧通常拿不到发射后端句柄（backend 缺省 None——
+    # harden_emergency_stop→trigger_emergency_stop→stop_transmit_safely 幂等
+    # 口径兜底 no_backend）；deps 可选 'run_ctx' 显式注入（backend/run_token
+    # 等）则原对象直通（急停结果落 run_ctx['emergency_stop'] 供 deps 注入方
+    # 观察）；'runs' 挂操控台活跃运行信息容器（观测用，已携则不越权覆盖）。
+    run_ctx: dict = deps["run_ctx"] if isinstance(deps.get("run_ctx"), dict) else {}
+    run_ctx.setdefault("runs", app.state.runs)
+    app.state.run_ctx = run_ctx
 
     # ---- 统一 400：路由内 AppError→JSON 字段级指错 ----
     @app.exception_handler(AppError)
@@ -407,10 +436,17 @@ def create_console_app(deps: dict) -> "FastAPI":
 
     @app.post("/api/stop")
     async def stop_run() -> dict:
-        # 此端点只管场景侧软停（共享旗标）；发射侧急停语义由上层叠加
-        # trigger_emergency_stop（见 push_realtime_kpi）——工厂保持纯装配。
-        deps["stop_flag"]["flag"] = True
-        return {"stopped": True}
+        # R59 快速通道（急停硬接线，申报）：从「仅置 stop_flag」升级为委托
+        # harden_emergency_stop——先 trigger_emergency_stop（内部先
+        # stop_transmit_safely 停发射并记录急停事件）再置共享 stop_flag（安全
+        # 顺序不可倒置；停发射失败仍保证旗置位并在结果报错，绝不 500）。
+        # 响应向后兼容：保留既有 'stopped' 键（编排旗已置 True），新增
+        # 'emergency_stop' 硬停结果键（停发射状态/事件序/来源——页面按钮
+        # 状态与广播帧消费）。
+        result = harden_emergency_stop(
+            source="console", run_ctx=run_ctx, stop_flag=deps["stop_flag"]
+        )
+        return {"stopped": result.get("stop_flag_set") is True, "emergency_stop": result}
 
     @app.get("/api/runs")
     async def list_runs() -> dict:

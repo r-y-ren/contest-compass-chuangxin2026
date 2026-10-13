@@ -216,13 +216,16 @@ def test_post_run_body_not_json_400(tmp_path):
 
 @needs_fastapi
 def test_post_stop_sets_shared_flag(tmp_path):
-    """⑭ POST /api/stop→{'stopped': True} 且共享 stop_flag['flag'] 置位。"""
+    """⑭ POST /api/stop→'stopped': True 且共享 stop_flag['flag'] 置位；R59
+    快速通道后响应另携 'emergency_stop' 硬停结果键（向后兼容——既有键保留）。"""
     deps = _base_deps(tmp_path)
     app = create_console_app(deps)
     with TestClient(app) as client:
         resp = client.post("/api/stop")
     assert resp.status_code == 200
-    assert resp.json() == {"stopped": True}
+    body = resp.json()
+    assert body["stopped"] is True  # 既有键保留（向后兼容）
+    assert body["emergency_stop"]["status"] == "stopped"  # 新增硬停结果键
     assert deps["stop_flag"]["flag"] is True
 
 
