@@ -17,9 +17,12 @@
   filters；AI train-panel/eval-panel/infer-panel；仪表 instrument-panels/visa-status；
   台账 audit-report/ledger-detail。
 - 零外链断言：每个产出页断言无 http(s) 外部资源引用（html.unescape 实体解码后
-  大小写不敏感匹配 http:///https:// 子串+属性值形态协议相对 src="//"/href="//"——
-  大写/HTML 实体编码/协议相对三种旁路变体同判违规，与 render_console_navigation
-  测试同纪律的宁严勿漏），发现即 ConsoleAssetError。
+  大小写不敏感匹配 http:///https:// 子串+属性值形态协议相对——大写/HTML 实体编码/
+  协议相对三种旁路变体同判违规，与 render_console_navigation 测试同纪律的宁严勿漏）。
+  协议相对形态四类全覆盖（定向复审 Minor 收尾）：引号属性值 src="//"/href="//"、
+  无引号属性值 src=//、资源属性集（srcset/action/poster/formaction/background/
+  cite/data）="…"、CSS url(//…（style 块/属性内——简单口径：页面产物里出现
+  url(// 即拒，自产模板不该有），发现即 ConsoleAssetError。
 - replace_cdn_with_vendor(html)->str：把 render_console_pages 产出的 Vue3 CDN
   script 引用（<script src="https?://…/vue@3/dist/vue.global.prod.js"></script>
   形态，大小写不敏感——HTTPS:// 等大写变体同被替换；cdn_base 可换源故前缀宽容）
@@ -111,11 +114,21 @@ _CDN_SCRIPT_RE = re.compile(
 #: 外链协议标记（大小写不敏感：HTTP:///HTTPS:// 与混合大小写同违规）。
 _EXTERNAL_PROTOCOL_RE = re.compile(r"https?://", re.IGNORECASE)
 
-#: 属性值形态的协议相对外链（src="//…"、href="//…"——只认属性值形态，注释/
-#: 正文里的 "//" 字样不误杀；大小写不敏感覆盖 SRC=/HREF=，容忍 = 与引号间空白）。
+#: 协议相对外链的属性名全集（src/href 之外纳入资源属性：srcset/action/poster/
+#: formaction/background/cite/data——定向复审 Minor 四形态收尾；只认属性值形态，
+#: 注释/正文里的 "//" 字样不误杀；大小写不敏感覆盖 SRC=/HREF= 等，容忍 = 与
+#: 引号间空白）。
+_PROTO_RELATIVE_ATTRS = "src|href|srcset|action|poster|formaction|background|cite|data"
+
+#: 属性值形态的协议相对外链（引号与无引号两态通吃：``src="//…"``/``src=//…``——
+#: 引号可选，无引号形态以属性名前缀锚定、不误杀正文文本）。
 _PROTO_RELATIVE_ATTR_RE = re.compile(
-    r"""(?:src|href)\s*=\s*["']\s*//""", re.IGNORECASE
+    rf"""(?:{_PROTO_RELATIVE_ATTRS})\s*=\s*(?:["']\s*)?//""", re.IGNORECASE
 )
+
+#: CSS url() 协议相对形态（style 块/style 属性内——简单口径：页面产物里出现
+#: url(// 即拒，自产模板不该有；大小写不敏感覆盖 URL(//，容忍 url( 与 // 间空白）。
+_CSS_URL_PROTO_RE = re.compile(r"url\(\s*//", re.IGNORECASE)
 
 #: 单文件页面骨架文档：__TITLE__/__NAV_HTML__ 两令牌 str.replace 注入（不用
 #: format——避免与后续区块模板花括号冲突，与 render_console_pages 同手法）。
@@ -164,8 +177,10 @@ def _assert_no_external_links(page_html: str, context: str) -> None:
     - 先 html.unescape 实体解码再匹配——``https&#x3a;//…`` 等编码形态无处遁形；
     - http:///https:// 子串判定大小写不敏感（HTTP:///HTTPS:// 同违规——文本/
       注释里的外链字样同样算违规，骨架与模板自产内容可控）；
-    - 协议相对 ``//`` 只认属性值形态（src="//…/href="//…）——避免误杀注释/
-      正文里的 "//" 字样（如 JS 注释），属性名大小写不敏感。
+    - 协议相对 ``//`` 只认属性值形态（src/href/srcset/action/poster 等资源属性，
+      引号与无引号两态——无引号形态以属性名前缀锚定，避免误杀注释/正文里的
+      "//" 字样），属性名大小写不敏感；
+    - CSS url(//…（style 块/属性内）同拒——自产模板不该有该形态。
     """
     decoded = html.unescape(page_html)
     protocol_hit = _EXTERNAL_PROTOCOL_RE.search(decoded)
@@ -178,6 +193,12 @@ def _assert_no_external_links(page_html: str, context: str) -> None:
     if relative_hit:
         raise ConsoleAssetError(
             f"页面含协议相对外部资源引用（{relative_hit.group(0)}…，"
+            f"R56 断网全可用红线：零外链）——{context}"
+        )
+    css_hit = _CSS_URL_PROTO_RE.search(decoded)
+    if css_hit:
+        raise ConsoleAssetError(
+            f"页面含协议相对 CSS url() 引用（{css_hit.group(0)}…，"
             f"R56 断网全可用红线：零外链）——{context}"
         )
 

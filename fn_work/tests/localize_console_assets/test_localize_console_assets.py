@@ -7,7 +7,8 @@ CDN/落盘 IO 失败）、七页骨架形状（导航条+页标识+title+完整�
 零外链、pages 子集（canonical 序/去重/未知 slug/形状错）、replace_cdn_with_vendor
 （unpkg 缺省源/自定义镜像前缀/残留外链拒绝/干净直通/形状错）、B23-F1 零外链守卫
 旁路变体回归（属性级协议相对 src="//、大写 HTTPS://、HTML 实体编码 https&#x3a;//
-一律 ConsoleAssetError；大写 CDN 形态仍可换源）、仓内锚定与
+一律 ConsoleAssetError；大写 CDN 形态仍可换源）、N1 协议相对四形态收尾回归
+（无引号属性值/srcset/action（含 poster 等资源属性）/CSS url(// 同拒）、仓内锚定与
 mount_console_extensions 不漂移、serve_console 缺省装配七页经 /pages 托管+vendor
 路由可达（R56 验收口径的 TestClient 侧证据）+B23-F3 scenario_dir 不落 vendor 副本。
 
@@ -318,6 +319,27 @@ def test_console_offline_replace_cdn_rejects_bypass_variants(evil):
     不静默放行。"""
     html_doc = f"<html><head>{VENDOR_SCRIPT_TAG}{evil}</head><body>x</body></html>"
     with pytest.raises(ConsoleAssetError, match="外部资源引用"):
+        replace_cdn_with_vendor(html_doc)
+
+
+@pytest.mark.parametrize(
+    "evil",
+    [
+        '<script src=//evil.example/x.js></script>',
+        '<img srcset="//evil.example/a.png 1x, //evil.example/b.png 2x">',
+        '<form action="//evil.example/steal"></form>',
+        '<video poster="//evil.example/cover.jpg"></video>',
+        '<style>body { background: url(//evil.example/x.png); }</style>',
+    ],
+    ids=["unquoted-attr", "srcset", "action", "poster", "css-url"],
+)
+def test_console_offline_replace_cdn_rejects_proto_relative_family(evil):
+    """⑳c N1 回归（定向复审 Minor 四形态收尾）：协议相对外链的守卫盲区——无引号
+    属性值 ``src=//…``、``srcset="//…``、``action="//…``（poster 等资源属性同）、
+    CSS ``url(//…``——替换后复查一律 ConsoleAssetError（守卫属性集扩展至资源属性
+    全集+引号可选+CSS url( 简单口径），不静默放行。"""
+    html_doc = f"<html><head>{VENDOR_SCRIPT_TAG}{evil}</head><body>x</body></html>"
+    with pytest.raises(ConsoleAssetError, match="协议相对"):
         replace_cdn_with_vendor(html_doc)
 
 

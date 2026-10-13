@@ -6,6 +6,10 @@ R56 验收口径「七页经 /pages 托管、断网可加载」的浏览器侧�
   七页产出的真实装配路径），结束关服务；
 - chromium context.route 把非 127.0.0.1 的 http(s) 请求全部 abort（模拟断网），
   同时记录被 abort 的外网请求（应为空——页面根本不该尝试外网）；
+- ws 防线：context.route 不拦 WebSocket（实证：被 route 的 context 里外部 ws 直连
+  OPEN）——非本源 ws(s):// 连接另经 context.route_web_socket 设卡（playwright
+  ≥1.48 机制），拦截记入同一「零外网尝试」账本并由主 greenlet close(code=1008)
+  关闭；页面自身的同源 /ws（实时流 hub）connect_to_server 放行；
 - 逐页 GET /pages/<slug>：200+load 事件到达+导航条在位+无 console error 级
   JS 报错+window.Vue 在位（本地 vendor 真实装载，断网全可用的硬证据）；
 - 总时长预算 <30s：chromium 单次launch+uvicorn 单实例，七页各一次导航。
@@ -107,24 +111,68 @@ def browser():
         instance.close()
 
 
+class _OfflineGuard:
+    """断网账本与双防线判定：http(s) route abort 与外部 ws 拦截统一记入
+    self.aborted（「零外网尝试」单一口径——ws 条目带 "[ws] " 前缀以辨来源）；
+    blocked_ws 为已拦待关的 WebSocketRoute。
+
+    close 时机注意：sync playwright 的 route_web_socket handler 在事件循环协程内
+    直调（不像 http route 有独立 RouteGreenlet），handler 里同步 ws.close() 会
+    自旋死锁（实证过）——故 handler 只记账，close(code=1008) 由主 greenlet 经
+    seal_blocked() 补刀：被拦 socket 先虚拟 open（不出浏览器），补刀后页面侧
+    closed/code=1008。
+    """
+
+    def __init__(self) -> None:
+        self.aborted: list = []
+        self.blocked_ws: list = []
+
+    def is_local(self, url: str) -> bool:
+        """本源判定：127.0.0.1 任意端口（http/ws/wss 同口径——页面 /ws 同源放行）。"""
+        return url.startswith(("http://127.0.0.1", "ws://127.0.0.1", "wss://127.0.0.1"))
+
+    def seal_blocked(self) -> int:
+        """主 greenlet 里关闭全部被拦外部 ws（code=1008 Policy Violation）。返回数。"""
+        count = 0
+        while self.blocked_ws:
+            self.blocked_ws.pop(0).close(
+                code=1008, reason="offline e2e: external WebSocket blocked"
+            )
+            count += 1
+        return count
+
+
 @pytest.fixture
 def offline_page(browser):
-    """断网浏览器页：非 127.0.0.1 的请求全部 abort（模拟断网），并记录被 abort
-    的外网请求（供断言「根本没尝试外网」）；返回 (page, aborted)。"""
+    """断网浏览器页（http+ws 双防线）：非 127.0.0.1 的 http(s) 请求 route.abort；
+    context.route 不拦 WebSocket——非本源 ws(s):// 另经 context.route_web_socket
+    设卡（playwright 1.63 支持，≥1.48 机制），拦截记入同一 aborted 账本、由
+    seal_blocked() 补刀 close(1008)；同源 ws（含页面 /ws 实时流）connect_to_server
+    放行。route_web_socket 仅拦注册后新建的连接，故先于 new_page 注册。
+    返回 (page, offline)。"""
     context = browser.new_context()
-    aborted: list = []
+    offline = _OfflineGuard()
 
     def _block_external(route):
-        url = route.request.url
-        if url.startswith("http://127.0.0.1"):
+        if offline.is_local(route.request.url):
             route.continue_()
         else:
-            aborted.append(url)
+            offline.aborted.append(route.request.url)
             route.abort()
 
     context.route("**/*", _block_external)
+
+    def _guard_ws(ws):
+        if offline.is_local(ws.url):
+            ws.connect_to_server()  # 同源放行（帧自动双向转发——探针实证）
+        else:
+            offline.aborted.append(f"[ws] {ws.url}")
+            offline.blocked_ws.append(ws)  # close 交主 greenlet（handler 内会死锁）
+
+    context.route_web_socket(lambda url: True, _guard_ws)
     page = context.new_page()
-    yield page, aborted
+    yield page, offline
+    offline.seal_blocked()  # 清扫残留被拦 socket（正常断言下应为零）
     context.close()
 
 
@@ -132,9 +180,10 @@ def offline_page(browser):
 @pytest.mark.parametrize("slug", SEVEN_SLUGS)
 def test_console_pages_e2e_offline_load(slug, console_server, offline_page):
     """① 断网逐页加载：GET /pages/<slug> 200+load 到达+导航条在位+无 console
-    error 级 JS 报错+window.Vue 在位（本地 vendor 真实装载）+全程零外网请求
-    尝试；六页 mounts 占位逐 id 在位，index 为真实运行页区块。"""
-    page, aborted = offline_page
+    error 级 JS 报错+window.Vue 在位（本地 vendor 真实装载）+全程零外网尝试
+    （http(s) 请求与外部 ws 连接双防线账本皆空——index 页自身 /ws 同源放行）；
+    六页 mounts 占位逐 id 在位，index 为真实运行页区块。"""
+    page, offline = offline_page
     errors: list = []
     page.on("console", lambda msg: errors.append(msg.text) if msg.type == "error" else None)
     page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
@@ -145,7 +194,7 @@ def test_console_pages_e2e_offline_load(slug, console_server, offline_page):
     assert page.locator("#console-nav").count() == 1  # 导航条存在
     assert page.evaluate("() => typeof window.Vue !== 'undefined'") is True
     assert errors == []  # 无 console error 级 JS 报错
-    assert aborted == []  # 断网下零外网请求尝试（页面本就不该有外链）
+    assert offline.aborted == []  # 零外网尝试（http+ws 双防线账本）
     if slug in SPEC_MOUNTS:
         for mid in SPEC_MOUNTS[slug]:
             assert page.locator(f"#{mid}").count() == 1, (slug, mid)
@@ -159,7 +208,7 @@ def test_console_pages_e2e_offline_load(slug, console_server, offline_page):
 def test_console_pages_e2e_offline_navigation_hops(console_server, offline_page):
     """② 断网页间跳转：导航条链接真实可达——从总览页点击「台账」链接加载台账页
     （200+当前页高亮切换到 ledger）。"""
-    page, aborted = offline_page
+    page, offline = offline_page
     resp = page.goto(
         f"{console_server['base']}/pages/overview", wait_until="load", timeout=10_000
     )
@@ -169,4 +218,41 @@ def test_console_pages_e2e_offline_navigation_hops(console_server, offline_page)
     page.wait_for_load_state("load")
     assert page.locator("#page-identity").get_attribute("data-page") == "ledger"
     assert page.evaluate("() => typeof window.Vue !== 'undefined'") is True
-    assert aborted == []
+    assert offline.aborted == []
+
+
+@needs_e2e
+def test_console_pages_e2e_external_websocket_blocked(console_server, offline_page):
+    """③ ws 防线有效性证明（独立用例独立 context——不污染①②的零外网账本断言）：
+    页面内注入一次外部 ws 连接尝试（wss:// 与 ws:// 各一）→ context.route_web_socket
+    全部拦截（记入 aborted 账本、连接不出浏览器——context.route 拦不到的盲区）→
+    seal_blocked() 补刀后页面侧 socket closed/code=1008；同源放行由①的 index 页
+    自身 /ws（实时流）覆盖。"""
+    page, offline = offline_page
+    resp = page.goto(
+        f"{console_server['base']}/pages/overview", wait_until="load", timeout=10_000
+    )
+    assert resp is not None and resp.status == 200
+    page.evaluate(
+        """() => {
+            window.__ws_probe = {};
+            for (const url of ["wss://evil.example/beacon", "ws://tracker.example/channel"]) {
+                const entry = window.__ws_probe[url] = {state: "pending", code: null};
+                const ws = new WebSocket(url);
+                ws.onopen = () => { entry.state = "open"; };
+                ws.onclose = (ev) => { entry.state = "closed"; entry.code = ev.code; };
+            }
+            return true;
+        }"""
+    )
+    page.wait_for_timeout(300)  # 拦截事件到达（连接被 playwright 就地扣下）
+    ws_attempts = [u for u in offline.aborted if u.startswith("[ws] ")]
+    assert len(ws_attempts) == 2  # 两次外部 ws 尝试全部被拦入账本
+    assert any("evil.example" in u for u in ws_attempts)
+    assert any("tracker.example" in u for u in ws_attempts)
+    assert [u for u in offline.aborted if not u.startswith("[ws] ")] == []  # http 防线未涉入
+    assert offline.seal_blocked() == 2  # 主 greenlet 补刀 close(1008)（handler 内关会死锁）
+    page.wait_for_timeout(300)
+    probe = page.evaluate("() => window.__ws_probe")
+    assert probe["wss://evil.example/beacon"] == {"state": "closed", "code": 1008}
+    assert probe["ws://tracker.example/channel"] == {"state": "closed", "code": 1008}
