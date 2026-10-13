@@ -121,6 +121,63 @@ def test_console_api_shared_stop_flag_wired_by_identity(tmp_path):
 # ---- 真拉起：mock uvicorn，不真跑 ----
 
 
+@needs_fastapi
+def test_console_api_readme_way3_out_of_box(tmp_path, monkeypatch):
+    """README 方式三开箱即用回归（阻断A）：缺省命令原样可跑——
+
+    不预建 scenarios/ 目录、不传 static_pages、dry_run=True+TestClient：
+    ① scenario_dir 缺失→自动建空目录（相对 cwd）；② static_pages 未传→自动
+    render_console_pages 注入（Vue CDN 页面）；③ /pages/index 无后缀回退
+    index.html → 200 含 Vue CDN；/api/scenarios 200 空卡（不再 400）。
+    """
+    import os
+
+    monkeypatch.chdir(tmp_path)  # README 'cd fn_work' 等价：相对 cwd 的 scenarios/
+    result = serve_console(
+        {"scenario_dir": "scenarios", "report_root": "runs", "port": 18123, "dry_run": True}
+    )
+    assert result["launched"] is False
+    assert os.path.isdir(tmp_path / "scenarios")  # ① 缺失目录自动建
+    assert set(result["app"].state.deps["static_pages"]) == {"index.html"}  # ② 自动渲染注入
+    with TestClient(result["app"]) as client:
+        page = client.get("/pages/index")  # ③ 无后缀名 → index.html 回退
+        cards = client.get("/api/scenarios")
+        miss = client.get("/api/runs")  # report_root 未建：仍按原口径 400（不在本修范围）
+    assert page.status_code == 200
+    assert "vue.global.prod.js" in page.text  # Vue CDN（unpkg 缺省源）注入
+    assert "unpkg.com" in page.text
+    assert cards.status_code == 200  # 空目录不再 400
+    assert cards.json() == {"cards": [], "count": 0}
+    assert miss.status_code == 400
+
+
+@needs_fastapi
+def test_console_api_explicit_static_pages_not_overridden(tmp_path):
+    """显式 static_pages 原样直通（不触发自动渲染注入）。"""
+    cfg = _base_config(tmp_path)
+    cfg["dry_run"] = True
+    cfg["static_pages"] = {"custom.html": "<html>custom</html>"}
+    result = serve_console(cfg)
+    assert result["app"].state.deps["static_pages"] == {"custom.html": "<html>custom</html>"}
+
+
+@needs_fastapi
+def test_console_api_scenario_dir_uncreatable_console_error(tmp_path):
+    """scenario_dir 不可创建（父为文件）→ConsoleError 指明路径（不静默 400 路由）。"""
+    blocker = tmp_path / "afile"
+    blocker.write_text("not a dir", encoding="utf-8")
+    with pytest.raises(ConsoleError) as ei:
+        serve_console(
+            {
+                "scenario_dir": str(blocker / "scenarios"),
+                "report_root": str(tmp_path / "runs"),
+                "port": 8123,
+                "dry_run": True,
+            }
+        )
+    assert "scenario_dir" in str(ei.value)
+
+
 def test_console_api_real_launch_invokes_uvicorn_run(tmp_path, monkeypatch):
     """⑥ 真拉起：假 uvicorn.run 被调一次（app+host+port），返回 launched True。"""
     fake_uvicorn = types.ModuleType("uvicorn")

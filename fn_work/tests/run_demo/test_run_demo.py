@@ -1,8 +1,8 @@
 """run_demo 对抗用例：R44 CLI 总入口（slug=demo_pipeline）。
 
 两路夹击：
-- 真实路径：--demo 内置 sim 场景全流程（run_dir 八件套/report.md/溯源执行/exit 0）、
-  双跑目录去重、坏场景文件 exit 2、未知后端 exit 1；
+- 真实路径：--demo 内置 sim 场景全流程（中段档判据触发 → exit 1，失效电平
+  登记/report.md/溯源执行）、双跑目录去重、坏场景文件 exit 2、未知后端 exit 1；
 - 接线路径（叶子依赖 monkeypatch，被测对象 run_demo 自身编排不变）：台账三态
   （ledger_entry 触发/--no-ledger 跳过/LedgerError 仅警告）、dwell 透传、摘要行
   内容、报告失败=运行失败 exit 1（口径断言）、溯源 mismatch 附注但 exit 0、
@@ -163,33 +163,50 @@ def _summary_of(capsys):
     return _parse_summary(capsys.readouterr().out)
 
 
-# ---------- ① 真实路径：--demo 全流程 / 双跑 / 坏场景 / 坏后端 ----------
+# ---------- ① 真实路径：--demo 全流程（中段档判据触发） / 双跑 / 坏场景 / 坏后端 ----------
 
 
-def test_demo_pipeline_demo_full_run_exit0(tmp_path, monkeypatch, capsys):
+def test_demo_pipeline_demo_full_run_criterion_fires_exit1(tmp_path, monkeypatch, capsys):
+    """--demo 全流程回归：中段档判据触发（exit 1）——失效电平登记+报告+溯源照常。
+
+    修复前（误导D）：demo sim 事件恒直给 jsr_db=−20（悬崖左远端），窗口 PER
+    恒 0 → 判据永不触发、走完计划 exit 0（"永不失效"假象）。修复后事件按 GB
+    阶梯档位携带绝对电平（achieved_db=−25…0 dBm，signal_power_db=−20 →
+    jsr=档位+20 随档爬升）：−15dBm 档（index 2，jsr=+5）窗 per=2/20=0.10 恰达
+    阈值（≥ 口径判失效）→ status=failed、failure_levels=1、stopped_at=2（中段
+    非顶档——计划顶档 0dBm 未及执行）→ exit 1。
+    """
     monkeypatch.chdir(tmp_path)  # runs/ 落 tmp，不污染仓库
     rc = run_demo(["--demo"])
-    assert rc == 0
+    assert rc == 1  # 判据触发=运行失败（演示失效检测真实生效）
     match = _summary_of(capsys)
-    assert match["status"] == "completed"
+    assert match["status"] == "failed"
+    assert match["n"] == "1"
     run_dir = match["run_dir"]
     assert os.path.isdir(run_dir)
     report = os.path.join(run_dir, "report.md")
-    assert os.path.isfile(report)
+    assert os.path.isfile(report)  # 失效路径报告照常生成
     with open(report, encoding="utf-8") as handle:
         report_md = handle.read()
-    assert "运行概要" in report_md  # 非八件套初始骨架——报告正文真生成
+    assert "运行概要" in report_md  # 报告正文真生成
     assert match["trace"] == "passed"  # 溯源已执行且通过（数字纪律闭环）
     with open(os.path.join(run_dir, "result.json"), encoding="utf-8") as handle:
         result_json = json.load(handle)
     assert result_json["traceability"]["passed"] is True  # 'traceability' 附 run result
+    inner = result_json["scenario_result"]["result"]
+    assert inner["status"] == "failed"
+    assert len(inner["failure_levels"]) == 1  # P_crit 失效电平登记 1 条
+    assert inner["stopped_at"] == 2  # 中段档（−15dBm，jsr=+5 恰达阈值）
+    assert inner["steps_executed"] == 3
+    assert inner["plan"]["steps"][-1]["target_db"] == 0.0  # 计划顶档 0dBm
+    assert inner["stopped_at"] < len(inner["plan"]["steps"]) - 1  # 非跑顶
 
 
 def test_demo_pipeline_demo_double_run_distinct_dirs(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
-    assert run_demo(["--demo"]) == 0
+    assert run_demo(["--demo"]) == 1  # 判据触发=exit 1（同 --demo 口径）
     first = _summary_of(capsys)["run_dir"]
-    assert run_demo(["--demo"]) == 0
+    assert run_demo(["--demo"]) == 1
     second = _summary_of(capsys)["run_dir"]
     assert first != second  # 同秒冲突 -2 后缀去重：两次 run_dir 不同
     assert os.path.isfile(os.path.join(first, "report.md"))
@@ -331,6 +348,69 @@ def test_demo_pipeline_ledger_error_warns_not_fails(tmp_path, monkeypatch, capsy
     captured = capsys.readouterr()
     assert "台账更新警告" in captured.err
     assert _parse_summary(captured.out)["ledger"] == "warning"
+
+
+# ---------- ④b 台账路径（阻断C：仓库根锚定 + --ledger 覆盖） ----------
+
+
+def _tmp_ledger(tmp_path, entry="B1"):
+    """tmp 清单（含空状态列的 entry 行）——update_ledger status 形态可写。"""
+    ledger = tmp_path / "docs" / "全功能实现清单-技术支持版.md"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text(
+        "| 编号 | 描述 | 状态 |\n|---|---|---|\n"
+        f"| {entry} | 一键命令编排 |  |\n",
+        encoding="utf-8",
+    )
+    return ledger
+
+
+def test_ledger_default_path_anchored_to_repo_root():
+    """阻断C 回归：默认台账路径锚定仓库根（本测试文件 parents[3]），绝对路径。
+
+    修复前 update_ledger 缺省 'docs/…' 为 cwd 相对路径——从 fn_work 或任意
+    非-仓库根 cwd 运行即找不到清单（台账更新只打警告，✅ 永不写入）。
+    """
+    from pathlib import Path
+
+    repo_root = Path(rd.__file__).resolve().parents[3]
+    assert Path(rd.DEFAULT_LEDGER_PATH) == (
+        repo_root / "docs" / "全功能实现清单-技术支持版.md"
+    )
+    assert os.path.isabs(rd.DEFAULT_LEDGER_PATH)
+
+
+def test_ledger_entry_written_from_foreign_cwd_via_anchored_default(
+    tmp_path, monkeypatch, capsys
+):
+    """阻断C 回归：从无 docs/ 的任意 cwd 跑 ledger_entry 场景 → 缺省路径照常 ✅ 写入。
+
+    cwd 切到 tmp 下无清单的子目录——修复前相对缺省路径在此落空（warning）；
+    修复后缺省取仓库根锚定常量（此处以 tmp 清单替身注入验证同一机制），
+    台账真写入（✅ + fn(run_demo) 锚点）。
+    """
+    ledger = _tmp_ledger(tmp_path, entry="B21")
+    foreign = tmp_path / "elsewhere"
+    foreign.mkdir()
+    monkeypatch.chdir(foreign)  # cwd 无 docs/（修复前相对路径即在此找不到清单）
+    monkeypatch.setattr(rd, "DEFAULT_LEDGER_PATH", str(ledger))
+    scenario = _write_scenario_file(foreign, _GB_FILE_YAML)  # ledger_entry: B21
+    assert run_demo([scenario]) == 0
+    text = ledger.read_text(encoding="utf-8")
+    assert "✅" in text and "fn(run_demo)" in text  # 台账真写入（锚点可回溯）
+    assert _summary_of(capsys)["ledger"] == "updated"
+
+
+def test_ledger_flag_overrides_default_path(tmp_path, monkeypatch, capsys):
+    """阻断C 回归：'--ledger' 显式路径覆盖缺省（缺省不可达仍写入指定清单）。"""
+    ledger = _tmp_ledger(tmp_path, entry="B21")
+    monkeypatch.chdir(tmp_path)
+    # 缺省指向不存在的路径——覆盖生效则不受影响（--ledger 优先级见证）
+    monkeypatch.setattr(rd, "DEFAULT_LEDGER_PATH", str(tmp_path / "nope" / "missing.md"))
+    scenario = _write_scenario_file(tmp_path, _GB_FILE_YAML)
+    assert run_demo([scenario, "--ledger", str(ledger)]) == 0
+    assert "✅" in ledger.read_text(encoding="utf-8")  # 覆盖路径真写入
+    assert _summary_of(capsys)["ledger"] == "updated"
 
 
 # ---------- ⑤ 运行成败口径：报告失败=exit 1 / 溯源失败≠run 失败 / status=failed ----------
@@ -477,8 +557,8 @@ def test_b21_high1_scenario_file_with_envelope_keys_full_run_exit0(
     baseline_samples/record/ledger_entry 均报「未知键」）——场景文件路线整条
     死路；修复后装载通过、sim 后端全流程完成（真 run_dir/报告/台账 updated）。
     """
-    monkeypatch.chdir(tmp_path)  # runs/ 与台账落 tmp，不污染仓库
-    # 台账文件就位（相对 CWD 的 docs/ 清单）：B21 行真实可更新（updated 见证）
+    monkeypatch.chdir(tmp_path)  # runs/ 落 tmp，不污染仓库
+    # 台账文件就位（--ledger 显式指向 tmp 清单）：B21 行真实可更新（updated 见证）
     ledger = tmp_path / "docs" / "全功能实现清单-技术支持版.md"
     ledger.parent.mkdir(parents=True, exist_ok=True)
     ledger.write_text(
@@ -486,7 +566,7 @@ def test_b21_high1_scenario_file_with_envelope_keys_full_run_exit0(
         encoding="utf-8",
     )
     path = _write_scenario_file(tmp_path, _GB_FILE_YAML)
-    rc = run_demo([path])
+    rc = run_demo([path, "--ledger", str(ledger)])
     assert rc == 0
     match = _summary_of(capsys)
     assert match["status"] == "completed"

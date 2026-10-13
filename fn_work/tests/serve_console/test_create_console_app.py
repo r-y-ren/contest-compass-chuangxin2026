@@ -326,6 +326,26 @@ def test_static_pages_served_and_404(tmp_path):
 
 
 @needs_fastapi
+def test_static_pages_name_fallback_to_html_suffix(tmp_path):
+    """⑳b /pages/{name} 无后缀回退 name+'.html'（阻断A③）：/pages/index → index.html。
+
+    render_console_pages 产物键恒带 .html 后缀——回退后 README 方式三的
+    /pages/index 直达；带后缀名不二次回退（index.html.html 仍 404）。
+    """
+    deps = _base_deps(tmp_path)
+    deps["static_pages"] = {"index.html": "<html>console</html>"}
+    app = create_console_app(deps)
+    with TestClient(app) as client:
+        direct = client.get("/pages/index.html")
+        via_fallback = client.get("/pages/index")
+        double = client.get("/pages/index.html.html")
+    assert direct.status_code == 200
+    assert via_fallback.status_code == 200
+    assert via_fallback.text == direct.text  # 回退命中同一资产
+    assert double.status_code == 404  # 已带后缀名不再追加回退
+
+
+@needs_fastapi
 def test_ws_handshake_echo_broadcast_and_hub_lifecycle(tmp_path):
     """㉑ WS /ws：握手回 connected 帧，入册 hub，消息广播回环，断开剔除。"""
     app = create_console_app(_base_deps(tmp_path))

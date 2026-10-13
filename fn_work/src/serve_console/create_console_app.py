@@ -219,7 +219,9 @@ def create_console_app(deps: dict) -> "FastAPI":
         缺省 DEFAULT_LEDGER_PATH；文件缺失→零值+available False）；
       - WS   /ws——实时流 hub：app.state.hub（sockets/history/broadcast dict），
         连接即入册回 connected 帧，收到消息向全体广播（简易实时流回路）；
-      - GET  /pages/{name}——static_pages 资产托管（str→HTML，dict→JSON；缺→404）。
+      - GET  /pages/{name}——static_pages 资产托管（str→HTML，dict→JSON；缺→404；
+        无后缀名回退 name+'.html'：/pages/index → index.html，对齐
+        render_console_pages 产物键）。
 
     Raises:
         AppError: deps 非 dict/缺必需键/类型不符；fastapi 缺库（消息含 pip 提示）。
@@ -437,9 +439,14 @@ def create_console_app(deps: dict) -> "FastAPI":
     @app.get("/pages/{name}")
     async def static_page(name: str):  # noqa: ANN201 - HTML/JSON 双响应形态
         pages = deps["static_pages"]
-        if not pages or name not in pages:
+        asset = pages.get(name) if pages else None
+        if asset is None and not name.endswith(".html"):
+            # 无后缀名回退 name+'.html'（/pages/index → index.html）——对齐
+            # render_console_pages 产物键（pages 恒带 .html 后缀），README
+            # 方式三的 /pages/index 直达无需用户知道后缀细节。
+            asset = pages.get(name + ".html") if pages else None
+        if asset is None:
             raise HTTPException(status_code=404, detail=f"页面资产不存在: {name}")
-        asset = pages[name]
         if isinstance(asset, str):
             return HTMLResponse(asset)
         return JSONResponse(asset)

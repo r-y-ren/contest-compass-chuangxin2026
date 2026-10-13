@@ -178,6 +178,51 @@ def test_distance_unreachable_point_skipped(tmp_path):
     assert out["status"] == "completed"  # 容忍口径：跳过不抛
 
 
+def test_distance_unreachable_point_emits_skipped_event(tmp_path):
+    """体验E 回归：计划级不可达点（超衰减器可达域）不再静默——
+
+    落 type='distance_step_skipped' 事件（reason 携 map hint 与可达域，
+    reachable_min/max_db 与下发口径分歧的跳档事件同形状）；可达档照常执行。
+    修复前该点直接 continue，events.jsonl 无任何痕迹。
+    """
+    backend = FakeBackend()
+    ctx = make_ctx(tmp_path, backend=backend, n_events=4)
+    scenario = distance_scenario([1.0, 100.0], judge_min_samples=4)  # 100m→60dB 超域
+    out = execute_scenario(ctx, scenario)
+
+    assert out["status"] == "completed"
+    with open(tmp_path / "events.jsonl", encoding="utf-8") as handle:
+        events = [json.loads(line) for line in handle if line.strip()]
+    skipped = [e for e in events if e.get("type") == "distance_step_skipped"]
+    assert len(skipped) == 1
+    assert skipped[0]["d_m"] == 100.0
+    assert skipped[0]["point_index"] == 1
+    assert "可达域" in skipped[0]["reason"]  # reason 含可达域（map hint+域区间）
+    assert skipped[0]["reachable_min_db"] == 0.0
+    assert skipped[0]["reachable_max_db"] == pytest.approx(50.0)  # 粗30+细20 缺省域顶
+    # 可达档照常执行；不可达档不下发衰减
+    assert [e["d_m"] for e in events if e.get("type") == "distance_step"] == [1.0]
+    assert backend.att_calls == [20.0]
+
+
+def test_distance_negative_loss_point_emits_skipped_event(tmp_path):
+    """体验E 回归（负损耗支线）：X_σ 把损耗拉到 0 以下的不可达点同样留痕。"""
+    scenario = distance_scenario(
+        [1.0],
+        judge_min_samples=2,
+        model_params={"d0_m": 1.0, "l0_db": 2.0, "n": 0.5, "x_sigma": 30.0, "base_seed": 0},
+    )  # base_seed=0：X_σ 抽样把损耗拉到 −3.52dB（负损耗无档位可表达）
+    out = execute_scenario(make_ctx(tmp_path, n_events=2), scenario)
+    assert out["status"] == "completed"
+    assert out["result"]["distance_plan"]["unreachable_count"] == 1  # 抽样后损耗为负
+    with open(tmp_path / "events.jsonl", encoding="utf-8") as handle:
+        events = [json.loads(line) for line in handle if line.strip()]
+    skipped = [e for e in events if e.get("type") == "distance_step_skipped"]
+    assert len(skipped) == 1
+    assert "可达域" in skipped[0]["reason"]  # 负损耗支线 reason 亦含可达域区间
+    assert skipped[0]["reachable_max_db"] == pytest.approx(50.0)
+
+
 def test_distance_sample_source_exhaustion_counted_honestly(tmp_path):
     backend = FakeBackend()
     ctx = make_ctx(tmp_path, backend=backend, n_events=2)  # 源仅 2 样本 < 每档 5

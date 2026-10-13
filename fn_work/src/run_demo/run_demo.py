@@ -16,8 +16,9 @@
   补写（尽力而为，排版同 finalize）+摘要行与 run.log 三处留痕），build_report
   失败口径=运行失败 exit 1（异常经 manage_run 先停发射收尾标 failed 后重抛）；
 ⑥ 台账：--no-ledger 缺省时，场景含 'ledger_entry' 键（如 'B1'）才调
-  update_ledger（anchor=fn(run_demo) run:<目录名> status:<终态>）；LedgerError/
-  ValueError 只打警告不改变退出码；
+  update_ledger（anchor=fn(run_demo) run:<目录名> status:<终态>；路径
+  '--ledger' 覆盖 > 仓库根锚定缺省 DEFAULT_LEDGER_PATH——与运行 cwd 无关）；
+  LedgerError/ValueError 只打警告不改变退出码；
 ⑦ 摘要行 stdout：run_dir/status（completed|failed）/失效数/报告路径/溯源
   passed/台账状态。
 
@@ -34,6 +35,7 @@ import math
 import os
 import sys
 from numbers import Real
+from pathlib import Path
 
 from src.autodetect_backend.autodetect_backend import autodetect_backend
 from src.build_report.build_report import build_report
@@ -59,31 +61,76 @@ EXIT_VALIDATION_FAILED = 2
 #: 运行目录基础路径（相对 CWD；manage_run 自动创建，同秒冲突 -2/-3 去重）。
 RUNS_ROOT = "runs"
 
+#: 台账清单文件名（与 update_ledger.locate_ledger_row 缺省同源）。
+_LEDGER_FILENAME = "全功能实现清单-技术支持版.md"
+
+#: 默认台账路径：锚定仓库根（本文件 fn_work/src/run_demo/run_demo.py 的
+#: parents[3] 即仓库根）——从 fn_work、仓库根或任意其他 cwd 运行都指向同一份
+#: 清单（修复前 update_ledger 缺省 'docs/…' 为 cwd 相对路径，离开仓库根就
+#: 找不到台账）；CLI '--ledger' 可显式覆盖透传 update_ledger(ledger_path=…)。
+DEFAULT_LEDGER_PATH = str(
+    Path(__file__).resolve().parents[3] / "docs" / _LEDGER_FILENAME
+)
+
 #: BackendError 统一降级建议（与 autodetect_backend 文案同口径，不重复附）。
 _FALLBACK_ADVICE = "可改用 --backend sim 降级"
 
 #: 监测路缺省目标频段（MHz，2.4G 法定频段；场景 'bands' 首对优先）。
 _DEFAULT_MONITOR_BAND_MHZ = (2400.0, 2483.5)
 
-#: 内置 --demo 快路径参数：判据永不触发的悬崖左远端 JSR + 事件量。
-_DEMO_JSR_DB = -20.0
+#: 内置 --demo 快路径参数（判据演示：阶梯档位驱动 JSR 爬升过悬崖）。
 _DEMO_N_EVENTS = 10
-_DEMO_SAMPLES_PER_EVENT = 3
+#: sim 事件缺省兜底 JSR（悬崖左远端，'sim_events' 缺失时 _sim_events 生成）。
+_DEMO_JSR_DB = -20.0
+#: 被测链路发射功率（阶梯基准：link−5 起、5dB 步）与判据路信号电平同值
+#: （jsr=档位绝对电平−信号电平 → 0dBm 顶档 jsr=+20 → per≈1，悬崖右翼）。
 _DEMO_LINK_POWER_DB = -20.0
+_DEMO_SIGNAL_POWER_DB = -20.0
+#: 判据窗样本数与每事件样本数对齐（2=2）：1 个 sim 事件恰供 1 个档位判据窗
+#: （事件与阶梯档位一一对应，不跨档混窗）。
+_DEMO_JUDGE_MIN_SAMPLES = 2
+_DEMO_SAMPLES_PER_EVENT = 2
+#: GB 缺省阶梯口径（与 plan_ladder_steps 缺省一致：link−5 起、5dB 步、0dBm 红线）。
+_DEMO_LADDER_START_OFFSET_DB = -5.0
+_DEMO_LADDER_STEP_DB = 5.0
+_DEMO_LADDER_REDLINE_DB = 0.0
+
+
+def _demo_ladder_levels_db() -> list:
+    """内置 demo 的 GB 阶梯档位表（link−5 起、5dB 步、0dBm 红线内）。
+
+    与 plan_ladder_steps(link_power_db, None) 缺省计划同口径——demo 的 sim
+    事件按此表逐档携带绝对干扰电平（achieved_db），判据窗 JSR 随档位爬升。
+    """
+    levels: list[float] = []
+    level = _DEMO_LINK_POWER_DB + _DEMO_LADDER_START_OFFSET_DB
+    while level <= _DEMO_LADDER_REDLINE_DB:
+        levels.append(float(level))
+        level += _DEMO_LADDER_STEP_DB
+    return levels
 
 
 def _demo_scenario() -> dict:
-    """内置 '--demo' 完整样例场景：tone / sim / gb42590（快路径 <10s）。
+    """内置 '--demo' 完整样例场景：tone / sim / gb42590（快路径 <5s）。
 
     与 load_scenario 规范化输出同形状（场景字段+红线信封键），另携执行信封
     （scenario_type/judge_min_samples/dwell_s/baseline_samples/record/sim_events/
     dut——内置场景不经文件装载，不受 schema 未知键约束）；judge_min_samples=2、
-    dwell_s=0、baseline_samples=10 保证全流程秒级完成，jsr=-20（悬崖左远端）
-    使判据永不触发——阶梯走完 0dBm 红线截断，status='completed'（exit 0）。
+    dwell_s=0、baseline_samples=10 保证全流程秒级完成。
+
+    判据演示口径（修复「--demo 永不失效」）：sim 事件不再直给恒定 jsr_db=−20
+    （悬崖左远端，窗口 PER 恒 0），改为按 GB 阶梯档位携带**绝对干扰电平**
+    （achieved_db=−25…0 dBm），signal_power_db=−20 与链路功率同值 → JSR=
+    档位−信号随档爬升（−25dBm 档 jsr=−5 … 0dBm 档 jsr=+20，悬崖阈值 10dB
+    右翼 per→≈1）；samples_per_event 与 judge_min_samples 对齐（1 事件=1 档窗）。
+    判据于第 3 档（index 2，−15dBm，jsr=+5）触发：per_model≈0.085 → err=1/
+    样本 → 窗 per=2/20=0.10 恰达阈值（EN 300 328 ≥ 口径判失效，阈值缺省
+    0.10 与 judge_per_threshold 声明同值）——status='failed'、failure_levels=1、
+    stopped_at=2（中段档，0dBm 顶档未及执行）→ exit 1（判据真触发+失效电平登记）。
     """
     sim_events = [
-        {"type": "power_step", "jsr_db": _DEMO_JSR_DB, "ts": float(index)}
-        for index in range(_DEMO_N_EVENTS)
+        {"type": "power_step", "achieved_db": level, "ts": float(index)}
+        for index, level in enumerate(_demo_ladder_levels_db())
     ]
     return {
         # ---- 场景字段（normalize_scenario 键序） ----
@@ -96,10 +143,10 @@ def _demo_scenario() -> dict:
         "judge_per_threshold": 0.10,
         # ---- 执行信封（内置场景直携） ----
         "scenario_type": "gb42590",
-        "judge_min_samples": 2,
+        "judge_min_samples": _DEMO_JUDGE_MIN_SAMPLES,
         "dwell_s": 0.0,
         "baseline_samples": 10,
-        "signal_power_db": _DEMO_LINK_POWER_DB,
+        "signal_power_db": _DEMO_SIGNAL_POWER_DB,
         "link_power_db": _DEMO_LINK_POWER_DB,
         "record": False,
         "sim_events": sim_events,
@@ -112,7 +159,7 @@ def _demo_scenario() -> dict:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    """CLI 参数：[场景路径 | --demo] 恰其一 + --backend/--dwell/--no-ledger。"""
+    """CLI 参数：[场景路径 | --demo] 恰其一 + --backend/--dwell/--ledger/--no-ledger。"""
     parser = argparse.ArgumentParser(
         prog="run_demo",
         description=(
@@ -129,7 +176,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--demo",
         action="store_true",
-        help="使用内置 tone/sim/gb42590 完整样例（judge 2/dwell 0/baseline 10 快路径）",
+        help="使用内置 tone/sim/gb42590 完整样例（judge 2/dwell 0/baseline 10 快路径；"
+        "阶梯档位驱动 JSR 爬升，中段档判据触发 → exit 1 演示失效电平登记）",
     )
     parser.add_argument(
         "--backend",
@@ -141,6 +189,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help="档间停留秒（CLI 覆盖：写入 scenario['dwell_s']，两级回落最高层）",
+    )
+    parser.add_argument(
+        "--ledger",
+        default=None,
+        help="台账 md 路径覆盖（缺省锚定仓库根 docs/全功能实现清单-技术支持版.md，"
+        "与运行 cwd 无关）",
     )
     parser.add_argument(
         "--no-ledger",
@@ -425,6 +479,7 @@ def run_demo(argv: list | None = None) -> int:
     输入:
         argv: 参数清单（None → sys.argv[1:]）——[场景路径 | '--demo'] 恰其一，
             可选 '--backend' 名 / '--dwell' 秒（CLI 覆盖 scenario['dwell_s']）/
+            '--ledger' 台账 md 路径覆盖（缺省仓库根锚定 DEFAULT_LEDGER_PATH）/
             '--no-ledger'。
 
     输出:
@@ -509,10 +564,14 @@ def run_demo(argv: list | None = None) -> int:
     else:
         entry_id = scenario.get("ledger_entry")
         if isinstance(entry_id, str) and entry_id.strip():
+            # 台账路径：'--ledger' 覆盖 > 仓库根锚定缺省（DEFAULT_LEDGER_PATH，
+            # 与运行 cwd 无关——从 fn_work/任意目录跑都指向同一份清单）。
+            ledger_path = str(args.ledger) if args.ledger else DEFAULT_LEDGER_PATH
             try:
                 update_ledger(
                     entry_id.strip(),
                     _ledger_anchor(run_record["run_dir"], "completed" if completed else "failed"),
+                    ledger_path=ledger_path,
                 )
             except (LedgerError, ValueError) as exc:
                 print(

@@ -11,7 +11,8 @@ deps 注入本函数）。产出统一运行结果对象 {'status','result','str
   set_channel_attenuation 下发衰减 + KPI 采集窗口（复用 drive/sim 拉 DUT 样本——
   简化口径：每档拉 judge_min_samples 个样本经 normalize_kpi 归一）→ 结果
   {'status','distance_plan','kpi_rows'}；不可达点（含负损耗）按 map 口径容忍
-  跳过不抛（distance_plan.unreachable_count 如实计数）；档下发遇
+  跳过不抛（distance_plan.unreachable_count 如实计数），且不再静默——每点落
+  type='distance_step_skipped' 事件（reason 含可达域）；档下发遇
   AttenuationError（计划/下发标定口径分歧，如 ctx['attenuator_cal'] 缩域）
   同口径跳过该档不抛，落 type='distance_step_skipped' 事件（reason 含可达域，
   B21 低#3）；每可达档落 type='distance_step' 事件（d_m/loss_db/attenuation/
@@ -57,7 +58,10 @@ from src.execute_gb42590_protocol.execute_gb42590_protocol import (
     _open_dut_source,
     execute_gb42590_protocol,
 )
-from src.map_distance_to_loss.map_distance_to_loss import map_distance_to_loss
+from src.map_distance_to_loss.map_distance_to_loss import (
+    _reachable_ceiling_db,
+    map_distance_to_loss,
+)
 from src.normalize_kpi.normalize_kpi import normalize_kpi
 from src.record_run_streams.record_run_streams import KPI_HEADER, record_run_streams
 from src.run_baseline_check.run_baseline_check import run_baseline_check
@@ -172,10 +176,11 @@ def _run_distance(ctx: dict, scenario: dict) -> dict:
     与 map 计划同源，保证计划/下发一致；两者缺省 None 时下发回落
     ctx['attenuator_cal']，与 map 按标定计划略有差异属标定口径，事件如实记录）。
     不可达点跳过（不下发不采样——set_channel_attenuation 对超域目标抛
-    AttenuationError，容忍语义在 map 层已消化）；DUT 样本源复用 gb 口径的
-    _open_dut_source（sim→simulate_link_degradation；真链路→drive_esp32_link/
-    drive_nrf24_link），每档拉 judge_min_samples 个样本经 normalize_kpi 归一
-    （源耗尽如实计 n_samples，不补不造）。
+    AttenuationError，容忍语义在 map 层已消化；不再静默：每点落
+    type='distance_step_skipped' 事件，reason 携 map hint 与可达域）；DUT 样本源
+    复用 gb 口径的 _open_dut_source（sim→simulate_link_degradation；真链路→
+    drive_esp32_link/drive_nrf24_link），每档拉 judge_min_samples 个样本经
+    normalize_kpi 归一（源耗尽如实计 n_samples，不补不造）。
 
     落盘（B21 中#2）：每档一条 events.jsonl 事件——可达档 type='distance_step'
     （d_m/loss_db/attenuation/judge_per_mean），档 KPI 行同时逐行追加
@@ -199,7 +204,26 @@ def _run_distance(ctx: dict, scenario: dict) -> dict:
     kpi_rows: list[dict] = []
     for point_index, point in enumerate(plan["points"]):
         if not point["reachable"]:
-            continue  # 不可达点（含负损耗）：map 口径容忍，跳过不下发不采样
+            # 计划级不可达（超衰减器可达域/负损耗）：不再静默——留痕
+            # type='distance_step_skipped' 事件（reason 携 map 计划 hint 与可达域，
+            # 与下发口径分歧的跳档事件同形状），不下发不采样，整计划继续。
+            ceiling_db = _reachable_ceiling_db(domain, cal_table)
+            skipped: dict = {
+                "type": "distance_step_skipped",
+                "step": len(kpi_rows),
+                "point_index": point_index,
+                "d_m": point["d_m"],
+                "loss_db": point["loss_db"],
+                "reason": (
+                    f"{point.get('hint', '计划点不可达')}；该点不在衰减器可达域 "
+                    f"[0.0, {ceiling_db}] dB 内，按计划口径跳过"
+                ),
+                "reachable_min_db": 0.0,
+                "reachable_max_db": ceiling_db,
+            }
+            if run_dir is not None:
+                append_event(run_dir, skipped)
+            continue
         try:
             attenuation = set_channel_attenuation(
                 ctx, float(point["loss_db"]), domain=domain, cal_table=cal_table

@@ -5,6 +5,11 @@
   runner 缺省 lambda 占位（noop 回执）、stop_flag 共享 dict（config 提供则原对象
   直通，供 /api/stop 与急停路径共享）、scenario_dir/report_root/static_pages 直传
   create_console_app；
+- 开箱即用（README 方式三）：scenario_dir 缺失→os.makedirs(exist_ok=True) 按
+  config 路径建空目录（相对 cwd），/api/scenarios 即空卡而非 400；
+  static_pages 未传（None）→ 就地调 render_console_pages(scenario_dir, {})
+  自动产出缺省页面资产（Vue3 CDN 单文件 HTML，pages 键带 .html 后缀）注入
+  deps——用户无需预渲染即可 GET /pages/index；
 - config['dry_run']=True→不拉起不检端口，返回 {'app', 'launched': False, 'port',
   'host'}（测试经 TestClient 直接打 create 路由）；
 - 真拉起序：先探端口占用→ConsoleError（dry_run 下不检）；再延迟 import uvicorn
@@ -15,7 +20,10 @@
 """
 from __future__ import annotations
 
+import os
 import socket
+
+from src.render_console_pages.render_console_pages import render_console_pages
 
 from .create_console_app import AppError, create_console_app
 
@@ -97,10 +105,13 @@ def serve_console(config: dict) -> dict:
     """Web 服务入口：组装 deps→create_console_app→按 dry_run 决定是否 uvicorn 拉起。
 
     Args:
-        config: 服务配置 dict——必需 'scenario_dir'/'report_root'（非空 str 路径）；
-            可选 'port'（int 1-65535，缺省 8000）、'host'（str，缺省 127.0.0.1）、
-            'runner'（callable，缺省 noop 占位）、'stop_flag'（共享 dict，缺省新建）、
-            'static_pages'（dict|None，缺省 None）、'dry_run'（bool，缺省 False）。
+        config: 服务配置 dict——必需 'scenario_dir'/'report_root'（非空 str 路径；
+            scenario_dir 缺失即按该路径建空目录——相对 cwd 解析，空态页面/空卡
+            列表开箱即用）；可选 'port'（int 1-65535，缺省 8000）、'host'（str，
+            缺省 127.0.0.1）、'runner'（callable，缺省 noop 占位）、'stop_flag'
+            （共享 dict，缺省新建）、'static_pages'（dict|None，缺省 None=就地
+            render_console_pages(scenario_dir, {}) 自动渲染注入）、'dry_run'
+            （bool，缺省 False）。
 
     Returns:
         dry_run: {'app': FastAPI 实例, 'launched': False, 'port', 'host'}；
@@ -108,10 +119,25 @@ def serve_console(config: dict) -> dict:
 
     Raises:
         ValueError: config 形状错（非 dict/键类型不符/端口越界）。
+        ConsoleError: scenario_dir 创建失败 / 端口被占用 / uvicorn 运行库缺失
+            （消息含 pip 提示）。
         AppError: deps 装配失败或 fastapi 缺库（create_console_app 原样透传）。
-        ConsoleError: 端口被占用 / uvicorn 运行库缺失（消息含 pip 提示）。
     """
     port, host, dry_run = _validate_config(config)
+
+    # ---- 开箱即用：scenario_dir 缺失即建空目录（相对 cwd；空态页面/空卡） ----
+    scenario_dir = config["scenario_dir"]
+    try:
+        os.makedirs(scenario_dir, exist_ok=True)
+    except OSError as exc:  # 路径不可达/无权限等：起服务也无从服务场景列表
+        raise ConsoleError(
+            f"scenario_dir 创建失败: {scenario_dir}（{exc}）——请检查路径与权限"
+        ) from exc
+
+    # ---- 开箱即用：static_pages 未传 → 自动渲染缺省页面资产（Vue3 CDN 单文件） ----
+    static_pages = config.get("static_pages")
+    if static_pages is None:
+        static_pages = render_console_pages(scenario_dir, {})["pages"]
 
     stop_flag = config.get("stop_flag")
     if not isinstance(stop_flag, dict):
@@ -119,9 +145,9 @@ def serve_console(config: dict) -> dict:
     deps = {
         "runner": config["runner"] if "runner" in config else _default_runner,
         "stop_flag": stop_flag,
-        "scenario_dir": config["scenario_dir"],
+        "scenario_dir": scenario_dir,
         "report_root": config["report_root"],
-        "static_pages": config.get("static_pages"),
+        "static_pages": static_pages,
     }
     app = create_console_app(deps)
 
