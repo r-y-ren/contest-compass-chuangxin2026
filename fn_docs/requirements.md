@@ -517,3 +517,4 @@
 | 2026-10-13 | 第 5 轮 GUI 完整走查修复（7 项）：根路径 / 307→/pages/index；急停按钮；状态区运行后从 result.json 刷新 backend/clock；清单完成度内联(done/total)替代裸 JSON 链接；场景白名单扩 52 键（freq_offset_hz/n_samples/signal_power_db 等）；测试正则 DOTALL 贪婪修正；IAB locator 兼容（Vue evaluate 直点） | 用户报告 GET / 404——真实浏览器操作暴露 |
 | 2026-10-13 | 演进轮 fn-grill（展示层全能力）：R56–R75 共 20 条（P0=13/P1=7）；环境增量=Vue3 vendor 本地化+markdown 服务端渲染+playwright 测试依赖；非功能+离线可用+管线顺手改登记规则；范围外+4 条；术语+4 条。三轮前沿问答+fn-review 前置审计（Critical 0/Important 4 由 R75 承接） | 用户要求：面向用户的页面与展示设计——沿用 web 做深、全能力面一步到位、多受众答辩优先、依赖全本地化、验收加浏览器自动化 |
 | 10-13 | R56 文字对齐（快速通道，Ruling③先例）：vendor 托管路径 /pages 静态托管→/assets/vendor 路由托管 | 零喂料对抗审查 F2 行为级实锤（/pages/vendor 实测 404，实际路由 /assets/vendor 200）；意图不变仅文字对齐实现真值 |
+| 2026-10-14 | R58 验收口径注记 | sim 管线 monitor.csv 恒空（实证）→频谱帧真运行为 0：验收以集成尾随真文件+WS 链双覆盖承载；B210 真机在位时 monitor 采集窗与发射窗重合，频谱路自然接通 | 对抗审查 I2：句面与实证的偏离如实登记 |
