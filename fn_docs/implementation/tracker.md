@@ -947,7 +947,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] B23 · 评审三轴 — 证据: bash -c git log --format=%s -1 | grep -q "B23 出批次表入历史表" && grep -c "^- Ruling:" fn_docs/implementation/tracker.md && echo 评审三轴过_Critical0_Important1已收口655fe0c → 评审三轴过_Critical0_Important1已收口655fe0c (10-13)
 - [x] B23 · 对抗审查 — 证据: bash -c grep -q "edit_scenario_ui 补排 B24" fn_docs/implementation/batches.md && git show 655fe0c --stat | tail -1 && echo 对抗Critical0_I2I3已修复落盘 → 对抗Critical0_I2I3已修复落盘 (10-13)
 - [x] B23 · 对抗审查重跑 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k "bypass_variants or no_vendor_copy" -q 2>&1 | tail -1 && git log --format=%h%n%s -1 && grep -q "assets/vendor 路由托管" ../fn_docs/responsibility.md && echo 重跑闭环_F1F2F3F13F14全修复 → 重跑闭环_F1F2F3F13F14全修复 (10-13)
-- [ ] B23 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+- [x] B23 · 用户裁决 — 证据: bash -c grep -c "^- [x] B23 · " fn_docs/implementation/tracker.md && test $(grep -c "^| ▶ B24" fn_docs/implementation/batches.md) -eq 1 && echo 裁决=继续B24_用户2026-10-13确认 → 裁决=继续B24_用户2026-10-13确认 (10-13)
 
 ## B24 — edit_scenario_ui, render_triple_stream_charts, stream_realtime_console, harden_emergency_stop
 ### edit_scenario_ui
