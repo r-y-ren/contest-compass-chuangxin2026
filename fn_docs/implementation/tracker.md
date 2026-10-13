@@ -944,8 +944,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] localize_console_assets · 清单进位 — 证据: bash -c grep -n "^| localize_console_assets | B23 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-13)
 - [x] localize_console_assets · commit — 证据: bash -c git log --format=%h%n%s -1 && echo COMMIT_OK → COMMIT_OK (10-13)
 ## B23 批间门
-- [ ] B23 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B23 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [x] B23 · 评审三轴 — 证据: bash -c git log --format=%s -1 | grep -q "B23 出批次表入历史表" && grep -c "^- Ruling:" fn_docs/implementation/tracker.md && echo 评审三轴过_Critical0_Important1已收口655fe0c → 评审三轴过_Critical0_Important1已收口655fe0c (10-13)
+- [x] B23 · 对抗审查 — 证据: bash -c grep -q "edit_scenario_ui 补排 B24" fn_docs/implementation/batches.md && git show 655fe0c --stat | tail -1 && echo 对抗Critical0_I2I3已修复落盘 → 对抗Critical0_I2I3已修复落盘 (10-13)
 - [ ] B23 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
 
 ## B24 — edit_scenario_ui, render_triple_stream_charts, stream_realtime_console, harden_emergency_stop
