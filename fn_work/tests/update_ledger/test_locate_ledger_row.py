@@ -255,5 +255,17 @@ def test_real_ledger_b5_smoke():
 
 
 def test_default_ledger_path_contract():
+    """缺省路径契约（误导③修订）：ledger_path 缺省 None 哨兵（调用时回落模块
+    全局 DEFAULT_LEDGER_PATH，monkeypatch 友好）；模块常量锚定仓库根绝对路径
+    （locate_ledger_row.py 的 parents[3]）——从任意 cwd 调用都指向同一份清单。"""
+    from pathlib import Path
+
+    import src.update_ledger.locate_ledger_row as locate_mod
+
     default = inspect.signature(locate_ledger_row).parameters["ledger_path"].default
-    assert default == "docs/全功能实现清单-技术支持版.md"
+    assert default is None  # None 哨兵 → 调用时动态回落模块全局
+    repo_root = Path(locate_mod.__file__).resolve().parents[3]
+    assert Path(locate_mod.DEFAULT_LEDGER_PATH) == (
+        repo_root / "docs" / "全功能实现清单-技术支持版.md"
+    )
+    assert Path(locate_mod.DEFAULT_LEDGER_PATH).is_absolute()

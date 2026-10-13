@@ -186,3 +186,20 @@ def test_console_ui_cdn_base_http_mirror_allowed(tmp_path):
         str(sdir), {"cdn_base": "http://mirror.intra"}
     )["pages"]["index.html"]
     assert "http://mirror.intra/vue@3/dist/vue.global.prod.js" in html
+
+
+def test_console_ui_start_run_polls_run_status_to_completion(tmp_path):
+    """阻断①(c) 回归：startRun 提交后轮询 /api/runs/{id}（1s 间隔、上限 120s），
+    提交即提示「运行中…」；完成时状态区 run-result 行显示 status/failure_levels/
+    report 路径（可复制文本，非超链接）。"""
+    result = render_console_pages(str(tmp_path), {})
+    html = result["pages"]["index.html"]
+    assert "async pollRun(runId)" in html  # 轮询协程就位（startRun 提交后驱动）
+    assert "'/api/runs/' + runId" in html  # 轮询目标端点（run_id 拼接）
+    assert "setTimeout(resolve, 1000)" in html  # 1s 轮询间隔
+    assert "120000" in html  # 轮询上限 120s（超时提示转报告中心）
+    assert "运行中…" in html  # 提交即提示（不再止步「已提交」）
+    assert 'id="run-result"' in html  # 状态区结果行挂载点
+    assert "failure_levels" in html and "report_path" in html  # 结果行字段
+    assert "运行完成" in html  # 终态回显（done/failed 两分支文案）
+    assert "运行失败" in html

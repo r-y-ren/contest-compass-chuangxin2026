@@ -22,6 +22,7 @@ import threading
 import uuid
 from collections import deque
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from src.load_scenario.load_scenario import load_scenario
@@ -39,9 +40,15 @@ _REQUIRED_DEPS = ("runner", "stop_flag", "scenario_dir", "report_root", "static_
 #: 缺库安装提示（AppError 消息原文含 'pip'，测试据此断言）。
 FASTAPI_PIP_HINT = "pip install fastapi（见 requirements.txt）"
 
-#: 清单完成度默认读数路径（与 update_ledger.locate_ledger_row.DEFAULT_LEDGER_PATH
-#: 同源；实际部署由上层以 deps['ledger_path'] 显式注入）。
-DEFAULT_LEDGER_PATH = "docs/全功能实现清单-技术支持版.md"
+#: 清单完成度默认读数路径：锚定仓库根（本文件 fn_work/src/serve_console/
+#: create_console_app.py 的 parents[3] 即仓库根）——与 run_demo.DEFAULT_LEDGER_PATH/
+#: update_ledger.locate_ledger_row.DEFAULT_LEDGER_PATH 同式，从 fn_work、仓库根
+#: 或任意其他 cwd 起服都指向同一份清单（修复前 'docs/…' 为 cwd 相对路径，离开
+#: 仓库根即 total=0 available=False 的空读数误导）。实际部署由上层以
+#: deps['ledger_path'] 显式注入。
+DEFAULT_LEDGER_PATH = str(
+    Path(__file__).resolve().parents[3] / "docs" / "全功能实现清单-技术支持版.md"
+)
 
 # 清单条目行（A–L 域，含 ▶ 进行中前缀变体）——与 locate_ledger_row 同口径的行判定；
 # done 判定同源 B17 中#5：行内含 ✅ 或 'wired' 字样即完成。

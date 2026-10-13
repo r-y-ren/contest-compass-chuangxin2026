@@ -1,5 +1,13 @@
 """CLI 总入口：场景→后端→时钟→manage_run（执行+采集）→报告→溯源→台账，退出码 0/1/2——重写规约与签名意图详见 fn_docs/responsibility.md R44。
 
+双入口共享同一执行管线（_execute_pipeline/_execute_stage，避免复制）：
+- run_demo(argv)——CLI（文件/--demo 装载 + 退出码 + stdout 摘要行 + 台账缺省开）；
+- run_scenario(scenario, *, backend, out_root, dwell_s, ledger)——无头入口
+  （收已解析场景 dict；validate→guard→normalize 同 load_scenario 三件套口径；
+  一切入返回值 {'run_dir','status','report_path','exit_code','failure_levels',
+  'summary'}，台账缺省不动）——网页操控台（serve_console 缺省 runner）与
+  程序化复用由此进入，不打印不退出。
+
 编排链（一键命令串联主链，分阶段退出码；任何异常先停发射经 manage_run 收尾）：
 ① load_scenario（'--demo' 用内置 sim 场景）——LoadScenarioError → exit 2 摘要行；
 ② autodetect_backend（explicit 来自 --backend，缺省回落场景 'backend' 键，
@@ -39,8 +47,12 @@ from pathlib import Path
 
 from src.autodetect_backend.autodetect_backend import autodetect_backend
 from src.build_report.build_report import build_report
+from src.guard_compliance.guard_compliance import guard_compliance
+from src.load_scenario.load_scenario import _ENVELOPE_KEYS
 from src.load_scenario.load_scenario import load_scenario
 from src.load_scenario.load_scenario import ScenarioError as LoadScenarioError
+from src.load_scenario.normalize_scenario import DEFAULT_POWER_DBM, normalize_scenario
+from src.load_scenario.validate_scenario_schema import validate_scenario_schema
 from src.manage_backend_registry.lookup_backend import BackendError
 from src.manage_run.manage_run import RunDirError, manage_run
 from src.resolve_clock_reference.resolve_clock_reference import resolve_clock_reference
@@ -51,7 +63,7 @@ from src.verify_report_traceability.verify_report_traceability import (
 
 from .execute_scenario import append_distance_kpi_rows, execute_scenario, record_run_streams
 
-__all__ = ["run_demo"]
+__all__ = ["run_demo", "run_scenario"]
 
 #: 退出码三态（R44 签名意图：校验失败=2；运行失败=1；均已停发射）。
 EXIT_OK = 0
@@ -219,11 +231,12 @@ def _is_finite_nonneg_seconds(value: object) -> bool:
     )
 
 
-def _explicit_backend(args: argparse.Namespace, scenario: dict) -> str | None:
-    """显式后端名决策：--backend > 场景 'backend'（'auto'/空/非 str → None 探测）。"""
-    if args.backend is not None:
-        name = args.backend.strip() if isinstance(args.backend, str) else args.backend
-        return name if name else None
+def _explicit_backend_name(name: str | None, scenario: dict) -> str | None:
+    """显式后端名决策：显式名（CLI --backend / run_scenario backend 参数）>
+    场景 'backend'（'auto'/空/非 str → None 探测）。"""
+    if name is not None:
+        stripped = name.strip() if isinstance(name, str) else name
+        return stripped if stripped else None
     from_scenario = scenario.get("backend")
     if (
         isinstance(from_scenario, str)
@@ -457,20 +470,269 @@ def _attach_scenario_result(run_record: dict, state: dict) -> None:
 
 
 def _summary(
-    run_record: dict, state: dict, completed: bool, ledger_status: str
+    run_record: dict,
+    state: dict,
+    completed: bool,
+    ledger_status: str,
+    prog: str = "run_demo",
 ) -> str:
-    """⑦ 摘要行（stdout）：run_dir/status/失效数/报告路径/溯源 passed/台账。"""
+    """⑦ 摘要行（stdout）：run_dir/status/失效数/报告路径/溯源 passed/台账。
+
+    prog 前缀区分入口（CLI 'run_demo' / 无头入口 'run_scenario'），字段口径同构。
+    """
     trace = state.get("traceability")
     trace_passed = isinstance(trace, dict) and bool(trace.get("passed"))
     execute_result = state.get("execute_result") if isinstance(state.get("execute_result"), dict) else {}
     return (
-        f"run_demo: run_dir={run_record['run_dir']}"
+        f"{prog}: run_dir={run_record['run_dir']}"
         f" status={'completed' if completed else 'failed'}"
         f" failure_levels={len(_failure_levels(execute_result))}"
         f" report={state.get('report_path')}"
         f" traceability={'passed' if trace_passed else 'failed'}"
         f" ledger={ledger_status}"
     )
+
+
+def _backend_error_text(exc: Exception) -> str:
+    """BackendError 统一失败文案（附降级建议，消息已有则不重复）。"""
+    message = str(exc)
+    advice = "" if _FALLBACK_ADVICE in message else f"；{_FALLBACK_ADVICE}"
+    return f"后端启动失败（运行失败，exit 1）: {message}{advice}"
+
+
+def _normalize_scenario_object(scenario: dict) -> dict:
+    """场景 dict → 规范化场景对象（validate→guard→normalize+信封键落位）。
+
+    与 load_scenario(path) 装载后的三件套同构（validate_scenario_schema →
+    guard_compliance → normalize_scenario，信封键 bands/shielded_box/dut_scope/
+    declarations 摘出后落位），差异仅在入口：本函数收已解析 dict（网页/API
+    直给），文件读与 YAML 解析归调用方（serve_console 薄载荷合并路径先经
+    load_scenario 全口径装载）。未知键/红线拒绝同样抛 LoadScenarioError——
+    场景进入系统的唯一形状纪律不因入口放宽。
+    """
+    if not isinstance(scenario, dict):
+        raise LoadScenarioError(
+            f"场景必须为 dict（完整场景对象），实际 {type(scenario).__name__}: {scenario!r}"
+        )
+    nested = scenario.get("declarations")
+    declarations = nested if isinstance(nested, dict) else {}
+    shielded_box = declarations.get("shielded_box", scenario.get("shielded_box"))
+    dut_scope = declarations.get("dut_scope", scenario.get("dut_scope"))
+    bands = scenario.get("bands")
+    scenario_fields = {k: v for k, v in scenario.items() if k not in _ENVELOPE_KEYS}
+
+    errors = validate_scenario_schema(scenario_fields)
+    if errors:
+        numbered = "\n".join(f"  {i}. {e}" for i, e in enumerate(errors, start=1))
+        raise LoadScenarioError(f"场景字段校验未通过（{len(errors)} 处）:\n{numbered}")
+
+    guard_config = {
+        "power": {"power_dbm": scenario_fields.get("power_dbm", DEFAULT_POWER_DBM)},
+        "bands": bands,
+        "declarations": {"shielded_box": shielded_box, "dut_scope": dut_scope},
+    }
+    verdict = guard_compliance(guard_config)
+    if verdict["status"] == "rejected":
+        violation_lines = "\n".join(f"  - {v}" for v in verdict["violations"])
+        raise LoadScenarioError(
+            f"红线校验拒绝（guard_compliance）:\n{violation_lines}"
+        )
+
+    normalized = normalize_scenario(scenario_fields)
+    normalized["bands"] = bands
+    normalized["shielded_box"] = shielded_box
+    normalized["dut_scope"] = dut_scope
+    return normalized
+
+
+def _execute_pipeline(
+    scenario: dict, state: dict, *, backend: str | None, runs_root: str
+) -> "tuple[dict, bool]":
+    """共享执行管线（CLI run_demo 与无头入口 run_scenario 同构，避免复制）：
+    后端决策→时基→manage_run 全生命周期（execute 回调=执行分派+采集+报告+
+    溯源，见 _execute_stage）→运行成败归一（manage_run 终态+场景执行 status
+    双确认）→溯源/场景结果附注 result.json（尽力而为）。
+
+    state 由调用方创建并传入（run_dir/execute_result/report_path/
+    traceability 就地落位）——异常路径（经 manage_run 先停发射收尾后重抛）
+    调用方仍能从 state 取到已建 run_dir 等进展留痕。
+
+    返回 (run_record, completed)；异常原样上抛（BackendError/RunDirError/
+    execute 阶段任何异常（后者已经 manage_run 先停发射收尾））——失败语义归
+    调用方：CLI 转 exit 1 摘要行，run_scenario 转 failed 返回 dict。
+    """
+    backend_obj, selection = autodetect_backend(
+        _explicit_backend_name(backend, scenario), _backend_params(scenario)
+    )
+    clock_ref = resolve_clock_reference(backend_obj)["clock_ref"]
+
+    def _execute(ctx: dict) -> None:
+        _execute_stage(ctx, scenario, selection, clock_ref, state)
+
+    run_record = manage_run(scenario, _execute, runs_root=runs_root, backend=backend_obj)
+    execute_result = (
+        state.get("execute_result") if isinstance(state.get("execute_result"), dict) else {}
+    )
+    completed = (
+        run_record.get("status") == "done"
+        and execute_result.get("status") == "completed"
+    )
+    _attach_traceability(run_record, state)
+    _attach_scenario_result(run_record, state)
+    return run_record, completed
+
+
+def _ledger_status_for(
+    scenario: dict,
+    run_record: dict,
+    completed: bool,
+    *,
+    enabled: bool,
+    ledger_path: str | None = None,
+) -> "tuple[str, str | None]":
+    """台账状态归一（CLI --no-ledger / run_scenario ledger=False 同构）：
+    skipped(ledger_off)|skipped(no_entry)|updated|warning。
+
+    仅场景含 'ledger_entry' 键且未显式关 ledger 时调 update_ledger（anchor=
+    fn(run_demo) run:<目录名> status:<终态>；路径 ledger_path 覆盖 > 缺省
+    DEFAULT_LEDGER_PATH 仓库根锚定——动态回落模块全局，与运行 cwd 无关）。
+    LedgerError/ValueError 只降 warning 不反杀运行。
+
+    Returns:
+        (状态, 警告文本|None)：warning 分支携异常文本——CLI 打 stderr 警告行，
+        无头入口并入失败口径忽略（台账绝不反杀运行）。
+    """
+    if not enabled:
+        return "skipped(ledger_off)", None
+    entry_id = scenario.get("ledger_entry")
+    if not (isinstance(entry_id, str) and entry_id.strip()):
+        return "skipped(no_entry)", None
+    if ledger_path is None:  # 动态回落模块全局（monkeypatch 友好；绝对锚定与 cwd 无关）
+        ledger_path = DEFAULT_LEDGER_PATH
+    try:
+        update_ledger(
+            entry_id.strip(),
+            _ledger_anchor(run_record["run_dir"], "completed" if completed else "failed"),
+            ledger_path=ledger_path,
+        )
+    except (LedgerError, ValueError) as exc:
+        return "warning", f"{type(exc).__name__}: {exc}"
+    return "updated", None
+
+
+def run_scenario(
+    scenario: dict,
+    *,
+    backend: str | None = None,
+    out_root: str = RUNS_ROOT,
+    dwell_s: float | None = None,
+    ledger: bool = False,
+) -> dict:
+    """无头单场景运行入口（网页操控台/程序化复用；不打印不退出，一切入返回值）。
+
+    与 CLI run_demo 同构的编排链（共享 _execute_pipeline/_execute_stage）：
+    场景校验+规范化（validate→guard→normalize，load_scenario 三件套同口径）
+    → 后端决策（backend 参数 > 场景 'backend' > 自动探测）→ 时基 →
+    manage_run（执行分派+采集+报告+溯源）→ 附注 result.json；台账缺省不动
+    （ledger=False；True 时同 CLI --no-ledger 未给口径：场景含 ledger_entry
+    才更新，LedgerError 只降 warning）。
+
+    Args:
+        scenario: 完整场景 dict（含声明等信封键；已由调用方保证形状——网页侧
+            薄载荷的名解析与文件合并在 serve_console 缺省 runner 完成）。
+        backend: 显式后端名（sim/b210/replay）；None=回落场景 'backend' 键，
+            'auto' 才探测。
+        out_root: 运行目录基础路径（manage_run runs_root，自动创建；缺省
+            'runs' 相对 cwd——操控台传 config['report_root']）。
+        dwell_s: 档间停留秒覆盖（None=不覆盖；非法值 ValueError 早拒）。
+        ledger: 是否在场景含 ledger_entry 时更新台账（缺省 False——操控台
+            不动台账，CLI 语义归 run_demo）。
+
+    Returns:
+        {'run_dir': str|None（校验失败/后端失败为 None）, 'status':
+        'completed'|'failed'|'validation_failed', 'report_path': str|None,
+        'exit_code': 0|1|2（与 CLI 三态同口径）, 'failure_levels': int,
+        'summary': 摘要行文本, 'error': 失败原因（仅失败分支携带）}。
+        预期失败路径不抛（返回失败 dict）；仅入参形状错（非 dict 场景/非法
+        dwell_s）抛 ValueError——调用方编程错误早暴露。
+
+    Raises:
+        ValueError: scenario 非 dict / dwell_s 非非负有限秒。
+    """
+    if not isinstance(scenario, dict):
+        raise ValueError(
+            f"scenario 必须为 dict（完整场景对象），实际 {type(scenario).__name__}: {scenario!r}"
+        )
+    if dwell_s is not None and not _is_finite_nonneg_seconds(dwell_s):
+        raise ValueError(f"dwell_s 须为非负有限秒数，实际 {dwell_s!r}")
+
+    def _failed(text: str, exc: BaseException | None) -> dict:
+        execute_result = (
+            state.get("execute_result")
+            if isinstance(state.get("execute_result"), dict)
+            else {}
+        )
+        result = {
+            "run_dir": state.get("run_dir"),
+            "status": "failed",
+            "report_path": state.get("report_path"),
+            "exit_code": EXIT_RUN_FAILED,
+            "failure_levels": len(_failure_levels(execute_result)),
+            "summary": f"run_scenario: {text}",
+        }
+        if exc is not None:
+            result["error"] = f"{type(exc).__name__}: {exc}"
+        return result
+
+    # ---- ① 场景校验+规范化（validate→guard→normalize；未知键/红线拒绝 exit 2 口径） ----
+    state: dict = {}
+    try:
+        prepared = _normalize_scenario_object(scenario)
+    except LoadScenarioError as exc:
+        return {
+            "run_dir": None,
+            "status": "validation_failed",
+            "report_path": None,
+            "exit_code": EXIT_VALIDATION_FAILED,
+            "failure_levels": 0,
+            "summary": f"run_scenario: 场景校验失败（校验失败，exit 2）: {exc}",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+    if dwell_s is not None:  # 覆盖透传（两级回落 scenario>ctx>缺省最高层）
+        prepared["dwell_s"] = float(dwell_s)
+
+    # ---- ②③④ 共享执行管线（后端→时基→manage_run→附注；异常转失败 dict） ----
+    try:
+        run_record, completed = _execute_pipeline(
+            prepared, state, backend=backend, runs_root=out_root
+        )
+    except BackendError as exc:
+        return _failed(_backend_error_text(exc), exc)
+    except RunDirError as exc:
+        return _failed(f"运行目录创建失败（运行失败，exit 1）: {exc}", exc)
+    except Exception as exc:  # noqa: BLE001 - execute 阶段异常经 manage_run 停发射收尾后重抛
+        return _failed(
+            f"运行失败（exit 1）: run_dir={state.get('run_dir') or '<未建>'}"
+            f" {type(exc).__name__}: {exc}",
+            exc,
+        )
+    ledger_status, _ledger_warning = _ledger_status_for(
+        prepared, run_record, completed, enabled=ledger
+    )
+    return {
+        "run_dir": run_record.get("run_dir"),
+        "status": "completed" if completed else "failed",
+        "report_path": state.get("report_path"),
+        "exit_code": EXIT_OK if completed else EXIT_RUN_FAILED,
+        "failure_levels": len(
+            _failure_levels(
+                state.get("execute_result")
+                if isinstance(state.get("execute_result"), dict)
+                else {}
+            )
+        ),
+        "summary": _summary(run_record, state, completed, ledger_status, prog="run_scenario"),
+    }
 
 
 def run_demo(argv: list | None = None) -> int:
@@ -514,29 +776,15 @@ def run_demo(argv: list | None = None) -> int:
     if args.dwell is not None:  # CLI 覆盖透传（两级回落 scenario>ctx>缺省最高层）
         scenario["dwell_s"] = float(args.dwell)
 
-    # ---- ② 启动后端（显式 --backend > 场景 backend > 自动探测；失败不静默） ----
+    # ---- ②③④ 共享执行管线（后端→时基→manage_run（执行+采集+报告+溯源）→附注） ----
+    state: dict = {}
     try:
-        backend, selection = autodetect_backend(
-            _explicit_backend(args, scenario), _backend_params(scenario)
+        run_record, completed = _execute_pipeline(
+            scenario, state, backend=args.backend, runs_root=RUNS_ROOT
         )
     except BackendError as exc:
-        message = str(exc)
-        advice = "" if _FALLBACK_ADVICE in message else f"；{_FALLBACK_ADVICE}"
-        _err(f"后端启动失败（运行失败，exit 1）: {message}{advice}")
+        _err(_backend_error_text(exc))
         return EXIT_RUN_FAILED
-
-    # ---- ③ 时基决策（探测→驯服或软件钟降级，永不抛） ----
-    clock_reference = resolve_clock_reference(backend)
-    clock_ref = clock_reference["clock_ref"]
-
-    # ---- ④ manage_run 全生命周期（execute 内含执行分派/采集/报告/溯源） ----
-    state: dict = {}
-
-    def _execute(ctx: dict) -> None:
-        _execute_stage(ctx, scenario, selection, clock_ref, state)
-
-    try:
-        run_record = manage_run(scenario, _execute, runs_root=RUNS_ROOT, backend=backend)
     except RunDirError as exc:
         _err(f"运行目录创建失败（运行失败，exit 1）: {exc}")
         return EXIT_RUN_FAILED
@@ -547,42 +795,24 @@ def run_demo(argv: list | None = None) -> int:
         )
         return EXIT_RUN_FAILED
 
-    # ---- 运行成败归一：manage_run 终态 + 场景执行 status 双确认 ----
-    execute_result = (
-        state.get("execute_result") if isinstance(state.get("execute_result"), dict) else {}
-    )
-    completed = (
-        run_record.get("status") == "done"
-        and execute_result.get("status") == "completed"
-    )
-    _attach_traceability(run_record, state)  # 'traceability' 附 run result（尽力）
-    _attach_scenario_result(run_record, state)  # 'scenario_result' 附 run result（尽力）
-
     # ---- ⑥ 台账（--no-ledger 缺省启用；场景含 'ledger_entry' 才更新；失败仅警告） ----
     if args.no_ledger:
-        ledger_status = "skipped(--no-ledger)"
+        ledger_status, ledger_warning = "skipped(--no-ledger)", None
     else:
-        entry_id = scenario.get("ledger_entry")
-        if isinstance(entry_id, str) and entry_id.strip():
-            # 台账路径：'--ledger' 覆盖 > 仓库根锚定缺省（DEFAULT_LEDGER_PATH，
-            # 与运行 cwd 无关——从 fn_work/任意目录跑都指向同一份清单）。
-            ledger_path = str(args.ledger) if args.ledger else DEFAULT_LEDGER_PATH
-            try:
-                update_ledger(
-                    entry_id.strip(),
-                    _ledger_anchor(run_record["run_dir"], "completed" if completed else "failed"),
-                    ledger_path=ledger_path,
-                )
-            except (LedgerError, ValueError) as exc:
-                print(
-                    f"run_demo: 台账更新警告（不影响退出码）: {exc}",
-                    file=sys.stderr,
-                )
-                ledger_status = "warning"
-            else:
-                ledger_status = "updated"
-        else:
-            ledger_status = "skipped(no_entry)"
+        # 台账路径：'--ledger' 覆盖 > 仓库根锚定缺省（DEFAULT_LEDGER_PATH，
+        # 与运行 cwd 无关——从 fn_work/任意目录跑都指向同一份清单）。
+        ledger_status, ledger_warning = _ledger_status_for(
+            scenario,
+            run_record,
+            completed,
+            enabled=True,
+            ledger_path=str(args.ledger) if args.ledger else None,
+        )
+    if ledger_warning:
+        print(
+            f"run_demo: 台账更新警告（不影响退出码）: {ledger_warning}",
+            file=sys.stderr,
+        )
 
     # ---- ⑦ 摘要行 stdout + 退出码 ----
     print(_summary(run_record, state, completed, ledger_status))

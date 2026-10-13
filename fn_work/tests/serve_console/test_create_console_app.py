@@ -516,3 +516,41 @@ def test_get_run_by_id_failed_run_queryable(tmp_path):
         assert "RuntimeError" in body["error"]
         missing = client.get("/api/runs/deadbeef")
     assert missing.status_code == 404
+
+
+# ---- /api/ledger 缺省路径（误导②：仓库根锚定，cwd 无关） ----
+
+
+def test_default_ledger_path_anchored_to_repo_root():
+    """误导② 回归：缺省 ledger 路径锚定仓库根绝对路径（本文件 parents[3]）——
+    修复前为 cwd 相对 'docs/…'，从 fn_work 起服即 total=0 空读数误导。"""
+    from pathlib import Path
+
+    import src.serve_console.create_console_app as mod
+
+    repo_root = Path(mod.__file__).resolve().parents[3]
+    assert Path(mod.DEFAULT_LEDGER_PATH) == (
+        repo_root / "docs" / "全功能实现清单-技术支持版.md"
+    )
+    assert Path(mod.DEFAULT_LEDGER_PATH).is_absolute()
+
+
+@needs_fastapi
+def test_get_ledger_default_path_reads_real_ledger_from_fn_work_cwd(
+    tmp_path, monkeypatch
+):
+    """误导② 补例：从 fn_work cwd（其下无 docs/）起服、不注入 ledger_path →
+    GET /api/ledger 仍读到真实清单 available=True 且 total=100（当前条目总数；
+    修复前 cwd 相对路径在此落空 → total=0 available=False）。"""
+    from pathlib import Path
+
+    fn_work = Path(__file__).resolve().parents[2]
+    monkeypatch.chdir(fn_work)  # fn_work 下无 docs/——cwd 相对路径在此必落空
+    app = create_console_app(_base_deps(tmp_path))  # 不注入 ledger_path → 缺省锚定
+    with TestClient(app) as client:
+        resp = client.get("/api/ledger")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["available"] is True
+    assert body["total"] == 100
+    assert body["done"] > 0

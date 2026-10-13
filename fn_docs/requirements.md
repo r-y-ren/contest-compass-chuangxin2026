@@ -414,3 +414,4 @@
 | 2026-10-13 | 用户手册走查修复（5 代码+6 文档）：serve_console 开箱即用（自动建目录/自动产页面/pages 回退 .html）+uvicorn 装机验证；run_demo 台账路径锚定仓库根+--ledger 参数；--demo 改为中段触发失效（jsr 直给根因修复）；distance 计划级跳过落事件；README 六处口径同步（前置依赖/退出码语义/七节/recordings/FAQ 首因/distance 上限） | 用户要求：审查报告每步使用是否有阻塞并修复（走查 11 项：3 阻断+5 误导+3 体验） |
 | 2026-10-13 | 复核走查收尾 3 项：distance 示例参数 l0 40→30（1/3/7m 全可达）；judge 阈值 1.0→0.999（严格开区间）；产物清单/测试数数字对齐 | 修复后复核走查 10/11 解除+3 小项 |
 | 2026-10-13 | 环境配置改虚拟环境：fn_work/.venv（--system-site-packages 继承 UHD 绑定）；requirements.txt 补 httpx；本会话误装入全局用户站的 fastapi 族已卸载（全局零残留验证）；README 前置依赖/三式命令/FAQ 全切 .venv/bin/python 口径；3 个缺守卫测试补 skipif（全局 2852+47skip/venv 2894+5skip 双绿） | 用户要求：环境配置改虚拟环境不走全局 |
+| 2026-10-13 | 第 3 轮深度走查修复（6 项）：网页「开始」真跑测试（run_scenario 无头入口+serve_console 缺省 runner 装载场景+页面轮询显示结果）+/api/ledger 仓库根锚定+update_ledger 默认路径锚定与覆盖提示+卡片剥行内注释+README 三处口径（cd fn_work 指引/覆盖措辞/开始按钮行为） | 用户实际使用仍出问题——深度走查定位网页端到端链路 |

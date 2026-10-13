@@ -1,7 +1,8 @@
 """场景目录→卡片数据（损坏场景跳过标注）——重写规约与签名意图详见 fn_docs/responsibility.md。
 
 轻量口径（不整套跑 load_scenario 的 schema/红线——那是装载路径的事）：
-- name=文件名去扩展名；desc 优先取首见 `# desc: ...` 注释行，回退顶层 `desc:` 键；
+- name=文件名去扩展名；desc 优先取首见 `# desc: ...` 注释行，回退顶层 `desc:` 键
+  （style/desc 值先剥行内注释——' # ' 起的尾部内容与首尾空白）；
 - style_tags 取 `style:` 行值按 `,`/`/`/`;` 切分小写化（内联 [a, b] 括号剥掉），
   缺失→['unknown']；
 - backend_hint 取 `backend:` 行值小写化，缺省 'sim'；
@@ -26,6 +27,15 @@ _RISK_COMMENT_RE = re.compile(r"^#\s*risk\s*:\s*(low|mid)\s*$", re.IGNORECASE)
 
 # style 标签切分符：逗号/斜杠/分号（YAML 内联列表 [a, b] 先剥括号）。
 _TAG_SPLIT_RE = re.compile(r"[,/;]")
+
+# 行内注释（YAML 口径：'#' 前有空白即注释起点，如 `style: tone  # 六类`）——
+# 卡片轻量解析不跑 PyYAML，须自行剥除，否则注释文本混入 style/desc 值。
+_INLINE_COMMENT_RE = re.compile(r"\s+#.*$")
+
+
+def _strip_inline_comment(value: str) -> str:
+    """剥行内注释（' # ' 起的尾部内容，无前置空白的 '#' 不动）与首尾空白。"""
+    return _INLINE_COMMENT_RE.sub("", value).strip()
 
 
 def _parse_tags(value: str) -> list:
@@ -69,7 +79,7 @@ def _card_for_file(path: object) -> dict:
         if stripped.startswith("#"):  # 注释元数据（desc/risk 显式覆盖）
             m = _DESC_COMMENT_RE.match(stripped)
             if m and not desc:
-                desc = m.group(1)
+                desc = _strip_inline_comment(m.group(1))
             m = _RISK_COMMENT_RE.match(stripped)
             if m and risk_override is None:
                 risk_override = m.group(1).lower()
@@ -80,9 +90,9 @@ def _card_for_file(path: object) -> dict:
         key = key.strip().strip("'\"").lower()
         rest = rest.strip()
         if key == "desc" and not desc:
-            desc = rest.strip("'\"")
+            desc = _strip_inline_comment(rest).strip("'\"")
         elif key == "style" and style_tags is None:
-            style_tags = _parse_tags(rest) or None
+            style_tags = _parse_tags(_strip_inline_comment(rest)) or None
         elif key == "backend" and not backend_hint:
             backend_hint = rest.strip("'\"").lower()
         elif key == "power_dbm" and power_dbm is None:

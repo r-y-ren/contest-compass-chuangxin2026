@@ -14,11 +14,12 @@ from __future__ import annotations
 import json
 import os
 import re
+from pathlib import Path
 
 import pytest
 
 import src.run_demo.run_demo as rd
-from src.run_demo.run_demo import run_demo
+from src.run_demo.run_demo import run_demo, run_scenario
 from src.update_ledger.update_ledger import LedgerError
 
 #: 摘要行正则：⑦ 口径（run_dir/status/失效数/报告路径/溯源 passed/台账）。
@@ -621,3 +622,117 @@ def test_b21_mid2_distance_run_leaves_traces_in_all_three_artifacts(
     inner = result_json["scenario_result"]["result"]
     assert [p["d_m"] for p in inner["distance_plan"]["points"]] == [1.0, 10.0]
     assert len(inner["kpi_rows"]) == 2
+
+
+# ---------- ⑧ 无头入口 run_scenario（阻断①(a)）：真跑/三态返回/台账缺省不动 ----------
+
+
+def headless_scenario(**over):
+    """run_scenario 入参形状：完整场景 dict（含声明信封键）——未知键零容忍，
+    不含执行期私有键 'dut'（该键仅 --demo 内置场景直携）。"""
+    scenario = {
+        "style": "tone",
+        "fs": 1.0e6,
+        "freq_hz": 2.4e9,
+        "power_dbm": -10.0,
+        "duration_s": 0.005,
+        "backend": "sim",
+        "scenario_type": "gb42590",
+        "judge_min_samples": 2,
+        "dwell_s": 0.0,
+        "baseline_samples": 10,
+        "record": False,
+        "sim_events": [{"type": "power_step", "jsr_db": -20.0, "ts": 0.0}],
+        "bands": [[2400.0, 2483.5]],
+        "shielded_box": True,
+        "dut_scope": "self_built",
+    }
+    scenario.update(over)
+    return scenario
+
+
+def test_run_scenario_real_run_completed_report_generated(tmp_path, monkeypatch):
+    """run_scenario 真跑：完整场景 dict→completed/exit 0，out_root 下 run 目录+
+    report.md 真实生成（与 CLI 共享 _execute_pipeline，场景执行全真实）。"""
+    monkeypatch.chdir(tmp_path)  # 其余副作用（若有）落 tmp
+    out_root = tmp_path / "reports"
+    result = run_scenario(headless_scenario(), out_root=str(out_root))
+    assert result["status"] == "completed"
+    assert result["exit_code"] == 0
+    assert result["failure_levels"] == 0
+    run_dir = Path(result["run_dir"])
+    assert run_dir.is_dir() and str(run_dir).startswith(str(out_root))  # out_root 生效
+    assert (run_dir / "report.md").is_file()  # 报告真实生成
+    assert result["report_path"] == str(run_dir / "report.md")
+    assert result["summary"].startswith("run_scenario: run_dir=")
+    assert "ledger=skipped(ledger_off)" in result["summary"]  # 台账缺省不动
+
+
+def test_run_scenario_validation_failed_returns_exit2():
+    """校验失败（未知样式）不抛：返回 validation_failed dict（exit_code=2 口径）。"""
+    result = run_scenario(headless_scenario(style="quantum"))
+    assert result["status"] == "validation_failed"
+    assert result["exit_code"] == 2
+    assert result["run_dir"] is None
+    assert result["report_path"] is None
+    assert "style" in result["error"]
+
+
+def test_run_scenario_guard_rejected_returns_exit2():
+    """红线拒绝（power 超 0dBm）同走校验失败口径：[power] 条款可见。"""
+    result = run_scenario(headless_scenario(power_dbm=10.0))
+    assert result["status"] == "validation_failed"
+    assert result["exit_code"] == 2
+    assert "[power]" in result["error"]
+
+
+def test_run_scenario_unknown_backend_failed_exit1():
+    """后端失败：failed dict（exit_code=1）+ 降级建议（不抛）。"""
+    result = run_scenario(headless_scenario(), backend="nosuch-backend")
+    assert result["status"] == "failed"
+    assert result["exit_code"] == 1
+    assert result["run_dir"] is None
+    assert "后端启动失败" in result["summary"]
+    assert "降级" in result["summary"]
+
+
+def test_run_scenario_bad_input_raises_valueerror():
+    """入参形状错（非 dict 场景/负 dwell）抛 ValueError——编程错误早暴露。"""
+    with pytest.raises(ValueError):
+        run_scenario("tone.yaml")  # 非 dict（名解析归 serve_console，不在此收 str）
+    with pytest.raises(ValueError):
+        run_scenario(headless_scenario(), dwell_s=-1.0)
+
+
+def test_run_scenario_dwell_passthrough(tmp_path, monkeypatch):
+    """dwell_s 覆盖透传 scenario['dwell_s']（CLI --dwell 同口径）。"""
+    caps = wire(monkeypatch, tmp_path)
+    assert run_scenario(headless_scenario(), dwell_s=0.25)["exit_code"] == 0
+    assert caps["es"][0][1]["dwell_s"] == 0.25  # 覆盖写入场景对象
+
+
+def test_run_scenario_ledger_default_off_opt_in(tmp_path, monkeypatch):
+    """台账口径：缺省 ledger=False 不动台账（操控台语义）；显式 True 时场景含
+    ledger_entry 才更新（同 CLI --no-ledger 未给口径）。"""
+    caps = wire(monkeypatch, tmp_path, scenario=headless_scenario(ledger_entry="B1"))
+    result = run_scenario(headless_scenario(ledger_entry="B1"))
+    assert result["exit_code"] == 0
+    assert caps["update"] == []  # 缺省不动台账
+    assert "ledger=skipped(ledger_off)" in result["summary"]
+    result_on = run_scenario(headless_scenario(ledger_entry="B1"), ledger=True)
+    assert result_on["exit_code"] == 0
+    assert len(caps["update"]) == 1  # opt-in：ledger_entry 触发一次
+    entry_id, anchor = caps["update"][0]
+    assert entry_id == "B1" and "fn(run_demo)" in anchor
+    assert "ledger=updated" in result_on["summary"]
+
+
+def test_run_scenario_backend_param_precedence_over_scenario_key(tmp_path, monkeypatch):
+    """backend 参数 > 场景 'backend' 键 > 'auto' 探测（CLI --backend 同决策序）。"""
+    caps = wire(monkeypatch, tmp_path)
+    assert run_scenario(headless_scenario(), backend="sim")["exit_code"] == 0
+    assert caps["explicit"][-1] == "sim"  # 参数最优先
+    assert run_scenario(headless_scenario())["exit_code"] == 0
+    assert caps["explicit"][-1] == "sim"  # 缺省回落场景键（非 auto）
+    assert run_scenario(headless_scenario(backend="auto"))["exit_code"] == 0
+    assert caps["explicit"][-1] is None  # 'auto' → 探测

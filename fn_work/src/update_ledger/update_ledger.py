@@ -21,6 +21,7 @@ import os
 from datetime import date
 
 from .locate_ledger_row import (
+    DEFAULT_LEDGER_PATH,
     LedgerError,
     _is_separator_row,
     _join_md_cells,
@@ -102,14 +103,15 @@ def update_ledger(
     anchor: str,
     *,
     overwrite: bool = False,
-    ledger_path: str = "docs/全功能实现清单-技术支持版.md",
+    ledger_path: str | None = None,
 ) -> dict:
     """清单台账更新：✅+日期+锚点写入（状态列按表头形态自适应改写，统计节不滚动）。
 
     流程：①locate_ledger_row 定位条目行并做表头检测（缺文件/零命中/多处命中→
-    LedgerError，entry_id 形状非法→ValueError，均透传）；②已完成判定——已带
+    LedgerError，entry_id 形状非法→ValueError，均透传；ledger_path=None 缺省
+    回落仓库根锚定 DEFAULT_LEDGER_PATH，与运行 cwd 无关）；②已完成判定——已带
     完成标记（✅/wired，含 append 补列后「完成状态」列含 ✅）且未显式
-    overwrite → LedgerError「已 ✅ 未授权覆盖」；构造 `✅ MM-DD <anchor>` 新
+    overwrite → LedgerError「已 ✅ 跳过——如需更新传 overwrite=True」；构造 `✅ MM-DD <anchor>` 新
     状态文本；③改写（按 table_form 分流，见模块 docstring：status 原位替换/
     行尾补槽、append 表头+分隔行+条目行三行各追加一列、legacy 第 3 管道列
     原位替换；「## 统计与说明」节不改动——人工维护，滚动记 TODO(manual)）；
@@ -122,7 +124,9 @@ def update_ledger(
             单行 str、不含管道符 '|'（管道会破坏表格列数：选择拒绝而非转义）
             且长度 ≤120 字符。
         overwrite: 已 ✅ 条目覆盖须显式传 True。
-        ledger_path: 台账 md 路径，默认仓库根真实清单。
+        ledger_path: 台账 md 路径；None（缺省）→ 调用时回落模块全局
+            DEFAULT_LEDGER_PATH（仓库根锚定，与运行 cwd 无关——自
+            locate_ledger_row 同源导入，测试可 monkeypatch 指向 tmp 副本）。
 
     Returns:
         {'updated': True, 'line_no': 1-based 行号, 'old_status': 原状态列文本
@@ -159,14 +163,16 @@ def update_ledger(
         )
 
     # ---- ① 定位（复用 locate_ledger_row：结构感知+精确边界+表头检测） ----
+    if ledger_path is None:  # 动态回落模块全局（monkeypatch 友好；绝对锚定与 cwd 无关）
+        ledger_path = DEFAULT_LEDGER_PATH
     located = locate_ledger_row(entry_id, ledger_path)
     old_status = located["status_text"]
 
     # ---- ② 已完成条目：未显式授权不得覆盖 ----
     if located["has_done_mark"] and not overwrite:
         raise LedgerError(
-            f"条目 {entry_id} 已 ✅（状态列: {old_status!r}）——未授权覆盖；"
-            f"确需覆盖请显式传 overwrite=True"
+            f"条目 {entry_id} 已 ✅（状态列: {old_status!r}）——未授权覆盖"
+            f"（已 ✅ 跳过——如需更新传 overwrite=True）"
         )
 
     new_status = _build_status(anchor)

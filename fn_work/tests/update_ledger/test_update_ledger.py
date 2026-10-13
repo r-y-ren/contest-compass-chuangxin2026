@@ -6,7 +6,7 @@ from datetime import date
 
 import pytest
 
-from src.update_ledger.locate_ledger_row import locate_ledger_row
+from src.update_ledger.locate_ledger_row import DEFAULT_LEDGER_PATH, locate_ledger_row
 from src.update_ledger.update_ledger import update_ledger
 from src.update_ledger.update_ledger import LedgerError
 
@@ -100,6 +100,7 @@ def test_ledger_update_already_done_blocks_without_overwrite(ledger_path):
         update_ledger("A2", "fn(new_fn)", ledger_path=ledger_path)
     msg = str(ei.value)
     assert "已 ✅" in msg and "未授权覆盖" in msg and "overwrite=True" in msg
+    assert "（已 ✅ 跳过——如需更新传 overwrite=True）" in msg  # 误导③：跳过口径明示
     assert open(ledger_path, encoding="utf-8").read() == snapshot  # 文件未被改动
 
 
@@ -261,8 +262,55 @@ def test_ledger_update_anchor_too_long_rejected(ledger_path):
 
 
 def test_ledger_update_signature_contract():
+    """签名契约（误导③修订）：ledger_path 缺省 None 哨兵（调用时回落模块全局
+    DEFAULT_LEDGER_PATH——仓库根锚定绝对路径，monkeypatch 友好）。"""
+    import src.update_ledger.update_ledger as update_mod
+
     sig = inspect.signature(update_ledger)
-    assert sig.parameters["ledger_path"].default == "docs/全功能实现清单-技术支持版.md"
+    assert sig.parameters["ledger_path"].default is None
     assert sig.parameters["overwrite"].default is False
     for name in ("overwrite", "ledger_path"):
         assert sig.parameters[name].kind is inspect.Parameter.KEYWORD_ONLY
+    assert update_mod.DEFAULT_LEDGER_PATH == DEFAULT_LEDGER_PATH  # 与 locate 同源导入
+
+
+# ---- 缺省路径仓库根锚定（误导③：cwd 无关；写入一律 tmp 副本，不写真清单） ----
+
+
+def test_locate_default_path_finds_real_ledger_from_fn_work_cwd(monkeypatch):
+    """误导③ 补例：从 fn_work cwd（其下无 docs/）以缺省路径定位真实清单条目
+    A1——修复前 cwd 相对路径在此抛「台账文件不存在」，锚定后照常命中（纯读）。"""
+    from pathlib import Path
+
+    import src.update_ledger.locate_ledger_row as locate_mod
+
+    fn_work = Path(locate_mod.__file__).resolve().parents[2]
+    monkeypatch.chdir(fn_work)  # fn_work 下无 docs/——cwd 相对路径在此必落空
+    located = locate_ledger_row("A1")  # 缺省路径（None 哨兵→模块全局锚定）
+    assert located["line_no"] > 0
+    assert located["line"].startswith("| A1 |")
+
+
+def test_update_default_path_writes_tmp_copy_not_real_ledger(tmp_path, monkeypatch):
+    """误导③ 补例：缺省路径机制经 tmp 副本验证——monkeypatch 模块缺省指向
+    真清单 tmp 副本，从 fn_work cwd 调 update_ledger('A1','x')：定位+写入都落
+    副本（真清单字节零改动）。真清单 A1 已 ✅：未授权覆盖即新口径「已 ✅ 跳过」，
+    overwrite=True 后真写入副本。"""
+    from pathlib import Path
+
+    import src.update_ledger.update_ledger as update_mod
+
+    real = Path(update_mod.DEFAULT_LEDGER_PATH)
+    real_snapshot = real.read_bytes()
+    copy = tmp_path / "全功能实现清单-技术支持版.md"
+    copy.write_bytes(real_snapshot)  # tmp 副本（测试一律不写真清单）
+    monkeypatch.setattr(update_mod, "DEFAULT_LEDGER_PATH", str(copy))
+    fn_work = Path(update_mod.__file__).resolve().parents[2]
+    monkeypatch.chdir(fn_work)  # cwd 相对路径在此必落空——锚定才可达副本
+
+    with pytest.raises(LedgerError) as ei:  # 副本 A1 已 ✅：缺省不动（跳过口径）
+        update_ledger("A1", "fn(x)")
+    assert "已 ✅ 跳过" in str(ei.value)
+    assert update_ledger("A1", "fn(x)", overwrite=True)["updated"] is True  # 真写入副本
+    assert "fn(x)" in copy.read_text(encoding="utf-8")
+    assert real.read_bytes() == real_snapshot  # 真清单零改动

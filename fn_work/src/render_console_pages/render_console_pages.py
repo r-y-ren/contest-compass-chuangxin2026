@@ -3,7 +3,9 @@
 产出口径（R48：单文件 HTML，无 Node 构建）：
 - build_scenario_cards 取卡片数据→内嵌 JSON（window.__CONSOLE_CARDS__，'</' 转义
   防提前闭 script）；页面骨架以模板字符串生成——场景卡网格/滑杆调参/后端链路时钟
-  状态区/报告中心/清单完成度入口/WS 实时图区（Canvas）+断线横幅自动重连；
+  状态区（含运行结果回显行：startRun 提交后 1s 间隔轮询 /api/runs/{id} 至终态、
+  上限 120s，状态区显示 status/failure_levels/report 路径可复制文本）/报告中心/
+  清单完成度入口/WS 实时图区（Canvas）+断线横幅自动重连；
 - Vue3 走 CDN（缺省 unpkg 的 vue.global.prod.js，config['cdn_base'] 可换源）；
 - scenario_dir 空/缺失→空态页面（cards=0，不报错）；写盘可选 config['out_dir']
   （None→只返回 str 不落盘，'written' 列出落盘路径）；assets 恒为 []（无本地构建物）。
@@ -85,6 +87,7 @@ canvas { width: 100%; border: 1px solid #d7dee9; border-radius: 6px; background:
       <li>后端：{{ status.backend }}</li>
       <li>链路：{{ status.link }}</li>
       <li>时钟：{{ status.clock }}</li>
+      <li v-if="lastRun" id="run-result">运行：{{ runLine }}</li>
     </ul>
   </section>
 
@@ -112,19 +115,57 @@ const app = Vue.createApp({
       powerDbm: -10, attenDb: 0, busy: false,
       status: { backend: '未知', link: '未知', clock: '未知' },
       runs: [], kpiSeries: [], disconnected: false, connState: '未连接',
+      lastRun: null,
     };
+  },
+  computed: {
+    runLine() {
+      // 运行结果一行（可复制文本）：status/failure_levels/report 路径；后台异常
+      // 形态（entry.error）如实展示错误文本。
+      if (!this.lastRun) return '';
+      if (this.lastRun.status === 'failed') {
+        return 'failed error=' + (this.lastRun.error || '未知错误');
+      }
+      const r = this.lastRun.result || {};
+      return 'status=' + (r.status ?? '?')
+        + ' failure_levels=' + (r.failure_levels ?? '?')
+        + ' report=' + (r.report_path || r.run_dir || '?');
+    },
   },
   methods: {
     async startRun(card) {
       this.busy = true;
+      this.lastRun = null;
       try {
         const resp = await fetch('/api/run', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ scenario: { name: card.name, power_dbm: this.powerDbm, atten_db: this.attenDb } }),
         });
         if (!resp.ok) throw new Error('run ' + resp.status);
-        this.connState = '已提交运行';
+        const body = await resp.json();
+        this.connState = '运行中…';
+        await this.pollRun(body.run_id);
+      } catch (err) {
+        this.connState = '提交失败: ' + err.message;
       } finally { this.busy = false; }
+    },
+    async pollRun(runId) {
+      // 轮询运行终态：1s 间隔、上限 120s（超时提示改走报告中心查看）。
+      const deadline = Date.now() + 120000;
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        let resp;
+        try { resp = await fetch('/api/runs/' + runId); }
+        catch (err) { continue; }  // 瞬时网络失败：下一轮重试
+        if (!resp.ok) continue;
+        const entry = await resp.json();
+        if (entry.status === 'running') continue;
+        this.lastRun = entry;
+        this.connState = entry.status === 'done' ? '运行完成' : '运行失败';
+        this.loadRuns();
+        return;
+      }
+      this.connState = '轮询超时（120s）——结果请稍后在报告中心查看';
     },
     async applyParams() { this.connState = '参数已更新'; },
     async loadRuns() {

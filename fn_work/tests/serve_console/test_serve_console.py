@@ -100,13 +100,18 @@ def test_console_api_default_port_when_omitted(tmp_path):
 
 @needs_fastapi
 def test_console_api_default_runner_placeholder(tmp_path):
-    """④ 未注入 runner→deps 里为可调用占位（noop 回执），不炸装配。"""
+    """④ 未注入 runner→deps 里为真实运行器（可调用，缺省构造）——网页「开始」
+    真跑测试（阻断①(b)）：不完整载荷 {'style':'tone'}（缺 fs）不再 noop 回执，
+    而是真实校验失败回执 exit_code=2（run_scenario 真实返回值）。"""
     cfg = _base_config(tmp_path)
     assert "runner" not in cfg
     result = serve_console({**cfg, "dry_run": True})
     runner = result["app"].state.deps["runner"]
     assert callable(runner)
-    assert runner({"style": "tone"})["status"] == "noop"
+    receipt = runner({"style": "tone"})
+    assert receipt["status"] == "validation_failed"  # 真实校验（缺 fs → exit 2 口径）
+    assert receipt["exit_code"] == 2
+    assert "fs" in receipt["error"]
 
 
 @needs_fastapi
@@ -348,3 +353,78 @@ def test_console_api_new_run_resets_stale_stop_flag(tmp_path):
     while time.monotonic() < deadline and "flag_at_start" not in seen:
         time.sleep(0.01)  # 等 runner 启动快照（线程调度时差容忍）
     assert seen["flag_at_start"] is False  # 新 run 启动时旗标已复位
+
+
+# ---- 网页「开始」真跑测试（阻断①：缺省 runner=真实运行器） ----
+
+
+#: 端到端场景文件（gb42590 快路径：dwell 0/judge 2/baseline 10，sim 事件缺省
+#: jsr=-20 不触发判据 → completed）——与 run_demo 场景文件路线同形状。
+_GB_FAST_YAML = """\
+style: tone
+fs: 1.0e6
+freq_hz: 2.4e9
+power_dbm: -10
+duration_s: 0.005
+backend: sim
+scenario_type: gb42590
+judge_min_samples: 2
+dwell_s: 0.0
+baseline_samples: 10
+record: false
+bands:
+  - [2400.0, 2483.5]
+shielded_box: true
+dut_scope: self_built
+"""
+
+
+@needs_fastapi
+def test_console_api_start_button_real_run_end_to_end(tmp_path):
+    """阻断① 端到端回归：网页「开始」真跑测试——
+
+    TestClient 起服（dry_run）→ scenario_dir 放场景文件 → POST /api/run 薄载荷
+    {name, power_dbm} → 轮询 /api/runs/{id} 至 done → result 为真实运行结果
+    （status completed/exit_code 0），report_root 下 run 目录+report.md 真实生成
+    （文件存在断言）。修复前缺省 runner 为 noop 占位——「开始」从不跑测试。
+    """
+    from pathlib import Path
+
+    cfg = _base_config(tmp_path)
+    (tmp_path / "scenarios" / "gb_fast.yaml").write_text(_GB_FAST_YAML, encoding="utf-8")
+    cfg["dry_run"] = True
+    result = serve_console(cfg)
+    with TestClient(result["app"]) as client:
+        resp = client.post(
+            "/api/run", json={"scenario": {"name": "gb_fast", "power_dbm": -20}}
+        )
+        assert resp.status_code == 202
+        run_id = resp.json()["run_id"]
+        entry = None
+        deadline = time.monotonic() + 60  # sim 快路径秒级，60s 足够宽
+        while time.monotonic() < deadline:
+            got = client.get(f"/api/runs/{run_id}")
+            assert got.status_code == 200
+            entry = got.json()
+            if entry["status"] != "running":
+                break
+            time.sleep(0.2)
+        assert entry is not None and entry["status"] == "done"  # runner 真实返回
+    res = entry["result"]  # /api/runs/{id} 的 result 即真实运行结果
+    assert res["status"] == "completed"
+    assert res["exit_code"] == 0
+    report = Path(res["report_path"])
+    assert report.name == "report.md" and report.is_file()  # 报告真实生成
+    run_dir = Path(res["run_dir"])
+    assert run_dir.is_dir()
+    assert str(run_dir).startswith(str(tmp_path / "reports"))  # report_root 落位
+
+
+@needs_fastapi
+def test_console_api_explicit_runner_not_overridden(tmp_path):
+    """阻断① 补充：config['runner'] 显式注入→原对象直通（真实运行器不越权覆盖）。"""
+    cfg = _base_config(tmp_path)
+    cfg["runner"] = lambda scenario: {"echo": scenario}
+    cfg["dry_run"] = True
+    result = serve_console(cfg)
+    assert result["app"].state.deps["runner"] is cfg["runner"]  # 同一对象身份

@@ -106,3 +106,33 @@ def test_desc_from_yaml_key_fallback(tmp_path):
     path = _write(tmp_path, "desc: 键值描述\nstyle: tone\n", name="kv.yaml")
     cards = build_scenario_cards([path])
     assert cards[0]["desc"] == "键值描述"
+
+
+def test_inline_comment_stripped_from_style_and_desc(tmp_path):
+    """⑪ 误导④ 回归：style/desc 值剥行内注释（' # ' 起的尾部内容）与首尾空白——
+    `style: tone  # 六类` → ['tone']；键行 desc 的行内注释同口径剥除，注释文本
+    不再混入标签/描述（修复前 'tone  # 六类' 整段进标签切分）。"""
+    path = _write(
+        tmp_path,
+        "style: tone  # 六类\n"
+        "desc: 定频音演示  # 键值行内注释\n"
+        "fs: 1e6\n"
+        "backend: sim  # 缺省链路\n",
+        name="commented.yaml",
+    )
+    cards = build_scenario_cards([path])
+    assert cards[0]["style_tags"] == ["tone"]  # 'tone  # 六类' → ['tone']
+    assert cards[0]["desc"] == "定频音演示"  # 行内注释剥除，正文保留
+
+
+def test_inline_comment_in_desc_comment_line_stripped(tmp_path):
+    """⑪b `# desc: …` 注释行的值同样剥行内注释；无前置空白的 '#' 不误伤。"""
+    path = _write(
+        tmp_path,
+        "# desc: 距离演变  # 注释元数据内嵌\n"
+        "style: chirp#非注释\n",
+        name="meta.yaml",
+    )
+    cards = build_scenario_cards([path])
+    assert cards[0]["desc"] == "距离演变"  # 注释行值剥内嵌注释
+    assert cards[0]["style_tags"] == ["chirp#非注释"]  # '#' 无前置空白=值的一部分

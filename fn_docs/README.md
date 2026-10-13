@@ -52,7 +52,7 @@ cd fn_work
 .venv/bin/python -c "from src.serve_console.serve_console import serve_console; serve_console({'scenario_dir': 'scenarios', 'report_root': 'runs', 'port': 8000, 'dry_run': False})"
 ```
 
-首次运行会自动创建 `scenarios/` 目录并自动生成页面。浏览器打开 `http://localhost:8000/pages/index`：场景卡片、滑杆调参、实时曲线、急停按钮、报告中心、清单完成度，全在页面上（Ctrl+C 关服务）。往 `scenarios/` 里放场景文件，卡片会自动出现。
+首次运行会自动创建 `scenarios/` 目录并自动生成页面。浏览器打开 `http://localhost:8000/pages/index`：场景卡片、滑杆调参、实时曲线、急停按钮、报告中心、清单完成度，全在页面上（Ctrl+C 关服务）。往 `scenarios/` 里放场景文件，卡片会自动出现。**页面上点「开始」会真实跑一次测试**：按卡片名装载场景文件、结果落在 `runs/` 目录并生成报告，页面每秒轮询一次、跑完在状态区显示结果和报告路径。
 
 ## 工作流程（从开机到报告，每一步发生什么）
 
@@ -131,7 +131,7 @@ baseline_samples: 10         # 体检窗口样本数
 # distances: [1, 3, 7]
 # model_params: {d0_m: 1, l0_db: 30, n: 2}
 
-# —— 台账联动（路径自动锚定仓库根的清单；已 ✅ 的条目会跳过并提示；
+# —— 台账联动（路径自动锚定仓库根的清单；已 ✅ 的条目会拒绝并提示如何覆盖（需要更新就传 overwrite=True）；
 #      想在实验清单上练手，加启动参数 --ledger /tmp/我的清单.md） ——
 # ledger_entry: B1           # 测试成功后给清单 B1 打 ✅
 ```
@@ -142,6 +142,7 @@ baseline_samples: 10         # 体检窗口样本数
 - **报"样本不足拒训：查询匹配 0 条"**：训练 AI 需要先有录音——用带 `record: true` 的场景多跑几轮（攒够 20 条以上），再训练。
 - **报"远程算力不可达"**：训练默认走远程显卡机；没有就加 `where='local'` 参数本地轻量训练。
 - **报 No module named 'fastapi' 之类**：你用的是系统 python 而不是虚拟环境——命令开头换成 `.venv/bin/python` 即可。
+- **报「没有那个文件或目录 .venv/bin/python」或「No module named 'src'」**：你不在 `fn_work` 目录里——所有命令都要先 `cd fn_work` 再执行。
 - **真机没反应**：先跑 `uhd_find_devices` 看设备枚举；被其他程序占用时设备段会消失，关掉占用程序即可。
 - **报告里标了"缺项"**：说明那一节数据源为空（比如没触发失效就没有失效电平表），是如实标注不是故障。
 

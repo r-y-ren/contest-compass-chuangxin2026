@@ -11,9 +11,17 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
 
-DEFAULT_LEDGER_PATH = "docs/全功能实现清单-技术支持版.md"
+#: 默认台账路径：锚定仓库根（本文件 fn_work/src/update_ledger/locate_ledger_row.py
+#: 的 parents[3] 即仓库根）——与 run_demo.DEFAULT_LEDGER_PATH 同式，从 fn_work、
+#: 仓库根或任意其他 cwd 调用都指向同一份清单（修复前 'docs/…' 为 cwd 相对路径，
+#: 离开仓库根即 LedgerError「台账文件不存在」）。运行时以本模块全局名为解析
+#: 来源（ledger_path=None 哨兵动态回落），测试可 monkeypatch 指向 tmp 副本。
+DEFAULT_LEDGER_PATH = str(
+    Path(__file__).resolve().parents[3] / "docs" / "全功能实现清单-技术支持版.md"
+)
 
 _ENTRY_ID_RE = re.compile(r"^[A-L]\d{1,2}$")
 # 台账行形如 `| B5 | 描述 | 状态 | … |`，含 ▶ 前缀变体 `| ▶ B5 | … |`（A–L 域）。
@@ -109,12 +117,13 @@ class LedgerError(Exception):
     """台账定位失败：文件缺失 / 零命中（附同域编号提示）/ 多处命中（附各处行号）。"""
 
 
-def locate_ledger_row(entry_id: str, ledger_path: str = DEFAULT_LEDGER_PATH) -> dict[str, Any]:
+def locate_ledger_row(entry_id: str, ledger_path: str | None = None) -> dict[str, Any]:
     """清单条目行定位（结构感知，返回现状）——只定位不改写（纯读）。
 
     Args:
         entry_id: 条目编号，如 'B5'/'G3'/'L8'（须匹配 ^[A-L]\\d{1,2}$）。
-        ledger_path: 台账 md 路径，默认相对仓库根的真实清单。
+        ledger_path: 台账 md 路径；None（缺省）→ 调用时回落模块全局
+            DEFAULT_LEDGER_PATH（仓库根锚定，与运行 cwd 无关）。
 
     Returns:
         {'line_no': 1-based 行号, 'line': 行原文, 'status_text': 状态列文本,
@@ -135,6 +144,8 @@ def locate_ledger_row(entry_id: str, ledger_path: str = DEFAULT_LEDGER_PATH) -> 
         raise ValueError(f"entry_id 必须为 str，实际收到 {type(entry_id).__name__}: {entry_id!r}")
     if not _ENTRY_ID_RE.match(entry_id):
         raise ValueError(f"entry_id 形状非法（须匹配 ^[A-L]\\d{{1,2}}$，如 'B5'/'G3'/'L8'）: {entry_id!r}")
+    if ledger_path is None:  # 动态回落模块全局（monkeypatch 友好；绝对锚定与 cwd 无关）
+        ledger_path = DEFAULT_LEDGER_PATH
 
     try:
         with open(ledger_path, "r", encoding="utf-8") as fh:
