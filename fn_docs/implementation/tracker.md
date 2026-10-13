@@ -908,10 +908,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 ### write_b210_tx_stream
 - [x] write_b210_tx_stream · implemented — 证据: bash -c grep -q '_numpy_complexfloating' fn_work/src/open_b210_backend/write_b210_tx_stream.py && echo 规整层已接受 complexfloating → 规整层已接受 complexfloating (10-13)
 - [x] write_b210_tx_stream · tested — 证据: bash -c cd fn_work && python3 -m pytest -q tests/open_b210_backend/test_write_b210_tx_stream.py | tail -1 → 21 passed in 0.06s (10-13)
-- [ ] write_b210_tx_stream · commit — 预告: fix(write_b210_tx_stream)
+- [x] write_b210_tx_stream · commit — 证据: bash -c git log --format=%s | head -1 | grep -q 'fix(write_b210_tx_stream)' && echo commit c2ab3ed 在案 → commit c2ab3ed 在案 (10-13)
 ### runs gitignore
-- [ ] runs gitignore · implemented — 预告: .gitignore 增 runs/ 条目
-- [ ] runs gitignore · commit — 预告: chore(gitignore)
+- [x] runs gitignore · implemented — 证据: bash -c grep -q 'fn_work/runs/' .gitignore && echo gitignore 已含 runs → gitignore 已含 runs (10-13)
+- [x] runs gitignore · commit — 证据: bash -c git log --format=%s | head -1 | grep -q 'chore(gitignore)' && echo 在案 → 在案 (10-13)
 
 ## B22 批间门
 - [ ] B22 · 评审三轴 — 预告: 修复面核验
