@@ -415,3 +415,4 @@
 | 2026-10-13 | 复核走查收尾 3 项：distance 示例参数 l0 40→30（1/3/7m 全可达）；judge 阈值 1.0→0.999（严格开区间）；产物清单/测试数数字对齐 | 修复后复核走查 10/11 解除+3 小项 |
 | 2026-10-13 | 环境配置改虚拟环境：fn_work/.venv（--system-site-packages 继承 UHD 绑定）；requirements.txt 补 httpx；本会话误装入全局用户站的 fastapi 族已卸载（全局零残留验证）；README 前置依赖/三式命令/FAQ 全切 .venv/bin/python 口径；3 个缺守卫测试补 skipif（全局 2852+47skip/venv 2894+5skip 双绿） | 用户要求：环境配置改虚拟环境不走全局 |
 | 2026-10-13 | 第 3 轮深度走查修复（6 项）：网页「开始」真跑测试（run_scenario 无头入口+serve_console 缺省 runner 装载场景+页面轮询显示结果）+/api/ledger 仓库根锚定+update_ledger 默认路径锚定与覆盖提示+卡片剥行内注释+README 三处口径（cd fn_work 指引/覆盖措辞/开始按钮行为） | 用户实际使用仍出问题——深度走查定位网页端到端链路 |
+| 2026-10-13 | 第 4 轮走查收尾：scenario_type 缺省 gb42590（execute_scenario 缺省分派+旧契约测试更新+新回归；最小五项场景端到端 exit 0 实证——真机 B210 自动探测路径亦过）+README 缺省口径 | 第 3 轮复核附注的口径差 |

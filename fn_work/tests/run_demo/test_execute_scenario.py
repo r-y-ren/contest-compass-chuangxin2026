@@ -436,9 +436,18 @@ def test_unknown_scenario_type_rejected(tmp_path):
     assert isinstance(excinfo.value, ValueError)  # ScenarioError 是 ValueError 子类
 
 
-def test_missing_scenario_type_rejected(tmp_path):
-    with pytest.raises(ScenarioError):
-        execute_scenario(make_ctx(tmp_path), {"style": "noise"})
+def test_missing_scenario_type_defaults_gb42590_not_rejected(tmp_path):
+    """契约更新：scenario_type 缺失不再拒——缺省 gb42590 分派（gb 内部再校验其余形状）。"""
+    import src.run_demo.execute_scenario as es
+
+    calls = []
+    orig = es.execute_gb42590_protocol
+    es.execute_gb42590_protocol = lambda ctx, sc: calls.append(1) or {"status": "completed"}
+    try:
+        out = execute_scenario(make_ctx(tmp_path), {"style": "noise"})
+    finally:
+        es.execute_gb42590_protocol = orig
+    assert calls == [1] and out["status"] == "completed"
 
 
 def test_ctx_missing_scenario_rejected(tmp_path):
@@ -529,3 +538,21 @@ def test_scenario_type_normalization(tmp_path, monkeypatch):
     out = execute_scenario(make_ctx(tmp_path, scenario), scenario)
     assert count["n"] == 1
     assert out["status"] == "completed"
+
+
+def test_scenario_type_defaults_to_gb42590_when_missing():
+    """缺 scenario_type 的最小场景（README 必填五项）→缺省走 gb42590 分派不出 ScenarioError。"""
+    import src.run_demo.execute_scenario as es
+
+    called = {}
+    es_execute = es.execute_gb42590_protocol
+    es.execute_gb42590_protocol = lambda ctx, sc: called.setdefault("r", {"status": "completed"}) or called["r"]
+    try:
+        out = es.execute_scenario(
+            {"run_dir": "/tmp", "backend": None, "scenario": {}},
+            {"style": "tone", "fs": 1e6, "bands": [[2400, 2483.5]],
+             "shielded_box": True, "dut_scope": "self_built"},
+        )
+    finally:
+        es.execute_gb42590_protocol = es_execute
+    assert called.get("r") is not None and out["status"] == "completed"

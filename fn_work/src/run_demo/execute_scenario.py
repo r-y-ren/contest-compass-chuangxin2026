@@ -90,6 +90,8 @@ class ScenarioError(ValueError):
 
 
 #: 在册场景类型（dispatch 白名单，strip().lower() 归一后精确匹配）。
+#: scenario_type 缺失时的缺省类型——用户只写「样式+频段+声明」五项即按国标测法执行。
+_DEFAULT_SCENARIO_TYPE = "gb42590"
 _SCENARIO_TYPES = ("gb42590", "distance", "custom", "emc")
 
 #: kpi 行回填的 set_channel_attenuation 结果子集（溯源用：目标/实达/残差/下发态）。
@@ -397,7 +399,7 @@ def execute_scenario(ctx: dict, scenario: dict | None = None) -> dict:
             dut['events']；'esp32'/'nrf24' 用 dut['serial_config']）、
             'link_power_db'（阶梯基准）、可选 'jam_events'/'judge_min_samples'/
             'dwell_s'/'attenuator_cal' 等（两级回落与标定口径见各编排）；
-        scenario: 场景 dict（None=取 ctx['scenario']）——'scenario_type' 必填
+        scenario: 场景 dict（None=取 ctx['scenario']）——'scenario_type' 缺省 gb42590
             （'gb42590'|'distance'|'custom'|'emc'）；distance 另需 'distances'
             （距离序列）与 'model_params'（map_distance_to_loss 参数，含可选
             domain/cal_table）；custom 另可给 'ladder'（start_db/step_db/
@@ -411,7 +413,7 @@ def execute_scenario(ctx: dict, scenario: dict | None = None) -> dict:
 
     错误:
         ScenarioError: ctx 非 dict；scenario 两路皆缺或非 dict；scenario_type
-            缺失/非 str/未知（均发射前）。
+            非 str/未知（缺失走 gb42590 缺省；均发射前）。
         其余下游异常（ProtocolError/SweepError/AttenuationError/EventWriteError/
         LinkError/ValueError 族等）按各编排函数「先停发射再透传」语义原样透传。
     """
@@ -424,6 +426,8 @@ def execute_scenario(ctx: dict, scenario: dict | None = None) -> dict:
             f"scenario 缺失或非 dict（参数直给或 ctx['scenario']），收到 {scenario!r}"
         )
     raw_type = scenario.get("scenario_type")
+    if raw_type is None:
+        raw_type = _DEFAULT_SCENARIO_TYPE  # 缺省按国标测法执行（README 口径）
     if not isinstance(raw_type, str) or not raw_type.strip():
         raise ScenarioError(
             f"scenario 须提供 'scenario_type'（{list(_SCENARIO_TYPES)}），收到 {raw_type!r}"

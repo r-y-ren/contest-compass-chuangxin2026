@@ -120,7 +120,7 @@ dut_scope: self_built        # 安全声明二：只测自建链路
 # —— 常用可选 ——
 freq_hz: 2450000000          # 中心频率
 power_dbm: -15               # 功率（≤0，超了直接拒）
-scenario_type: gb42590       # 四种：gb42590 / distance / custom / emc
+scenario_type: gb42590       # 四种：gb42590 / distance / custom / emc——不写则缺省 gb42590——不写则缺省 gb42590
 judge_per_threshold: 0.10    # 失效判据（丢包率超过它算失效）
 dwell_s: 0.5                 # 每档停留秒数
 backend: sim                 # auto / b210 / sim / replay
