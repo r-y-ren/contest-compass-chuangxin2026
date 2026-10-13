@@ -1131,3 +1131,4 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B23 serve_console 缺省装配七页产出（R56 改造点枚举遗漏的第 3 触点） — 原因：七页经 /pages 托管+断网可加载是 R56 验收硬件，装配逻辑只在 serve_console — 代价：serve_console.py L194-210 最小侵入+1 存量用例期望同步（CDN 单页→七页 vendor） — 落点：batches 变更记录互指
 - Ruling: B23 实现口径校正两处（mount_console_extensions 的 app 能力探测用 get+routes 而非 route 属性——starlette 1.8 已移除；AppError 延迟 import 防与 create_console_app 循环互导） — 原因：环境实测与既有口径 — 代价：无 — 落点：批间评审复核
 - Ruling: fn-step-done 落盘剥反斜杠（E3/wired 行证据文本被 awk 吃掉转义致不可复现） — 原因：脚本写径对反斜杠敏感（本批两次读回误报同源） — 代价：E3 证据文本已按实跑口径改写、wired 行 931 同类但不影响判定 — 落点：后续核验命令一律零反斜杠；流程坑入记忆
+- Ruling: B23 对抗审查重跑（用户裁决） — 原因：首轮对抗子代理被主会话喂了 8 条假设清单，射程被引导、立场不独立，违背对抗契约本意 — 代价：一轮重审 — 落点：首轮报告作废不作为门依据；此后对抗子代理一律零假设喂料，仅给审查对象与契约六要素
