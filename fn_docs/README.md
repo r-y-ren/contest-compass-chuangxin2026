@@ -17,18 +17,21 @@
 
 ## 快速开始（三选一）
 
-**前置依赖（第一次使用先装一次）**
+**前置依赖（第一次使用先装一次，全部装进虚拟环境，不动系统全局）**
 
 ```bash
 cd fn_work
-pip install --break-system-packages -r requirements.txt   # Python 库；B210 驱动(UHD/GNU Radio)系统级已装则免
+python3 -m venv --system-site-packages .venv    # 建虚拟环境（继承系统的 UHD 驱动绑定，SDR 驱动不重装）
+.venv/bin/pip install -r requirements.txt       # Python 库装进 .venv，系统全局零污染
 ```
+
+之后**所有命令都用 `.venv/bin/python` 开头**（不需要 activate，复制即用）。本仓库已带建好的 `.venv/`（不入 git）；换机器或删掉后按上面两行重建。
 
 **方式一：一键演示（最简单，先跑这个）**
 
 ```bash
 cd fn_work
-python3 -c "import sys; from src.run_demo.run_demo import run_demo; sys.exit(run_demo(['--demo']))"
+.venv/bin/python -c "import sys; from src.run_demo.run_demo import run_demo; sys.exit(run_demo(['--demo']))"
 ```
 
 约 1 秒跑完。演示**特意安排在中段触发一次"链路失效"**，所以摘要行会是 `status=failed failure_levels=1`、退出码 1——这不是程序坏了，恰恰是平台的核心产出：**测到了失效电平**（对测评平台而言，"链路失效"是测出来的结果，不是故障）。想看"全绿不失效"的纯冒烟（退出码 0），用方式二把 `judge_per_threshold` 调成 `0.999`（阈值必须是 0–1 之间的小数，写 1.0 会被判无效）。
@@ -39,14 +42,14 @@ python3 -c "import sys; from src.run_demo.run_demo import run_demo; sys.exit(run
 
 ```bash
 cd fn_work
-python3 -c "import sys; from src.run_demo.run_demo import run_demo; sys.exit(run_demo(['我的场景.yaml', '--backend', 'sim']))"
+.venv/bin/python -c "import sys; from src.run_demo.run_demo import run_demo; sys.exit(run_demo(['我的场景.yaml', '--backend', 'sim']))"
 ```
 
 **方式三：网页操控台（全程只用鼠标）**
 
 ```bash
 cd fn_work
-python3 -c "from src.serve_console.serve_console import serve_console; serve_console({'scenario_dir': 'scenarios', 'report_root': 'runs', 'port': 8000, 'dry_run': False})"
+.venv/bin/python -c "from src.serve_console.serve_console import serve_console; serve_console({'scenario_dir': 'scenarios', 'report_root': 'runs', 'port': 8000, 'dry_run': False})"
 ```
 
 首次运行会自动创建 `scenarios/` 目录并自动生成页面。浏览器打开 `http://localhost:8000/pages/index`：场景卡片、滑杆调参、实时曲线、急停按钮、报告中心、清单完成度，全在页面上（Ctrl+C 关服务）。往 `scenarios/` 里放场景文件，卡片会自动出现。
@@ -138,6 +141,7 @@ baseline_samples: 10         # 体检窗口样本数
 - **报"场景校验未通过"**：看错误清单第几条——缺声明/超功率/超频段/样式拼错都会列明（样式名检查在前，过了才查数值域）。
 - **报"样本不足拒训：查询匹配 0 条"**：训练 AI 需要先有录音——用带 `record: true` 的场景多跑几轮（攒够 20 条以上），再训练。
 - **报"远程算力不可达"**：训练默认走远程显卡机；没有就加 `where='local'` 参数本地轻量训练。
+- **报 No module named 'fastapi' 之类**：你用的是系统 python 而不是虚拟环境——命令开头换成 `.venv/bin/python` 即可。
 - **真机没反应**：先跑 `uhd_find_devices` 看设备枚举；被其他程序占用时设备段会消失，关掉占用程序即可。
 - **报告里标了"缺项"**：说明那一节数据源为空（比如没触发失效就没有失效电平表），是如实标注不是故障。
 

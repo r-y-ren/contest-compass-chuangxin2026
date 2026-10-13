@@ -178,6 +178,7 @@ def test_console_api_scenario_dir_uncreatable_console_error(tmp_path):
     assert "scenario_dir" in str(ei.value)
 
 
+@pytest.mark.skipif(not _HAS_TESTCLIENT, reason="环境缺 fastapi/httpx——TestClient 不可用")
 def test_console_api_real_launch_invokes_uvicorn_run(tmp_path, monkeypatch):
     """⑥ 真拉起：假 uvicorn.run 被调一次（app+host+port），返回 launched True。"""
     fake_uvicorn = types.ModuleType("uvicorn")
@@ -195,6 +196,7 @@ def test_console_api_real_launch_invokes_uvicorn_run(tmp_path, monkeypatch):
     assert kwargs["port"] == cfg["port"]
 
 
+@pytest.mark.skipif(not _HAS_TESTCLIENT, reason="环境缺 fastapi/httpx——TestClient 不可用")
 def test_console_api_missing_uvicorn_console_error_pip_hint(tmp_path, monkeypatch):
     """⑦ uvicorn 缺库（sys.modules 注入 None）→ConsoleError 且消息含 pip 提示。"""
     monkeypatch.setitem(sys.modules, "uvicorn", None)
@@ -208,6 +210,7 @@ def test_console_api_missing_uvicorn_console_error_pip_hint(tmp_path, monkeypatc
 # ---- 端口占用 ----
 
 
+@pytest.mark.skipif(not _HAS_TESTCLIENT, reason="环境缺 fastapi/httpx——TestClient 不可用")
 def test_console_api_port_in_use_raises_console_error(tmp_path):
     """⑧ 端口被占→ConsoleError（消息含端口号）；检查先于 uvicorn import。"""
     blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
