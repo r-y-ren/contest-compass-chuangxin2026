@@ -22,6 +22,7 @@
 | 日志方式 | 每次运行独立目录 `fn_work/runs/<YYYYMMDD-HHMMSS>/`：场景副本+kpi.csv+events.jsonl+monitor.csv+SigMF 对+report.md+图 PNG+run.log |
 | 验收框架 | pytest（模拟后端可跑全部测试）+ 一键 demo 命令 |
 | 代码落点 | `fn_work/` 重建（包结构由 fn-divide/fn-scaffold 定桩，禁用 `platform` 作包名——遮蔽标准库） |
+| UI 依赖（演进轮 2026-10-13） | Vue3 生产版单文件 vendor 入仓本地化（零 CDN，断网全可用）；report.md 用 Python `markdown` 库服务端渲染；`playwright`+chromium 装入 .venv **仅测试用**，生产不依赖——用户裁决"推荐组合全采纳" |
 
 ## 术语表
 
@@ -47,6 +48,10 @@
 | 清单台账 | 《docs/全功能实现清单-技术支持版.md》状态列机制：✅完成+日期+实现锚点 |
 | 分组 CV | AI 评测按录制批次分组交叉验证，防段级泄漏虚高 |
 | 一键命令 | 单命令完成 注入→采集→判失效→报告，退出码 0 为成功 |
+| 操控台多页导航 | 全能力版七区页面：总览/运行/报告/数据/AI/仪表/台账（经 /pages/{name} 托管） |
+| 演示动线 | 答辩现场"总览→现场真跑（sim）→报告→数据/AI→仪表/台账"的页序叙事；预跑历史可翻阅 |
+| vendor 本地化 | 前端第三方库以单文件入仓、随服务静态托管，页面零外网依赖 |
+| E2E 走查 | playwright+chromium 驱动真实浏览器的端到端验收用例（命名 `*_e2e`） |
 
 ## 需求条目
 
@@ -365,6 +370,90 @@
 - 验收：`pytest -k rff_pipeline` 全绿（管道 smoke+无泄漏断言）。
 - 对应清单：L7。
 
+### 域二十：展示层全能力演进（2026-10-13 fn-grill 演进轮）
+
+> 受众定位=多受众、答辩优先；现场真跑（sim）为主+历史可翻；载体沿用 FastAPI+WS+Vue3+Canvas 无 Node 构建链。参考资料：无（用户裁决）。前置审计 fn-review 2026-10-13（Critical 0/Important 4，由 R75 承接闭环）。
+
+**R56 操控台依赖本地化与多页骨架 [P0]**
+- 内容：Vue3 生产版单文件 vendor 入仓、经 /pages 静态托管，全部页面零外网依赖（断网全可用）；页面从单页扩为七区导航（总览/运行/报告/数据/AI/仪表/台账），路由复用 /pages/{name} 机制。输入=浏览器请求；输出=多页 HTML+本地 vendor JS；错误=未知页名 404（沿用现状）。
+- 验收：`pytest -k console_offline`（vendor 资产在位+页面零外链断言）；`pytest -k console_pages_e2e`（playwright 断网加载七页关键元素）。
+
+**R57 场景编辑器 UI [P0]**
+- 内容：页面新建/编辑/删除场景，表单与 YAML 文本双模式；提交走既有 POST/PUT/DELETE /api/scenarios（load_scenario 全口径红线校验），校验错误逐条回显。输入=表单/YAML 文本；输出=场景文件落盘+卡片刷新；错误=校验失败 400 错误清单上屏指明条目。
+- 验收：`pytest -k scenario_editor_e2e`（playwright 提交非法场景见逐条错误、合法场景卡片出现）。
+
+**R58 实时三路曲线接通 [P0]**
+- 内容：push_realtime_kpi 的 KPI/监测/事件三路推流接进操控台 /ws hub（当前为空壳回声），Canvas 三图同屏滚动；端到端延迟统计入运行结果 JSON（<500ms 目标沿用 R49）。输入=运行实时流；输出=WS 帧+三路曲线；错误=推送积压降频并标注（沿用 R49 口径）。
+- 验收：`pytest -k realtime_streams_e2e`（playwright 起 sim 运行，三路曲线帧到达断言）+ 扩展 `pytest -k realtime_console`（延迟统计）。
+
+**R59 急停硬接线 [P0]**
+- 内容：/api/stop 从仅置 stop_flag 升级为**先调 trigger_emergency_stop（停发射）再置标志**；页面急停按钮给已执行反馈。输入=按钮/API 调用；输出=停发射动作+事件留痕；错误=停发射异常时仍保证标志置位并报错（安全优先顺序不变）。
+- 验收：`pytest -k emergency_stop`（先停发射断言，扩展既有用例）。
+
+**R60 报告站内可读 [P0]**
+- 内容：新增 GET /api/runs/{id}/report（report.md 服务端渲染为 HTML）、/api/runs/{id}/plots/{name}（PNG 曲线图）、/api/runs/{id}/files/{name}（kpi.csv/events.jsonl 等下载）；报告页回显数字溯源校验结论。输入=运行 id+文件名；输出=HTML/PNG/文件流；错误=不存在 404。
+- 验收：`pytest -k report_view`（API 合约+渲染断言）；`pytest -k report_view_e2e`（playwright 打开历史运行见渲染报告与三图）。
+
+**R61 报告中心升级 [P0]**
+- 内容：运行列表从裸目录名升级为元数据行（时间/场景/样式/后端/状态/失效电平——读各 run 的 result.json），行可钻取进 R60 报告页。输入=report_root 扫描；输出=元数据列表 JSON+页面表格；错误=result.json 缺失的行标注"无结果"不虚构。
+- 验收：`pytest -k report_center_e2e`（playwright 列表→钻取报告全链）。
+
+**R62 跨轮失效对比视图 [P0]**
+- 内容：compare_failure_boundaries 上页——选多次运行→多样式失效电平对比表+薄弱环节定位结论。输入=运行 id 集；输出=对比表+结论段；错误=样本不足降级单样式并标注（沿用 R26 口径）。
+- 验收：`pytest -k boundary_view`（合成多轮→对比表断言）。
+
+**R63 录音库与数据集浏览 [P0]**
+- 内容：index_dataset 的 list/query 上页——SigMF 真值对卡片（样式/功率/时长/批次/运行来源），按样式/日期过滤；提供索引重建入口。输入=过滤条件；输出=条目页；错误=索引未建→提示并提供 rebuild。
+- 验收：`pytest -k dataset_view_e2e`（playwright 录制后建库→过滤检索）。
+
+**R64 replay 一键回放 [P0]**
+- 内容：从录音库选条目→组装 replay 场景（backend=replay+sigmf_path 通路补齐：run_demo._backend_params 扩展透传，属"管线允许顺手改"登记项）→经 /api/run 发起；回放过程在 R58 曲线与 R61 列表可见。输入=录音条目选择；输出=回放运行；错误=录音损坏→装载期报错（退出码语义沿用 R44）。
+- 验收：`pytest -k replay_run`（sim 侧端到端：录制→入库→回放运行 exit 0）。
+
+**R65 AI 训练任务页 [P0]**
+- 内容：train_classifier 网页触发（where=remote/local、dry_run 选项），后台任务+状态轮询（复用 /api/run 线程模式）；模型文件列表（run_dir/models/）。输入=训练参数；输出=任务状态+模型条目；错误=样本不足拒训信息上屏（沿用 R30）。
+- 验收：`pytest -k ai_train_view`（dry_run 端到端+拒训分支）。
+
+**R66 AI 评测可视化 [P0]**
+- 内容：grouped_cv_evaluate 网页触发+结果页：混淆矩阵表格化+Macro-F1+泄漏检测警告如实回显。输入=数据集筛选+模型；输出=评测结果页；错误=分组信息缺失拒绝信息上屏（沿用 R31）。
+- 验收：`pytest -k ai_eval_view`（合成数据→混淆矩阵字段断言）。
+
+**R67 AI 主动推理入口 [P0]**
+- 内容：选历史运行/录音→predict_style→样式+置信度回显；识别结果可对照当时的"标准答案"。输入=IQ 源选择；输出=识别结果行；错误=模型缺失→提示先训练，不阻塞（沿用 R32）。
+- 验收：`pytest -k ai_infer_view`（已知样式样本→正确标签上页）。
+
+**R68 EMC 三流程演示页 [P1]**
+- 内容：EMC 传导/辐射/扫频三流程网页可达（execute_scenario 分派扩展 emc 子类型通路，登记项），图谱段+强制模拟口径声明上屏。输入=EMC 场景参数；输出=图谱+声明；错误=频率域越界裁剪并标注（沿用 R33–R35）。
+- 验收：`pytest -k emc_view`（三流程可达+声明字段）。
+
+**R69 仪表模拟演示面板 [P1]**
+- 内容：五台远期仪表 sim（1433D/RSA513A/混频 13GHz/EMI 接收机/程控衰减器）面板：打开/仿真读数演示/关闭+VISA 槽位状态显示。输入=面板操作；输出=仿真读数；错误=超模型域标注（沿用 R39–R43）。
+- 验收：`pytest -k instruments_view`（五仪表开关+读数合约）。
+
+**R70 标定演示与看板 [P1]**
+- 内容：标定三件（增益标定表/自漏标定/全链路补偿）只读看板：当前表状态（【待实测】占位如实显示）+合成数据演示流程一键走（建表→非单调拒用等分支）。输入=演示触发；输出=演示结果+状态页；错误=演示失败如实上屏。
+- 验收：`pytest -k calibration_view`（看板字段+合成演示分支）。
+
+**R71 台账审计页 [P1]**
+- 内容：audit_ledger 上页：done/total 明细+锚点失效清单+注释率；**只读**——网页运行仍 ledger=False 不动清单（演示现场防误写，沿用现状）。输入=审计触发；输出=审计报告页；错误=锚点失效列清单（沿用 R51）。
+- 验收：`pytest -k ledger_audit_view`（审计结果字段断言）。
+
+**R72 SITL 桥演示入口 [P1]**
+- 内容：bridge_to_sitl 以 dry_run 演示模式上页（选历史运行→PER 台阶→注入映射预览）；SITL 不在位跳过标注（沿用 R53）。输入=运行选择；输出=映射预览；错误=SITL 缺席提示不阻塞。
+- 验收：`pytest -k sitl_view`（dry_run 映射断言+缺席分支）。
+
+**R73 RL 策略演示入口 [P1]**
+- 内容：run_rl_policy sim 冒烟演示上页（一轮训练+策略输出；不收敛自动回退固定策略如实显示，沿用 R54）。输入=演示触发；输出=策略演示结果；错误=训练异常回退路径上屏。
+- 验收：`pytest -k rl_view`（冒烟一轮+回退分支）。
+
+**R74 RFF 管道演示入口 [P1]**
+- 内容：run_rff_pipeline smoke 演示上页（取数→谱特征→分组 CV→部署模拟各阶段进度与产物，沿用 R55 口径）。输入=演示触发；输出=阶段进度+产物；错误=数据不足拒跑提示。
+- 验收：`pytest -k rff_view`（阶段字段+拒跑分支）。
+
+**R75 责任文档对账与手动改动纳入 [P0]**
+- 内容：responsibility.md 回登记演进期全部结构与契约变更：run_scenario 公共入口与 dict 装载第二通道、serve_console 双载荷合并契约与 _KNOWN_KEYS 跨模块耦合、场景白名单 63 键域（41 净增键放行不校验的口径）、R48 页面元素枚举更新、R56–R74 新增函数结构；fn-review 2026-10-13 四条 Important 闭环；验收点 6a417de 之后 5 个手动提交裁决=纳入（变更记录已逐条在案）。输入=代码现状；输出=对齐后的责任文档；错误=无（文档任务）。
+- 验收：`pytest -k responsibility_alignment`（grep 断言责任文档含 run_scenario/双载荷契约/63 键域描述）+ fn-doc-lint 无类别外新增误差。
+
 ## 非功能约束
 
 | 约束 | 判据 |
@@ -377,6 +466,8 @@
 | 可溯源性 | 报告数字→runs 数据文件可回查（R46 断言） |
 | 平台 | Linux（Arch 主控）；无外网时除远程训练外全功能可用 |
 | 数字纪律 | 平台自身指标只引实测，禁止预写；【待实测】标注保留到实测替换 |
+| 离线可用（演进轮） | 全部页面资源本地化，断网环境七页可用（console_offline 用例） |
+| 管线顺手改登记（演进轮） | 允许随展示层需要改核心管线（如 execute_scenario 增类型、_backend_params 扩展），但每条变更须入变更记录（用户裁决 2026-10-13） |
 
 ## 外部依赖
 
@@ -388,6 +479,9 @@
 | pip 依赖 | sigmf、pyvisa（+PyVISA-Py）、fastapi、uvicorn、matplotlib、pytest、pyserial、pymavlink（最全集；定桩时按 R 条目收敛） |
 | GNU Radio 3.10 + UHD | pacman 已装（3.10.12.0-18）；python 绑定解释器待核实（环境决策表待办） |
 | 标准文本 | GB 42590-2023 §5.11、EN 300 328 V2.2.2（出处见补充文档引用清单，不重复存档） |
+| vue.global.prod.js（vendor 入仓，演进轮） | 前端框架本地化，断网可用；随 /pages 静态托管 |
+| markdown（pip，演进轮） | report.md 服务端渲染为 HTML |
+| playwright + chromium（pip，仅测试，演进轮） | 浏览器自动化 E2E 验收；生产运行零依赖 |
 
 ## 范围外
 
@@ -398,6 +492,10 @@
 - 真机私有协议解析（一期白盒自建链路口径）
 - 13GHz/EMI 接收机/1433D/RSA513A/程控衰减器的真实测量（模拟后端演示止步，真仪表到位后经插槽启用）
 - BER 比特级测量（以 PER 包级口径实现+口径声明；分辨率数字实测后定不预写）
+- 终端 TUI/CLI 展示层（演进轮用户裁决：沿用 web 做深，2026-10-13）
+- 真仪表接入（沿用：插槽就位、真机即插即用）
+- Node 构建链（沿用）
+- 假数据演示模式/预录假曲线开关（演进轮裁决：现场以 sim 真跑为主+历史翻阅，不做双模式）
 
 ## 覆盖对账
 
@@ -417,3 +515,4 @@
 | 2026-10-13 | 第 3 轮深度走查修复（6 项）：网页「开始」真跑测试（run_scenario 无头入口+serve_console 缺省 runner 装载场景+页面轮询显示结果）+/api/ledger 仓库根锚定+update_ledger 默认路径锚定与覆盖提示+卡片剥行内注释+README 三处口径（cd fn_work 指引/覆盖措辞/开始按钮行为） | 用户实际使用仍出问题——深度走查定位网页端到端链路 |
 | 2026-10-13 | 第 4 轮走查收尾：scenario_type 缺省 gb42590（execute_scenario 缺省分派+旧契约测试更新+新回归；最小五项场景端到端 exit 0 实证——真机 B210 自动探测路径亦过）+README 缺省口径 | 第 3 轮复核附注的口径差 |
 | 2026-10-13 | 第 5 轮 GUI 完整走查修复（7 项）：根路径 / 307→/pages/index；急停按钮；状态区运行后从 result.json 刷新 backend/clock；清单完成度内联(done/total)替代裸 JSON 链接；场景白名单扩 52 键（freq_offset_hz/n_samples/signal_power_db 等）；测试正则 DOTALL 贪婪修正；IAB locator 兼容（Vue evaluate 直点） | 用户报告 GET / 404——真实浏览器操作暴露 |
+| 2026-10-13 | 演进轮 fn-grill（展示层全能力）：R56–R75 共 20 条（P0=13/P1=7）；环境增量=Vue3 vendor 本地化+markdown 服务端渲染+playwright 测试依赖；非功能+离线可用+管线顺手改登记规则；范围外+4 条；术语+4 条。三轮前沿问答+fn-review 前置审计（Critical 0/Important 4 由 R75 承接） | 用户要求：面向用户的页面与展示设计——沿用 web 做深、全能力面一步到位、多受众答辩优先、依赖全本地化、验收加浏览器自动化 |

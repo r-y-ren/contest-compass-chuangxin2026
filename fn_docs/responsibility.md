@@ -4,6 +4,7 @@
 > 职责字段是**重写规约**：凭职责详述 + 签名意图（输入/输出），必须能完美复现该函数功能。
 > **实现期发现结构性变化（函数增/删/拆/并/职责或调用关系变化）必须回到 fn-divide 改本文档**（快速确认通道），不得只在代码里改。
 > 需求依据：`fn_docs/requirements.md`（55 条 R，2026-10-11 细化版）；全部函数 `[新增]`（旧实现已删，无存量改造）。
+> **演进轮（2026-10-13）**：域二十 R56–R75 新增块见文末（P1 块随 R 号标注）；旧块不动。涉及旧函数的接线改造以各块引言内「改造点·快速通道」变更说明登记（R56/R58/R59/R64/R68/R75 共 6 处），均在用户裁决"管线允许顺手改但逐条登记"授权内。
 
 ## 结构概览（纯结构，不带职责）
 
@@ -122,6 +123,31 @@
 - run_rl_policy ← R54
   - fallback_fixed_strategy
 - run_rff_pipeline ← R55
+- localize_console_assets ← R56
+  - render_console_navigation
+  - mount_console_extensions
+- edit_scenario_ui ← R57
+- stream_realtime_console ← R58
+  - render_triple_stream_charts
+- harden_emergency_stop ← R59
+- serve_run_artifacts ← R60
+  - render_report_html
+- list_run_summaries ← R61
+- view_failure_comparison ← R62
+- browse_dataset_library ← R63
+- launch_replay_run ← R64
+  - build_replay_scenario
+- launch_classifier_training ← R65
+- view_cv_evaluation ← R66
+- infer_style_entry ← R67
+- demo_emc_flows ← R68 [P1]
+- demo_instrument_panels ← R69 [P1]
+- view_calibration_status ← R70 [P1]
+- view_ledger_audit ← R71 [P1]
+- demo_sitl_bridge ← R72 [P1]
+- demo_rl_policy ← R73 [P1]
+- demo_rff_pipeline ← R74 [P1]
+- audit_responsibility_alignment ← R75
 
 ## 需求覆盖矩阵（P1 在 R 号后标注；非功能约束不进矩阵，fn-close 终检对照 requirements 非功能节）
 
@@ -182,6 +208,26 @@
 | R53 [P1] | bridge_to_sitl |
 | R54 [P1] | run_rl_policy |
 | R55 [P1] | run_rff_pipeline |
+| R56 | localize_console_assets |
+| R57 | edit_scenario_ui |
+| R58 | stream_realtime_console |
+| R59 | harden_emergency_stop |
+| R60 | serve_run_artifacts |
+| R61 | list_run_summaries |
+| R62 | view_failure_comparison |
+| R63 | browse_dataset_library |
+| R64 | launch_replay_run |
+| R65 | launch_classifier_training |
+| R66 | view_cv_evaluation |
+| R67 | infer_style_entry |
+| R68 [P1] | demo_emc_flows |
+| R69 [P1] | demo_instrument_panels |
+| R70 [P1] | view_calibration_status |
+| R71 [P1] | view_ledger_audit |
+| R72 [P1] | demo_sitl_bridge |
+| R73 [P1] | demo_rl_policy |
+| R74 [P1] | demo_rff_pipeline |
+| R75 | audit_responsibility_alignment |
 
 ## 共享函数（shared/：多顶层共用；矩阵挂全部受益需求）
 
@@ -1174,3 +1220,255 @@
   - 调用方：CLI 入口；二期交付演示
   - tested 策略：自有单测（管道 smoke+无泄漏断言）
   - 核验命令：测试: rff_pipeline
+
+<!-- ══ 域二十：展示层全能力演进（2026-10-13 fn-divide 演进轮追加；旧块不动） ══ -->
+
+## 功能块 localize_console_assets ← R56
+
+（R56：操控台依赖本地化与多页骨架——Vue3 生产版 vendor 入仓零 CDN、断网全可用；七区导航页骨架。改造点·快速通道：①`render_console_pages` [改造] index 运行页并入导航体系（加导航条+页标识，页面区块职责不变）；②`create_console_app` [改造] 增加一处 `mount_console_extensions` 接线（其余演进端点全部经该挂载点注册，旧函数不再逐个改）。）
+
+- **localize_console_assets** [L0|新增]
+  - 职责：操控台资产本地化与骨架产出：把 Vue3 生产版单文件落盘为仓内 vendor 资产并纳入 /pages 静态托管；产出七区页面骨架（总览/运行/报告/数据/AI/仪表/台账），每页零外链（断言无 http(s) 外部资源引用，断网全可用）。
+  - 签名意图：输入: 资产目标目录+页面配置 / 输出: vendor 文件+七页骨架资产字典 / 错误: vendor 源缺失→ConsoleAssetError（禁止静默回退 CDN）。
+  - 调用方：serve_console（装配时产出）
+  - tested 策略：自有单测（vendor 在位+零外链断言）
+  - 核验命令：测试: console_offline
+  - **render_console_navigation** [L1|新增]
+    - 职责：七页骨架与导航条 HTML 生成：统一顶部导航（当前页高亮）+各页容器与区块挂载点（运行页复用既有 index 页区块），不含各功能区块内容（内容归 R57–R74 各自块）。
+    - 签名意图：输入: 页名+区块挂载点清单 / 输出: 页面骨架 HTML / 错误: 未知页名→抛出。
+    - 调用方：localize_console_assets
+    - tested 策略：上游覆盖: localize_console_assets
+    - 核验命令：上游覆盖: localize_console_assets
+  - **mount_console_extensions** [L1|新增]
+    - 职责：演进端点集中挂载点：把 R57–R74 各功能块的服务端点按序注册到 ASGI 应用（单点接线，旧函数 create_console_app 仅调用本函数一次）。
+    - 签名意图：输入: FastAPI 应用+依赖注入 / 输出: 已注册扩展的应用 / 错误: 依赖缺失→AppError。
+    - 调用方：create_console_app（R56 快速通道接线）
+    - tested 策略：上游覆盖: localize_console_assets
+    - 核验命令：上游覆盖: localize_console_assets
+
+## 功能块 edit_scenario_ui ← R57
+
+（R57：场景编辑器 UI——页面新建/编辑/删除场景，表单与 YAML 双模式，提交走既有场景 CRUD API，校验错误逐条回显。无旧函数改造：API 端点复用 POST/PUT/DELETE /api/scenarios。）
+
+- **edit_scenario_ui** [L0|新增]
+  - 职责：场景编辑器页面区块：表单模式（字段级控件+安全声明必选项）与 YAML 文本模式双切换；新建/编辑/删除三种操作分别接线既有场景 CRUD 端点；服务端校验失败（400 错误清单）逐条上屏指明条目，成功后刷新场景卡片。
+  - 签名意图：输入: 场景目录现状（卡片数据）/ 输出: 编辑器区块资产（HTML/JS）/ 错误: 提交失败→错误清单回显（不吞错）。
+  - 调用方：serve_console（运行页区块挂载）
+  - tested 策略：自有单测（playwright：非法提交见逐条错误、合法提交卡片出现）
+  - 核验命令：测试: scenario_editor_e2e
+
+## 功能块 stream_realtime_console ← R58
+
+（R58：实时三路曲线接通——push_realtime_kpi 三路推流接进操控台 /ws hub，Canvas 三图同屏，延迟统计入结果 JSON。改造点·快速通道：`serve_console` 缺省 runner [改造] 运行构造时把 hub 注入执行管线（挂实时流，runner 装载/合并语义不变）。）
+
+- **stream_realtime_console** [L0|新增]
+  - 职责：实时流接通：运行执行期间把 KPI/监测谱/注入事件三路帧经 push_realtime_kpi 推入操控台 /ws hub（替代现状空壳回声）；端到端延迟统计（measure_refresh_latency 口径）写入运行结果 JSON；推送积压降频并标注（沿用 R49 口径）。
+  - 签名意图：输入: 运行上下文+WS hub / 输出: 广播帧流+延迟统计 / 错误: 无订阅者→丢帧计数不报错；hub 失联→降级离线落盘不中断运行。
+  - 调用方：serve_console（runner 挂载，R58 快速通道）
+  - tested 策略：自有单测（帧到达+延迟统计）
+  - 核验命令：测试: realtime_streams_e2e
+  - **render_triple_stream_charts** [L1|新增]
+    - 职责：三路 Canvas 图区：KPI 曲线、频谱瀑布、事件时间线三图布局与 WS 帧消费渲染（断线横幅期间缓存重连后续画）。
+    - 签名意图：输入: WS 帧流（三路类型标记）/ 输出: 图区渲染资产+消费统计 / 错误: 帧类型未知→跳过计数。
+    - 调用方：stream_realtime_console
+    - tested 策略：上游覆盖: stream_realtime_console
+    - 核验命令：上游覆盖: stream_realtime_console
+
+## 功能块 harden_emergency_stop ← R59
+
+（R59：急停硬接线——/api/stop 从仅置 stop_flag 升级为先 trigger_emergency_stop（先停发射）再置标志。改造点·快速通道：`create_console_app` 停止路由 [改造] 委托本函数（路由形状不变）。）
+
+- **harden_emergency_stop** [L0|新增]
+  - 职责：急停硬化序列：收到急停请求→先调 trigger_emergency_stop（内部先 stop_transmit_safely 停发射并记录急停事件）→再置 stop_flag 终止编排→返回已执行反馈（页面按钮状态与广播帧）；停发射本身失败时仍保证标志置位并在结果中报错（安全顺序不可倒置）。
+  - 签名意图：输入: 急停请求（来源标识）+运行上下文 / 输出: 急停结果（停发射状态/标志状态/事件引用）/ 错误: 停发射失败→结果标注失败原因，标志仍置位。
+  - 调用方：create_console_app 停止路由（R59 快速通道）
+  - tested 策略：自有单测（先停发射断言+失败仍置位）
+  - 核验命令：测试: emergency_stop
+
+## 功能块 serve_run_artifacts ← R60
+
+（R60：报告站内可读——report.md 服务端渲染为 HTML、plots PNG、原始数据文件下载三端点+溯源结论回显。无旧函数改造：端点经 mount_console_extensions 注册。）
+
+- **serve_run_artifacts** [L0|新增]
+  - 职责：运行产物服务端点：GET /api/runs/{id}/report（report.md 经 render_report_html 渲染）、/api/runs/{id}/plots/{name}（PNG 曲线图）、/api/runs/{id}/files/{name}（kpi.csv/events.jsonl 等下载）；报告页回显 verify_report_traceability 的溯源校验结论。
+  - 签名意图：输入: 运行 id+文件名 / 输出: HTML/PNG/文件流响应 / 错误: 运行或文件不存在→404；路径穿越（.. 等）→400 拒绝。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（三端点合约+渲染断言+穿越拒绝）
+  - 核验命令：测试: report_view
+  - **render_report_html** [L1|新增]
+    - 职责：report.md→HTML 服务端渲染（markdown 库），产物零外链资源、图片引用改指本服务 plots 端点。
+    - 签名意图：输入: report.md 路径+运行 id / 输出: 渲染 HTML / 错误: 文件损坏→渲染错误上抛由端点转 500 带指错。
+    - 调用方：serve_run_artifacts
+    - tested 策略：上游覆盖: serve_run_artifacts
+    - 核验命令：上游覆盖: serve_run_artifacts
+
+## 功能块 list_run_summaries ← R61
+
+（R61：报告中心升级——运行列表从裸目录名升级为元数据行（读各 run 的 result.json），行可钻取进 R60 报告页。无旧函数改造。）
+
+- **list_run_summaries** [L0|新增]
+  - 职责：报告中心元数据行：扫描 report_root 下各运行目录，读取 result.json/场景副本提取元数据（时间/场景名/样式/后端/状态/失效电平/报告相对路径），输出列表页数据（新建在前）；result.json 缺失或损坏的行标注"无结果"不虚构、不剔除。
+  - 签名意图：输入: report_root / 输出: 运行摘要行列表 / 错误: 单行提取失败→该行降级标注，列表不失败。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（正常行/缺 result 行/排序）
+  - 核验命令：测试: report_center_e2e
+
+## 功能块 view_failure_comparison ← R62
+
+（R62：跨轮失效对比视图——compare_failure_boundaries 上页：选运行集→对比表+薄弱环节结论。无旧函数改造：编排函数复用。）
+
+- **view_failure_comparison** [L0|新增]
+  - 职责：跨轮对比页：接收运行 id 集→读取各轮失效电平数据→调 compare_failure_boundaries 出对比表与薄弱环节定位结论→表格化上屏；样本不足降级单样式并标注（沿用 R26 口径）。
+  - 签名意图：输入: 运行 id 列表 / 输出: 对比表+结论段（页面资产/JSON）/ 错误: 运行无失效数据→标注"未失效"行；全缺→提示选其他运行。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（多轮→对比表断言）
+  - 核验命令：测试: boundary_view
+
+## 功能块 browse_dataset_library ← R63
+
+（R63：录音库与数据集浏览——index_dataset list/query 上页：SigMF 真值对卡片+过滤+索引重建入口。无旧函数改造：索引函数复用。）
+
+- **browse_dataset_library** [L0|新增]
+  - 职责：录音库页：经 index_dataset 的 list/query 出 SigMF 真值对卡片（样式/功率/时长/批次/运行来源），按样式/日期过滤；索引未建时提示并提供 rebuild 触发（调 index_dataset 重建口径）。
+  - 签名意图：输入: 过滤条件（样式/日期区间）/ 输出: 条目页数据+索引状态 / 错误: 索引缺失→状态提示+重建入口（不报错拦页）。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（建库→过滤→重建）
+  - 核验命令：测试: dataset_view_e2e
+
+## 功能块 launch_replay_run ← R64
+
+（R64：replay 一键回放——从录音库选条目组装 replay 场景经操控台 runner 发起。改造点·快速通道：`run_demo._backend_params` [改造] 透传 sigmf_path/倍速等 replay 参数（当前仅透传 freq_hz，replay 后端实际不可用——通路补齐，登记项）。）
+
+- **launch_replay_run** [L0|新增]
+  - 职责：一键回放编排：从录音库选定条目→build_replay_scenario 组装场景→经操控台 /api/run 发起（复用缺省 runner 与运行态展示）；回放过程在实时曲线与报告中心可见。
+  - 签名意图：输入: 录音条目标识（SigMF 路径/来源运行）/ 输出: 回放运行（run_id）/ 错误: 录音损坏或时间轴断裂→装载期报错上屏（退出码语义沿用 R44）。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（sim 侧端到端：录制→入库→回放 exit 0）
+  - 核验命令：测试: replay_run
+  - **build_replay_scenario** [L1|新增]
+    - 职责：录音条目→replay 场景对象：backend='replay'+sigmf_path+倍速+沿用来源场景的频段/安全声明（声明缺失则拒——红线不因回放松动）。
+    - 签名意图：输入: SigMF 条目元数据 / 输出: 规范化 replay 场景 / 错误: 声明缺失或文件不可读→ScenarioError 指明。
+    - 调用方：launch_replay_run
+    - tested 策略：上游覆盖: launch_replay_run
+    - 核验命令：上游覆盖: launch_replay_run
+
+## 功能块 launch_classifier_training ← R65
+
+（R65：AI 训练任务页——train_classifier 网页触发（remote/local/dry_run）、后台任务+状态轮询、模型列表。无旧函数改造。）
+
+- **launch_classifier_training** [L0|新增]
+  - 职责：训练任务端点与页区：接收训练参数（where=remote/local、dry_run、数据筛选）→后台线程调 train_classifier→任务状态轮询（复用运行表模式）；列出 run_dir/models/ 下已有模型条目；样本不足拒训信息原样上屏。
+  - 签名意图：输入: 训练参数 / 输出: 任务句柄+状态流+模型列表 / 错误: 拒训（TrainError）→状态置 failed 带原因；远程不可达→明确报错不静默本地降级（沿用 R30）。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（dry_run 端到端+拒训分支）
+  - 核验命令：测试: ai_train_view
+
+## 功能块 view_cv_evaluation ← R66
+
+（R66：AI 评测可视化——grouped_cv_evaluate 网页触发+混淆矩阵/Macro-F1/泄漏警告结果页。无旧函数改造。）
+
+- **view_cv_evaluation** [L0|新增]
+  - 职责：评测端点与结果页：接收数据筛选+模型→调 grouped_cv_evaluate→混淆矩阵表格化+Macro-F1+分组泄漏检测警告如实回显；分组信息缺失拒绝信息上屏（沿用 R31）。
+  - 签名意图：输入: 数据集筛选+模型标识 / 输出: 评测结果页数据（矩阵/指标/警告）/ 错误: 分组缺失→EvalError 上屏。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（合成数据→矩阵字段断言）
+  - 核验命令：测试: ai_eval_view
+
+## 功能块 infer_style_entry ← R67
+
+（R67：AI 主动推理入口——选历史运行/录音→predict_style→样式+置信度+真值对照。无旧函数改造。）
+
+- **infer_style_entry** [L0|新增]
+  - 职责：主动推理端点与页区：选定历史运行或录音条目→调 predict_style→样式标签+置信度上屏，并对照该样本的"标准答案"（SigMF 标注/场景副本）显示是否命中；模型缺失提示先训练，不阻塞。
+  - 签名意图：输入: IQ 源选择（运行 id/录音条目）/ 输出: 识别结果行（标签/置信度/对照）/ 错误: 模型缺失→提示态（非报错）；样本过短→跳段计数沿用 R32。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（已知样式样本→正确标签）
+  - 核验命令：测试: ai_infer_view
+
+## 功能块 demo_emc_flows ← R68 [P1]
+
+（R68：EMC 三流程演示页——传导/辐射/扫频网页可达+图谱+强制模拟口径声明。改造点·快速通道：`execute_scenario` [改造] emc 类型增加子类型分派（conduction/radiation/sweep，缺省 sweep 保持现状行为）。）
+
+- **demo_emc_flows** [L0|新增]
+  - 职责：EMC 演示端点与页区：三流程（传导/辐射/扫频）各自参数表单→经 execute_scenario 发起→图谱段与 make_disclaimer_block 口径声明上屏；频率域越界裁剪并标注（沿用 R33–R35）。
+  - 签名意图：输入: EMC 流程类型+参数 / 输出: 演示运行+图谱+声明 / 错误: 参数越域→裁剪标注不拒；场景非法→校验错误上屏。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（三流程可达+声明字段）
+  - 核验命令：测试: emc_view
+
+## 功能块 demo_instrument_panels ← R69 [P1]
+
+（R69：仪表模拟演示面板——五台远期仪表 sim 面板+VISA 槽位状态。无旧函数改造：open_sim_* 与 create_visa_driver 直接复用。）
+
+- **demo_instrument_panels** [L0|新增]
+  - 职责：仪表面板端点与页区：五台模拟仪表（1433D/RSA513A/混频 13GHz/EMI 接收机/程控衰减器）各自面板状态机（打开/读数演示/关闭，经 open_sim_* 工厂）+VISA 槽位注册状态显示；读数超模型域如实标注（沿用 R39–R43 口径）。
+  - 签名意图：输入: 面板操作（仪表名+动作+参数）/ 输出: 仿真读数/状态 / 错误: 未打开先读→IllegalStateError；超域→读数带标注不拒。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（五仪表开关+读数合约）
+  - 核验命令：测试: instruments_view
+
+## 功能块 view_calibration_status ← R70 [P1]
+
+（R70：标定演示与看板——增益标定/自漏标定/全链路补偿的只读状态+合成数据演示流程。无旧函数改造。）
+
+- **view_calibration_status** [L0|新增]
+  - 职责：标定看板端点与页区：三类标定表当前状态（经 load_calibration_table：在位/缺失/【待实测】占位如实显示）+合成数据演示流程一键走（build_gain_calibration 建表→非单调拒用等分支结果上屏）；纯演示与只读，不改真实标定表。
+  - 签名意图：输入: 看板查询/演示触发 / 输出: 状态页数据+演示分支结果 / 错误: 演示失败→结果如实上屏。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（看板字段+合成演示分支）
+  - 核验命令：测试: calibration_view
+
+## 功能块 view_ledger_audit ← R71 [P1]
+
+（R71：台账审计页——audit_ledger 上页：明细+锚点失效清单+注释率；只读，网页运行仍 ledger=False。无旧函数改造。）
+
+- **view_ledger_audit** [L0|新增]
+  - 职责：台账审计端点与页区：调 audit_ledger 出 done/total 明细、锚点失效清单、注释率→表格化上屏；只读——不提供任何写清单入口（网页运行 ledger=False 现状不变，演示现场防误写）。
+  - 签名意图：输入: 审计触发（可选清单路径，缺省仓库根锚定）/ 输出: 审计结果页数据 / 错误: 清单路径不存在→AuditError 上屏。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（审计结果字段断言）
+  - 核验命令：测试: ledger_audit_view
+
+## 功能块 demo_sitl_bridge ← R72 [P1]
+
+（R72：SITL 桥演示入口——bridge_to_sitl dry_run 演示模式上页（映射预览）；SITL 不在位跳过标注。无旧函数改造。）
+
+- **demo_sitl_bridge** [L0|新增]
+  - 职责：SITL 演示端点与页区：选历史运行→提取 PER-功率台阶→bridge_to_sitl(dry_run=True) 出注入映射预览（台阶→丢包/时延表）上屏；SITL 不在位显示跳过标注不报错（沿用 R53）。
+  - 签名意图：输入: 运行 id / 输出: 映射预览+桥接状态 / 错误: 运行无 KPI 数据→提示选其他运行。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（dry_run 映射断言+缺席分支）
+  - 核验命令：测试: sitl_view
+
+## 功能块 demo_rl_policy ← R73 [P1]
+
+（R73：RL 策略演示入口——run_rl_policy sim 冒烟演示上页；不收敛回退如实显示。无旧函数改造。）
+
+- **demo_rl_policy** [L0|新增]
+  - 职责：RL 演示端点与页区：触发 run_rl_policy sim 小闭环一轮冒烟（短轮次参数固定）→策略动作序列与回报上屏；训练不收敛自动回退固定策略时如实标注回退原因（沿用 R54）。
+  - 签名意图：输入: 演示触发（无自由参数或仅轮次）/ 输出: 演示结果（动作序列/回报/是否回退）/ 错误: 演示异常→失败原因上屏（不静默）。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（冒烟一轮+回退分支）
+  - 核验命令：测试: rl_view
+
+## 功能块 demo_rff_pipeline ← R74 [P1]
+
+（R74：RFF 管道演示入口——run_rff_pipeline smoke 演示上页：阶段进度+产物。无旧函数改造。）
+
+- **demo_rff_pipeline** [L0|新增]
+  - 职责：RFF 演示端点与页区：触发 run_rff_pipeline smoke（小样本固定参数）→取数/谱特征/分组 CV/部署模拟各阶段进度与产物列表上屏；数据不足拒跑提示（沿用 R55）。
+  - 签名意图：输入: 演示触发 / 输出: 阶段进度+产物清单 / 错误: 数据不足→拒跑提示上屏。
+  - 调用方：mount_console_extensions
+  - tested 策略：自有单测（阶段字段+拒跑分支）
+  - 核验命令：测试: rff_view
+
+## 功能块 audit_responsibility_alignment ← R75
+
+（R75：责任文档对账与手动改动纳入——responsibility.md 回登记演进期契约变更、fn-review 2026-10-13 四条 Important 闭环、6a417de 后 5 个手动提交裁决=纳入。改造点·快速通道：旧块回登记（run_scenario 公共入口与 dict 第二通道入 R44 块、serve_console 双载荷契约与 _KNOWN_KEYS 耦合入 R47 块、白名单 63 键域入 R1 块、页面元素枚举更新 R48 块）由本技能在实现期执行并留变更说明；本函数承载对账结果的防回归校验。）
+
+- **audit_responsibility_alignment** [L0|新增]
+  - 职责：责任文档对账校验：断言 responsibility.md 已含演进期契约登记（run_scenario 入口/双载荷合并契约/场景白名单 63 键域描述/R48 页面元素枚举/域二十新块与 6 处快速通道变更说明），与代码现状锚点交叉（如 _KNOWN_KEYS 键数、__all__ 导出）；漏登即列清单——防"改了代码不回文档"的再次漂移。
+  - 签名意图：输入: 责任文档路径+代码根 / 输出: 对账报告（已登记项/漏登清单）/ 错误: 文档或锚点文件缺失→对账失败上抛。
+  - 调用方：维护与验收命令（pytest）
+  - tested 策略：自有单测（构造漏登→检出；全登→通过）
+  - 核验命令：测试: responsibility_alignment

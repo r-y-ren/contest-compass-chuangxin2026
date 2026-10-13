@@ -11,3 +11,5 @@ pyserial
 pymavlink
 pytest
 httpx
+markdown
+playwright

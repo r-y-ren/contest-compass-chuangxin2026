@@ -930,7 +930,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] render_console_navigation · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/localize_console_assets/test_render_console_navigation.py -q 2>&1 | tail -1 && test ${PIPESTATUS[0]:-0} -eq 0 || .venv/bin/python -m pytest tests/localize_console_assets/test_render_console_navigation.py -q | tail -1 → 41 passed in 0.03s (10-13)
 - [x] render_console_navigation · wired — 证据: bash -c grep -n "render_console_navigation("index")" fn_work/src/render_console_pages/render_console_pages.py && cd fn_work && .venv/bin/python -m pytest tests/render_console_pages/ tests/serve_console/ -q 2>&1 | tail -1 && echo WIRED_OK_存量无回归 → WIRED_OK_存量无回归 (10-13)
 - [x] render_console_navigation · 清单进位 — 证据: bash -c grep -n "^| render_console_navigation | B23 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK_读回在案 → LEDGER_OK_读回在案 (10-13)
-- [ ] render_console_navigation · commit — 预告: fn(render_console_navigation): wired 含四文档变更
+- [x] render_console_navigation · commit — 证据: bash -c git log --format=%h%n%s -1 | head -2 && git show --stat --format= HEAD | tail -3 && echo COMMIT_OK_b72b261 → COMMIT_OK_b72b261 (10-13)
 ### mount_console_extensions
 - [ ] mount_console_extensions · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
 - [ ] mount_console_extensions · tested — 预告: 自有单测绿，预期 pytest → passed
