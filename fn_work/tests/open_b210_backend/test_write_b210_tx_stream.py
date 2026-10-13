@@ -1,9 +1,13 @@
 """write_b210_tx_stream 对抗测试：FakeStream 鸭子句柄覆盖送达/欠载/异常/规整/回调路径。"""
 from __future__ import annotations
 
+import sys
+
+import numpy as np
 import pytest
 
 from src.manage_backend_registry.register_backend import BackendError
+from src.open_b210_backend import write_b210_tx_stream as write_module
 from src.open_b210_backend.write_b210_tx_stream import write_b210_tx_stream
 
 
@@ -269,3 +273,128 @@ def test_defect_b5_5_end_attempted_on_send_failure_path():
     with pytest.raises(BackendError, match="send boom"):
         write_b210_tx_stream(stream, [[1j]], chunk_size=4)
     assert stream.events == ["start", "send", "end"]
+
+
+# ---- B22 终检修复回归（numpy 2.x 中 np.complex64 标量非 complex 子类，被误全量置 0j）----
+
+
+def test_defect_b22_1_complex64_array_full_delivery_value_fidelity():
+    """B22①：np.complex64 数组载荷→全量送达、invalid_zeroed=0、幅值/逐样本保真。
+
+    修复前 np.complex64 标量过不了 isinstance(element, complex)（numpy 2.x 起非
+    complex 子类），整块被当垃圾置 0j（真机实证 invalid_zeroed=1024）。
+    """
+    payload = (0.6 * np.exp(2j * np.pi * 0.1 * np.arange(8))).astype(np.complex64)
+    assert payload.dtype == np.complex64
+    stream = FakeStream()
+    result = write_b210_tx_stream(stream, [payload], chunk_size=3)
+    assert result == {
+        "samples_sent": 8,  # 全量送达（8 样本按 3 切 → [3,3,2]）
+        "blocks": 3,
+        "underruns": 0,
+        "invalid_zeroed": 0,
+    }
+    sent = [s for chunk in stream.chunks for s in chunk]
+    # 逐样本精确保真：complex(np.complex64) 双侧同口径转换，float32 舍入值原样透传
+    assert sent == [complex(v) for v in payload]
+    for delivered in sent:
+        assert abs(delivered) == pytest.approx(0.6, rel=1e-6)  # 幅值断言（cf32 精度）
+        assert type(delivered) is complex  # 统一物化为纯 Python complex
+
+
+def test_defect_b22_2_complex128_array_full_delivery_value_fidelity():
+    """B22②：np.complex128 数组载荷同口径——全量送达、零置零、保真转纯 complex。"""
+    payload = np.array([0.5 - 0.5j, -1.25 + 2.5j, 3.0 + 4.0j], dtype=np.complex128)
+    assert payload.dtype == np.complex128
+    stream = FakeStream()
+    result = write_b210_tx_stream(stream, [payload], chunk_size=2)
+    assert result == {
+        "samples_sent": 3,
+        "blocks": 2,
+        "underruns": 0,
+        "invalid_zeroed": 0,
+    }
+    sent = [s for chunk in stream.chunks for s in chunk]
+    assert sent == [complex(v) for v in payload]
+    assert all(type(s) is complex for s in sent)
+    assert abs(sent[0]) == pytest.approx(np.sqrt(0.5))  # 幅值断言
+
+
+def test_defect_b22_3_numpy_bool_array_still_zeroed_and_counted():
+    """B22③：np.bool_ 数组仍拒——非 complexfloating，全量置 0j 并计入 invalid_zeroed。"""
+    payload = np.array([True, False, True, False], dtype=np.bool_)
+    assert payload.dtype == np.bool_
+    stream = FakeStream()
+    result = write_b210_tx_stream(stream, [payload], chunk_size=8)
+    assert result == {
+        "samples_sent": 4,
+        "blocks": 1,
+        "underruns": 0,
+        "invalid_zeroed": 4,  # bool 口径不回归：np.bool_ 照旧垃圾路径
+    }
+    assert stream.chunks[0] == [0j, 0j, 0j, 0j]
+
+
+def test_defect_b22_4_python_complex_list_no_regression():
+    """B22④：Python complex 列表不回归——原样送达、零置零、分块统计不变。"""
+    stream = FakeStream()
+    result = write_b210_tx_stream(stream, [[1 + 2j, 3 - 4j, 0j]], chunk_size=2)
+    assert result == {
+        "samples_sent": 3,
+        "blocks": 2,
+        "underruns": 0,
+        "invalid_zeroed": 0,
+    }
+    assert stream.chunks == [[1 + 2j, 3 - 4j], [0j]]
+
+
+def test_defect_b22_5_float64_bare_reals_still_zeroed_tuple_components_accepted():
+    """B22⑤：np.float64 现状固化——裸实数元素仍置 0j 计数；(I,Q) 分量照常转 complex。
+
+    np.float64 是 float 子类：裸元素走"裸实数→0j"既有口径；作二元组分量经
+    _is_real_number 正常规整——B22 修复只放宽复数标量，不动实数口径。
+    """
+    bare = np.array([1.5, -2.5, 3.0], dtype=np.float64)
+    assert bare.dtype == np.float64
+    stream = FakeStream()
+    result = write_b210_tx_stream(stream, [bare], chunk_size=8)
+    assert result == {
+        "samples_sent": 3,
+        "blocks": 1,
+        "underruns": 0,
+        "invalid_zeroed": 3,  # 裸实数置零口径保持
+    }
+    assert stream.chunks[0] == [0j, 0j, 0j]
+
+    stream2 = FakeStream()
+    result2 = write_b210_tx_stream(
+        stream2, [[(np.float64(1), np.float64(-2))]], chunk_size=4
+    )
+    assert result2 == {
+        "samples_sent": 1,
+        "blocks": 1,
+        "underruns": 0,
+        "invalid_zeroed": 0,
+    }
+    assert stream2.chunks[0] == [1 - 2j]
+
+
+def test_defect_b22_6_numpy_absent_pure_python_path_unaffected(monkeypatch):
+    """B22⑥：numpy 缺席防御——import 失败时规整层走纯 Python 路径，不炸不受影响。"""
+    monkeypatch.setattr(write_module, "_NPY_COMPLEXFLOATING_CACHE", [])
+    monkeypatch.setitem(sys.modules, "numpy", None)  # import numpy → ImportError
+    assert write_module._numpy_complexfloating() is None
+    # 单元素规整：complex 原样、垃圾照旧置 0j（纯 Python 分支全覆盖）
+    assert write_module._normalize_iq(1 + 2j) == (1 + 2j, False)
+    assert write_module._normalize_iq((1.0, -2.0)) == (1 - 2j, False)
+    assert write_module._normalize_iq("x") == (0j, True)
+    # 全链路：Python complex 载荷照常送达
+    stream = FakeStream()
+    result = write_b210_tx_stream(stream, [[1 + 2j, 3 + 4j, 5 + 6j]], chunk_size=2)
+    assert result == {
+        "samples_sent": 3,
+        "blocks": 2,
+        "underruns": 0,
+        "invalid_zeroed": 0,
+    }
+    assert stream.chunks == [[1 + 2j, 3 + 4j], [5 + 6j]]

@@ -904,3 +904,16 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B20 双审收口——三轴过门（3 低：fallback 错误字段回写 ValueError/R55 时延缺位申报 latency_note simulated/history ⑮→㉟ 勘误）+对抗 中1低3（①rff hyperparams index_path/runs_root 透传 B14 同款 API（同键 hp 胜）——静默错数据堵死；②bridge 超时域校验；③rl env 契约错统一 PolicyError（ValueError 只留形状）；④单批次键包 TrainError） — 三轴+对抗 — 5 回归 — batches Ruling㊱ (10-12)
 - Ruling: B21 终批双审收口——对抗 高1中1低1+超范围 1 全修——①**场景文件路线死亡**（validate 未知键全拒与 execute scenario_type 必填互斥——白名单扩 11 个执行信封键+形状校验，场景文件四类型全可达）；②distance 产出落盘（distance_step 事件+kpi 行+result.json scenario_result 键）；③标定反杀改跳档+skipped 事件；④B210 真机 TX end_of_burst 空包形状 bug（1 vs 1 自相矛盾）——空包跳过发送，真机验证无告警 — 终批对抗审查（单测 mock load_scenario 全部绕过该集成缝——终局探针抓到） — 74 回归 — batches Ruling㊲ (10-12)
 
+## B22 — write_b210_tx_stream 修复, runs gitignore（终检修复）
+### write_b210_tx_stream
+- [x] write_b210_tx_stream · implemented — 证据: bash -c grep -q '_numpy_complexfloating' fn_work/src/open_b210_backend/write_b210_tx_stream.py && echo 规整层已接受 complexfloating → 规整层已接受 complexfloating (10-13)
+- [x] write_b210_tx_stream · tested — 证据: bash -c cd fn_work && python3 -m pytest -q tests/open_b210_backend/test_write_b210_tx_stream.py | tail -1 → 21 passed in 0.06s (10-13)
+- [ ] write_b210_tx_stream · commit — 预告: fix(write_b210_tx_stream)
+### runs gitignore
+- [ ] runs gitignore · implemented — 预告: .gitignore 增 runs/ 条目
+- [ ] runs gitignore · commit — 预告: chore(gitignore)
+
+## B22 批间门
+- [ ] B22 · 评审三轴 — 预告: 修复面核验
+- [ ] B22 · 用户裁决 — 预告: /fn-close 或继续
+

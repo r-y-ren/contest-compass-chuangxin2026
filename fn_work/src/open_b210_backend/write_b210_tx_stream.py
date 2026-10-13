@@ -10,6 +10,29 @@ from src.manage_backend_registry.register_backend import BackendError
 
 _LOGGER = logging.getLogger(__name__)
 
+# np.complexfloating 类型惰性缓存（至多一项，含 None——numpy 在但属性异常的病态结果）。
+# numpy 缺席（ImportError）不缓存：进程内 numpy 变得可用后仍能生效。
+_NPY_COMPLEXFLOATING_CACHE: list[type | None] = []
+
+
+def _numpy_complexfloating() -> type | None:
+    """惰性解析 np.complexfloating 类型：numpy 缺席/属性异常 → None（纯 Python 判定不受影响）。
+
+    延迟 import：本模块不得在 import 期硬依赖 numpy（未装 numpy 的环境纯 Python
+    complex/二元组载荷照常工作）。缓存避免逐元素重复走 import 机制（发射流可达
+    百万样本级，import 系统查询也是开销）。
+    """
+    if _NPY_COMPLEXFLOATING_CACHE:
+        return _NPY_COMPLEXFLOATING_CACHE[0]
+    try:
+        import numpy
+    except ImportError:
+        return None
+    complexfloating = getattr(numpy, "complexfloating", None)
+    resolved = complexfloating if isinstance(complexfloating, type) else None
+    _NPY_COMPLEXFLOATING_CACHE.append(resolved)
+    return resolved
+
 
 def _is_real_number(value: object) -> bool:
     """int/float 判定（bool 显式拒收——True/False 出现在 IQ 分量位几乎必为错位）。"""
@@ -17,13 +40,24 @@ def _is_real_number(value: object) -> bool:
 
 
 def _normalize_iq(element: object) -> tuple[complex, bool]:
-    """单元素 IQ 规整：complex 原样；(int/float, int/float) 二元组转 complex(I,Q)。
+    """单元素 IQ 规整：complex（含 numpy 复数标量）转 Python complex 透传；
+    (int/float, int/float) 二元组转 complex(I,Q)。
+
+    B22 修复：numpy 2.x 起 np.complex64 标量不再是 Python complex 子类
+    （complex128 仍是）——仅靠 isinstance(element, complex) 会把 complex64 载荷
+    全量当垃圾置 0j。故显式接受 np.complexfloating（complex64/complex128 一并
+    覆盖，统一转 Python complex：cf32 发射本就是 32 位，精度无损口径）。bool
+    不受影响——np.bool_ 不是 complexfloating，照旧走垃圾路径拒收。
 
     其余非复数元素（裸实数/字符串/None/非二元组/含 bool 或非数分量的元组）→ 0j，
     并返回 invalid=True 供调用方累计 invalid_zeroed。
     """
     if isinstance(element, complex):
-        return element, False
+        return complex(element), False  # complex128（complex 子类）统一物化为纯 Python complex
+    complexfloating = _numpy_complexfloating()
+    if complexfloating is not None and isinstance(element, complexfloating):
+        # np.complex64 等：非 complex 子类的 numpy 复数标量（numpy 2.x 关键缺口）。
+        return complex(element), False
     if isinstance(element, (tuple, list)) and len(element) == 2:
         i, q = element
         if _is_real_number(i) and _is_real_number(q):
@@ -44,8 +78,9 @@ def write_b210_tx_stream(
     输入: stream_handle 鸭子流句柄——send(iq_chunk)→{'sent': n} 必备；start()/end()
           可选，缺方法跳过：start() 发送前调用，end() 结束后调用且异常吞掉记录
           （含欠载熔断/send 失败路径，finally 兜底）；iq_blocks IQ 块迭代器（每块
-          为 Sequence，元素 complex / (I,Q) 二元组直接规整，裸实数与其他垃圾元素
-          置 0j 并计数）；chunk_size 分块大小（默认 4096，须为正 int）；underrun_limit 欠载
+          为 Sequence，元素 complex / numpy 复数标量（np.complexfloating，含
+          complex64/complex128，统一转 Python complex）/(I,Q) 二元组直接规整，
+          裸实数与其他垃圾元素置 0j 并计数）；chunk_size 分块大小（默认 4096，须为正 int）；underrun_limit 欠载
           累计阈值（默认 3，某块 sent < len(chunk) 记一次欠载，累计超过阈值即
           BackendError）；on_progress 热更新回调，每块下发后以累计已发样本数调用
           （回调异常吞掉记录，不影响发送）。
