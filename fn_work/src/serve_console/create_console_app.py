@@ -3,7 +3,8 @@
 可测试性设计（不绑端口，依赖全注入）：
 - deps 五键必查（runner/stop_flag/scenario_dir/report_root/static_pages）——缺键/类型
   不符→AppError（ValueError 子类，携 field 指错字段）；ledger_path 为可选附加键
-  （缺省取仓内默认清单路径）。
+  （缺省取仓内默认清单路径）；hub 为可选附加键（R58：serve_console 预建共享
+  /ws hub 容器传入则原对象优先，缺省就地新建）。
 - FastAPI 延迟 import：缺库→AppError 带 pip 提示——本模块在无 fastapi 环境仍可
   import（AppError/依赖校验路径可独立测试）。
 - 路由内一切参数/配置错误统一抛 AppError→400 JSON {'detail': {'field', 'error'}}
@@ -14,6 +15,7 @@
 的局部名；注解一旦变字符串，参数会被误判为 query 参数（POST 422/WS 1008 关闭）。
 路由签名注解须在 def 时求值为真实类（工厂局部作用域内即可解析）。
 """
+import asyncio
 import json
 import os
 import re
@@ -108,6 +110,14 @@ def _validate_deps(deps: dict) -> None:
         raise AppError(
             f"deps['static_pages'] 须为 dict|None，实际 {type(deps['static_pages']).__name__}",
             field="static_pages",
+        )
+    # R58 快速通道（极小改造，申报）：可选 'hub'——serve_console 预建的共享 hub
+    # 容器（缺省 runner 的实时流桥要在 app 创建前拿到 hub 引用）；非 dict 拒。
+    if "hub" in deps and not isinstance(deps["hub"], dict):
+        raise AppError(
+            f"deps['hub'] 须为 dict（操控台 /ws hub 共享容器），实际 "
+            f"{type(deps['hub']).__name__}",
+            field="hub",
         )
 
 
@@ -246,7 +256,12 @@ def create_console_app(deps: dict) -> "FastAPI":
     app = FastAPI(title="rf-console", docs_url=None, redoc_url=None)
 
     # ---- 工厂级状态（测试探针口）：hub dict / 运行表 / 原始 deps ----
-    hub: dict = {"sockets": set(), "history": deque(maxlen=_HUB_HISTORY_MAX)}
+    # R58 快速通道（极小改造，申报）：deps 携 'hub'（serve_console 预建共享
+    # 容器）则原对象优先（缺省 runner 的实时流桥与路由共用同一 hub），
+    # 否则就地新建；两路都保证 sockets/history/broadcast 三件套齐备。
+    hub: dict = deps["hub"] if isinstance(deps.get("hub"), dict) else {}
+    hub.setdefault("sockets", set())
+    hub.setdefault("history", deque(maxlen=_HUB_HISTORY_MAX))
 
     async def _broadcast(message: dict) -> int:
         """向全部在线 WS 发 JSON；失效连接剔除，返回成功发送数。"""
@@ -428,6 +443,9 @@ def create_console_app(deps: dict) -> "FastAPI":
     async def ws_endpoint(websocket: WebSocket) -> None:
         await websocket.accept()
         hub["sockets"].add(websocket)
+        # R58 快速通道：首连捕获服务事件循环——实时流桥线程经
+        # run_coroutine_threadsafe 入环推送（跨线程 send_json 的正确驱动环）。
+        hub["loop"] = asyncio.get_running_loop()
         try:
             await websocket.send_json({"type": "connected", "ts": _now_iso()})
             while True:

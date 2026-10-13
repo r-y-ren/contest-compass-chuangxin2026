@@ -3,9 +3,12 @@
 可测试性设计（测试不真起服务）：
 - config 形状错→ValueError（装配前拦截，消息指错键）；deps 由 config 组装——
   runner 缺省构造**真实运行器**（_make_default_runner：薄载荷名解析→场景文件
-  全口径装载→薄字段覆盖合并→run_scenario 真跑测试，「开始」即真跑）、stop_flag
-  共享 dict（config 提供则原对象直通，供 /api/stop 与急停路径共享）、
-  scenario_dir/report_root/static_pages 直传 create_console_app；
+  全口径装载→薄字段覆盖合并→run_scenario 真跑测试，「开始」即真跑；R58 快速
+  通道：缺省 runner 同时挂实时流桥——运行期三路帧经 push_realtime_kpi 推共享
+  hub，延迟统计并入运行结果 'realtime' 键）、stop_flag 共享 dict（config 提供
+  则原对象直通，供 /api/stop 与急停路径共享）、scenario_dir/report_root/
+  static_pages 直传 create_console_app（deps 另携 'hub' 共享 /ws hub 容器——
+  create_console_app 原对象优先，极小改造已申报；显式 runner 不挂桥）；
 - 开箱即用（README 方式三）：scenario_dir 缺失→os.makedirs(exist_ok=True) 按
   config 路径建空目录（相对 cwd），/api/scenarios 即空卡而非 400；
 - static_pages 未传（None）→ 七页产出（R56 断网全可用口径）：localize_console_assets
@@ -15,7 +18,9 @@
   scenario_dir, {}) 产出后经 replace_cdn_with_vendor 切本地 vendor（CDN script→
   /assets/vendor/vue.global.prod.js）覆盖注入 deps——用户无需预渲染即可 GET
   /pages/<七页 slug>，全站零 CDN；运行页另在 </body> 前注入 R57 场景编辑器
-  区块（edit_scenario_ui 产出，装配期场景卡片为下拉/卡片视图初值）；
+  区块（edit_scenario_ui 产出，装配期场景卡片为下拉/卡片视图初值）与 R58
+  三路实时图区（stream_realtime_console 装配助手产出——KPI/频谱瀑布/事件
+  时间线，消费 /ws 三路帧）；
 - config['dry_run']=True→不拉起不检端口，返回 {'app', 'launched': False, 'port',
   'host'}（测试经 TestClient 直接打 create 路由）；
 - 真拉起序：先探端口占用→ConsoleError（dry_run 下不检）；再延迟 import uvicorn
@@ -26,6 +31,7 @@
 """
 import os
 import socket
+import threading
 
 from src.edit_scenario_ui.edit_scenario_ui import edit_scenario_ui
 from src.load_scenario.load_scenario import ScenarioError, load_scenario
@@ -39,6 +45,10 @@ from src.localize_console_assets.mount_console_extensions import VENDOR_VUE_PATH
 from src.render_console_pages.build_scenario_cards import build_scenario_cards
 from src.render_console_pages.render_console_pages import render_console_pages
 from src.run_demo.run_demo import run_scenario
+from src.stream_realtime_console.stream_realtime_console import (
+    build_realtime_charts,
+    stream_realtime_console,
+)
 
 from .create_console_app import AppError, create_console_app
 
@@ -82,7 +92,16 @@ class ConsoleError(RuntimeError):
     """服务拉起失败：端口被占用 / uvicorn 运行库缺失。"""
 
 
-def _make_default_runner(scenario_dir: str, report_root: str):
+def _snapshot_run_dirs(report_root: str) -> "list[str]":
+    """report_root 下既有运行目录名清单（不可读→[]——实时流桥发现基线素材）。"""
+    try:
+        names = os.listdir(report_root)
+    except OSError:
+        return []
+    return [n for n in names if os.path.isdir(os.path.join(report_root, n))]
+
+
+def _make_default_runner(scenario_dir: str, report_root: str, hub: dict):
     """构造缺省真实 runner（config['runner'] 未注入时）：网页「开始」真跑测试。
 
     载荷两形态（POST /api/run 的 scenario dict）：
@@ -94,6 +113,16 @@ def _make_default_runner(scenario_dir: str, report_root: str):
     落位 run_scenario(out_root=report_root)：运行目录与 report.md 真实生成，
     /api/runs/{id} 的 result 即真实运行结果；台账不动（ledger=False，操控台
     不写清单——CLI --no-ledger 语义缺省化）。
+
+    R58 快速通道（改造点，申报）：hub 挂实时流桥——run_scenario 为无头管线，
+    不内嵌推帧钩子；runner 发起运行的同时启动 stream_realtime_console 尾随
+    report_root 下新运行目录（发现基线在运行前快照，规避竞态），其 kpi.csv/
+    monitor.csv/events.jsonl 三路增量转帧（叶子 render_triple_stream_charts
+    帧协议）经 push_realtime_kpi 推入 hub（操控台 /ws）；运行收尾（stop 信号
+    或 result.json 出现）桥退出，端到端延迟统计（行落盘→广播发送戳 P50/P95，
+    measure_refresh_latency 口径）并入运行结果 'realtime' 键——
+    app.state.runs 条目即「写入运行结果 JSON」的操控台侧落点。runner 的
+    装载/合并语义不变；桥线程异常隔离（统计缺省不并入，绝不反杀运行）。
     """
 
     def _runner(scenario: dict) -> dict:
@@ -124,7 +153,34 @@ def _make_default_runner(scenario_dir: str, report_root: str):
                 {k: v for k, v in merged.items() if k in _MERGEABLE_KEYS}
             )
             merged = base
-        return run_scenario(merged, out_root=report_root)
+        # R58：实时流桥——尾随线程与运行线程并行，收尾 stop→join 后并入统计。
+        run_ctx = {
+            "report_root": report_root,
+            "baseline_runs": set(_snapshot_run_dirs(report_root)),
+            "result": {},
+            "stop": {"flag": False},
+        }
+        bridge_stats: dict = {}
+
+        def _run_bridge() -> None:
+            try:
+                bridge_stats["realtime"] = stream_realtime_console(run_ctx, hub)
+            except Exception:  # noqa: BLE001 - 桥绝不反杀运行（统计缺省不并入）
+                bridge_stats["realtime"] = None
+
+        bridge = threading.Thread(
+            target=_run_bridge, daemon=True, name="console-realtime-bridge"
+        )
+        bridge.start()
+        try:
+            result = run_scenario(merged, out_root=report_root)
+        finally:
+            run_ctx["stop"]["flag"] = True  # 运行收尾：桥最终冲刷后退出
+            bridge.join(timeout=10)
+        realtime = bridge_stats.get("realtime")
+        if isinstance(result, dict) and isinstance(realtime, dict):
+            result["realtime"] = realtime  # 延迟统计入运行结果 JSON（操控台侧）
+        return result
 
     return _runner
 
@@ -233,25 +289,36 @@ def serve_console(config: dict) -> dict:
         # R57 快速通道：场景编辑器区块注入 index 运行页（调用方=serve_console
         # 运行页区块挂载）——纯静态资产，在 </body> 前单点插入（Vue 的 #app
         # 之外，区块自足不依赖 Vue 实例）；显式 static_pages 直通不注入。
+        # R58 快速通道：三路实时图区紧随其后注入（经 stream_realtime_console
+        # 装配助手 build_realtime_charts→叶子 render_triple_stream_charts——
+        # KPI 曲线/频谱瀑布/事件时间线，消费 /ws 三路帧；同样仅缺省装配路径）。
         static_pages["index.html"] = index_html.replace(
             "</body>",
-            edit_scenario_ui(_index_cards(scenario_dir)) + "\n</body>",
+            edit_scenario_ui(_index_cards(scenario_dir))
+            + "\n"
+            + build_realtime_charts()
+            + "\n</body>",
             1,
         )
 
     stop_flag = config.get("stop_flag")
     if not isinstance(stop_flag, dict):
         stop_flag = {"flag": False}
+    # R58 快速通道：serve_console 先建共享 /ws hub 容器——缺省 runner 的实时
+    # 流桥此刻就要持有 hub 引用（create_console_app 稍后才创建 app：deps 携
+    # 'hub' 则原对象优先——create_console_app 极小改造，已申报）。
+    hub: dict = {}
     deps = {
         "runner": (
             config["runner"]
             if "runner" in config
-            else _make_default_runner(scenario_dir, config["report_root"])
+            else _make_default_runner(scenario_dir, config["report_root"], hub)
         ),
         "stop_flag": stop_flag,
         "scenario_dir": scenario_dir,
         "report_root": config["report_root"],
         "static_pages": static_pages,
+        "hub": hub,
     }
     app = create_console_app(deps)
 
