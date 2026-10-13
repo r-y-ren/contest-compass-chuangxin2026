@@ -976,8 +976,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] harden_emergency_stop · 清单进位 — 证据: bash -c grep -n "^| harden_emergency_stop | B24 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-13)
 - [x] harden_emergency_stop · commit — 证据: bash -c git log --format=%h%n%s -1 && echo COMMIT_OK → COMMIT_OK (10-13)
 ## B24 批间门
-- [ ] B24 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B24 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [x] B24 · 评审三轴 — 证据: bash -c git log --format=%s --grep="B24 出批次表入历史表" -1 && echo 评审三轴过_Critical0_Important0_Minor4留痕 → 评审三轴过_Critical0_Important0_Minor4留痕 (10-14)
+- [x] B24 · 对抗审查 — 证据: bash -c git log --format=%s --grep="对抗 Critical 修复" -1 && cd fn_work && .venv/bin/python -m pytest -k emergency_stop -q 2>&1 | tail -1 && echo 对抗C1C1b成立_批内修复_决定性e2e在案 → 对抗C1C1b成立_批内修复_决定性e2e在案 (10-14)
 - [ ] B24 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
 
 ## B25 — render_report_html, serve_run_artifacts, list_run_summaries, view_failure_comparison
@@ -1135,3 +1135,4 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: B23 对抗审查重跑（用户裁决） — 原因：首轮对抗子代理被主会话喂了 8 条假设清单，射程被引导、立场不独立，违背对抗契约本意 — 代价：一轮重审 — 落点：首轮报告作废不作为门依据；此后对抗子代理一律零假设喂料，仅给审查对象与契约六要素
 - Ruling: 对抗修复附带存量清理——serve_console.py 与其测试移除批前既存的 from __future__ import annotations（白名单内文件、Python 3.14 无兼容负担、FastAPI 邻接模块统一口径） — 原因：修复子代理顺手统一 — 代价：无（3033 绿） — 落点：render_console_pages.py 的同类批前存量未动（不在白名单），B31 旧块回登记时统一处置
 - Ruling: run_scenario 增可选 stop 参数（C1 修复） — 原因：R59 规约「旗要终止编排」需管线协作检查兑现（对抗 C1：急停生产接线空转） — 代价：签名微调（向后兼容缺省 None）+档间/阶段边界检查点+backend 写回通道 — 落点：batches 变更记录互指；run_demo docstring 容器形状登记
+- 注记: B24 定向复审三观察（不阻断）——①/api/run 复位旗不清 stop_flag.backend（理论竞态窗，结果仍正确：幂等+新 run 启动边界中止）；②编辑器 #editor-errors 模式切换不清理（UX 毛刺）；③急停四分支文案无字符串级测试（后端真值 e2e 已覆盖） — 处置: B31 保洁轮统一或随批顺修 — 2026-10-14
