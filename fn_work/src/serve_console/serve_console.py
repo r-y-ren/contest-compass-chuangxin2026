@@ -8,9 +8,12 @@
   scenario_dir/report_root/static_pages 直传 create_console_app；
 - 开箱即用（README 方式三）：scenario_dir 缺失→os.makedirs(exist_ok=True) 按
   config 路径建空目录（相对 cwd），/api/scenarios 即空卡而非 400；
-  static_pages 未传（None）→ 就地调 render_console_pages(scenario_dir, {})
-  自动产出缺省页面资产（Vue3 CDN 单文件 HTML，pages 键带 .html 后缀）注入
-  deps——用户无需预渲染即可 GET /pages/index；
+  static_pages 未传（None）→ 七页产出（R56 断网全可用口径）：localize_console_assets
+  缺省产出七区骨架（vendor 落盘 scenario_dir/vendor/，仓内源经 /assets/vendor/
+  路由托管），运行页 index 的真实内容由 render_console_pages(scenario_dir, {})
+  产出后经 replace_cdn_with_vendor 切本地 vendor（CDN script→/assets/vendor/
+  vue.global.prod.js）覆盖注入 deps——用户无需预渲染即可 GET /pages/<七页 slug>，
+  全站零 CDN；
 - config['dry_run']=True→不拉起不检端口，返回 {'app', 'launched': False, 'port',
   'host'}（测试经 TestClient 直接打 create 路由）；
 - 真拉起序：先探端口占用→ConsoleError（dry_run 下不检）；再延迟 import uvicorn
@@ -27,6 +30,10 @@ import socket
 from src.load_scenario.load_scenario import ScenarioError, load_scenario
 from src.load_scenario.load_scenario import _ENVELOPE_KEYS as _SCENARIO_ENVELOPE_KEYS
 from src.load_scenario.validate_scenario_schema import _KNOWN_KEYS as _SCENARIO_KNOWN_KEYS
+from src.localize_console_assets.localize_console_assets import (
+    localize_console_assets,
+    replace_cdn_with_vendor,
+)
 from src.render_console_pages.render_console_pages import render_console_pages
 from src.run_demo.run_demo import run_scenario
 
@@ -166,8 +173,9 @@ def serve_console(config: dict) -> dict:
             列表开箱即用）；可选 'port'（int 1-65535，缺省 8000）、'host'（str，
             缺省 127.0.0.1）、'runner'（callable，缺省 _make_default_runner 构造
             真实运行器——薄载荷合并场景文件后 run_scenario 真跑）、'stop_flag'
-            （共享 dict，缺省新建）、'static_pages'（dict|None，缺省 None=就地
-            render_console_pages(scenario_dir, {}) 自动渲染注入）、'dry_run'
+            （共享 dict，缺省新建）、'static_pages'（dict|None，缺省 None=七页
+            产出：localize_console_assets 骨架+render_console_pages 运行页经
+            CDN→vendor 切换，全站零 CDN）、'dry_run'
             （bool，缺省 False）。
 
     Returns:
@@ -191,10 +199,18 @@ def serve_console(config: dict) -> dict:
             f"scenario_dir 创建失败: {scenario_dir}（{exc}）——请检查路径与权限"
         ) from exc
 
-    # ---- 开箱即用：static_pages 未传 → 自动渲染缺省页面资产（Vue3 CDN 单文件） ----
+    # ---- 开箱即用：static_pages 未传 → 七页产出（R56 断网全可用口径） ----
+    # localize_console_assets 缺省产出七区骨架（vendor 落盘 scenario_dir/vendor/，
+    # 仓内源文件经 mount_console_extensions 注册的 /assets/vendor 路由托管）；
+    # 运行页 index 的真实内容由 render_console_pages 产出后经 replace_cdn_with_vendor
+    # 切本地 vendor 覆盖（键带 .html 后缀，对齐 /pages 无后缀名回退口径）。
     static_pages = config.get("static_pages")
     if static_pages is None:
-        static_pages = render_console_pages(scenario_dir, {})["pages"]
+        skeleton = localize_console_assets(scenario_dir)
+        static_pages = {f"{slug}.html": doc for slug, doc in skeleton.items()}
+        static_pages["index.html"] = replace_cdn_with_vendor(
+            render_console_pages(scenario_dir, {})["pages"]["index.html"]
+        )
 
     stop_flag = config.get("stop_flag")
     if not isinstance(stop_flag, dict):

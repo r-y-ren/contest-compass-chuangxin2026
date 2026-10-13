@@ -936,12 +936,12 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] mount_console_extensions · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/localize_console_assets/test_mount_console_extensions.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-13)
 - [x] mount_console_extensions · wired — 证据: bash -c grep -n "mount_console_extensions(app, deps)" fn_work/src/serve_console/create_console_app.py && cd fn_work && .venv/bin/python -m pytest tests/serve_console/ -q 2>&1 | tail -1 && echo WIRED_OK → WIRED_OK (10-13)
 - [x] mount_console_extensions · 清单进位 — 证据: bash -c grep -n "^| mount_console_extensions | B23 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-13)
-- [ ] mount_console_extensions · commit — 预告: fn(mount_console_extensions): wired 含四文档变更
+- [x] mount_console_extensions · commit — 证据: bash -c git log --format=%h%n%s -1 && echo COMMIT_OK → COMMIT_OK (10-13)
 ### localize_console_assets
-- [ ] localize_console_assets · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] localize_console_assets · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] localize_console_assets · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] localize_console_assets · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] localize_console_assets · implemented — 证据: bash -c cd fn_work && ! grep -q "unimplemented:fn:localize_console_assets" src/localize_console_assets/localize_console_assets.py && .venv/bin/python -m py_compile src/localize_console_assets/localize_console_assets.py && echo IMPL_OK → IMPL_OK (10-13)
+- [x] localize_console_assets · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k console_offline -q 2>&1 | tail -1 && echo TESTED_OK_R56验收 → TESTED_OK_R56验收 (10-13)
+- [x] localize_console_assets · wired — 证据: bash -c grep -n "skeleton = localize_console_assets" fn_work/src/serve_console/serve_console.py && cd fn_work && .venv/bin/python -m pytest -k console_pages_e2e -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/serve_console/ -q 2>&1 | tail -1 && echo WIRED_OK_e2e实跑加存量无回归 → WIRED_OK_e2e实跑加存量无回归 (10-13)
+- [x] localize_console_assets · 清单进位 — 证据: bash -c grep -n "^| localize_console_assets | B23 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-13)
 - [ ] localize_console_assets · commit — 预告: fn(localize_console_assets): wired 含四文档变更
 ## B23 批间门
 - [ ] B23 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
@@ -1121,3 +1121,5 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [ ] B31 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
 - [ ] B31 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
 - [ ] B31 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+- Ruling: B23 serve_console 缺省装配七页产出（R56 改造点枚举遗漏的第 3 触点） — 原因：七页经 /pages 托管+断网可加载是 R56 验收硬件，装配逻辑只在 serve_console — 代价：serve_console.py L194-210 最小侵入+1 存量用例期望同步（CDN 单页→七页 vendor） — 落点：batches 变更记录互指
+- Ruling: B23 实现口径校正两处（mount_console_extensions 的 app 能力探测用 get+routes 而非 route 属性——starlette 1.8 已移除；AppError 延迟 import 防与 create_console_app 循环互导） — 原因：环境实测与既有口径 — 代价：无 — 落点：批间评审复核

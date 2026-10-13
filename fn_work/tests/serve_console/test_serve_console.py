@@ -131,9 +131,11 @@ def test_console_api_readme_way3_out_of_box(tmp_path, monkeypatch):
     """README 方式三开箱即用回归（阻断A）：缺省命令原样可跑——
 
     不预建 scenarios/ 目录、不传 static_pages、dry_run=True+TestClient：
-    ① scenario_dir 缺失→自动建空目录（相对 cwd）；② static_pages 未传→自动
-    render_console_pages 注入（Vue CDN 页面）；③ /pages/index 无后缀回退
-    index.html → 200 含 Vue CDN；/api/scenarios 200 空卡（不再 400）。
+    ① scenario_dir 缺失→自动建空目录（相对 cwd）；② static_pages 未传→七页
+    产出注入（R56 改造：localize_console_assets 缺省骨架+render_console_pages
+    运行页经 CDN→vendor 切换——全站零 CDN，断网全可用；旧断言 unpkg CDN 注入
+    随本改造同步废止）；③ /pages/index 无后缀回退 index.html → 200 含本地
+    vendor script；/api/scenarios 200 空卡（不再 400）。
     """
     import os
 
@@ -143,14 +145,23 @@ def test_console_api_readme_way3_out_of_box(tmp_path, monkeypatch):
     )
     assert result["launched"] is False
     assert os.path.isdir(tmp_path / "scenarios")  # ① 缺失目录自动建
-    assert set(result["app"].state.deps["static_pages"]) == {"index.html"}  # ② 自动渲染注入
+    # ② 七页产出注入（键带 .html 后缀；vendor 落盘 scenarios/vendor/）
+    assert set(result["app"].state.deps["static_pages"]) == {
+        f"{slug}.html"
+        for slug in (
+            "overview", "index", "reports", "data", "ai", "instruments", "ledger",
+        )
+    }
+    assert (tmp_path / "scenarios" / "vendor" / "vue.global.prod.js").is_file()
     with TestClient(result["app"]) as client:
         page = client.get("/pages/index")  # ③ 无后缀名 → index.html 回退
+        overview = client.get("/pages/overview")  # 骨架页同经 /pages 托管
         cards = client.get("/api/scenarios")
         miss = client.get("/api/runs")  # report_root 未建：仍按原口径 400（不在本修范围）
     assert page.status_code == 200
-    assert "vue.global.prod.js" in page.text  # Vue CDN（unpkg 缺省源）注入
-    assert "unpkg.com" in page.text
+    assert "vue.global.prod.js" in page.text  # 本地 vendor script 注入
+    assert "unpkg.com" not in page.text  # 零 CDN（R56 断网全可用）
+    assert overview.status_code == 200 and 'id="console-nav"' in overview.text
     assert cards.status_code == 200  # 空目录不再 400
     assert cards.json() == {"cards": [], "count": 0}
     assert miss.status_code == 400
