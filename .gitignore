@@ -20,3 +20,4 @@ my_LLM_valut/
 .zcodeignore
 my_LLM_valut/raw/pdfs/
 fn_work/runs/
+/runs/

@@ -236,16 +236,20 @@ def test_non_string_ids_rejected(ledger_path, bad):
 
 
 def test_real_ledger_b5_smoke():
+    # 真清单是活文档：回写会补「完成状态」列（table_form 由 append 回到 status、行尾
+    # 追 ✅）。冒烟只验证定位与解析自洽——状态无关断言，不绑定回写前后某个快照。
     assert REAL_LEDGER.exists()
     res = locate_ledger_row("B5", str(REAL_LEDGER))  # 存在且唯一（否则上方已抛 LedgerError）
     raw_lines = REAL_LEDGER.read_text(encoding="utf-8").splitlines()
-    assert 1 <= res["line_no"] <= len(raw_lines)
+    assert res["line_no"] > 0
+    assert res["line_no"] <= len(raw_lines)
     assert raw_lines[res["line_no"] - 1] == res["line"]  # 1-based 行号与真文件互核
-    assert res["line"].startswith("| B5 |")
-    # 真清单 4 列形态（表头无状态列）——状态语义来自表头检测而非固定第 3 管道列
-    # （第 3 管道列＝技术路径描述列，修复前会被误读为状态——B17 高#1）。
-    assert res["table_form"] == "append" and res["status_col_index"] is None
-    assert res["status_text"] == "" and res["has_done_mark"] is False
+    assert res["line"].startswith("| B5")
+    # 表头检测的两种合法形态：回写前 append（4 列无状态列）／补列后 status。
+    assert res["table_form"] in ("append", "status")
+    assert isinstance(res["has_done_mark"], bool)
+    if res["has_done_mark"]:
+        assert "✅" in res["status_text"]  # done 判定须出自状态列原文
     assert isinstance(res["in_progress"], bool)
     assert res["header_line_no"] is not None and "分期" in res["header_line"]
 
