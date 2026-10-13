@@ -932,10 +932,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] render_console_navigation · 清单进位 — 证据: bash -c grep -n "^| render_console_navigation | B23 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK_读回在案 → LEDGER_OK_读回在案 (10-13)
 - [x] render_console_navigation · commit — 证据: bash -c git log --format=%h%n%s -1 | head -2 && git show --stat --format= HEAD | tail -3 && echo COMMIT_OK_b72b261 → COMMIT_OK_b72b261 (10-13)
 ### mount_console_extensions
-- [ ] mount_console_extensions · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] mount_console_extensions · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] mount_console_extensions · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] mount_console_extensions · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] mount_console_extensions · implemented — 证据: bash -c cd fn_work && ! grep -q "unimplemented:fn:mount_console_extensions" src/localize_console_assets/mount_console_extensions.py && .venv/bin/python -m py_compile src/localize_console_assets/mount_console_extensions.py && echo IMPL_OK → IMPL_OK (10-13)
+- [x] mount_console_extensions · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/localize_console_assets/test_mount_console_extensions.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-13)
+- [x] mount_console_extensions · wired — 证据: bash -c grep -n "mount_console_extensions(app, deps)" fn_work/src/serve_console/create_console_app.py && cd fn_work && .venv/bin/python -m pytest tests/serve_console/ -q 2>&1 | tail -1 && echo WIRED_OK → WIRED_OK (10-13)
+- [x] mount_console_extensions · 清单进位 — 证据: bash -c grep -n "^| mount_console_extensions | B23 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-13)
 - [ ] mount_console_extensions · commit — 预告: fn(mount_console_extensions): wired 含四文档变更
 ### localize_console_assets
 - [ ] localize_console_assets · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留

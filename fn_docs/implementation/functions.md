@@ -127,7 +127,7 @@
 
 <!-- 演进周期追加（2026-10-13，域二十 25 函数） -->
 | render_console_navigation | B23 | wired 10-13 | pytest tests/localize_console_assets/test_render_console_navigation.py → 41 passed；调用点 render_console_pages.py:345；存量 108 passed 无回归 | — |
-| mount_console_extensions | B23 | stub 10-13 | pytest -k console_offline | — |
+| mount_console_extensions | B23 | wired 10-13 | pytest tests/localize_console_assets/test_mount_console_extensions.py → 14 passed；接线 create_console_app.py:471；vendor 路由 200/157924B；全套件 2972 绿 | — |
 | localize_console_assets | B23 | stub 10-13 | pytest -k console_offline | — |
 | render_triple_stream_charts | B24 | stub 10-13 | pytest -k realtime_streams_e2e | — |
 | stream_realtime_console | B24 | stub 10-13 | pytest -k realtime_streams_e2e | — |

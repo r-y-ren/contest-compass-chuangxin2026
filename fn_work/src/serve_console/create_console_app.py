@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING
 
 from src.load_scenario.load_scenario import load_scenario
 from src.load_scenario.validate_scenario_schema import ScenarioError
+from src.localize_console_assets.mount_console_extensions import mount_console_extensions
 from src.render_console_pages.build_scenario_cards import build_scenario_cards
 
 if TYPE_CHECKING:  # 仅类型标注用——运行时延迟 import（缺库不炸模块装载）
@@ -463,5 +464,10 @@ def create_console_app(deps: dict) -> "FastAPI":
         if isinstance(asset, str):
             return HTMLResponse(asset)
         return JSONResponse(asset)
+
+    # ---- 演进端点集中挂载（R56 快速通道②：唯一一处接线）----
+    # R57–R74 各批次服务端点一律经 mount_console_extensions 按序注册，本工厂
+    # 不再逐端点改动（vendor 资产路由等扩展路由自此有了单点挂载口）。
+    mount_console_extensions(app, deps)
 
     return app
