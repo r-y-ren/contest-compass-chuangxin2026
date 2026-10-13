@@ -12,7 +12,7 @@ import pytest
 from src.render_console_pages.render_console_pages import render_console_pages
 
 #: 内嵌卡片 JSON 注入行（正则可提取对拍：window.__CONSOLE_CARDS__ = [...];）。
-_CARDS_LINE_RE = re.compile(r"window\.__CONSOLE_CARDS__ = (\[.*\]);\n", re.DOTALL)
+_CARDS_LINE_RE = re.compile(r"window\.__CONSOLE_CARDS__ = (\[.*?\]);\n", re.DOTALL)
 
 
 def _make_yaml(directory, name, text="style: tone\npower_dbm: -20\n"):

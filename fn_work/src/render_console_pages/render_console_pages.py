@@ -51,6 +51,8 @@ section { margin: 16px 0; padding: 12px; border: 1px solid #d7dee9; border-radiu
 .empty { color: #6b7486; padding: 18px; text-align: center; }
 label { display: block; margin: 6px 0; }
 canvas { width: 100%; border: 1px solid #d7dee9; border-radius: 6px; background: #fbfcfe; }
+.stop-btn { background:#c0392b;color:#fff;border:none;padding:6px 24px;border-radius:4px;font-size:1rem;font-weight:bold;cursor:pointer;margin-top:6px; }
+.stop-btn:hover { background:#e74c3c; }
 </style>
 </head>
 <body>
@@ -89,6 +91,7 @@ canvas { width: 100%; border: 1px solid #d7dee9; border-radius: 6px; background:
       <li>时钟：{{ status.clock }}</li>
       <li v-if="lastRun" id="run-result">运行：{{ runLine }}</li>
     </ul>
+    <button id="emergency-stop" class="stop-btn" @click="emergencyStop">急停</button>
   </section>
 
   <section id="ws-charts" aria-label="WS 实时图区">
@@ -102,7 +105,10 @@ canvas { width: 100%; border: 1px solid #d7dee9; border-radius: 6px; background:
     <button @click="loadRuns">刷新报告列表</button>
   </section>
 
-  <nav id="ledger-entry-nav">清单完成度入口：<a id="ledger-entry" href="/api/ledger">清单完成度</a></nav>
+  <nav id="ledger-entry-nav">
+    清单完成度：<span id="ledger-inline">{{ ledgerText }}</span>
+    <a id="ledger-entry" href="/api/ledger" target="_blank">（JSON 详情）</a>
+  </nav>
   __EMPTY_STATE__
 </div>
 <script src="__CDN_URL__"></script>
@@ -115,7 +121,7 @@ const app = Vue.createApp({
       powerDbm: -10, attenDb: 0, busy: false,
       status: { backend: '未知', link: '未知', clock: '未知' },
       runs: [], kpiSeries: [], disconnected: false, connState: '未连接',
-      lastRun: null,
+      lastRun: null, ledgerText: '加载中…',
     };
   },
   computed: {
@@ -162,12 +168,50 @@ const app = Vue.createApp({
         if (entry.status === 'running') continue;
         this.lastRun = entry;
         this.connState = entry.status === 'done' ? '运行完成' : '运行失败';
+        // 状态区：从运行结果刷新后端/时钟（结果 result 或 entry 均可携带）
+        const r = entry.result || {};
+        if (r.backend) this.status.backend = r.backend;
+        else if (entry.backend) this.status.backend = entry.backend;
+        if (r.clock_ref) this.status.clock = r.clock_ref;
+        this.status.link = r.link || this.status.link || '未采集';
         this.loadRuns();
         return;
       }
       this.connState = '轮询超时（120s）——结果请稍后在报告中心查看';
     },
     async applyParams() { this.connState = '参数已更新'; },
+    async emergencyStop() {
+      // 急停：POST /api/stop（先停发射再置 flag），显示结果。
+      try {
+        const resp = await fetch('/api/stop', { method: 'POST' });
+        const body = resp.ok ? await resp.json() : { stopped: false };
+        this.connState = body.stopped ? '急停已执行（发射已停）' : '急停请求发送（无在途发射）';
+      } catch (err) { this.connState = '急停失败: ' + err.message; }
+    },
+    async loadStatus() {
+      // 从最近运行结果或初始探测刷新状态区（后端/时钟）。
+      try {
+        const resp = await fetch('/api/runs');
+        if (resp.ok) {
+          const body = await resp.json();
+          const runs = body.runs || [];
+          if (runs.length > 0) {
+            this.status.backend = this.status.backend === '未知' ? '最近' : this.status.backend;
+          }
+        }
+      } catch (err) { /* 静默降级 */ }
+    },
+    async loadLedger() {
+      // 清单完成度内联（done/total），不跳 JSON 页。
+      try {
+        const resp = await fetch('/api/ledger');
+        if (!resp.ok) { this.ledgerText = '不可用'; return; }
+        const body = await resp.json();
+        this.ledgerText = body.available
+          ? body.done + '/' + body.total + ' 条已完成'
+          : '不可用';
+      } catch (err) { this.ledgerText = '不可用'; }
+    },
     async loadRuns() {
       const resp = await fetch('/api/runs');
       if (resp.ok) { const body = await resp.json(); this.runs = body.runs || []; }
@@ -202,7 +246,7 @@ const app = Vue.createApp({
       };
     },
   },
-  mounted() { this.connectWS(); this.loadRuns(); },
+  mounted() { this.connectWS(); this.loadRuns(); this.loadLedger(); },
 });
 app.mount('#app');
 </script>

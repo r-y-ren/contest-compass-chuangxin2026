@@ -443,6 +443,12 @@ def create_console_app(deps: dict) -> "FastAPI":
         finally:
             hub["sockets"].discard(websocket)
 
+    @app.get("/", include_in_schema=False)
+    async def _root_redirect():
+        # 用户直访根路径 → 落到操控台首页（真实用户第一个动作就是开 http://host:port/）
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/pages/index", status_code=307)
+
     @app.get("/pages/{name}")
     async def static_page(name: str):  # noqa: ANN201 - HTML/JSON 双响应形态
         pages = deps["static_pages"]

@@ -620,6 +620,20 @@ def _ledger_status_for(
     return "updated", None
 
 
+def _result_json_field(run_record: dict, key: str) -> str:
+    """从 run 目录的 result.json 读取字段（backend/clock_ref），读不到返回 '?'。"""
+    import json as _json
+    run_dir = run_record.get("run_dir")
+    if not run_dir:
+        return "?"
+    try:
+        with open(os.path.join(run_dir, "result.json"), encoding="utf-8") as fh:
+            data = _json.load(fh)
+        return str(data.get(key, "?"))
+    except Exception:  # noqa: BLE001 - 字段缺失/读取失败静默降级
+        return "?"
+
+
 def run_scenario(
     scenario: dict,
     *,
@@ -724,6 +738,8 @@ def run_scenario(
         "status": "completed" if completed else "failed",
         "report_path": state.get("report_path"),
         "exit_code": EXIT_OK if completed else EXIT_RUN_FAILED,
+        "backend": _result_json_field(run_record, "backend"),
+        "clock_ref": _result_json_field(run_record, "clock_ref"),
         "failure_levels": len(
             _failure_levels(
                 state.get("execute_result")
