@@ -71,7 +71,12 @@ from src.verify_report_traceability.verify_report_traceability import (
 
 from src.shared.append_event import append_event
 
-from .execute_scenario import append_distance_kpi_rows, execute_scenario, record_run_streams
+from .execute_scenario import (
+    append_distance_kpi_rows,
+    append_kpi_rows,
+    execute_scenario,
+    record_run_streams,
+)
 
 __all__ = ["EmergencyStopRequested", "run_demo", "run_scenario"]
 
@@ -176,7 +181,10 @@ def _demo_scenario() -> dict:
     与 load_scenario 规范化输出同形状（场景字段+红线信封键），另携执行信封
     （scenario_type/judge_min_samples/dwell_s/baseline_samples/record/sim_events/
     dut——内置场景不经文件装载，不受 schema 未知键约束）；judge_min_samples=2、
-    dwell_s=0、baseline_samples=10 保证全流程秒级完成。
+    dwell_s=0.002、baseline_samples=10 保证全流程秒级完成。走查环 F2（2026-10-14）
+    ：dwell 由 0 提至 2ms——功率档事件 ts 为 int 毫秒（append_event 截断），零
+    停留时六档事件同毫秒不可分窗（三元曲线开窗退化末窗）；2ms×6 档共 12ms
+    仍属快路径，各档判据窗样本可归位（图A/图B 全档有样本）。
 
     判据演示口径（修复「--demo 永不失效」）：sim 事件不再直给恒定 jsr_db=−20
     （悬崖左远端，窗口 PER 恒 0），改为按 GB 阶梯档位携带**绝对干扰电平**
@@ -204,7 +212,7 @@ def _demo_scenario() -> dict:
         # ---- 执行信封（内置场景直携） ----
         "scenario_type": "gb42590",
         "judge_min_samples": _DEMO_JUDGE_MIN_SAMPLES,
-        "dwell_s": 0.0,
+        "dwell_s": 0.002,
         "baseline_samples": 10,
         "signal_power_db": _DEMO_SIGNAL_POWER_DB,
         "link_power_db": _DEMO_LINK_POWER_DB,
@@ -299,6 +307,22 @@ def _explicit_backend_name(name: str | None, scenario: dict) -> str | None:
 #: sigmf_path/speed 时按 backend 类型透传给 replay 后端工厂（open_replay_backend）
 #: ——此前仅透传 freq_hz，replay 后端必需的录音路径无传入路径，后端实际不可用。
 _REPLAY_PARAM_KEYS = ("sigmf_path", "speed")
+
+#: EMC 场景专用信封键（走查环 F1 修复，2026-10-14）：scenario_type='emc' 的场景
+#: 携 EMC 三 sim（conduction/radiation/sweep）消费的流程键——emc_flow（子类型
+#: 分派）与 start_hz/stop_hz/span_hz/detector/rbw_hz/peak_drop_db（schema 不在册
+#: 的测量参数）——按 replay 专用键同款信封口径摘出（schema 不校验，值域宽松归
+#: 下游：emc_flow 归 execute_scenario._emc_flow，测量参数归三 sim 自校验），校验/
+#: 规范化后原样落位顶层。非 emc 场景不摘——仍按未知键拒绝（既有拒绝行为不放松）。
+_EMC_PARAM_KEYS = (
+    "emc_flow",
+    "start_hz",
+    "stop_hz",
+    "span_hz",
+    "detector",
+    "rbw_hz",
+    "peak_drop_db",
+)
 
 
 def _backend_params(scenario: dict) -> dict:
@@ -461,6 +485,16 @@ def _execute_stage(
         ctx["monitor"] = _monitor_params(scenario)
 
     # ---- 场景执行阶段（四类型分派；判据路 KPI/gb 基线窗由各编排自管） ----
+    # 走查环 F2：gb 判据窗样本经 ctx['judge_kpi_sink'] 镜像（协议编排 failure_cb
+    # 逐档归一落行+主机单调钟盖戳），采集阶段 'w' 重写 kpi.csv 后在下方重追加——
+    # 判据样本回到各 power_step 窗内（三元曲线开窗有样本；非 gb 类型不接线）。
+    scenario_type_raw = scenario.get("scenario_type")
+    judge_sink: list = []
+    if (
+        isinstance(scenario_type_raw, str)
+        and scenario_type_raw.strip().lower() == "gb42590"
+    ):
+        ctx["judge_kpi_sink"] = judge_sink
     run_out = execute_scenario(ctx, scenario)
     state["execute_result"] = run_out
     ctx["result"] = run_out  # B21 中#2：execute 返回并入 ctx['result']（result.json 口径）
@@ -471,6 +505,16 @@ def _execute_stage(
     streams_ctx["record"] = bool(scenario.get("record", False))
     streams_ctx["stop"] = stop  # B24 C1：协作停凭据透传（None=既有不停检口径）
     state["streams"] = record_run_streams(streams_ctx)
+
+    # ---- 走查环 F2：gb 判据窗样本重追加（kpi.csv 被 record_run_streams 以 'w'
+    # 重写——判据路行在 ladder 期产生（各 power_step 窗内，主机单调钟），采集后
+    # 按 sink 就近补回（distance 档行同款口径；append 失败不反杀运行，行序即
+    # 窗序、溯源归 events.jsonl 的 power_step ts 对齐）。
+    if judge_sink:
+        try:
+            append_kpi_rows(run_dir, judge_sink)
+        except OSError:  # noqa: BLE001 - 补写尽力而为：采集主结果不因追加失败反杀
+            ctx["log"]("WARNING", f"gb 判据窗 KPI 行重追加失败: run_dir={run_dir}")
 
     # ---- distance 档 KPI 行重追加（B21 中#2）：record_run_streams 以 'w' 重写
     # kpi.csv，_run_distance 执行期写入的距离档行被截——采集后按结果对象重追加
@@ -599,7 +643,9 @@ def _normalize_scenario_object(scenario: dict) -> dict:
     declarations 摘出后落位），差异仅在入口：本函数收已解析 dict（网页/API
     直给），文件读与 YAML 解析归调用方（serve_console 薄载荷合并路径先经
     load_scenario 全口径装载）。未知键/红线拒绝同样抛 LoadScenarioError——
-    场景进入系统的唯一形状纪律不因入口放宽。
+    场景进入系统的唯一形状纪律不因入口放宽。走查环 F1：scenario_type='emc'
+    的场景另摘 _EMC_PARAM_KEYS 信封键（emc_flow 等 schema 不在册的 EMC 流程
+    键，与 replay 专用键同款口径——校验/规范化后原样落位顶层，非 emc 不摘）。
     """
     if not isinstance(scenario, dict):
         raise LoadScenarioError(
@@ -620,6 +666,19 @@ def _normalize_scenario_object(scenario: dict) -> dict:
         and declared_backend.strip().lower() == "replay"
         else {}
     )
+    # 走查环 F1：EMC 场景专用信封键摘出（scenario_type='emc' 才摘，值域归下游
+    # ——与 replay 专用键同款口径；demo_emc_flows 构造的完整 EMC 场景经操控台
+    # 缺省 runner → run_scenario → 本函数，emc_flow 等键经此通路到分派器）。
+    declared_type = scenario.get("scenario_type")
+    emc_params = (
+        {
+            key: scenario[key]
+            for key in _EMC_PARAM_KEYS
+            if key in scenario
+        }
+        if isinstance(declared_type, str) and declared_type.strip().lower() == "emc"
+        else {}
+    )
     nested = scenario.get("declarations")
     declarations = nested if isinstance(nested, dict) else {}
     shielded_box = declarations.get("shielded_box", scenario.get("shielded_box"))
@@ -628,7 +687,7 @@ def _normalize_scenario_object(scenario: dict) -> dict:
     scenario_fields = {
         k: v
         for k, v in scenario.items()
-        if k not in _ENVELOPE_KEYS and k not in replay_params
+        if k not in _ENVELOPE_KEYS and k not in replay_params and k not in emc_params
     }
 
     errors = validate_scenario_schema(scenario_fields)
@@ -653,6 +712,7 @@ def _normalize_scenario_object(scenario: dict) -> dict:
     normalized["shielded_box"] = shielded_box
     normalized["dut_scope"] = dut_scope
     normalized.update(replay_params)  # R64：replay 专用键信封式落位（schema 不在册）
+    normalized.update(emc_params)  # 走查环 F1：EMC 专用键信封式落位（schema 不在册）
     return normalized
 
 
@@ -760,11 +820,41 @@ def _result_json_field(run_record: dict, key: str) -> str:
         return "?"
 
 
+def _last_event_ts(run_dir: object) -> "int | None":
+    """events.jsonl 最近一条事件的 ts 回读（走查环 F6 修复）。
+
+    急停/协议终止事件均经 append_event 落 ts（time.monotonic 毫秒 int——
+    三路对齐基准）；运行结果对象的 'stopped_at' 以此回填（事件钟口径，与
+    events.jsonl 可核对）。文件缺失/空行/坏行/无 ts → None（不可考不虚构，
+    读失败绝不反杀 stopped 归一）。
+    """
+    try:
+        path = os.path.join(os.fspath(run_dir), "events.jsonl")
+        last_ts = None
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                text = line.strip()
+                if not text:
+                    continue
+                try:
+                    parsed = json.loads(text)
+                except ValueError:
+                    continue
+                ts = parsed.get("ts") if isinstance(parsed, dict) else None
+                if isinstance(ts, (int, float)) and not isinstance(ts, bool):
+                    last_ts = int(ts)
+        return last_ts
+    except Exception:  # noqa: BLE001 - 回读尽力而为：stopped_at=None 亦如实
+        return None
+
+
 def _stopped_result(state: dict, exc: EmergencyStopRequested) -> dict:
     """急停协作中止的结果归一（B24 C1）：status='stopped'、exit_code=1（未完成
     口径——中断语义沿用「场景执行未完成即 exit 1」）；events.jsonl 就近补一条
     emergency_stop 事件留痕（尽力而为——发射侧静默已由传播路径的停发射铁律
-    完成，事件写失败不反杀 stopped 结果）。"""
+    完成，事件写失败不反杀 stopped 结果）。走查环 F6（2026-10-14）：结果补
+    'stopped_at'——从 events.jsonl 最近事件 ts 回填（与事件钟同域可核对；
+    无事件/不可读 → None 如实）。"""
     run_dir = state.get("run_dir")
     execute_result = (
         state.get("execute_result")
@@ -786,6 +876,9 @@ def _stopped_result(state: dict, exc: EmergencyStopRequested) -> dict:
     return {
         "run_dir": run_dir,
         "status": "stopped",
+        "stopped_at": (
+            _last_event_ts(run_dir) if isinstance(run_dir, str) and run_dir else None
+        ),
         "report_path": state.get("report_path"),
         "exit_code": EXIT_RUN_FAILED,
         "backend": _result_json_field({"run_dir": run_dir}, "backend"),

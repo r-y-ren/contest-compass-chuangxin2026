@@ -69,7 +69,11 @@ from src.map_distance_to_loss.map_distance_to_loss import (
     map_distance_to_loss,
 )
 from src.normalize_kpi.normalize_kpi import normalize_kpi
-from src.record_run_streams.record_run_streams import KPI_HEADER, record_run_streams
+from src.record_run_streams.record_run_streams import (
+    KPI_HEADER,
+    append_kpi_rows,
+    record_run_streams,
+)
 from src.run_baseline_check.run_baseline_check import run_baseline_check
 from src.run_emc_conduction_sim.run_emc_conduction_sim import run_emc_conduction_sim
 from src.run_emc_radiation_sim.run_emc_radiation_sim import run_emc_radiation_sim
@@ -87,6 +91,7 @@ from src.shared.append_event import append_event
 __all__ = [
     "ScenarioError",
     "append_distance_kpi_rows",
+    "append_kpi_rows",
     "execute_scenario",
     "record_run_streams",
     "run_baseline_check",

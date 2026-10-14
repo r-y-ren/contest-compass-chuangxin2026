@@ -197,14 +197,24 @@ def read_lines(path):
 
 # ---------------------------------------------------------------------------
 # ① sim 事件流：kpi.csv 行数 = 事件 × samples_per_event；对齐 P50 有限精确
+# （走查环 F2 新真值：sim 源 kpi 行主机单调钟盖戳——与事件/监测块同域可配对）
 # ---------------------------------------------------------------------------
 def test_align_streams_sim_events_kpi_rows_and_alignment_p50_finite(tmp_path):
-    backend = FakeMonitorBackend([iq_block(60 + 100 * i, seed=i) for i in range(9)])
+    host_base = time.monotonic() * 1000.0
+    # 事件时刻整体置于采集起点之前（base-550..base-50，步 100ms）——kpi 行盖戳
+    # 于拉取时刻（base 后数毫秒内），每个事件都能配上其后首个 kpi 样本；监测块
+    # ts=事件 ts+10（精确 10ms 时延构造）。
+    event_ts = [host_base - 550.0 + 100.0 * i for i in range(6)]
+    backend = FakeMonitorBackend([iq_block(ts + 10.0, seed=i) for i, ts in enumerate(event_ts)])
     ctx = make_ctx(
         tmp_path,
         backend,
         sim_events_src=sim_events(6),
-        jam=jam_events(6),
+        # 对齐事件与监测块均落主机单调毫秒域（kpi 行盖戳后三路同域——旧仿真钟
+        # 0/100/… 与事件钟不交的口径随走查环 F2 修复作废）
+        jam=[
+            {"type": "power_step", "ts_ms": ts} for ts in event_ts
+        ],
         dut={"source": "sim", "samples_per_event": 3},
     )
     result = record_run_streams(ctx)
@@ -217,18 +227,27 @@ def test_align_streams_sim_events_kpi_rows_and_alignment_p50_finite(tmp_path):
     assert body[1] == "sim" and body[2] == "sim"
     float(body[3])  # per 数值在位
 
-    assert result["monitor_blocks"] == 9
-    assert result["stats_rows"] == 9
+    assert result["monitor_blocks"] == 6
+    assert result["stats_rows"] == 6
 
-    # 对齐：事件 ts 50..550，kpi 样本钟 0/100/…，监测块钟 60/160/…
-    # → kpi 时延恒 50ms、监测时延恒 10ms；6 对 ≥5 → P50 有限
+    # 走查环 F2 新真值：kpi 行 ts 为主机单调毫秒盖戳（>host_base、非仿真钟
+    # 0/100/… 域），行序非降
+    kpi_ts = [float(line.split(",")[0]) for line in kpi_lines[1:]]
+    assert all(ts >= host_base for ts in kpi_ts)
+    assert kpi_ts == sorted(kpi_ts)
+
+    # 对齐：事件/监测块/kpi 三路同域（主机单调毫秒）——6 事件两路皆可配对，
+    # 监测时延恒 10ms（块 ts=事件 ts+10 精确构造）；kpi 时延=拉取时刻−事件
+    # 时刻 ≥0 有限（拉取序非精确构造，不再断言 50ms 恒值）
     alignment = result["alignment"]
     assert alignment["n_events"] == 6
     assert alignment["n_paired_kpi"] == 6
     assert alignment["n_paired_monitor"] == 6
     assert alignment["unpaired_events"] == []
-    assert alignment["kpi_delay_p50_ms"] == pytest.approx(50.0)
-    assert alignment["kpi_delay_p95_ms"] == pytest.approx(50.0)
+    assert alignment["kpi_delay_p50_ms"] is not None
+    assert alignment["kpi_delay_p50_ms"] >= 0
+    assert math.isfinite(alignment["kpi_delay_p50_ms"])
+    assert alignment["kpi_delay_p95_ms"] >= alignment["kpi_delay_p50_ms"]
     assert alignment["monitor_delay_p50_ms"] == pytest.approx(10.0)
     assert alignment["monitor_delay_p95_ms"] == pytest.approx(10.0)
     assert alignment["kpi_delay_note"] is None
@@ -612,10 +631,13 @@ def test_align_streams_stop_after_two_blocks_is_lazy_no_third_read(tmp_path):
 
 # ---------------------------------------------------------------------------
 # ⑮ 真 SimBackend 端到端（防后端契约再漂移）：start_tx 喂两块 → 拆包归一采集
+# （走查环 F2 新真值：真实流尽后静默态产底噪块——2 实块 + 底噪预算块全收）
 # ---------------------------------------------------------------------------
 def test_align_streams_real_sim_backend_end_to_end_two_blocks(tmp_path):
-    # 真 sim 后端 read_samples 契约：返回 [(samples, meta), ...]（无数据 []）——
-    # 编排层须逐块拆包并把 (samples, meta) 元组归一为块 dict，不得整单透传。
+    # 真 sim 后端 read_samples 契约：返回 [(samples, meta), ...]——编排层须逐块
+    # 拆包并把 (samples, meta) 元组归一为块 dict，不得整单透传。
+    from src.open_sim_backend.open_sim_backend import _IDLE_NOISE_BUDGET
+
     backend = open_sim_backend({"freq_hz": 2.44e9, "sample_rate": 1e6})
     tone = [
         complex(math.cos(2 * math.pi * i / 16), math.sin(2 * math.pi * i / 16))
@@ -624,8 +646,7 @@ def test_align_streams_real_sim_backend_end_to_end_two_blocks(tmp_path):
     backend.start_tx([tone, list(tone)])  # 喂两块再采集
 
     events = sim_events(2)
-    # 对齐事件用主机单调毫秒域盖戳（B12 中#1：sim 元组块归一 ts 已统一主机域，
-    # jam_events 取值口径 ts_ms 优先——事件与监测块同域方可配对）。
+    # 对齐事件用主机单调毫秒域盖戳（三路同域——kpi 行盖戳/监测块盖戳后可配对）。
     host_jam = [
         {"type": "power_step", "ts_ms": time.monotonic() * 1000.0} for _ in range(2)
     ]
@@ -638,30 +659,32 @@ def test_align_streams_real_sim_backend_end_to_end_two_blocks(tmp_path):
     )
     result = record_run_streams(ctx)
 
-    # 两块全收：谱块/统计行各 2，bin 行 = 表头 + 2 块 × max_bins=4
-    assert result["monitor_blocks"] == 2
-    assert result["stats_rows"] == 2
+    # 两实块 + 静默态底噪预算块全收（走查环 F2：发射窗外的采集窗也有数据）
+    n_total = 2 + _IDLE_NOISE_BUDGET
+    assert result["monitor_blocks"] == n_total
+    assert result["stats_rows"] == n_total
     assert result["kpi_rows"] == 2
-    assert len(read_lines(os.path.join(str(tmp_path), "monitor.csv"))) == 1 + 2 * 4
-    # 源耗尽（空读超阈）自然收尾不抛，注在位
+    assert len(read_lines(os.path.join(str(tmp_path), "monitor.csv"))) == 1 + n_total * 4
+    # 预算尽后空读超阈自然收尾不抛，注在位
     assert "monitor_source_exhausted" in result["streams_note"]
     # 归一块 ts 为主机单调毫秒盖戳（rx_ts 块号非毫秒域，不再充当时间戳）：
-    # 统计行时间戳非负且逐块严格递增（同域毫断言，替代旧 [0,1] 块号错误锚）。
+    # 统计行时间戳非负且逐块严格递增（首两行即真实环回块）。
     stats_rows = [
         json.loads(line)
         for line in read_lines(os.path.join(str(tmp_path), "monitor_stats.jsonl"))
     ]
     ts_values = [row["timestamp_ms"] for row in stats_rows]
-    assert len(ts_values) == 2
-    assert ts_values[0] >= 0 and ts_values[1] > ts_values[0]
-    # 对齐腿：主机域事件与主机域监测块可配对（延迟非负有限），不再因单位错位
-    # 流尽 unpaired；kpi 腿仍 sim 仿真钟域（配不上属预期，单路未配不进
-    # unpaired_events——两路皆流先止才算）。
+    assert len(ts_values) == n_total
+    assert ts_values[0] >= 0 and all(later > earlier for earlier, later in zip(ts_values, ts_values[1:]))
+    # 对齐腿：三路同主机单调域——事件与监测块/kpi 行皆可配对（延迟非负有限），
+    # 不再因单位错位流尽 unpaired（旧"kpi 腿 sim 仿真钟配不上"口径随走查环 F2 作废）。
     alignment = result["alignment"]
     assert alignment["n_events"] == 2
     assert alignment["n_paired_monitor"] == 2
+    assert alignment["n_paired_kpi"] == 2
     assert alignment["unpaired_events"] == []
-    for pair in alignment["pairs"]:
-        assert pair["monitor_delay_ms"] is not None
-        assert pair["monitor_delay_ms"] >= 0
-        assert math.isfinite(pair["monitor_delay_ms"])
+    for leg in ("kpi_delay_ms", "monitor_delay_ms"):
+        for pair in alignment["pairs"]:
+            assert pair[leg] is not None
+            assert pair[leg] >= 0
+            assert math.isfinite(pair[leg])

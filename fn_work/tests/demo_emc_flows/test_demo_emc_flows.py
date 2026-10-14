@@ -89,8 +89,10 @@ def test_emc_view_three_flows_reachable_with_disclaimer():
 
 
 def test_emc_view_scenario_passed_verbatim_to_runner():
-    """② 表单参数原样并入场景交 runner（params dict → scenario dict，不经
-    篡改）：runner 捕获到的场景即 {'scenario_type','emc_flow', **params}。"""
+    """② 表单参数并入场景交 runner（完整缺省为底、params 覆盖、保留字后置）：
+    runner 捕获到的场景 = {**完整缺省, **params, 'scenario_type':'emc',
+    'emc_flow':flow}——params 业务键生效、缺省键兜底、保留字不可劫持
+    （走查环 F1 新真值：缺省 {} 亦为可真跑的完整场景）。"""
     captured = {}
 
     def _runner(scenario):
@@ -99,12 +101,17 @@ def test_emc_view_scenario_passed_verbatim_to_runner():
 
     view = demo_emc_flows("sweep", {"band": "cispr_a", "step_hz": 1e6}, _runner)
     assert view["ok"] is True
-    assert captured == {
-        "scenario_type": "emc",
-        "emc_flow": "sweep",
-        "band": "cispr_a",
-        "step_hz": 1e6,
-    }
+    assert captured["scenario_type"] == "emc"  # 保留字后置
+    assert captured["emc_flow"] == "sweep"
+    assert captured["band"] == "cispr_a"  # params 业务键覆盖缺省
+    assert captured["step_hz"] == 1e6
+    # 完整缺省在位（真装配通路的最小集——缺省 {} 也能过 validate/guard 真跑）
+    assert captured["style"] == "bandlimited_noise"
+    assert captured["fs"] == 10.0e6 and captured["bandwidth_hz"] == 2.0e6
+    assert captured["bands"] == [[2400.0, 2483.5]]
+    assert captured["shielded_box"] is True and captured["dut_scope"] == "self_built"
+    assert view["scenario"]["scenario_type"] == "emc"
+    assert view["scenario"]["emc_flow"] == "sweep"
 
 
 def test_emc_view_clipping_warnings_merged_not_rejected():
@@ -183,9 +190,10 @@ def test_emc_view_missing_payload_chart_none_honest_note():
 
 def test_emc_view_scenario_error_propagates():
     """⑦ 场景非法→校验错误原样上抛（runner 内部 ValueError 族不吞不换——端点
-    层落运行表 failed 附原文）。"""
-    with pytest.raises(ValueError, match="缺 'freq_hz'"):
-        demo_emc_flows("conduction", {}, _pipeline_runner)
+    层落运行表 failed 附原文）。走查环 F1 新真值：完整缺省后缺 freq_hz 不再
+    必错——改用空测点序列（conduction sim 形状拒绝路径）验证透传语义。"""
+    with pytest.raises(ValueError, match="freq_hz"):
+        demo_emc_flows("conduction", {"freq_hz": []}, _pipeline_runner)
 
 
 # ---- 端点合约：POST /api/emc/{flow}（202+运行表轮询终态） ----

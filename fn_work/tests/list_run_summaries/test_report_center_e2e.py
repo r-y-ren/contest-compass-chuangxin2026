@@ -206,9 +206,14 @@ def test_report_center_e2e_summaries_api(console_server, real_runs):
 
     noise_row, tone_row = rows
     # noise 行（首行=最新）：两行都判据触发 → status failed/exit 1/失效电平在案
-    for row, style in ((noise_row, "bandlimited_noise"), (tone_row, "tone")):
+    # 走查环 F5（2026-10-14）：scenario_name 回落薄载荷源场景文件名（runner 收尾
+    # 落 result.json 'scenario_name' 键——旧断言 gb42590 为 scenario_type 回落值）
+    for row, style, name in (
+        (noise_row, "bandlimited_noise", "noise_fail"),
+        (tone_row, "tone", "tone_fail"),
+    ):
         assert row["style"] == style
-        assert row["scenario_name"] == "gb42590"
+        assert row["scenario_name"] == name
         assert row["backend"] == "SimBackend"
         assert row["status"] == "failed"
         assert row["exit_code"] == 1

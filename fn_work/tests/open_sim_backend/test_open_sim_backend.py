@@ -1,4 +1,9 @@
-"""open_sim_backend 对抗测试：验收 slug=backend_sim——环回取块/停发射残余/增益夹紧与热更新/域校验/注册集成。"""
+"""open_sim_backend 对抗测试：验收 slug=backend_sim——环回取块/停发射残余/增益夹紧与热更新/域校验/注册集成。
+
+走查环 F2/F3 新真值（2026-10-14）：read_samples 非发射登记态不再恒空——静默态
+合成低功率底噪块（meta 'synthetic': 'noise_floor'，每实例预算 _IDLE_NOISE_BUDGET
+块，预算尽回落 []）；_drain 以底噪块为"真实流尽"哨兵截断（不再等空读）。
+"""
 import importlib
 
 import pytest
@@ -18,14 +23,22 @@ def _load_backend_module():
     return mod
 
 
+def _is_synthetic(meta: dict) -> bool:
+    """静默态底噪块判定（meta 'synthetic' 标注——新真值的流尽哨兵）。"""
+    return meta.get("synthetic") == "noise_floor"
+
+
 def _drain(backend):
-    """反复 read_samples 弹空缓冲，返回全部 (rx_block, meta) 元组。"""
+    """弹尽真实环回流：反复 read_samples 至出现底噪块（真实流尽哨兵——静默态
+    预算内恒可产底噪块，不能以空读为尽），返回哨兵前的全部 (rx_block, meta)。"""
     drained = []
     while True:
         got = backend.read_samples()
-        if not got:
+        if not got or all(_is_synthetic(meta) for _, meta in got):
             break
-        drained.extend(got)
+        drained.extend(
+            (block, meta) for block, meta in got if not _is_synthetic(meta)
+        )
     return drained
 
 
@@ -40,8 +53,8 @@ def test_backend_sim_start_tx_read_samples_loopback_retrieves_transformed_blocks
     assert all(m["n_samples"] == 16 for _, m in drained)
 
 
-def test_backend_sim_stop_tx_residual_then_empty():
-    # 用例2: stop_tx 后 read_samples 先弹残余（stop 不清缓冲）再稳定为空；stop 幂等
+def test_backend_sim_stop_tx_residual_then_noise_floor():
+    # 用例2: stop_tx 后 read_samples 先弹残余（stop 不清缓冲）再转静默底噪块；stop 幂等
     be = open_sim_backend({})
     be.start_tx([[1 + 0j] * 8 for _ in range(10)])
     first = be.read_samples()
@@ -50,9 +63,11 @@ def test_backend_sim_stop_tx_residual_then_empty():
     be.stop_tx()  # 重复停不抛
     residual = _drain(be)
     assert residual  # 残余非空：已变换入缓冲的块不因 stop 丢失
-    assert not be.read_samples()  # 弹尽后稳定空
     assert 1 + len(residual) <= 10
     assert all(abs(b[0]) == 1.0 for b, _ in first + residual)
+    # 走查环新真值：残余尽后静默读产底噪块（synthetic 标注，非空非抛）
+    nxt = be.read_samples()
+    assert nxt and all(_is_synthetic(meta) for _, meta in nxt)
 
 
 def test_backend_sim_set_tx_gain_clamps_0_90():
@@ -83,12 +98,25 @@ def test_backend_sim_hot_gain_update_scales_subsequent_blocks():
     assert all(a == 10.0 for a in amps[jump:])
 
 
-def test_backend_sim_read_samples_idle_returns_empty():
-    # 用例5: 空闲（未发射/已弹尽）read_samples 返回 []，不抛
+def test_backend_sim_read_samples_idle_yields_noise_floor_blocks():
+    # 用例5（走查环 F2 新真值）: 空闲（未发射/已弹尽）read_samples 产低功率底噪块
+    # （meta 'synthetic': 'noise_floor'、src_index=None、n_samples=256、幅度低功率
+    # 域），每实例预算尽后回落 []（源耗尽语义），不抛
     be = open_sim_backend({})
-    assert be.read_samples() == []
+    first = be.read_samples()
+    assert first  # 未发射即有底噪块
+    block, meta = first[0]
+    assert _is_synthetic(meta)
+    assert meta["src_index"] is None and meta["n_samples"] == len(block) == 256
+    import math
+
+    assert all(math.isfinite(abs(s)) and abs(s) < 1e-6 for s in block)  # 低功率底噪域
     be.start_tx([[1 + 0j] * 4])
-    _drain(be)
+    drained = _drain(be)  # 发射流真实块（非 synthetic）
+    assert drained and all(not _is_synthetic(m) for _, m in drained)
+    # 预算尽：连续读掉剩余底噪块后回落 []（有界产块——监测路空读熔断可收尾）
+    while be.read_samples():
+        pass
     assert be.read_samples() == []
 
 
@@ -203,7 +231,9 @@ def test_backend_sim_start_tx_invalid_effects_value_error():
     be = open_sim_backend({})
     with pytest.raises(ValueError):
         be.start_tx([[1 + 0j] * 4], effects="gain_db=-6")
-    assert be.read_samples() == []
+    # 静默态照常产底噪块（原子拒绝：坏 effects 不留半途状态）
+    nxt = be.read_samples()
+    assert nxt and all(_is_synthetic(meta) for _, meta in nxt)
 
 
 def test_backend_sim_start_tx_bad_effects_atomic_rejection():
@@ -219,7 +249,9 @@ def test_backend_sim_start_tx_bad_effects_atomic_rejection():
     residual = _drain(be)
     assert len(residual) == 9  # 3 块残余 + 旧源剩余 6 块（共 10，已弹 1）
     assert all(abs(b[0]) == 5.0 for b, _ in residual)  # 全是旧流，无半途换流
-    assert not be.read_samples()
+    # 真实流尽后转静默底噪块（synthetic 标注可辨，不再混入旧流幅度）
+    nxt = be.read_samples()
+    assert nxt and all(_is_synthetic(meta) for _, meta in nxt)
 
 
 def test_backend_sim_source_exception_clears_streaming_immediately():
@@ -237,4 +269,6 @@ def test_backend_sim_source_exception_clears_streaming_immediately():
     assert be.streaming is False  # 即时撤销（而非等下一次 read 才自愈）
     residual = _drain(be)
     assert [abs(b[0]) for b, _ in residual] == [1.0, 2.0]  # 已入缓冲残余照常可读
-    assert not be.read_samples()
+    # 异常撤销后静默态转底噪块（synthetic 标注，不虚报发射流）
+    nxt = be.read_samples()
+    assert nxt and all(_is_synthetic(meta) for _, meta in nxt)

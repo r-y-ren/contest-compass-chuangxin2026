@@ -6,7 +6,9 @@
   /pages/reports?run=<run_id> 钻取链接的同一口径）；
 - ``started_at``：result.json ``started_at``（epoch 秒，float；缺失/损坏→None
   ——排序回落目录 mtime，见下）；
-- ``scenario_name``：场景名（场景副本 scenario.yaml 的 ``name``→``scenario_type``
+- ``scenario_name``：场景名（场景副本 scenario.yaml 的 ``name``→result.json
+  ``scenario_name``（薄载荷源场景名——serve_console 缺省 runner 收尾落键，
+  走查环 F5 修复：网页薄载荷运行不再显示'未知'）→``scenario_type``
   →'未知'——现行 run 管线场景副本不含 name，scenario_type 即场景类型名）；
 - ``style``：样式（场景副本 ``style``→失效电平首条目 ``style``→'未知'）；
 - ``backend``：后端（result.json ``backend``→场景副本 ``backend``→'未知'——
@@ -68,11 +70,15 @@ def _display_text(*candidates: object) -> str:
     return UNKNOWN_LABEL
 
 
-def _scenario_name(scenario: dict) -> str:
-    """场景名：场景副本 'name'→'scenario_type'→'未知'（现行副本不含 name，
-    scenario_type 即场景类型名——真实记录不虚构）。"""
+def _scenario_name(scenario: dict, payload: dict | None = None) -> str:
+    """场景名：场景副本 'name'→result.json 'scenario_name'（薄载荷源场景名——
+    serve_console 缺省 runner 收尾落键，走查环 F5）→'scenario_type'→'未知'
+    （现行副本不含 name，scenario_type 即场景类型名——真实记录不虚构）。"""
     if isinstance(scenario.get("name"), str) and scenario["name"].strip():
         return scenario["name"]
+    declared = payload.get("scenario_name") if isinstance(payload, dict) else None
+    if isinstance(declared, str) and declared.strip():
+        return declared
     return _display_text(scenario.get("scenario_type"))
 
 
@@ -183,7 +189,7 @@ def list_run_summaries(report_root: str) -> "list[dict]":
                 {
                     "run_id": run_id,
                     "started_at": None,
-                    "scenario_name": _scenario_name(scenario),
+                    "scenario_name": _scenario_name(scenario, payload),
                     "style": _display_text(scenario.get("style")),
                     "backend": _display_text(scenario.get("backend")),
                     "status": NO_RESULT_STATUS,
@@ -210,7 +216,7 @@ def list_run_summaries(report_root: str) -> "list[dict]":
             {
                 "run_id": run_id,
                 "started_at": float(started_at) if _is_finite_real(started_at) else None,
-                "scenario_name": _scenario_name(scenario),
+                "scenario_name": _scenario_name(scenario, payload),
                 "style": style,
                 "backend": _display_text(
                     payload.get("backend"), scenario.get("backend")

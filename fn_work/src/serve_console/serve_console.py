@@ -56,6 +56,7 @@
 - create_console_app 的装配错误（deps 缺键/fastapi 缺库）以 AppError 原样上抛
   （ValueError 子类，fastapi 缺库消息自带 pip 提示，不在此重复包装）。
 """
+import json
 import os
 import socket
 import threading
@@ -183,6 +184,7 @@ def _make_default_runner(scenario_dir: str, report_root: str, hub: dict, stop_fl
             )
         merged = {k: v for k, v in scenario.items() if k != "name"}
         style = merged.get("style")
+        thin_name: "str | None" = None  # 走查环 F5：薄载荷源场景名（收尾落 result.json）
         if not (isinstance(style, str) and style.strip()):
             # 薄载荷：name→场景文件全口径装载，薄字段（在册键）覆盖合并。
             name = scenario.get("name")
@@ -191,13 +193,14 @@ def _make_default_runner(scenario_dir: str, report_root: str, hub: dict, stop_fl
                     "薄载荷缺 'style' 时须携 'name'（场景名→"
                     f"{scenario_dir}/<name>.yaml 全口径装载），实际: {scenario!r}"
                 )
+            thin_name = name.strip()
             try:
                 base = load_scenario(
-                    os.path.join(scenario_dir, name.strip() + ".yaml")
+                    os.path.join(scenario_dir, thin_name + ".yaml")
                 )
             except ScenarioError as exc:
                 raise ValueError(
-                    f"场景文件装载失败（{name.strip()}.yaml）: {exc}"
+                    f"场景文件装载失败（{thin_name}.yaml）: {exc}"
                 ) from exc
             base.update(
                 {k: v for k, v in merged.items() if k in _MERGEABLE_KEYS}
@@ -228,6 +231,22 @@ def _make_default_runner(scenario_dir: str, report_root: str, hub: dict, stop_fl
         finally:
             stop_flag["flag"] = True  # 运行收尾：桥最终冲刷后退出
             bridge.join(timeout=10)
+        if thin_name is not None and isinstance(result, dict):
+            # 走查环 F5：薄载荷源场景名就近落 result.json 的 'scenario_name' 键
+            # （场景副本不含 name——运行列表场景列此前后退'未知'）；补写尽力而
+            # 为绝不反杀运行（排版对齐 finalize：indent=2、ensure_ascii=False）。
+            run_dir = result.get("run_dir")
+            if isinstance(run_dir, str) and run_dir.strip():
+                try:
+                    path = os.path.join(run_dir, "result.json")
+                    with open(path, encoding="utf-8") as handle:
+                        payload = json.load(handle)
+                    if isinstance(payload, dict):
+                        payload["scenario_name"] = thin_name
+                        with open(path, "w", encoding="utf-8") as handle:
+                            json.dump(payload, handle, ensure_ascii=False, indent=2)
+                except Exception:  # noqa: BLE001 - 补名尽力而为：不反杀已成功的运行
+                    pass
         realtime = bridge_stats.get("realtime")
         if isinstance(result, dict) and isinstance(realtime, dict):
             result["realtime"] = realtime  # 延迟统计入运行结果 JSON（操控台侧）

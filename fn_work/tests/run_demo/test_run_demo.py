@@ -855,3 +855,8 @@ def test_run_scenario_mid_ladder_stop_real_sim_terminates_early(tmp_path):
     assert "emergency_stop" in types  # 急停原因入事件流
     assert "power_step" in types  # 确曾进入阶梯（档间中止而非启动边界）
     assert types.count("power_step") < 6  # 阶梯未走完（提前终止实证）
+    # 走查环 F6（2026-10-14）：结果补 'stopped_at'——events.jsonl 最近事件 ts 回填
+    # （事件钟域 int 毫秒，与事件流可核对；旧口径恒缺键）
+    event_ts = [e["ts"] for e in events if isinstance(e.get("ts"), int)]
+    assert isinstance(result.get("stopped_at"), int)
+    assert result["stopped_at"] == max(event_ts)

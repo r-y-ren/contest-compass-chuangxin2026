@@ -8,6 +8,10 @@
   drive_nrf24_link 消费 dut['serial_config']，ctx 整体透传以共享
   backend/run_token 停发射凭据）→ 逐样本 normalize_kpi 归一 → kpi.csv 逐行
   （表头 timestamp_ms,link,source,per,judge_per,rssi_dbm,retries,per_note）；
+  sim 源样本的 timestamp_ms 以**主机单调钟毫秒盖戳**（走查环 F2 修复：
+  simulate_link_degradation 自带合成仿真钟（0/+100ms…）与 append_event 事件
+  钟/监测块钟不同域，直接透传则三元曲线开窗与三路对齐无样本相交——盖戳后
+  三路同域；真链路 drive_* 样本本就主机钟，原样透传）；
   监测路 backend.read_samples（真实契约 list[块]——逐块拆包归一：B210 块 dict
   直通、sim (samples, meta) 元组转块 dict；连续空读超阈判耗尽）→
   capture_monitor_spectrum（ctx['monitor']
@@ -67,7 +71,7 @@ from src.shared.append_event import append_event
 from src.shared.stop_transmit_safely import stop_transmit_safely
 from src.write_sigmf_recording.write_sigmf_recording import write_sigmf_recording
 
-__all__ = ["record_run_streams"]
+__all__ = ["append_kpi_rows", "record_run_streams"]
 
 #: 运行目录内三路落盘文件名。
 KPI_FILENAME = "kpi.csv"
@@ -249,6 +253,13 @@ def _advance(state: dict) -> None:
             _note(state, NOTE_DUT_EXHAUSTED)
         else:
             row = normalize_kpi(raw_sample, state["dut_source"])
+            if state["dut_source"] == "sim":
+                # 走查环 F2 修复：sim 源样本自带合成仿真钟（0/+100ms…）与
+                # append_event 事件钟（time.monotonic 毫秒）不同域——开窗/对齐
+                # 无样本相交。此处以主机单调钟毫秒盖戳（与事件/监测块同域，
+                # _as_monitor_block 同式），原仿真钟不丢失口径：样本序即事件序
+                # （生成器逐事件顺序产出），溯源归 kpi.csv 行序。
+                row["timestamp_ms"] = time.monotonic() * 1000.0
             state["kpi_writer"].writerow(
                 [
                     _cell(row["timestamp_ms"]),
@@ -385,6 +396,47 @@ def _write_stop_bookkeeping(ctx: dict, run_dir: str) -> dict:
     if isinstance(sink, list):
         sink.append(line)
     return line
+
+
+def append_kpi_rows(run_dir: object, rows: list) -> int:
+    """归一 KPI 行逐行追加 run_dir/kpi.csv（列映射 KPI_HEADER），返回写入行数。
+
+    走查环 F2 配套（2026-10-14）：gb 判据路窗口样本此前只活在判据聚合里不落
+    kpi.csv（采集阶段 record_run_streams 以 'w' 重写后三元曲线开窗只剩末窗样本
+    ——各 power_step 窗普遍无判据样本）。本函数供 run_demo._execute_stage 在
+    采集重写后按 ctx['judge_kpi_sink'] 重追加（与 distance 档行同款"就近补写"
+    口径）；rows 元素为 normalize_kpi 归一行（timestamp_ms/link/source/per/
+    judge_per/rssi_dbm/retries/meta.per_note——None → 空串）。文件不存在/为空
+    先补 KPI_HEADER；run_dir 为 None 或 rows 非 list/为空 → 0（不抛）。
+    """
+    if run_dir is None or not isinstance(rows, list) or not rows:
+        return 0
+    owner = os.fspath(run_dir)
+    path = os.path.join(owner, KPI_FILENAME)
+    need_header = not os.path.exists(path) or os.path.getsize(path) == 0
+    written = 0
+    with open(path, "a", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        if need_header:
+            writer.writerow(KPI_HEADER)
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            meta = row.get("meta") if isinstance(row.get("meta"), dict) else {}
+            writer.writerow(
+                [
+                    _cell(row.get("timestamp_ms")),
+                    _cell(row.get("link")),
+                    _cell(row.get("source")),
+                    _cell(row.get("per")),
+                    _cell(row.get("judge_per")),
+                    _cell(row.get("rssi_dbm")),
+                    _cell(row.get("retries")),
+                    _cell(meta.get("per_note")),
+                ]
+            )
+            written += 1
+    return written
 
 
 def _recording_ctx(ctx: dict, run_dir: str, backend: object) -> dict:

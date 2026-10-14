@@ -1,8 +1,16 @@
-"""sim 仿真后端：全参数软件仿真，无硬件全流程——重写规约与签名意图详见 fn_docs/responsibility.md。"""
+"""sim 仿真后端：全参数软件仿真，无硬件全流程——重写规约与签名意图详见 fn_docs/responsibility.md。
+
+走查环修复（2026-10-14，F2/F3 根因）：read_samples 在**非发射登记态**也产块
+——静默态合成低功率底噪块（环回语义补全：发射态回注入流、静默态回底噪），
+每实例底噪块预算 _IDLE_NOISE_BUDGET 块（预算尽后回落空读=源耗尽），meta 附
+'synthetic': 'noise_floor' 标注（监测路采集窗落在发射窗外时 monitor.csv/
+SigMF 录音不再恒空——docstring 在册，tests/open_sim_backend 同步新真值）。
+"""
 from __future__ import annotations
 
 import math
 import numbers
+import random
 from collections import deque
 from collections.abc import Iterable, Sequence
 
@@ -23,6 +31,17 @@ _DEFAULT_SAMPLE_RATE = 1e6
 # 每次 read_samples 的最小泵块数：读 1 块也预变换 _PUMP_CHUNK 块进 RX 缓冲——
 # ① set_tx_gain 热更新仍保持"块"粒度生效（不整流定格）；② stop_tx 后缓冲留有界残余可续读。
 _PUMP_CHUNK = 4
+
+# ---- 静默态底噪块参数（走查环 F2/F3 修复：非发射登记态也产块） ----
+#: 底噪块样本数（复样本/块——短块由 capture 侧零填至 nfft，谱分辨率不受影响）。
+_IDLE_NOISE_SAMPLES = 256
+#: 底噪总功率（dBm）：低功率底噪口径（远低于任何合法发射电平，不冒充信号）。
+_IDLE_NOISE_DBM = -110.0
+#: 每实例底噪块预算：预算内静默读每调产块，预算尽后回落 []（源耗尽语义，
+#: 监测路连续空读熔断/两路皆尽自然收尾——防失控上限归采集侧 max_monitor_blocks 双保险）。
+_IDLE_NOISE_BUDGET = 64
+#: 底噪块 meta 标注值（'synthetic' 键——审计可辨"合成底噪"与"发射环回"两来源）。
+_IDLE_SYNTHETIC_TAG = "noise_floor"
 
 # 注册名与自登记方法清单（caps 声明 tx/rx 为真 → 契约要求四方法齐备，import 期即受形式检查）。
 _BACKEND_NAME = "sim"
@@ -62,9 +81,16 @@ class SimBackend:
       → loopback_sim_stream(effects)（延迟/衰减/加噪/LO 泄漏，时间戳因果）
       → 内部 RX 缓冲（deque）→ read_samples 弹出。
 
-    能力方法在正常使用下自身不抛（stop 幂等、空闲读返回 []、增益越界夹紧）；
-    start_tx 的 effects 校验委托 loopback_sim_stream 急切执行且先于任何状态变更
-    （非法 effects 在调用点 ValueError，原子拒绝：旧流与残余原样保留）。
+    静默态底噪（走查环 F2/F3 修复，环回语义补全）：非发射登记态（未发射/
+    已停/源耗尽）且缓冲弹尽时，read_samples 合成低功率底噪块（_IDLE_NOISE_*
+    参数域，meta 附 'synthetic': 'noise_floor'）——发射态回注入流、静默态回
+    底噪，采集窗落在发射窗外也有数据可采；每实例预算 _IDLE_NOISE_BUDGET 块，
+    预算尽后回落 []（源耗尽），不无限产块。
+
+    能力方法在正常使用下自身不抛（stop 幂等、增益越界夹紧、静默读产底噪块
+    至预算尽）；start_tx 的 effects 校验委托 loopback_sim_stream 急切执行且
+    先于任何状态变更（非法 effects 在调用点 ValueError，原子拒绝：旧流与
+    残余原样保留）。
     """
 
     def __init__(
@@ -84,6 +110,10 @@ class SimBackend:
         self._tx_source: Iterable[Sequence[complex]] | None = None
         self._loopback = None
         self._streaming = False
+        # 静默态底噪块状态：预算余量+独立 RNG（固定种子→同参数实例可复现）+块序号。
+        self._idle_budget = _IDLE_NOISE_BUDGET
+        self._idle_rng = random.Random(0x51B4C0DE)
+        self._idle_ts = 0
 
     def __repr__(self) -> str:  # pragma: no cover - 调试辅助
         return (
@@ -142,13 +172,38 @@ class SimBackend:
         self.tx_gain_db = min(_GAIN_DB_MAX, max(_GAIN_DB_MIN, val))
         return self.tx_gain_db
 
+    def _idle_noise_block(self) -> "tuple[list[complex], dict]":
+        """合成一块低功率底噪（静默态环回口径）：复高斯 I/Q 各半功率，meta 附
+        'synthetic': 'noise_floor' 审计标注（与发射环回块可辨）。"""
+        # dBm→瓦特功率，I/Q 两维各担一半功率 → 每维高斯 sigma=sqrt(P/2)
+        # （与 loopback_sim_stream 噪声换算同式；远低于合法发射电平的底噪口径）。
+        sigma = math.sqrt(10.0 ** ((_IDLE_NOISE_DBM - 30.0) / 10.0) / 2.0)
+        rng = self._idle_rng
+        block = [
+            complex(rng.gauss(0.0, sigma), rng.gauss(0.0, sigma))
+            for _ in range(_IDLE_NOISE_SAMPLES)
+        ]
+        meta = {
+            "rx_ts": self._idle_ts,
+            "n_samples": _IDLE_NOISE_SAMPLES,
+            "src_index": None,
+            "synthetic": _IDLE_SYNTHETIC_TAG,
+        }
+        self._idle_ts += 1
+        return block, meta
+
     def read_samples(self, max_blocks: int = 1) -> list[tuple[list[complex], dict]]:
-        """弹出环回 RX 块：默认每次 1 块，返回 [(rx_block, meta), ...]；无数据返回 []。
+        """弹出环回 RX 块：默认每次 1 块，返回 [(rx_block, meta), ...]。
 
         惰性生产：发射登记态下按需从环回生成器泵块入缓冲（每次至少泵至
         max(max_blocks, 4) 块或源耗尽）——增益热更新因此对"后续块"生效而非定格整流；
         源耗尽自动结束生产（非错误），残余缓冲照常弹尽；源生成器中途异常则异常照抛、
         发射登记态即时撤销（streaming 即刻转 False 不虚报，已入缓冲残余仍可续读）。
+
+        静默态底噪（走查环 F2/F3 修复）：非发射登记态且缓冲弹尽时合成低功率底噪块
+        （meta 附 'synthetic': 'noise_floor'）——每实例预算 _IDLE_NOISE_BUDGET 块，
+        预算尽后返回 []（源耗尽语义，与空闲空读兼容）。发射登记态优先弹缓冲残余
+        （stop_tx 后残余块先于底噪块产出，溯源不混）。
         max_blocks 非正整数按 1 处理（不抛）。
         """
         if isinstance(max_blocks, bool) or not isinstance(max_blocks, numbers.Integral):
@@ -168,6 +223,11 @@ class SimBackend:
                     self._streaming = False
                     raise
                 self._rx_buffer.append((rx_block, meta))
+        if not self._streaming and not self._rx_buffer:
+            # 静默态：残余弹尽后按预算补底噪块（残余先于底噪产出，溯源不混）。
+            while len(self._rx_buffer) < max_blocks and self._idle_budget > 0:
+                self._rx_buffer.append(self._idle_noise_block())
+                self._idle_budget -= 1
         out: list[tuple[list[complex], dict]] = []
         while self._rx_buffer and len(out) < max_blocks:
             out.append(self._rx_buffer.popleft())

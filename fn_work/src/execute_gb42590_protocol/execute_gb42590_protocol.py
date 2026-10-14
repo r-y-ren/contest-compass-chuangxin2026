@@ -421,6 +421,11 @@ def _make_failure_cb(state: dict):
 
     失效时把该档记录副本+PER 窗口快照存入 state['failure']（P_crit 登记素材）；
     样本不足（源耗尽/全不可比窗）→check_failure insufficient_samples 保守继续。
+
+    走查环 F2 配套（2026-10-14）：判据窗样本同步归一落 state['kpi_rows']（主机
+    单调钟毫秒盖戳——与 append_event 事件同域）并镜像 ctx['judge_kpi_sink']
+    （在位时）——run_demo 采集阶段重写 kpi.csv 后按 sink 重追加，判据样本回到
+    各 power_step 窗内（三元曲线开窗有样本；未接线方（直调/测试）行为不变）。
     """
 
     def failure_cb(step_record: dict) -> dict:
@@ -430,6 +435,20 @@ def _make_failure_cb(state: dict):
                 pulled.append(next(state["dut_iter"]))
             except StopIteration:
                 break
+        if state.get("kpi_rows") is not None:
+            sink = state.get("kpi_sink")
+            for sample in pulled:
+                row = normalize_kpi(sample, state["source"])  # KpiError 上抛→停发射透传
+                # 盖戳口径：锚到拉取时刻的毫秒**下取整**再减 1µs——append_event
+                # 事件 ts 为 int 毫秒（截断），判据样本在档 dwell 窗末端拉取
+                # （下一 power_step 事件前亚毫秒），直接浮点盖戳会与下一事件
+                # 截断后的 ts 呈"样本晚于事件"错序（开窗前漏）。下取整锚定保证
+                # 样本 ts 恒严格小于其后任一事件的截断 ts——dwell ≥2ms 各窗精确
+                # 归位，亚毫秒 dwell 至多整体前移一窗（int 毫秒分辨率的固限）。
+                row["timestamp_ms"] = math.floor(time.monotonic() * 1000.0) - 1e-3
+                state["kpi_rows"].append(row)
+                if isinstance(sink, list):
+                    sink.append(row)
         n_error, n_total = _aggregate_window(pulled, state["source"])
         per_result = compute_per(
             n_error, n_total, window={"type": "interval", "last_n": len(pulled)}
@@ -715,6 +734,9 @@ def execute_gb42590_protocol(ctx: dict, scenario: dict | None = None) -> dict:
         "min_samples": min_samples,
         "threshold": threshold,
         "failure": None,
+        # 走查环 F2：判据窗样本归一留痕（sink 在位时镜像给 run_demo 采集后重追加）。
+        "kpi_rows": [],
+        "kpi_sink": ctx.get("judge_kpi_sink"),
     }
     ladder_params = (
         scenario.get("ladder") if isinstance(scenario.get("ladder"), dict) else None

@@ -5,11 +5,17 @@ demo_emc_flows L0；调用方 mount_console_extensions）。
 落地口径（R68）：
 
 - 三流程网页可达：flow ∈ {'conduction','radiation','sweep'}（strip().lower()
-  归一，未知值 ValueError）；params dict 原样并入场景——scenario =
-  {**params, 'scenario_type': 'emc', 'emc_flow': flow}（B28 对抗低2→B29 随批
-  ①收紧：端点保留字 scenario_type/emc_flow 后置——params 携带同名键不再劫持
-  流程分派），经 runner（操控台 /api/run 同款后台执行器，scenario dict→result
-  dict）发起；
+  归一，未知值 ValueError）；params dict 仅做**覆盖**——本函数按流程构造
+  **完整场景**（走查环 F1 修复，2026-10-14：缺省 {} 也能真跑）：
+  scenario = {**_COMMON_DEFAULTS, **_FLOW_DEFAULTS[flow], **params,
+  'scenario_type': 'emc', 'emc_flow': flow}（B28 对抗低2→B29 随批①收紧：
+  端点保留字 scenario_type/emc_flow 后置——params 携带同名键不再劫持流程
+  分派），完整缺省过 validate/guard 红线（style=bandlimited_noise+fs+
+  bandwidth_hz+bands 2.4G+双声明+功率合规），EMC 流程键（emc_flow/span_hz
+  等 schema 不在册键）经 run_demo._normalize_scenario_object 的 EMC 信封
+  摘出通路落位；经 runner（操控台 /api/run 同款后台执行器，scenario
+  dict→result dict）发起——缺省 runner 的全载荷分支（含非空 style）直走
+  run_scenario 真跑，不再落"薄载荷缺 style 须携 name"分支；
 - execute_scenario 的 emc 子类型分派（R68 快速通道改造点，块引言在册）按
   'emc_flow' 落到 run_emc_conduction_sim / run_emc_radiation_sim /
   run_emc_sweep——本函数不直接调编排器（演示运行走操控台运行目录/报告中心，
@@ -41,6 +47,35 @@ _PAYLOAD_MARKERS = {
     "conduction": ("readings",),
     "radiation": ("spectrum",),
     "sweep": ("points",),
+}
+
+#: 完整场景公共缺省（走查环 F1 修复）：过 validate/guard 红线的最小完整场景——
+#: style=bandlimited_noise（EMC 干扰背景最贴切的带限噪声，bandwidth_hz 必填随给）、
+#: fs/功率/时长给合规域内值、bands=2.4G 法定频段+双声明（guard 三查绿灯）、
+#: backend=sim（全程模拟口径）；freq_hz 缺省 2.4G（sim 后端频率域 [70MHz, 6GHz]
+#: 内的合法载频——conduction 流程按需覆写为域内测点频）。
+_COMMON_DEFAULTS = {
+    "style": "bandlimited_noise",
+    "fs": 10.0e6,
+    "bandwidth_hz": 2.0e6,
+    "freq_hz": 2.4e9,
+    "power_dbm": -20.0,
+    "duration_s": 0.01,
+    "backend": "sim",
+    "bands": [[2400.0, 2483.5]],
+    "shielded_box": True,
+    "dut_scope": "self_built",
+}
+
+#: 各流程测量缺省（三 sim 实际消费键的最小集——params 仅做覆盖）：
+#: - conduction：freq_hz（测点频——100MHz 在 sim 后端域与 CISPR 传导段交叠内）
+#:   + limit_line_dbmv（全点同限标量）；
+#: - radiation：center_hz/span_hz（两必需键，SpanRsa513a 分析窗）；
+#: - sweep：band（CISPR 频段便捷参数，无需 start/stop）+ step_hz。
+_FLOW_DEFAULTS = {
+    "conduction": {"freq_hz": 100.0e6, "limit_line_dbmv": 60.0},
+    "radiation": {"center_hz": 100.0e6, "span_hz": 1.0e6},
+    "sweep": {"band": "cispr_b", "step_hz": 5.0e6},
 }
 
 #: 演示视图的诚实基注（超模型域/模拟口径总口径——与 R39–R43 家族口径一致）。
@@ -141,10 +176,13 @@ def demo_emc_flows(flow: str, params: dict, runner) -> dict:
         flow: EMC 流程类型——'conduction'（LISN 传导摸底）| 'radiation'（屏蔽
             环境辐射摸底）| 'sweep'（模拟接收机步进扫频）；大小写不敏感，
             未知值 ValueError（端点层转 400 上屏）。
-        params: 流程参数 dict|None（原样并入场景后交下游 sim——保留字
-            scenario_type/emc_flow 后置覆写，params 同名键不劫持流程分派
-            （B29 随批①收紧）；conduction 常给
-            freq_hz/limit_line_dbmv/rbw_hz/detector；radiation 常给 center_hz/
+        params: 流程参数 dict|None（**仅做覆盖**——本函数按流程先构造完整场景
+            缺省（_COMMON_DEFAULTS+_FLOW_DEFAULTS：style=bandlimited_noise/
+            fs/bands 2.4G/双声明/功率合规——走查环 F1 修复：缺省 {} 经操控台
+            缺省 runner 真跑不再必败），params 同名键后置覆盖；保留字
+            scenario_type/emc_flow 恒后置覆写，params 同名键不劫持流程分派
+            （B29 随批①收紧）；conduction 常覆盖
+            freq_hz/limit_line_dbmv/rbw_hz/detector；radiation 常覆盖 center_hz/
             span_hz/compensation_tables/peak_drop_db；sweep 常给 band 或
             start_hz/stop_hz/step_hz/scale/spurious_threshold_dbm）。
         runner: 操控台运行执行器 callable（scenario dict→result dict——/api/run
@@ -179,7 +217,13 @@ def demo_emc_flows(flow: str, params: dict, runner) -> dict:
             f" 执行器），实际: {runner!r}"
         )
 
-    scenario = {**params, "scenario_type": "emc", "emc_flow": flow_key}
+    scenario = {
+        **_COMMON_DEFAULTS,
+        **_FLOW_DEFAULTS[flow_key],
+        **params,
+        "scenario_type": "emc",
+        "emc_flow": flow_key,
+    }
     result = runner(scenario)
     if not isinstance(result, dict):
         raise ValueError(

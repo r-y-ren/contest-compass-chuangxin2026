@@ -7,14 +7,13 @@ chromium 单实例，serve_console dry_run **缺省 runner** 装配——不注�
 POST /api/run 即真跑 sim 场景，实时流桥随行推帧）：
 
 - 打开 /pages/index → #triple-stream-charts 三图区块+三 canvas 在位（装配注入）；
-- POST /api/run 薄载荷 → 真 sim 运行：KPI 帧/事件帧真实到达浏览器
+- POST /api/run 薄载荷 → 真 sim 运行：KPI 帧/事件帧/频谱帧真实到达浏览器
   （window.__TSCHARTS_STATS__ 每类帧计数 >0——叶子内建的最小 window 计数器，
-  R58 接线申报）；运行终态 result 携 'realtime' 延迟统计（操控台侧结果 JSON）；
-- 频谱路：sim 管线的 monitor.csv 恒空（read_samples 仅发射态产块，而 gb42590
-  两段采集窗均在发射窗外——桥的 monitor.csv→spectrum 帧转换由本目录集成测试
-  覆盖），此处经 /ws 既有客户端回声通道（ws_endpoint 收到消息即广播全体）
-  从页面发真频谱帧，断言叶子频谱消费真实渲染（计数>0）——真实 hub/WS/叶子
-  全链，非 mock；
+  R58 接线申报）；运行终态 result 携 'realtime' 延迟统计（操控台侧结果 JSON）。
+  频谱路真帧（走查环 F2 新真值，2026-10-14）：SimBackend 静默态产底噪块后
+  sim 管线 monitor.csv 不再恒空——旧「频谱路为空属既有口径」的回声通道
+  用例保留（R58 三图渲染叶子消费的独立证据），运行主链路的 spectrum 计数
+  直接断言 >0；
 - 全程无 console error 级 JS 报错。
 
 总时长预算 <30s：chromium 单次 launch+uvicorn 单实例+单 sim 快路径运行。
@@ -173,11 +172,14 @@ def test_realtime_streams_e2e_run_frames_reach_charts(console_server, charts_pag
     )
     assert run_id
 
-    # ---- ③ KPI 帧/事件帧真实到达（kpi.csv/events.jsonl 实有行→帧→/ws→叶子） ----
+    # ---- ③ KPI 帧/事件帧/频谱帧真实到达（kpi.csv/events.jsonl/monitor.csv 实有
+    # 行→帧→/ws→叶子——走查环 F2 后 monitor.csv 有底噪块行，频谱路真帧直达） ----
     page.wait_for_function("window.__TSCHARTS_STATS__.kpi > 0", timeout=30_000)
     page.wait_for_function("window.__TSCHARTS_STATS__.events > 0", timeout=10_000)
+    page.wait_for_function("window.__TSCHARTS_STATS__.spectrum > 0", timeout=30_000)
     assert _stats(page, "kpi") > 0
     assert _stats(page, "events") > 0
+    assert _stats(page, "spectrum") > 0
 
     # ---- ④ 运行终态：result 携 'realtime' 延迟统计（app.state.runs 条目落点） ----
     entry = page.evaluate(
@@ -207,10 +209,11 @@ def test_realtime_streams_e2e_run_frames_reach_charts(console_server, charts_pag
 
 @needs_e2e
 def test_realtime_streams_e2e_spectrum_path_via_ws_echo(console_server, charts_page):
-    """R58 端到端频谱路：sim 管线 monitor.csv 恒空（发射窗与采集窗不相交——
-    桥的 monitor.csv→spectrum 转换由集成测试覆盖），此处经 /ws 客户端回声
-    通道（收到消息即广播全体）从页面发真频谱帧：真实 hub/WS/叶子频谱消费
-    全链（计数>0），未知帧跳过计数器照常工作（connected 帧即未知帧族）。"""
+    """R58 频谱路 /ws 回声通道（独立证据保留）：走查环 F2 修复后 sim 运行的
+    monitor.csv 已有真实底噪块行（主链路用例直接断言 spectrum>0）；本用例经
+    /ws 客户端回声通道（收到消息即广播全体）从页面发真频谱帧：真实 hub/WS/
+    叶子频谱消费全链（计数>0），未知帧跳过计数器照常工作（connected 帧即
+    未知帧族）。"""
     page, errors = charts_page
     base = console_server["base"]
 

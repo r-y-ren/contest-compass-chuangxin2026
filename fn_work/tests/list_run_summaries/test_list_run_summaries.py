@@ -209,6 +209,35 @@ def test_no_result_row_without_scenario_or_report(tmp_path):
     assert row["report_relpath"] is None
 
 
+def test_scenario_name_falls_back_to_result_json_scenario_name(tmp_path):
+    """走查环 F5（2026-10-14）：薄载荷运行场景名回落 result.json 'scenario_name'
+    （serve_console 缺省 runner 收尾落键——网页薄载荷运行不再显示'未知'/'场景
+    类型名'占位）；副本 'name' 仍最高优先，键缺/非 str 回落 scenario_type。"""
+    root = str(tmp_path)
+    # ① result.json 携 scenario_name（薄载荷源场景名）→ 回落命中
+    payload = _gb_result(10.0, "tone", -15.0)
+    payload["scenario_name"] = "walkthrough_min"
+    _make_run(root, "a-thin", result=payload, scenario=_scenario("tone"))
+    # ② 场景副本显式 name → 最高优先（不降级到 result.json）
+    payload2 = _gb_result(20.0, "tone", -15.0)
+    payload2["scenario_name"] = "runner-saw-this"
+    _make_run(
+        root, "b-named", result=payload2, scenario={**_scenario("tone"), "name": "explicit"}
+    )
+    # ③ 两处皆缺 → scenario_type 回落（旧口径）
+    _make_run(root, "c-plain", result=_gb_result(30.0, "tone", -15.0), scenario=_scenario("tone"))
+    # ④ scenario_name 非 str → 视为缺（不虚构不抛）
+    payload4 = _gb_result(40.0, "tone", -15.0)
+    payload4["scenario_name"] = 12345
+    _make_run(root, "d-nonstr", result=payload4, scenario=_scenario("tone"))
+
+    rows = {row["run_id"]: row for row in list_run_summaries(root)}
+    assert rows["a-thin"]["scenario_name"] == "walkthrough_min"
+    assert rows["b-named"]["scenario_name"] == "explicit"
+    assert rows["c-plain"]["scenario_name"] == "gb42590"
+    assert rows["d-nonstr"]["scenario_name"] == "gb42590"
+
+
 def test_report_relpath_none_when_report_missing(tmp_path):
     """正常行缺 report.md→report_relpath=None（「查看报告」链接不给）。"""
     root = str(tmp_path)
