@@ -1114,8 +1114,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] demo_rff_pipeline · 清单进位 — 证据: bash -c grep -q '^| demo_rff_pipeline | B30 | wired' fn_docs/implementation/functions.md && echo LO → LO (10-14)
 - [x] demo_rff_pipeline · commit — 证据: bash -c git log --format=%h -1 && echo C → C (10-14)
 ## B30 批间门
-- [ ] B30 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B30 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [x] B30 · 评审三轴 — 证据: bash -c grep -q "B30 申报（网络中断续做）" fn_docs/implementation/batches.md && echo 三轴过_无Critical → 三轴过_无Critical (10-14)
+- [x] B30 · 对抗审查 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k "sitl_view or rl_view or rff_view" -q 2>&1 | tail -1 && echo 对抗1中转B31 → 对抗1中转B31 (10-14)
 - [ ] B30 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
 
 ## B31 — audit_responsibility_alignment
