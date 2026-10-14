@@ -1138,3 +1138,284 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - 注记: B24 定向复审三观察（不阻断）——①/api/run 复位旗不清 stop_flag.backend（理论竞态窗，结果仍正确：幂等+新 run 启动边界中止）；②编辑器 #editor-errors 模式切换不清理（UX 毛刺）；③急停四分支文案无字符串级测试（后端真值 e2e 已覆盖） — 处置: B31 保洁轮统一或随批顺修 — 2026-10-14
 - Ruling: B25 修复面核验由主会话直跑（boundary_view 8 绿+消毒族 52 绿+全套件 3253，双向对照探针随修复子代理在案） — 原因：核验命令机械化，省一次复审子代理 — 代价：无独立第三方复核，门呈报如实标注 — 落点：批间门呈报
 - Ruling: B26 提交级证据失真复发（3885ed3→9dc39e3） — 原因：per-fn 拆提交遇多函数子代理共享接线（mount/serve_console 随末函数落盘） — 代价：证据锚点勘误+惯例修正（此后整批单提交或锚定末提交） — 落点：batches 10-14 互指；流程坑入记忆
+
+## 演进周期②进入五步（2026-10-14）
+- [x] 周期②·1 前置检查 — 证据: bash -c grep -q "域二十一" fn_docs/responsibility.md && test $(grep -rho "unimplemented:fn:[a-z0-9_]*" fn_work/src fn_work/firmware | sort -u | wc -l) -eq 14 && fn_work/.venv/bin/pio --version >/dev/null && fn_work/.venv/bin/python -c "import fastapi, sigmf" && echo E1_OK_responsibility域21在+14桩+venv依赖齐+pio在 → E1_OK_responsibility域21在+14桩+venv依赖齐+pio在 (10-14)
+- [x] 周期②·2 轻量对账 — 证据: bash -c test $(grep -c "| wired " fn_docs/implementation/functions.md) -eq 144 && git log --oneline -1 | grep -q 2e89dbf && echo E2_OK_子代理对账144wired零回归_基线2e89dbf在册 → E2_OK_子代理对账144wired零回归_基线2e89dbf在册 (10-14)
+- [x] 周期②·3 批次计划 — 证据: bash -c test $(grep -cE "^| (▶ )?B(3[2-9]|4[0-2]) " fn_docs/implementation/batches.md) -eq 11 && grep -q "^## B42" fn_docs/implementation/tracker.md && echo E3_OK_11批写盘+tracker账本就位 → E3_OK_11批写盘+tracker账本就位 (10-14)
+- [x] 周期②·4 中断恢复检查 — 证据: bash -c ! grep -qE "^| (▶ )?B([1-9]|1[0-9]|2[0-9]|3[01]) " fn_docs/implementation/batches.md && ! grep -q "^| 10-1[34] | B3[2-9]" fn_docs/implementation/history.md && echo E4_OK_旧批无滞留_新批11行待执行 → E4_OK_旧批无滞留_新批11行待执行 (10-14)
+- [x] 周期②·5 功能演进判定 — 证据: bash -c test -f fn_docs/acceptance.md && grep -q "R76" fn_docs/requirements.md && echo E5_OK_演进模式确认_域二十一R76-R87在册_B续号B32 → E5_OK_演进模式确认_域二十一R76-R87在册_B续号B32 (10-14)
+
+## B32 — seed_preset_scenarios, prewarm_demo_runs, prepare_demo_assets, check_demo_manual + 手册总章
+### seed_preset_scenarios
+- [x] seed_preset_scenarios · implemented — 证据: bash -c ! grep -q "unimplemented:fn:seed_preset_scenarios" fn_work/src/prepare_demo_assets/seed_preset_scenarios.py && fn_work/.venv/bin/python -m py_compile fn_work/src/prepare_demo_assets/seed_preset_scenarios.py && echo IMPL_OK_桩已替换且可编译 → IMPL_OK_桩已替换且可编译 (10-14)
+- [x] seed_preset_scenarios · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/test_seed_preset_scenarios.py -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/prepare_demo_assets/test_seed_preset_scenarios.py -q >/dev/null 2>&1 && echo TESTED_OK → TESTED_OK (10-14)
+- [x] seed_preset_scenarios · wired — 证据: bash -c grep -n "seed_preset_scenarios(scenario_dir" fn_work/src/prepare_demo_assets/prepare_demo_assets.py && cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/test_seed_preset_scenarios.py -q >/dev/null 2>&1 && echo WIRED_OK_调用点在_测试绿 → WIRED_OK_调用点在_测试绿 (10-14)
+- [x] seed_preset_scenarios · 清单进位 — 证据: bash -c grep -q "^| seed_preset_scenarios | B32 | wired 10-14" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-14)
+- [x] seed_preset_scenarios · commit — 证据: bash -c git log --format='%h %s' -1 | head -c 120 && echo && echo COMMIT_OK → COMMIT_OK (10-14)
+### prewarm_demo_runs
+- [x] prewarm_demo_runs · implemented — 证据: bash -c ! grep -q "unimplemented:fn:prewarm_demo_runs" fn_work/src/prepare_demo_assets/prewarm_demo_runs.py && fn_work/.venv/bin/python -m py_compile fn_work/src/prepare_demo_assets/prewarm_demo_runs.py && echo IMPL_OK_桩已替换且可编译 → IMPL_OK_桩已替换且可编译 (10-14)
+- [x] prewarm_demo_runs · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/test_prewarm_demo_runs.py -q >/dev/null 2>&1 && .venv/bin/python -m pytest tests/prepare_demo_assets/test_prewarm_demo_runs.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-14)
+- [x] prewarm_demo_runs · wired — 证据: bash -c grep -n "prewarm = prewarm_demo_runs(" fn_work/src/prepare_demo_assets/prepare_demo_assets.py && cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/test_prewarm_demo_runs.py -q >/dev/null 2>&1 && echo WIRED_OK_调用点在_测试绿 → WIRED_OK_调用点在_测试绿 (10-14)
+- [x] prewarm_demo_runs · 清单进位 — 证据: bash -c grep -q "^| prewarm_demo_runs | B32 | wired 10-14" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-14)
+- [x] prewarm_demo_runs · commit — 证据: bash -c git log --format='%h %s' -1 | head -c 120 && echo && echo COMMIT_OK → COMMIT_OK (10-14)
+### prepare_demo_assets
+- [x] prepare_demo_assets · implemented — 证据: bash -c ! grep -q "unimplemented:fn:prepare_demo_assets" fn_work/src/prepare_demo_assets/prepare_demo_assets.py && fn_work/.venv/bin/python -m py_compile fn_work/src/prepare_demo_assets/prepare_demo_assets.py && echo IMPL_OK → IMPL_OK (10-14)
+- [x] prepare_demo_assets · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/ -q >/dev/null 2>&1 && .venv/bin/python -m pytest tests/prepare_demo_assets/ -q 2>&1 | tail -1 → 19 passed in 71.01s (0:01:11) (10-14)
+- [x] prepare_demo_assets · wired — 证据: bash -c cd fn_work && .venv/bin/python -c "
+import tempfile
+from src.prepare_demo_assets.prepare_demo_assets import prepare_demo_assets
+with tempfile.TemporaryDirectory() as td:
+    r = prepare_demo_assets(td, td + chr(47) + "runs", rounds=1)
+    assert len(r["written"]) == 7 and len(r["prewarm_runs"]) == 3
+print("WIRED_OK_顶层实跑物料真实生成")" → WIRED_OK_顶层实跑物料真实生成 (10-14)
+- [x] prepare_demo_assets · 清单进位 — 证据: bash -c grep -q "^| prepare_demo_assets | B32 | wired 10-14" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-14)
+- [x] prepare_demo_assets · commit — 证据: bash -c git log --format='%h %s' -1 | head -c 120 && echo && echo COMMIT_OK → COMMIT_OK (10-14)
+### check_demo_manual
+- [x] check_demo_manual · implemented — 证据: bash -c ! grep -q "unimplemented:fn:check_demo_manual" fn_work/src/check_demo_manual/check_demo_manual.py && fn_work/.venv/bin/python -m py_compile fn_work/src/check_demo_manual/check_demo_manual.py && echo IMPL_OK_桩已替换且可编译 → IMPL_OK_桩已替换且可编译 (10-14)
+- [x] check_demo_manual · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/check_demo_manual/ -q 2>&1 | tail -1 && test ${PIPESTATUS[0]} -eq 0 || true; .venv/bin/python -m pytest tests/check_demo_manual/ -q >/dev/null 2>&1 && echo TESTED_OK_自有单测全绿 → TESTED_OK_自有单测全绿 (10-14)
+- [x] check_demo_manual · wired — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q 2>&1 | grep -q "1 skipped" && echo WIRED_OK_验收命令消费面在位_smoke用例随手册成型自动生效 → WIRED_OK_验收命令消费面在位_smoke用例随手册成型自动生效 (10-14)
+- [x] check_demo_manual · 清单进位 — 证据: bash -c grep -q "^| check_demo_manual | B32 | wired 10-14" fn_docs/implementation/functions.md && echo LEDGER_OK_读回在案 → LEDGER_OK_读回在案 (10-14)
+- [x] check_demo_manual · commit — 证据: bash -c git log --format=%h%n%s -1 | head -2 && git show --stat --format= HEAD | tail -3 && echo COMMIT_OK_87623e4 → COMMIT_OK_87623e4 (10-14)
+### 手册总章（文档交付物，R76）
+- [x] 总章·落盘 — 证据: bash -c test -s docs/功能演示手册.md && grep -q "0.1 便携演示档设备清单" docs/功能演示手册.md && grep -q "0.5 演示前准备" docs/功能演示手册.md && echo 总章落盘OK_五节齐 → 总章落盘OK_五节齐 (10-14)
+- [x] 总章·走查 — 证据: bash -c cd fn_work && .venv/bin/python -c "import fastapi, sigmf" && .venv/bin/python -m pytest -k demo_manual_check -q >/dev/null 2>&1 && .venv/bin/python -c "
+import tempfile
+from src.prepare_demo_assets.prepare_demo_assets import prepare_demo_assets
+with tempfile.TemporaryDirectory() as td:
+    r = prepare_demo_assets(td, td + chr(47) + "runs", rounds=1)
+    assert len(r["written"]) == 7
+print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环境自检+物料命令+手册smoke全过 (10-14)
+- [ ] 总章·进位+commit — 预告: demo_manual_check 真手册冒烟（总章锚点在位）+fn(manual): 总章 commit
+## B32 批间门
+- [ ] B32 · 评审三轴 — 预告: 规格/标准/档案同步三轴审查本批 diff
+- [ ] B32 · 对抗审查 — 预告: 对抗发现表（假设|证据|判定），Critical 清零
+- [ ] B32 · 用户裁决 — 预告: 继续 B33 / 修订 / 裁决 blocked
+
+## B33 — compose_esp32_frame, encode_esp32_frame, udp_stream_task, kpi_report_task, esp32_wifi_firmware（R85 固件批，整批单提交）
+### compose_esp32_frame
+- [ ] compose_esp32_frame · implemented — 预告: 桩→真值（五指标→帧文本+校验和+非法值 ValueError）
+- [ ] compose_esp32_frame · tested — 预告: 往返单测（compose→parse 全字段一致/NA 路径/非法拒）绿
+- [ ] compose_esp32_frame · wired — 预告: tests 往返用例消费+解析器测试复用（test+entry 类）
+- [ ] compose_esp32_frame · 清单进位 — 预告: functions.md 改后读回
+- [ ] compose_esp32_frame · commit — 预告: 随 B33 整批单提交（哈希锚定）
+### encode_esp32_frame（C++）
+- [ ] encode_esp32_frame · implemented — 预告: 桩→真值（C++ 编码与 Python 参考同规格），pio run 编译绿
+- [ ] encode_esp32_frame · tested — 预告: host 侧 g++ 编译+样例帧断言（校验和/NA 路径）绿
+- [ ] encode_esp32_frame · wired — 预告: kpi_report_task 调用点（tasks.cpp 命中）+固件全构建绿
+- [ ] encode_esp32_frame · 清单进位 — 预告: functions.md 改后读回（wired=编译级口径，真机联调随 R87）
+- [ ] encode_esp32_frame · commit — 预告: 随 B33 整批单提交
+### udp_stream_task（C++）
+- [ ] udp_stream_task · implemented — 预告: 桩→真值（定长 UDP+递增 seq+节拍+掉线计数重连），pio run 绿
+- [ ] udp_stream_task · tested — 预告: 编译级验证（pio run tx）——规约 tested 策略（真机联调随 R87 责任文档在册）
+- [ ] udp_stream_task · wired — 预告: main.cpp 发送角色调用点+固件全构建绿
+- [ ] udp_stream_task · 清单进位 — 预告: functions.md 改后读回
+- [ ] udp_stream_task · commit — 预告: 随 B33 整批单提交
+### kpi_report_task（C++）
+- [ ] kpi_report_task · implemented — 预告: 桩→真值（seq 缺口/重复/期望累计/RSSI 周期+encode 吐串口），pio run 绿
+- [ ] kpi_report_task · tested — 预告: 编译级验证（pio run rx）
+- [ ] kpi_report_task · wired — 预告: main.cpp 接收角色调用点+固件全构建绿
+- [ ] kpi_report_task · 清单进位 — 预告: functions.md 改后读回
+- [ ] kpi_report_task · commit — 预告: 随 B33 整批单提交
+### esp32_wifi_firmware（C++ L0）
+- [ ] esp32_wifi_firmware · implemented — 预告: 桩→真值（角色分发+WiFi/串口初始化+构建说明 README），pio run tx/rx 双绿
+- [ ] esp32_wifi_firmware · tested — 预告: pio run tx+rx 两环境 SUCCESS（编译级=规约口径）
+- [ ] esp32_wifi_firmware · wired — 预告: tests/firmware_esp32 镜像自证在位（工程文件断言）+烧录命令入口在册
+- [ ] esp32_wifi_firmware · 清单进位 — 预告: functions.md 改后读回
+- [ ] esp32_wifi_firmware · commit — 预告: fn(firmware): B33 整批单提交（含全部五单元+tests）
+## B33 批间门
+- [ ] B33 · 评审三轴 — 预告: 三轴审查本批 diff（固件 C++ 对照责任块逐条）
+- [ ] B33 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [ ] B33 · 用户裁决 — 预告: 继续 B34 / 修订 / 裁决 blocked
+
+## B34 — compose_nrf24_frame, encode_nrf24_frame, esb_traffic_task, counter_report_task, nrf24_link_firmware（R86 固件批，整批单提交）
+### compose_nrf24_frame
+- [ ] compose_nrf24_frame · implemented — 预告: 桩→真值（五计数→帧文本+rpd∈{0,1} 校验）
+- [ ] compose_nrf24_frame · tested — 预告: 往返单测（compose→parse 一致/非法拒）绿
+- [ ] compose_nrf24_frame · wired — 预告: tests 往返用例消费（test+entry 类）
+- [ ] compose_nrf24_frame · 清单进位 — 预告: functions.md 改后读回
+- [ ] compose_nrf24_frame · commit — 预告: 随 B34 整批单提交
+### encode_nrf24_frame（C++）
+- [ ] encode_nrf24_frame · implemented — 预告: 桩→真值（C++ 编码同规格），pio run 绿
+- [ ] encode_nrf24_frame · tested — 预告: host 侧 g++ 编译+样例帧断言绿
+- [ ] encode_nrf24_frame · wired — 预告: counter_report_task 调用点+固件全构建绿
+- [ ] encode_nrf24_frame · 清单进位 — 预告: functions.md 改后读回
+- [ ] encode_nrf24_frame · commit — 预告: 随 B34 整批单提交
+### esb_traffic_task（C++）
+- [ ] esb_traffic_task · implemented — 预告: 桩→真值（RF24 ESB 定长包+递增 seq+失败计数），pio run 绿
+- [ ] esb_traffic_task · tested — 预告: 编译级验证（pio run reporter）
+- [ ] esb_traffic_task · wired — 预告: main.cpp 调用点+固件全构建绿
+- [ ] esb_traffic_task · 清单进位 — 预告: functions.md 改后读回
+- [ ] esb_traffic_task · commit — 预告: 随 B34 整批单提交
+### counter_report_task（C++）
+- [ ] counter_report_task · implemented — 预告: 桩→真值（PLOS/ARC 累计+间隙监听窗 RPD+encode 吐串口），pio run 绿
+- [ ] counter_report_task · tested — 预告: 编译级验证（pio run reporter）
+- [ ] counter_report_task · wired — 预告: main.cpp 调用点+固件全构建绿
+- [ ] counter_report_task · 清单进位 — 预告: functions.md 改后读回
+- [ ] counter_report_task · commit — 预告: 随 B34 整批单提交
+### nrf24_link_firmware（C++ L0）
+- [ ] nrf24_link_firmware · implemented — 预告: 桩→真值（SPI/RF24 初始化+ESB 参数+构建说明 README），pio run reporter/peer 双绿
+- [ ] nrf24_link_firmware · tested — 预告: pio run reporter+peer 两环境 SUCCESS
+- [ ] nrf24_link_firmware · wired — 预告: tests/firmware_nrf24 镜像自证在位+烧录命令入口在册
+- [ ] nrf24_link_firmware · 清单进位 — 预告: functions.md 改后读回
+- [ ] nrf24_link_firmware · commit — 预告: fn(firmware): B34 整批单提交
+## B34 批间门
+- [ ] B34 · 评审三轴 — 预告: 三轴审查本批 diff
+- [ ] B34 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [ ] B34 · 用户裁决 — 预告: 继续 B35 / 修订 / 裁决 blocked
+
+## B35 — 手册·测评核心五章（R77；一键测评/六类样式/国标测法/距离模拟/链路健康测量）
+### 一键测评章
+- [ ] 一键测评章 · 落盘 — 预告: 四件套（说明/两档设备连线/操作步骤+参数/预期现象）
+- [ ] 一键测评章 · 走查 — 预告: 章内命令 sim 侧实跑，预期输出一致
+- [ ] 一键测评章 · 进位+commit — 预告: check_demo_manual 期望集+该章→测试绿；fn(manual): B35 追加 commit
+### 六类样式章
+- [ ] 六类样式章 · 落盘 — 预告: 四件套
+- [ ] 六类样式章 · 走查 — 预告: 样式命令实跑绿
+- [ ] 六类样式章 · 进位+commit — 预告: 期望集进位+commit
+### 国标测法章
+- [ ] 国标测法章 · 落盘 — 预告: 四件套
+- [ ] 国标测法章 · 走查 — 预告: gb42590 命令实跑绿
+- [ ] 国标测法章 · 进位+commit — 预告: 期望集进位+commit
+### 距离模拟章
+- [ ] 距离模拟章 · 落盘 — 预告: 四件套
+- [ ] 距离模拟章 · 走查 — 预告: distance 场景实跑绿（l0=30 口径）
+- [ ] 距离模拟章 · 进位+commit — 预告: 期望集进位+commit
+### 链路健康测量章
+- [ ] 链路健康测量章 · 落盘 — 预告: 四件套（真机侧含烧录步骤引用固件章；sim 侧退化模型口径）
+- [ ] 链路健康测量章 · 走查 — 预告: sim 链路命令实跑绿（真机步骤标注随 R87 复查）
+- [ ] 链路健康测量章 · 进位+commit — 预告: 期望集进位+commit
+## B35 批间门
+- [ ] B35 · 评审三轴 — 预告: 三轴审查（对照 README 功能 1–5 与两档清单一致性）
+- [ ] B35 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [ ] B35 · 用户裁决 — 预告: 继续 B36 / 修订 / 裁决 blocked
+
+## B36 — 手册·记录与报告四章（R78；三路同步/自动报告/溯源校验/录音库）
+### 三路同步章
+- [ ] 三路同步章 · 落盘 — 预告: 四件套
+- [ ] 三路同步章 · 走查 — 预告: 对齐误差统计命令实跑绿
+- [ ] 三路同步章 · 进位+commit — 预告: 期望集进位+commit
+### 自动报告章
+- [ ] 自动报告章 · 落盘 — 预告: 四件套（八节结构+缺项标注口径）
+- [ ] 自动报告章 · 走查 — 预告: report.md 生成实跑+章节核对绿
+- [ ] 自动报告章 · 进位+commit — 预告: 期望集进位+commit
+### 溯源校验章
+- [ ] 溯源校验章 · 落盘 — 预告: 四件套（含篡改检出演示）
+- [ ] 溯源校验章 · 走查 — 预告: verify_report_traceability 实跑绿
+- [ ] 溯源校验章 · 进位+commit — 预告: 期望集进位+commit
+### 录音库章
+- [ ] 录音库章 · 落盘 — 预告: 四件套（record:true+SigMF 标注口径）
+- [ ] 录音库章 · 走查 — 预告: 录制→索引→检索实跑绿
+- [ ] 录音库章 · 进位+commit — 预告: 期望集进位+commit
+## B36 批间门
+- [ ] B36 · 评审三轴 — 预告: 三轴审查
+- [ ] B36 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [ ] B36 · 用户裁决 — 预告: 继续 B37 / 修订 / 裁决 blocked
+
+## B37 — 手册·AI 识别章（R79）
+### AI 识别章
+- [ ] AI 识别章 · 落盘 — 预告: 四件套（攒数据→训练→评测→当场识别四步+拒训分支演示）
+- [ ] AI 识别章 · 走查 — 预告: dry_run/本地轻量训练+评测+推理命令实跑绿
+- [ ] AI 识别章 · 进位+commit — 预告: 期望集+1→测试绿；commit
+## B37 批间门
+- [ ] B37 · 评审三轴 — 预告: 三轴审查
+- [ ] B37 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [ ] B37 · 用户裁决 — 预告: 继续 B38 / 修订 / 裁决 blocked
+
+## B38 — 手册·模拟与扩展三章（R80；EMC 摸底/远期仪表/三后端切换）
+### EMC 摸底章
+- [ ] EMC 摸底章 · 落盘 — 预告: 四件套（三流程+模拟口径声明）
+- [ ] EMC 摸底章 · 走查 — 预告: emc 三流程命令实跑绿
+- [ ] EMC 摸底章 · 进位+commit — 预告: 期望集进位+commit
+### 远期仪表章
+- [ ] 远期仪表章 · 落盘 — 预告: 四件套（五仪表 sim 面板）
+- [ ] 远期仪表章 · 走查 — 预告: 仪表读数命令实跑绿
+- [ ] 远期仪表章 · 进位+commit — 预告: 期望集进位+commit
+### 三后端切换章
+- [ ] 三后端切换章 · 落盘 — 预告: 四件套（b210/sim/replay+自动降级口径）
+- [ ] 三后端切换章 · 走查 — 预告: backend auto/sim/replay 三态命令实跑绿
+- [ ] 三后端切换章 · 进位+commit — 预告: 期望集进位+commit
+## B38 批间门
+- [ ] B38 · 评审三轴 — 预告: 三轴审查
+- [ ] B38 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [ ] B38 · 用户裁决 — 预告: 继续 B39 / 修订 / 裁决 blocked
+
+## B39 — 手册·安全与台账二章（R81）
+### 安全红线章
+- [ ] 安全红线章 · 落盘 — 预告: 四件套（违规拒绝演示+急停演示）
+- [ ] 安全红线章 · 走查 — 预告: 非法场景拒+急停命令实跑绿
+- [ ] 安全红线章 · 进位+commit — 预告: 期望集进位+commit
+### 清单台账章
+- [ ] 清单台账章 · 落盘 — 预告: 四件套（--ledger 副本清单演示+audit 体检）
+- [ ] 清单台账章 · 走查 — 预告: update_ledger 副本+audit_ledger 实跑绿
+- [ ] 清单台账章 · 进位+commit — 预告: 期望集进位+commit
+## B39 批间门
+- [ ] B39 · 评审三轴 — 预告: 三轴审查
+- [ ] B39 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [ ] B39 · 用户裁决 — 预告: 继续 B40 / 修订 / 裁决 blocked
+
+## B40 — 手册·二期进阶三章（R82 [P1]；SITL 联动/RL 策略/RFF 指纹）
+### SITL 联动章
+- [ ] SITL 联动章 · 落盘 — 预告: 四件套（dry_run 映射预览口径）
+- [ ] SITL 联动章 · 走查 — 预告: sitl dry_run 命令实跑绿
+- [ ] SITL 联动章 · 进位+commit — 预告: 期望集进位+commit
+### RL 策略章
+- [ ] RL 策略章 · 落盘 — 预告: 四件套（冒烟一轮+回退固定策略口径）
+- [ ] RL 策略章 · 走查 — 预告: rl 冒烟命令实跑绿
+- [ ] RL 策略章 · 进位+commit — 预告: 期望集进位+commit
+### RFF 指纹章
+- [ ] RFF 指纹章 · 落盘 — 预告: 四件套（管道四阶段+拒跑分支）
+- [ ] RFF 指纹章 · 走查 — 预告: rff smoke 命令实跑绿
+- [ ] RFF 指纹章 · 进位+commit — 预告: 期望集进位+commit
+## B40 批间门
+- [ ] B40 · 评审三轴 — 预告: 三轴审查
+- [ ] B40 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [ ] B40 · 用户裁决 — 预告: 继续 B41 / 修订 / 裁决 blocked
+
+## B41 — 手册·操控台七页章（R83；总览/运行/报告/数据/AI/仪表/台账+标定，共 8 条目）
+### 总览页条目
+- [ ] 总览页条目 · 落盘 — 预告: 四件套（页面操作精确到点击路径）
+- [ ] 总览页条目 · 走查 — 预告: 实起服务/页面断言绿
+- [ ] 总览页条目 · 进位+commit — 预告: 期望集进位+commit
+### 运行页条目
+- [ ] 运行页条目 · 落盘 — 预告: 四件套（场景编辑/实时三路/急停）
+- [ ] 运行页条目 · 走查 — 预告: 编辑+真跑+急停页面流走查绿
+- [ ] 运行页条目 · 进位+commit — 预告: 期望集进位+commit
+### 报告页条目
+- [ ] 报告页条目 · 落盘 — 预告: 四件套（站内阅读/报告中心/跨轮对比）
+- [ ] 报告页条目 · 走查 — 预告: 列表→钻取全链走查绿
+- [ ] 报告页条目 · 进位+commit — 预告: 期望集进位+commit
+### 数据页条目
+- [ ] 数据页条目 · 落盘 — 预告: 四件套（录音库+一键回放）
+- [ ] 数据页条目 · 走查 — 预告: 录制→过滤→回放走查绿
+- [ ] 数据页条目 · 进位+commit — 预告: 期望集进位+commit
+### AI 页条目
+- [ ] AI 页条目 · 落盘 — 预告: 四件套（训练/评测/识别三入口）
+- [ ] AI 页条目 · 走查 — 预告: 三入口页面流走查绿
+- [ ] AI 页条目 · 进位+commit — 预告: 期望集进位+commit
+### 仪表页条目
+- [ ] 仪表页条目 · 落盘 — 预告: 四件套（五仪表面板+EMC 三流程）
+- [ ] 仪表页条目 · 走查 — 预告: 仪表开关/读数走查绿
+- [ ] 仪表页条目 · 进位+commit — 预告: 期望集进位+commit
+### 台账页条目
+- [ ] 台账页条目 · 落盘 — 预告: 四件套（只读审计+注释率）
+- [ ] 台账页条目 · 走查 — 预告: 审计页走查绿
+- [ ] 台账页条目 · 进位+commit — 预告: 期望集进位+commit
+### 标定演示条目
+- [ ] 标定演示条目 · 落盘 — 预告: 四件套（三件看板+合成演示）
+- [ ] 标定演示条目 · 走查 — 预告: 标定演示走查绿
+- [ ] 标定演示条目 · 进位+commit — 预告: 期望集进位+commit
+## B41 批间门
+- [ ] B41 · 评审三轴 — 预告: 三轴审查
+- [ ] B41 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [ ] B41 · 用户裁决 — 预告: 继续 B42 / 修订 / 裁决 blocked
+
+## B42 — 手册附录+全手册总装（R84 收口）
+### 手册附录
+- [ ] 附录·落盘 — 预告: 应急速查表（README FAQ 全量映射）+总目录+出发前检查单
+- [ ] 附录·走查 — 预告: 应急处置口径逐条可执行核对（降级命令实跑）
+- [ ] 附录·进位+commit — 预告: check_demo_manual 全集绿（26 条目+FAQ 零遗漏+零占位）；fn(manual): B42 收口 commit
+## B42 批间门
+- [ ] B42 · 评审三轴 — 预告: 三轴审查（终批：全手册对照 README 26 项+需求 R76–R84 逐条）
+- [ ] B42 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [ ] B42 · 用户裁决 — 预告: 全部完成→/fn-close / 修订

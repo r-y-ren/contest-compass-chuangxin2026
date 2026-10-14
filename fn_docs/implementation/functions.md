@@ -151,3 +151,7 @@
 | demo_rl_policy | B30 | wired 10-14 | -k rl_view → 7 passed（冒烟一轮+回退分支+rounds 域拒）；端点 mount R73 块+rl 页区 | 106a19a |
 | demo_rff_pipeline | B30 | wired 10-14 | -k rff_view → 7 passed（四阶段+产物+拒跑）；端点 mount R74 块+rff 页区 | 106a19a |
 | audit_responsibility_alignment | B31 | wired 10-14 | -k responsibility_alignment → 6 passed（七对账项+锚点交叉+漏登检出）；责任文档回登记×4+资产件注随批落地 | 146d04d |
+| check_demo_manual | B32 | wired 10-14 | pytest tests/check_demo_manual/ → 7 passed+1 skipped（四断言族全绿+真手册冒烟 skip 待手册成型）；-k demo_manual_check → smoke 用例消费面在位 | 87623e4 |
+| seed_preset_scenarios | B32 | wired 10-14 | pytest tests/prepare_demo_assets/test_seed_preset_scenarios.py → 7 passed（7 模板全过 load_scenario+冲突/覆盖/不可写）；调用点 prepare_demo_assets.py:88 | 433e43e |
+| prewarm_demo_runs | B32 | wired 10-14 | pytest tests/prepare_demo_assets/test_prewarm_demo_runs.py → 5 passed（exit0/1 登记+exit2 中止不吞错+计数）；调用点 prepare_demo_assets.py:105 | e986122 |
+| prepare_demo_assets | B32 | wired 10-14 | pytest tests/prepare_demo_assets/ → 19 passed；顶层实跑临时目录 written=7+prewarm[0,0,1]+checklist12/16+env 四键；幂等 refused=7 | d7ffabc |

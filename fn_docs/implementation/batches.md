@@ -3,6 +3,17 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
+| ▶ B32 | seed_preset_scenarios, prewarm_demo_runs, prepare_demo_assets, check_demo_manual + 手册总章文档 | ①demo_assets 测试绿+prepare_demo_assets wired 实跑（临时目录物料真实生成）；②demo_manual_check 绿（总章期望集）；③总章=两档设备清单+ASCII 连接图+接线表+环境启动+演示前准备 | R76 全量；R84 检查器前置实现（期望集随批增长、FAQ 覆盖全集 B42 收口） |
+| B33 | compose_esp32_frame, encode_esp32_frame, udp_stream_task, kpi_report_task, esp32_wifi_firmware | pio run tx/rx SUCCESS + dut_esp32 往返族全绿 + tests/firmware_esp32 镜像自证（fn-check③不扫 firmware 的盲区补偿） | R85；烧录联调随 R87；整批单提交（多函数单子代理惯例） |
+| B34 | compose_nrf24_frame, encode_nrf24_frame, esb_traffic_task, counter_report_task, nrf24_link_firmware | pio run reporter/peer SUCCESS + dut_nrf24 往返族全绿 + tests/firmware_nrf24 镜像自证 | R86；同上 |
+| B35 | 手册·测评核心五章（一键测评/六类样式/国标测法/距离模拟/链路健康测量） | 每章四件套+两档设备标注；章内命令 sim 侧逐条走查绿；check_demo_manual 期望集 +5 | R77 文档批 |
+| B36 | 手册·记录与报告四章（三路同步/自动报告/溯源校验/录音库） | 同 B35 口径；期望集 +4 | R78 文档批 |
+| B37 | 手册·AI 识别章（攒数据→训练→评测→当场识别） | 同上（训练走 dry_run/本地轻量演示路径）；期望集 +1 | R79 文档批 |
+| B38 | 手册·模拟与扩展三章（EMC 摸底/远期仪表/三后端切换） | 同上；期望集 +3 | R80 文档批 |
+| B39 | 手册·安全与台账二章（安全红线/清单台账） | 同上（台账演示走 --ledger 副本清单）；期望集 +2 | R81 文档批 |
+| B40 | 手册·二期进阶三章（SITL 联动/RL 策略/RFF 指纹） | 同上（dry_run/冒烟演示口径）；期望集 +3 | R82 文档批 [P1] |
+| B41 | 手册·操控台七页章（总览/运行/报告/数据/AI/仪表/台账+标定） | 页面操作实起服务/playwright 走查绿；期望集 +8 | R83 文档批 |
+| B42 | 手册附录（应急速查表+总目录+出发检查单）+全手册总装 | check_demo_manual 全集绿：26 条目四件套齐+两档标注齐+FAQ 覆盖零遗漏+零占位 | R84 收口 |
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
 | 日期 | 事件 | 说明 |
@@ -70,3 +81,8 @@
 | 10-14 | B31 收尾申报 | fn-review 四 Important 就此闭环（R75 承接兑现）；资产件 14+build_realtime_charts 补注入域二十引言；域二十 25/25 wired 桩归零 |
 | 10-14 | B31 对抗中1低2处置 | ①fn-check venv 架空修复：.venv/bin/pytest 控制台脚本重建（force-reinstall），fn-check②现走 venv 口径 3411+5 全部通过（环境域修复，gitignore 域登记）；②低 2（R72 run_id="." 过栏、audit 伪块头同号顶替）记为已知限界交 fn-close 终检呈报 |
 | 10-14 | 走查环修复申报（F2/F3 根因）：**B26 申报的「sim 管线 monitor.csv 恒空」口径作废**——SimBackend.read_samples 静默态产低功率底噪块（每实例 64 块预算，meta synthetic=noise_floor；open_sim_backend docstring 在册）后，record:true sim 运行实证 monitor.csv 数据行 56320、SigMF data 112640 字节/num_samples 14080（tests/run_demo/test_sim_delivery_record_true.py 硬判据族）；同根修复：sim 源 kpi 行主机单调钟盖戳+gb 判据窗样本重追加（三元曲线各档开窗有样本，报告无缺帧）、--demo dwell 0→2ms（int 毫秒事件戳可分辨） | 走查环 F2/F3/F4（/tmp/walkthrough_report.md）：采集窗与发射窗不交致监测/录制/曲线/SITL 数据面恒空 |
+| 10-14 | 周期②初建 11 批（B32–B42） | 域二十一：R76 物料+总章→R85/R86 固件（编译级）→R77–R83 手册七批（26 章节四件套+两档标注）→R84 附录总装；批序循 grill 裁决 |
+| 10-14 | scaffold 基线提交 2e89dbf | 对账子代理建议采纳（B1/B4 型零代码提交先例）：14 桩+域二十一文档+platformio 先行入库，wired 提交不再收编脚手架 |
+| 10-14 | check_demo_manual 前置 B32（偏离 R84 批序） | 检查器随首批实现、期望集随批增长——使每个手册批的验收命令 pytest -k demo_manual_check 可执行；B42 只收口附录+全集（原因：批批可用；代价：无；落点：本行+tracker B32 注） |
+| 10-14 | 档位裁决=子代理逐函数（用户批表门口选择） | B32–B34 函数批：子代理实现+主会话调度/记账/串行提交（subagent 不动 git）；B35–B42 文档批主会话撰写、走查证据贴主会话 |
+| 10-14 | B32 prewarm 两申报 | ①签名微调：增仅关键字 scenario_dir=None（场景名目录上下文，预授权项）；②落点口径：预跑走 run_scenario 无头等价入口非 run_demo CLI——后者 runs_root 硬编码 cwd 相对且台账缺省开启会污染清单；台账缺省不动=预跑不写清单（子代理申报，主会话核实采纳） |
