@@ -133,10 +133,10 @@
 | stream_realtime_console | B24 | wired 10-13 | pytest tests/stream_realtime_console/test_stream_realtime_console.py → 22 passed；-k realtime_streams_e2e → 2 passed（真 sim 运行帧到达浏览器）；挂载 serve_console.py:167；全套件 3093；C1 修复后 stop 容器贯通 run_scenario(stop=)（backend 写回+档间协作检查）；I3 延迟方向铆 n_clock_skew==0 | 962e9f8 |
 | harden_emergency_stop | B24 | wired 10-13 | -k emergency_stop → 26 passed（含真运行急停 e2e：4.53s 提前终止/3 档/帧冻结）；委托 create_console_app.py:446；顺序断言停发射先于旗置位；C1 修复后生产接线真停 | 6c90e2b |
 | edit_scenario_ui | B24 | wired 10-13 | pytest tests/edit_scenario_ui/ → 8 passed；-k scenario_editor_e2e → 1 passed（表单/YAML 双模式+400 逐条上屏+卡片刷新）；注入 serve_console.py:311；存量 189 无回归；N2 多频段表单防护 | b125d10 |
-| render_report_html | B25 | wired 10-14 | pytest tests/serve_run_artifacts/test_render_report_html.py → 31 passed；调用点 serve_run_artifacts.py:191；plots 引用改端点+零外链三路断言 | 95cfe63 |
+| render_report_html | B25 | wired 10-14 | pytest tests/serve_run_artifacts/test_render_report_html.py → 52 passed（含 XSS 消毒 20 形态+全链回归，C-1 修复后）；调用点 serve_run_artifacts.py:191；plots 引用改端点+零外链三路断言 | 95cfe63 |
 | serve_run_artifacts | B25 | wired 10-14 | pytest tests/serve_run_artifacts/test_serve_run_artifacts.py → 40 passed；-k report_view → 2 passed（真 sim 运行报告页可读+三图+徽标+下载）；注册 mount_console_extensions.py:131；全套件 3196 | 7b4854f |
-| list_run_summaries | B25 | wired 10-14 | pytest tests/list_run_summaries/ → 14 passed；-k report_center_e2e → 3 passed（真跑两轮列表+钻取）；端点 mount_console_extensions R61 块+run-list 页区 | ad9eb38 |
-| view_failure_comparison | B25 | wired 10-14 | pytest tests/view_failure_comparison/ → 12 passed（对比表/单样式降级/结论字段/e2e 两轮 bandlimited_noise 最薄弱）；端点 mount_console_extensions R62 块+comparison 页区 | 8148d85 |
+| list_run_summaries | B25 | wired 10-14 | pytest tests/list_run_summaries/ → 13 passed（+e2e 3）；-k report_center_e2e → 3 passed（真跑两轮列表+钻取）；端点 mount_console_extensions R61 块+run-list 页区 | ad9eb38 |
+| view_failure_comparison | B25 | wired 10-14 | pytest -k boundary_view → 8 passed（通道修复后；含对比表/降级/结论）；端点 mount_console_extensions R62 块+comparison 页区 | 8148d85 |
 | browse_dataset_library | B26 | stub 10-13 | pytest -k dataset_view_e2e | — |
 | build_replay_scenario | B26 | stub 10-13 | pytest -k replay_run | — |
 | launch_replay_run | B26 | stub 10-13 | pytest -k replay_run | — |

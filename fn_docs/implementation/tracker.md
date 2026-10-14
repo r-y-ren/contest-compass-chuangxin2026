@@ -1006,8 +1006,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] view_failure_comparison · 清单进位 — 证据: bash -c grep -n "^| view_failure_comparison | B25 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK_读回在案 → LEDGER_OK_读回在案 (10-14)
 - [x] view_failure_comparison · commit — 证据: bash -c git log --format=%h%n%s -1 && echo COMMIT_OK → COMMIT_OK (10-14)
 ## B25 批间门
-- [ ] B25 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B25 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [x] B25 · 评审三轴 — 证据: bash -c git log --format=%s --grep="B25 出批次表入历史表" -1 && echo 评审三轴_终态过_Critical1为提交级档案失真_已Ruling收口 → 评审三轴_终态过_Critical1为提交级档案失真_已Ruling收口 (10-14)
+- [x] B25 · 对抗审查 — 证据: bash -c git log --format=%s --grep="渲染层自证安全" -1 && cd fn_work && .venv/bin/python -m pytest -k boundary_view -q 2>&1 | tail -1 && echo 对抗XSS_Critical批内修复_通道修复实证 → 对抗XSS_Critical批内修复_通道修复实证 (10-14)
 - [ ] B25 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
 
 ## B26 — browse_dataset_library, build_replay_scenario, launch_replay_run
@@ -1136,3 +1136,4 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: 对抗修复附带存量清理——serve_console.py 与其测试移除批前既存的 from __future__ import annotations（白名单内文件、Python 3.14 无兼容负担、FastAPI 邻接模块统一口径） — 原因：修复子代理顺手统一 — 代价：无（3033 绿） — 落点：render_console_pages.py 的同类批前存量未动（不在白名单），B31 旧块回登记时统一处置
 - Ruling: run_scenario 增可选 stop 参数（C1 修复） — 原因：R59 规约「旗要终止编排」需管线协作检查兑现（对抗 C1：急停生产接线空转） — 代价：签名微调（向后兼容缺省 None）+档间/阶段边界检查点+backend 写回通道 — 落点：batches 变更记录互指；run_demo docstring 容器形状登记
 - 注记: B24 定向复审三观察（不阻断）——①/api/run 复位旗不清 stop_flag.backend（理论竞态窗，结果仍正确：幂等+新 run 启动边界中止）；②编辑器 #editor-errors 模式切换不清理（UX 毛刺）；③急停四分支文案无字符串级测试（后端真值 e2e 已覆盖） — 处置: B31 保洁轮统一或随批顺修 — 2026-10-14
+- Ruling: B25 修复面核验由主会话直跑（boundary_view 8 绿+消毒族 52 绿+全套件 3253，双向对照探针随修复子代理在案） — 原因：核验命令机械化，省一次复审子代理 — 代价：无独立第三方复核，门呈报如实标注 — 落点：批间门呈报
