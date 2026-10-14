@@ -63,3 +63,4 @@
 | B34 | compose_nrf24_frame, encode_nrf24_frame, esb_traffic_task, counter_report_task, nrf24_link_firmware（R86；d430d65 整批单提交；31+5 用例+ARC/PLOS 口径申报；全套件 3544 绿） | pio run reporter/peer SUCCESS + dut_nrf24 往返族全绿 + tests/firmware_nrf24 镜像自证 | R86；同上 |
 | B35 | 手册·测评核心五章（R77；五章四件套+两档标注；sim 走查真实退出码 1/0/1/0/0；期望集+5 硬门 passed=5） | 每章四件套+两档设备标注；章内命令 sim 侧逐条走查绿；check_demo_manual 期望集 +5 | R77 文档批 |
 | B36 | 手册·记录与报告四章（R78；溯源 2048 traced+篡改点名实证；索引口径如实 SimBackend/样式靠显式登记；期望集+4 硬门 passed=9） | 同 B35 口径；期望集 +4 | R78 文档批 |
+| B37 | 手册·AI 识别章（R79；dry_run 数据面+1<20 拒训+no_model 降级三态走查；期望集+1 硬门 passed=10） | 同上（训练走 dry_run/本地轻量演示路径）；期望集 +1 | R79 文档批 |
