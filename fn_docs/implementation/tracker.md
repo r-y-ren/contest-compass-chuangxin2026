@@ -1040,19 +1040,19 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] launch_classifier_training · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k ai_train_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
 - [x] launch_classifier_training · wired — 证据: bash -c grep -c "R65" fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
 - [x] launch_classifier_training · 清单进位 — 证据: bash -c grep -q '^| launch_classifier_training | B27 | wired' fn_docs/implementation/functions.md && echo LO_OK → LO_OK (10-14)
-- [ ] launch_classifier_training · commit — 预告: fn(launch_classifier_training): wired 含四文档变更
+- [x] launch_classifier_training · commit — 证据: bash -c git log --format=%h -1 && echo C_launch_classifier_training → C_launch_classifier_training (10-14)
 ### view_cv_evaluation
 - [x] view_cv_evaluation · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:view_cv_evaluation src/ && echo OK → OK (10-14)
 - [x] view_cv_evaluation · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k ai_eval_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
 - [x] view_cv_evaluation · wired — 证据: bash -c grep -c "R66" fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
 - [x] view_cv_evaluation · 清单进位 — 证据: bash -c grep -q '^| view_cv_evaluation | B27 | wired' fn_docs/implementation/functions.md && echo LO_OK → LO_OK (10-14)
-- [ ] view_cv_evaluation · commit — 预告: fn(view_cv_evaluation): wired 含四文档变更
+- [x] view_cv_evaluation · commit — 证据: bash -c git log --format=%h -1 && echo C_view_cv_evaluation → C_view_cv_evaluation (10-14)
 ### infer_style_entry
 - [x] infer_style_entry · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:infer_style_entry src/ && echo OK → OK (10-14)
 - [x] infer_style_entry · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k ai_infer_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
 - [x] infer_style_entry · wired — 证据: bash -c grep -c "R67" fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
 - [x] infer_style_entry · 清单进位 — 证据: bash -c grep -q '^| infer_style_entry | B27 | wired' fn_docs/implementation/functions.md && echo LO_OK → LO_OK (10-14)
-- [ ] infer_style_entry · commit — 预告: fn(infer_style_entry): wired 含四文档变更
+- [x] infer_style_entry · commit — 证据: bash -c git log --format=%h -1 && echo C_infer_style_entry → C_infer_style_entry (10-14)
 ## B27 批间门
 - [ ] B27 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
 - [ ] B27 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
