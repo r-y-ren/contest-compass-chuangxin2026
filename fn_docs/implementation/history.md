@@ -58,3 +58,4 @@
 | 10-14 | B29 | view_calibration_status+view_ledger_audit（15 测）+B28 随批 | R70/R71 验收绿；全套件 3375+5skip 零回归；整批单提交 af44c40 |
 | 10-14 | B30 | demo_sitl_bridge+demo_rl_policy+demo_rff_pipeline（sitl/rl/rff_view 6+7+7）+B29 随批围栏/field；网络中断续做 | R72-R74 验收绿；全套件 3400+5skip 零回归；整批单提交 106a19a |
 | 10-14 | B31 | audit_responsibility_alignment（6 测）+旧块回登记×4+资产件注+R72 围栏+B24 三观察 | R75 验收绿；桩归零 fn-check①PASS；全套件 3411+5skip；整批单提交 146d04d；域二十 25/25 完成 |
+| B32 | seed_preset_scenarios, prewarm_demo_runs, prepare_demo_assets, check_demo_manual + 手册总章（87623e4/433e43e/e986122/d7ffabc/cace4ac；19+8 用例，全套件 3456 绿） | ①demo_assets 测试绿+prepare_demo_assets wired 实跑（临时目录物料真实生成）；②demo_manual_check 绿（总章期望集）；③总章=两档设备清单+ASCII 连接图+接线表+环境启动+演示前准备 | R76 全量；R84 检查器前置实现（期望集随批增长、FAQ 覆盖全集 B42 收口） |

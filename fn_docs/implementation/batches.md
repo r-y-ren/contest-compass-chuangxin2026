@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B32 | seed_preset_scenarios, prewarm_demo_runs, prepare_demo_assets, check_demo_manual + 手册总章文档 | ①demo_assets 测试绿+prepare_demo_assets wired 实跑（临时目录物料真实生成）；②demo_manual_check 绿（总章期望集）；③总章=两档设备清单+ASCII 连接图+接线表+环境启动+演示前准备 | R76 全量；R84 检查器前置实现（期望集随批增长、FAQ 覆盖全集 B42 收口） |
-| B33 | compose_esp32_frame, encode_esp32_frame, udp_stream_task, kpi_report_task, esp32_wifi_firmware | pio run tx/rx SUCCESS + dut_esp32 往返族全绿 + tests/firmware_esp32 镜像自证（fn-check③不扫 firmware 的盲区补偿） | R85；烧录联调随 R87；整批单提交（多函数单子代理惯例） |
+| ▶ B33 | compose_esp32_frame, encode_esp32_frame, udp_stream_task, kpi_report_task, esp32_wifi_firmware | pio run tx/rx SUCCESS + dut_esp32 往返族全绿 + tests/firmware_esp32 镜像自证（fn-check③不扫 firmware 的盲区补偿） | R85；烧录联调随 R87；整批单提交（多函数单子代理惯例） |
 | B34 | compose_nrf24_frame, encode_nrf24_frame, esb_traffic_task, counter_report_task, nrf24_link_firmware | pio run reporter/peer SUCCESS + dut_nrf24 往返族全绿 + tests/firmware_nrf24 镜像自证 | R86；同上 |
 | B35 | 手册·测评核心五章（一键测评/六类样式/国标测法/距离模拟/链路健康测量） | 每章四件套+两档设备标注；章内命令 sim 侧逐条走查绿；check_demo_manual 期望集 +5 | R77 文档批 |
 | B36 | 手册·记录与报告四章（三路同步/自动报告/溯源校验/录音库） | 同 B35 口径；期望集 +4 | R78 文档批 |

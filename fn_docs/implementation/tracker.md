@@ -1186,7 +1186,7 @@ with tempfile.TemporaryDirectory() as td:
     r = prepare_demo_assets(td, td + chr(47) + "runs", rounds=1)
     assert len(r["written"]) == 7
 print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环境自检+物料命令+手册smoke全过 (10-14)
-- [ ] 总章·进位+commit — 预告: demo_manual_check 真手册冒烟（总章锚点在位）+fn(manual): 总章 commit
+- [x] 总章·进位+commit — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q 2>&1 | tail -1 && git add -A && git commit -q -m "fn(manual): B32 总章——两档设备清单（便携14/全量18）+四方案连接图与接线表+环境启动+一键物料；四文档随批" && git log --format="%h %s" -1 | head -c 100 && echo && echo 总章进位commit_OK → 总章进位commit_OK (10-14)
 ## B32 批间门
 - [ ] B32 · 评审三轴 — 预告: 规格/标准/档案同步三轴审查本批 diff
 - [ ] B32 · 对抗审查 — 预告: 对抗发现表（假设|证据|判定），Critical 清零
