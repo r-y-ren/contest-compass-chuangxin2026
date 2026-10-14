@@ -1442,7 +1442,7 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75)+chr(95)+chr(25298)+chr(36305))" → 
 - [x] 附录·进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -cE "手册|check_demo|tracker" && echo B42进位OK → B42进位OK (10-15)
 ## B42 批间门
 - [x] B42 · 评审三轴 — 证据: bash -c grep -q "B41+B42 终门处置" fn_docs/implementation/batches.md && echo 终门三轴_H1M1M2M3L1L2L3全处置 → 终门三轴_H1M1M2M3L1L2L3全处置 (10-15)
-- [ ] B42 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [x] B42 · 对抗审查 — 证据: bash -c grep -q "四个预留区块" docs/功能演示手册.md && grep -q "启动运行" docs/功能演示手册.md && grep -q "终门 M2" fn_work/src/check_demo_manual/check_demo_manual.py && cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q >/dev/null 2>&1 && echo 终门对抗不放行发现全修复_四变异检出复验在册_3544绿 → 终门对抗不放行发现全修复_四变异检出复验在册_3544绿 (10-15)
 - [x] B42 · 用户裁决 — 证据: bash -c grep -q "X1: 预授权连做" fn_docs/implementation/tracker.md && echo 门放行X1_周期②B32-B42全部完成 → 门放行X1_周期②B32-B42全部完成 (10-15)
 - 注记: B32 总章·走查证据补强（对抗 M4）——0.4 三命令由对抗审计代跑补全：uhd_find_devices exit0 输出 No UHD Devices Found（sim 态预期）；ls /dev/ttyUSB* /dev/ttyACM* 空（sim 态预期）；serve_console 实起 /pages/index 200 且 7 张场景卡片各 4 次命中 — 处置: 证据在案，无代码变更 — 2026-10-14
 - X1: 预授权连做 | 范围: 剩余全部 | 对象: fn-implement·批间门 | 原因: 用户字面「剩下批次自动继续，不用等我」（2026-10-14 会话原话「剩下批次自动继续，不用等我」） | 剩余: 0（B34–B42 全部门已放行） | 状态: consumed
