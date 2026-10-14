@@ -150,4 +150,4 @@
 | demo_sitl_bridge | B30 | wired 10-14 | -k sitl_view → 6 passed（dry_run 映射+缺席标注+无台阶拒）；端点 mount R72 块+sitl 页区 | 106a19a |
 | demo_rl_policy | B30 | wired 10-14 | -k rl_view → 7 passed（冒烟一轮+回退分支+rounds 域拒）；端点 mount R73 块+rl 页区 | 106a19a |
 | demo_rff_pipeline | B30 | wired 10-14 | -k rff_view → 7 passed（四阶段+产物+拒跑）；端点 mount R74 块+rff 页区 | 106a19a |
-| audit_responsibility_alignment | B31 | stub 10-13 | pytest -k responsibility_alignment | — |
+| audit_responsibility_alignment | B31 | wired 10-14 | -k responsibility_alignment → 6 passed（七对账项+锚点交叉+漏登检出）；责任文档回登记×4+资产件注随批落地 | 146d04d |

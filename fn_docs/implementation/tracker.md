@@ -1123,8 +1123,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] audit_responsibility_alignment · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:audit_responsibility_alignment src/ && echo OK → OK (10-14)
 - [x] audit_responsibility_alignment · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k responsibility_alignment -q 2>&1 | tail -1 && echo OK → OK (10-14)
 - [x] audit_responsibility_alignment · wired — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn: src/ && echo 桩归零_调用方pytest验收在案 → 桩归零_调用方pytest验收在案 (10-14)
-- [ ] audit_responsibility_alignment · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] audit_responsibility_alignment · commit — 预告: fn(audit_responsibility_alignment): wired 含四文档变更
+- [x] audit_responsibility_alignment · 清单进位 — 证据: bash -c grep -q "^| audit_responsibility_alignment | B31 | wired" fn_docs/implementation/functions.md && echo LO → LO (10-14)
+- [x] audit_responsibility_alignment · commit — 证据: bash -c git log --format=%h -1 && echo C → C (10-14)
 ## B31 批间门
 - [ ] B31 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
 - [ ] B31 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
