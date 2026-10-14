@@ -1030,8 +1030,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] launch_replay_run · 清单进位 — 证据: bash -c grep -q "^| launch_replay_run | B26 | wired" fn_docs/implementation/functions.md && echo LO_launch_replay_run → LO_launch_replay_run (10-14)
 - [x] launch_replay_run · commit — 证据: bash -c git log --format=%h -1 && echo C3 → C3 (10-14)
 ## B26 批间门
-- [ ] B26 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B26 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [x] B26 · 评审三轴 — 证据: bash -c grep -c "B26 勘误 Ruling" fn_docs/implementation/batches.md && echo 评审过_中1勘误收口_低1登记 → 评审过_中1勘误收口_低1登记 (10-14)
+- [x] B26 · 对抗审查 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k replay_run -q 2>&1 | tail -1 && echo 对抗Critical0_中2转B27随批 → 对抗Critical0_中2转B27随批 (10-14)
 - [ ] B26 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
 
 ## B27 — launch_classifier_training, view_cv_evaluation, infer_style_entry
@@ -1137,3 +1137,4 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - Ruling: run_scenario 增可选 stop 参数（C1 修复） — 原因：R59 规约「旗要终止编排」需管线协作检查兑现（对抗 C1：急停生产接线空转） — 代价：签名微调（向后兼容缺省 None）+档间/阶段边界检查点+backend 写回通道 — 落点：batches 变更记录互指；run_demo docstring 容器形状登记
 - 注记: B24 定向复审三观察（不阻断）——①/api/run 复位旗不清 stop_flag.backend（理论竞态窗，结果仍正确：幂等+新 run 启动边界中止）；②编辑器 #editor-errors 模式切换不清理（UX 毛刺）；③急停四分支文案无字符串级测试（后端真值 e2e 已覆盖） — 处置: B31 保洁轮统一或随批顺修 — 2026-10-14
 - Ruling: B25 修复面核验由主会话直跑（boundary_view 8 绿+消毒族 52 绿+全套件 3253，双向对照探针随修复子代理在案） — 原因：核验命令机械化，省一次复审子代理 — 代价：无独立第三方复核，门呈报如实标注 — 落点：批间门呈报
+- Ruling: B26 提交级证据失真复发（3885ed3→9dc39e3） — 原因：per-fn 拆提交遇多函数子代理共享接线（mount/serve_console 随末函数落盘） — 代价：证据锚点勘误+惯例修正（此后整批单提交或锚定末提交） — 落点：batches 10-14 互指；流程坑入记忆

@@ -137,7 +137,7 @@
 | serve_run_artifacts | B25 | wired 10-14 | pytest tests/serve_run_artifacts/test_serve_run_artifacts.py → 40 passed；-k report_view → 2 passed（真 sim 运行报告页可读+三图+徽标+下载）；注册 mount_console_extensions.py:131；全套件 3196 | 7b4854f |
 | list_run_summaries | B25 | wired 10-14 | pytest tests/list_run_summaries/ → 13 passed（+e2e 3）；-k report_center_e2e → 3 passed（真跑两轮列表+钻取）；端点 mount_console_extensions R61 块+run-list 页区 | ad9eb38 |
 | view_failure_comparison | B25 | wired 10-14 | pytest -k boundary_view → 8 passed（通道修复后；含对比表/降级/结论）；端点 mount_console_extensions R62 块+comparison 页区 | 8148d85 |
-| browse_dataset_library | B26 | wired 10-14 | pytest tests/browse_dataset_library/ → 14 passed；-k dataset_view_e2e → 2 passed（录制→建库→过滤真链）；端点 mount R63 块+dataset 页区 | 3885ed3 |
+| browse_dataset_library | B26 | wired 10-14 | pytest tests/browse_dataset_library/ → 14 passed；-k dataset_view_e2e → 2 passed（录制→建库→过滤真链）；端点 mount R63 块+dataset 页区（端点/页区/e2e 实落 9dc39e3——证据锚点勘误见 batches 10-14 Ruling） | 3885ed3 |
 | build_replay_scenario | B26 | wired 10-14 | pytest → 12 passed（组装契约/声明红线全查/损坏拒）；调用点 launch_replay_run | d755baa |
 | launch_replay_run | B26 | wired 10-14 | pytest tests/launch_replay_run/ → 21 passed；-k replay_run → 21 passed（录制→回放 exit 0 端到端含浏览器链）；挂载 mount_console_extensions.py:428；全套件 3296 | 9dc39e3 |
 | launch_classifier_training | B27 | stub 10-13 | pytest -k ai_train_view | — |
