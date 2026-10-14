@@ -73,6 +73,9 @@ def test_dut_esp32_golden_frames_exact_text():
         {"rssi": -math.inf},
         {"rssi": "abc"},
         {"rssi": True},
+        {"rssi": 1000.1},  # 超语义域上界（B33 对抗 F1：域外拒绝，C++ 同域钳 NA）
+        {"rssi": -1000.1},  # 超语义域下界
+        {"rssi": 1e300},  # 对抗实证样本：大有限值域外拒
     ],
 )
 def test_dut_esp32_invalid_value_families_rejected(kwargs):
@@ -80,6 +83,13 @@ def test_dut_esp32_invalid_value_families_rejected(kwargs):
     base.update(kwargs)
     with pytest.raises(ValueError):
         compose_esp32_frame(**base)
+
+
+# 语义域边界值本身合法（±1000.0 在域内，正常产帧）
+@pytest.mark.parametrize("edge", [1000.0, -1000.0])
+def test_dut_esp32_rssi_domain_edges_accepted(edge):
+    frame = compose_esp32_frame(1, 1, 0, 0, edge)
+    assert parse_esp32_frame(frame)["rssi_dbm"] == edge
 
 
 # 与解析器同口径的生成样本（10 组：计数域边界 × rssi 两态 × 校验和两态）

@@ -22,7 +22,8 @@ _FW_DIR = _TESTS_DIR.parents[1] / "firmware" / "esp32_wifi"
 _HARNESS_SRC = _TESTS_DIR / "fixtures" / "frame_encoder_harness.cpp"
 
 # ≥6 组跨语言样例：NA/大数（32 位 unsigned long 满值）/全零/校验和进位（帧体字节和远超
-# 0xFF，锁定掩码口径）/小数 rssi/无校验和两态
+# 0xFF，锁定掩码口径）/小数 rssi/无校验和两态/语义域边界（±1000.0 合法——域内极值，
+# B33 对抗 F1 后 Python 侧同域收窄，边界仍须逐字节一致）
 CROSS_LANGUAGE_CASES = [
     (1, 100, 2, 3, -60.0, True),
     (7, 100, 2, 3, -60.0, False),
@@ -32,6 +33,8 @@ CROSS_LANGUAGE_CASES = [
     (99999999, 99999999, 1, 2, -87.5, True),
     (128, 256, 512, 1024, 0.0, True),
     (42, 42, 0, 0, -12.5, False),
+    (11, 20, 1, 0, 1000.0, True),
+    (12, 21, 2, 1, -1000.0, False),
 ]
 
 
@@ -103,3 +106,32 @@ def test_host_encoder_clamps_nonfinite_rssi_to_na(harness_bin):
     assert got[0] == compose_esp32_frame(5, 10, 1, 0, None, checksum=True)
     assert got[1] == compose_esp32_frame(5, 10, 1, 0, None, checksum=False)
     assert got[2] == compose_esp32_frame(5, 10, 1, 0, None, checksum=True)
+
+
+def test_host_encoder_out_of_domain_finite_rssi_clamps_to_na(harness_bin):
+    """B33 对抗 F1：大有限 rssi 域外样例（1e300/1e150/±1000.1）→ C++ 一律 NA 帧。
+
+    对抗实证回归锚：旧口径 1e300 经 %.1f 溢出 body 缓冲→162B 截断帧且校验和
+    自洽=可解析的合法错帧（跨语言等价宣称破）；修复后语义域 [-1000.0,1000.0]
+    dBm 检查先行于编码，域外不吐数值帧。Python 侧对称口径=域外 ValueError
+    （tests/drive_esp32_link 域界用例钉）；本测只钉 C++ 侧——NA 输出与 Python
+    NA 路径 compose(..., None, ...) 逐字节一致。
+    """
+    got = _run_harness(
+        harness_bin,
+        [
+            "5,10,1,0,1e300,1",
+            "6,11,2,1,1e150,0",
+            "7,12,3,2,-1e300,1",
+            "8,13,0,1,1000.1,0",
+            "9,14,1,0,-1000.1,1",
+        ],
+    )
+    assert got[0] == compose_esp32_frame(5, 10, 1, 0, None, checksum=True)
+    assert got[1] == compose_esp32_frame(6, 11, 2, 1, None, checksum=False)
+    assert got[2] == compose_esp32_frame(7, 12, 3, 2, None, checksum=True)
+    assert got[3] == compose_esp32_frame(8, 13, 0, 1, None, checksum=False)
+    assert got[4] == compose_esp32_frame(9, 14, 1, 0, None, checksum=True)
+    for line in got:
+        # 域外不吐数值帧：rssi 字段（末逗号后、* 校验和前）必须是 NA。
+        assert line.rsplit(",", 1)[1].split("*")[0] == "NA", line

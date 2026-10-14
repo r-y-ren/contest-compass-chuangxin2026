@@ -26,6 +26,8 @@ def _rssi_field(rssi: float | None) -> str:
 
     1 位小数与固件侧 ``%.1f`` 逐字节一致（RSSI 为 dBm 量级，整数位已足够；
     跨语言格式锁定是 host 等价测试的口径基础）。
+    语义域 [-1000.0, 1000.0] dBm（WiFi.RSSI() 语义域 int32 的宽裕超集）：
+    域外拒绝——C++ encode 同域钳 NA，两侧"域外不吐数值帧"契约一致（B33 对抗 F1）。
     """
     if rssi is None:
         return "NA"
@@ -34,6 +36,8 @@ def _rssi_field(rssi: float | None) -> str:
     value = float(rssi)
     if not math.isfinite(value):
         raise ValueError(f"field 'rssi' must be a finite number or None, got {rssi!r}")
+    if not -1000.0 <= value <= 1000.0:
+        raise ValueError(f"field 'rssi' outside semantic domain [-1000, 1000] dBm, got {rssi!r}")
     return f"{value:.1f}"
 
 
@@ -42,9 +46,9 @@ def compose_esp32_frame(
 ) -> str:
     """按协议规格生成 ESP 帧文本行（不含换行）。
 
-    输入: 五指标值（rssi=None→NA）；checksum=True 附加 *<hex> 校验和后缀（帧体 sum&0xFF）。
+    输入: 五指标值（rssi=None→NA；rssi 语义域 [-1000,1000] dBm）；checksum=True 附加 *<hex> 校验和后缀（帧体 sum&0xFF）。
     输出: `ESP,<seq>,<sent>,<err>,<retries>,<rssi>[*<hex>]`。
-    错误: 非法值域（负数/非整数/非有限 rssi）→ValueError。
+    错误: 非法值域（负数/非整数/非有限 rssi/rssi 超语义域）→ValueError。
     """
     body = ",".join(
         (

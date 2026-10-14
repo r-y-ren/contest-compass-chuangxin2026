@@ -1556,7 +1556,7 @@
   - tested 策略：编译级（pio run）+上游覆盖: compose_esp32_frame 往返
   - 核验命令：测试: firmware_esp32
   - **encode_esp32_frame** [L1|新增]（C++）
-    - 职责：KPI 帧编码：五指标→`ESP,<seq>,<sent>,<err>,<retries>,<rssi>` 文本行+可选校验和后缀（帧体 sum&0xFF 十六进制）+\n——与 parse_esp32_frame 严格口径互逆（整数字段非负十进制、rssi 浮点或 NA）。
+    - 职责：KPI 帧编码：五指标→`ESP,<seq>,<sent>,<err>,<retries>,<rssi>` 文本行+可选校验和后缀（帧体 sum&0xFF 十六进制）+\n——与 parse_esp32_frame 严格口径互逆（整数字段非负十进制、rssi 浮点或 NA；rssi 语义域 [-1000,1000] dBm，域外/非有限→钳 NA 不吐数值帧——Python 参考实现同域拒绝 ValueError，两侧"域外不吐数值帧"契约一致）。〔措辞对齐·快速通道 2026-10-14：原文「值域非法→钳制并计数」之"计数"半未落地（计数参数类型层非负、数据路径不可达）且 B33 对抗 F1 实证大有限值截断破等价——改为语义域钳制口径，行为以实现为真值〕
     - 签名意图：输入: 五指标值（+校验和开关）/ 输出: 帧文本行 / 错误: 值域非法→固件侧钳制并计数（不吐非法帧）。
     - 调用方：kpi_report_task
     - tested 策略：上游覆盖: compose_esp32_frame（Python 同规格往返）

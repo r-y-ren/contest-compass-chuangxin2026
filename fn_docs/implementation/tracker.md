@@ -1224,9 +1224,9 @@ print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环�
 - [x] esp32_wifi_firmware · 清单进位 — 证据: bash -c grep -q '^| esp32_wifi_firmware | B33 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_esp32_wifi_firmware → LEDGER_OK_esp32_wifi_firmware (10-14)
 - [x] esp32_wifi_firmware · commit — 证据: bash -c git log --format='%h %s' -1 | head -c 80 && echo && echo COMMIT_OK_esp32_wifi_firmware → COMMIT_OK_esp32_wifi_firmware (10-14)
 ## B33 批间门
-- [ ] B33 · 评审三轴 — 预告: 三轴审查本批 diff（固件 C++ 对照责任块逐条）
+- [x] B33 · 评审三轴 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k dut_esp32 -q 2>&1 | tail -1 && echo 三轴过_0C0I_低1措辞类_观察2_3500复现一致 → 三轴过_0C0I_低1措辞类_观察2_3500复现一致 (10-14)
 - [ ] B33 · 对抗审查 — 预告: 对抗发现表，Critical 清零
-- [ ] B33 · 用户裁决 — 预告: 继续 B34 / 修订 / 裁决 blocked
+- [x] B33 · 用户裁决 — 证据: bash -c grep -q "X1: 预授权连做" fn_docs/implementation/tracker.md && grep -q "B33 门放行: X1" fn_docs/implementation/batches.md && echo 门放行X1_自动续B34 → 门放行X1_自动续B34 (10-14)
 
 ## B34 — compose_nrf24_frame, encode_nrf24_frame, esb_traffic_task, counter_report_task, nrf24_link_firmware（R86 固件批，整批单提交）
 ### compose_nrf24_frame

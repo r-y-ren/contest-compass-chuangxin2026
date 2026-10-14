@@ -1,4 +1,4 @@
-"""check_demo_manual 结构体检测试：完备通过/缺条目/缺四件套/缺两档/占位检出/FAQ 缺覆盖/围栏内两档词不算数/FAQ 散文单行不算覆盖/同名多章残章不掩盖/文件缺失+真实手册冒烟（B32 M3 三洞加固回归锚：⑧⑨⑩）。"""
+"""check_demo_manual 结构体检测试：完备通过/缺条目/缺四件套/缺两档/占位检出/FAQ 缺覆盖/围栏内两档词不算数/FAQ 散文单行不算覆盖/同名多章残章不掩盖/文件缺失+真实手册冒烟（B32 M3 三洞加固回归锚：⑧⑨⑩）；围栏内示例表格不算 FAQ 覆盖/缩进围栏内两档词不算数（B33 对抗 F2/F3 回归锚：⑪⑫）。"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -212,6 +212,58 @@ def test_faq_keys_in_prose_not_table_row_all_uncovered(tmp_path):
     )
     report = check_demo_manual(manual, readme, _EXPECTED)
     assert report["faq_uncovered"] == [_FAQ_KEY_1, _FAQ_KEY_2]
+    assert report["ok"] is False
+
+
+def test_faq_keys_in_fenced_table_rows_not_coverage(tmp_path):
+    """⑪应急区表格行全部位于代码围栏内（示例表格源码含全部 FAQ 键）→ faq_uncovered 全列。
+
+    B33 对抗 F2 回归锚：旧口径应急区只按 | 起始收行、不剥围栏——围栏内示例
+    表格恰好复述 FAQ 症状短语即伪达标；修复后应急区先剥离围栏再收表格行。
+    """
+    fenced_appendix = (
+        "## 附录：出发前检查单\n\n- 主机、充电器、U 盘。\n\n"
+        "## 附录：现场应急速查表\n\n"
+        "速查表 markdown 源示例（演示讲稿排版参考）：\n\n"
+        "```\n"
+        "| 症状 | 处置 |\n| --- | --- |\n"
+        + _ROW_FAQ1 + "\n" + _ROW_FAQ2 + "\n"
+        "```\n"
+    )
+    manual, readme = _write_pair(
+        tmp_path, _HEADER + _CHAPTER_ONE + "\n" + _CHAPTER_TWO + "\n" + fenced_appendix
+    )
+    report = check_demo_manual(manual, readme, _EXPECTED)
+    assert report["faq_uncovered"] == [_FAQ_KEY_1, _FAQ_KEY_2]
+    assert report["ok"] is False
+
+
+def test_tier_marks_only_inside_indented_fence_detected_missing(tmp_path):
+    """⑫「一键测评」设备小节两档词仅现于 1–3 空格缩进围栏内 → 检出两档缺件。
+
+    B33 对抗 F3 回归锚：旧口径 _FENCE_RE 只认顶格围栏，缩进围栏绕过剥离——
+    缩进命令注释里的「便携档/全量档」按围栏外正文伪达标；修复后围栏识别允许
+    0–3 空格缩进。4 空格缩进代码块非围栏、本库手册写法不使用（限界，不处理）。
+    """
+    indented_fence_dev = (
+        "### 所需设备与连线\n"
+        "档位配置看缩进命令注释：\n\n"
+        "   ```bash\n"
+        "   # 便携档：sim 后端，无需射频硬件\n"
+        "   # 全量档：主机接 B210 射频设备\n"
+        "   ```\n"
+    )
+    broken = _COMPLETE_MANUAL.replace(
+        "### 所需设备与连线\n"
+        "- 便携档：主机一台（sim 后端，无需射频硬件）。\n"
+        "- 全量档：主机+B210 射频设备+天线。\n",
+        indented_fence_dev,
+    )
+    manual, readme = _write_pair(tmp_path, broken)
+    report = check_demo_manual(manual, readme, _EXPECTED)
+    assert report["missing_sections"] == [
+        {"entry": "一键测评", "missing": ["所需设备与连线:便携档", "所需设备与连线:全量档"]}
+    ]
     assert report["ok"] is False
 
 
