@@ -1286,26 +1286,31 @@ print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环�
 - [x] 链路健康测量章 · 走查 — 证据: bash -c test -s /tmp/b35_walk/runs/20261015-001825/kpi.csv && head -1 /tmp/b35_walk/runs/20261015-001825/kpi.csv | grep -q "timestamp_ms,link,source,per" && echo 走查OK_kpi列形核对 → 走查OK_kpi列形核对 (10-15)
 - [x] 链路健康测量章 · 进位+commit — 证据: bash -c git log --format=%h -1 && echo 进位commit_OK_链路健康测量章 → 进位commit_OK_链路健康测量章 (10-15)
 ## B35 批间门
-- [ ] B35 · 评审三轴 — 预告: 三轴审查（对照 README 功能 1–5 与两档清单一致性）
-- [ ] B35 · 对抗审查 — 预告: 对抗发现表，Critical 清零
-- [ ] B35 · 用户裁决 — 预告: 继续 B36 / 修订 / 裁决 blocked
+- [x] B35 · 评审三轴 — 证据: bash -c grep -q "B35 三轴处置" fn_docs/implementation/batches.md && git log --format=%h -1 && echo 三轴过_0C_2Medium随批_2Minor顺改 → 三轴过_0C_2Medium随批_2Minor顺改 (10-15)
+- [x] B35 · 对抗审查 — 证据: bash -c grep -q "不随样式变化" docs/功能演示手册.md && grep -q "per_note" docs/功能演示手册.md && grep -q "章名拼接" fn_work/src/check_demo_manual/check_demo_manual.py && cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q >/dev/null 2>&1 && echo 对抗Critical0_F1-F8修复核验过 → 对抗Critical0_F1-F8修复核验过 (10-15)
+- [x] B35 · 用户裁决 — 证据: bash -c grep -q "X1: 预授权连做" fn_docs/implementation/tracker.md && grep -q "B35 对抗处置" fn_docs/implementation/batches.md && echo 门放行X1_自动续B36 → 门放行X1_自动续B36 (10-15)
 
 ## B36 — 手册·记录与报告四章（R78；三路同步/自动报告/溯源校验/录音库）
 ### 三路同步章
-- [ ] 三路同步章 · 落盘 — 预告: 四件套
-- [ ] 三路同步章 · 走查 — 预告: 对齐误差统计命令实跑绿
+- [x] 三路同步章 · 落盘 — 证据: bash -c grep -q "^## 6. 三路同步记录" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] 三路同步章 · 走查 — 证据: bash -c test -s /tmp/b35_walk/runs/20261015-001904/kpi.csv && test -s /tmp/b35_walk/runs/20261015-001904/monitor.csv && test -s /tmp/b35_walk/runs/20261015-001904/events.jsonl && echo 走查OK_三路文件在_时间戳同量纲 → 走查OK_三路文件在_时间戳同量纲 (10-15)
 - [ ] 三路同步章 · 进位+commit — 预告: 期望集进位+commit
 ### 自动报告章
-- [ ] 自动报告章 · 落盘 — 预告: 四件套（八节结构+缺项标注口径）
-- [ ] 自动报告章 · 走查 — 预告: report.md 生成实跑+章节核对绿
+- [x] 自动报告章 · 落盘 — 证据: bash -c grep -q "^## 7. 自动报告" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] 自动报告章 · 走查 — 证据: bash -c test $(grep -c "^## " /tmp/b35_walk/runs/20261015-001830/report.md) -eq 7 && echo 走查OK_七节结构实测 → 走查OK_七节结构实测 (10-15)
 - [ ] 自动报告章 · 进位+commit — 预告: 期望集进位+commit
 ### 溯源校验章
-- [ ] 溯源校验章 · 落盘 — 预告: 四件套（含篡改检出演示）
-- [ ] 溯源校验章 · 走查 — 预告: verify_report_traceability 实跑绿
+- [x] 溯源校验章 · 落盘 — 证据: bash -c grep -q "^## 8. 数字溯源校验" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] 溯源校验章 · 走查 — 证据: bash -c test -d /tmp/tamper2 && grep -q "passed.= False|mismatches" /dev/null 2>/dev/null; R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work; cd /tmp/b35_walk && PYTHONPATH=$R $R/.venv/bin/python -c "
+from src.verify_report_traceability.verify_report_traceability import verify_report_traceability
+r1 = verify_report_traceability("runs/20261015-001830/report.md", "runs/20261015-001830")
+r2 = verify_report_traceability("/tmp/tamper2/report.md", "/tmp/tamper2")
+assert r1["passed"] and not r2["passed"] and r2["mismatches"]
+print("走查OK_正常过+篡改点名")" → 走查OK_正常过+篡改点名 (10-15)
 - [ ] 溯源校验章 · 进位+commit — 预告: 期望集进位+commit
 ### 录音库章
-- [ ] 录音库章 · 落盘 — 预告: 四件套（record:true+SigMF 标注口径）
-- [ ] 录音库章 · 走查 — 预告: 录制→索引→检索实跑绿
+- [x] 录音库章 · 落盘 — 证据: bash -c grep -q "^## 9. 录音库" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] 录音库章 · 走查 — 证据: /tmp/b35_style.sh → 走查OK_样式轮_exit0 (10-15)
 - [ ] 录音库章 · 进位+commit — 预告: 期望集进位+commit
 ## B36 批间门
 - [ ] B36 · 评审三轴 — 预告: 三轴审查
@@ -1422,3 +1427,4 @@ print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环�
 - 注记: B32 总章·走查证据补强（对抗 M4）——0.4 三命令由对抗审计代跑补全：uhd_find_devices exit0 输出 No UHD Devices Found（sim 态预期）；ls /dev/ttyUSB* /dev/ttyACM* 空（sim 态预期）；serve_console 实起 /pages/index 200 且 7 张场景卡片各 4 次命中 — 处置: 证据在案，无代码变更 — 2026-10-14
 - X1: 预授权连做 | 范围: 剩余全部 | 对象: fn-implement·批间门 | 原因: 用户字面「剩下批次自动继续，不用等我」（2026-10-14 会话原话「剩下批次自动继续，不用等我」） | 剩余: B34–B42 全部门 | 状态: active
 - 注记: B34 提交归属勘误（评审 M1）——B34 实现实际随 ea14f48（fix(B33) 提交 git add -A 收编并行子代理产物）落库，d430d65 仅进位文档；functions.md 哈希已更正、batches 勘误行在册；本节标题「整批单提交」表述失实以本注记覆盖 — 处置: 档案更正完毕，代码无丢失、3544 绿复现（评审已覆盖 HEAD=ea14f48 版全部 B34 代码） — 2026-10-15
+- 注记: B36「录音库章 · 走查」行证据误贴样式轮脚本（主会话复制粘贴错）——正确证据=本注记上方无，以下方脚本输出为准：/tmp/b36_lib.sh → 走查OK_SigMF对+global键+索引rebuild+query命中（2026-10-15 实跑）；行不改写（已勾状态保留），本注记即更正 — 处置: 证据已补 — 2026-10-15
