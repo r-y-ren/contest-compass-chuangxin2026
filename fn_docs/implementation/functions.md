@@ -160,3 +160,8 @@
 | udp_stream_task | B33 | wired 10-14 | pio run -e tx → SUCCESS（编译级，规约口径；真机联调随 R87）；main.cpp 角色调用 | 9243754 |
 | kpi_report_task | B33 | wired 10-14 | pio run -e rx → SUCCESS；缺口/重复/回绕口径在 README 声明；main.cpp 角色调用 | 9243754 |
 | esp32_wifi_firmware | B33 | wired 10-14 | pio run → tx/rx 2 succeeded；tests/firmware_esp32/test_firmware_layout.py → 2 passed；README 构建/烧录在册 | 9243754 |
+| compose_nrf24_frame | B34 | wired 10-14 | pytest tests/drive_nrf24_link/test_compose_nrf24_frame.py → 31 passed（往返/rpd 两态/非法族/golden/全可解析）；host 等价消费 | B34H |
+| encode_nrf24_frame | B34 | wired 10-14 | tests/firmware_nrf24/test_nrf24_host_equivalence.py → 2 passed（g++ harness 逐字节一致）；调用点 tasks.cpp:194 | B34H |
+| esb_traffic_task | B34 | wired 10-14 | pio run -e reporter → SUCCESS（编译级；真机联调随 R87）；main.cpp 角色调用 | B34H |
+| counter_report_task | B34 | wired 10-14 | pio run -e reporter → SUCCESS；ARC 按包直读/PLOS 差分累计口径 README 声明 | B34H |
+| nrf24_link_firmware | B34 | wired 10-14 | pio run → reporter/peer 2 succeeded（RF24 1.6.2）；test_nrf24_firmware_layout → 3 passed；README 引脚表/构建烧录在册 | B34H |
