@@ -136,7 +136,7 @@
 | render_report_html | B25 | wired 10-14 | pytest tests/serve_run_artifacts/test_render_report_html.py → 31 passed；调用点 serve_run_artifacts.py:191；plots 引用改端点+零外链三路断言 | — |
 | serve_run_artifacts | B25 | wired 10-14 | pytest tests/serve_run_artifacts/test_serve_run_artifacts.py → 40 passed；-k report_view → 2 passed（真 sim 运行报告页可读+三图+徽标+下载）；注册 mount_console_extensions.py:131；全套件 3196 | — |
 | list_run_summaries | B25 | wired 10-14 | pytest tests/list_run_summaries/ → 14 passed；-k report_center_e2e → 3 passed（真跑两轮列表+钻取）；端点 mount_console_extensions R61 块+run-list 页区 | — |
-| view_failure_comparison | B25 | stub 10-13 | pytest -k boundary_view | — |
+| view_failure_comparison | B25 | wired 10-14 | pytest tests/view_failure_comparison/ → 12 passed（对比表/单样式降级/结论字段/e2e 两轮 bandlimited_noise 最薄弱）；端点 mount_console_extensions R62 块+comparison 页区 | — |
 | browse_dataset_library | B26 | stub 10-13 | pytest -k dataset_view_e2e | — |
 | build_replay_scenario | B26 | stub 10-13 | pytest -k replay_run | — |
 | launch_replay_run | B26 | stub 10-13 | pytest -k replay_run | — |

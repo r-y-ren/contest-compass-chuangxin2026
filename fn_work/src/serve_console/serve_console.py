@@ -26,7 +26,11 @@
   三路实时图区（stream_realtime_console 装配助手产出——KPI/频谱瀑布/事件
   时间线，消费 /ws 三路帧）；reports 页同式注入 R60 报告查看区
   （serve_run_artifacts 产出——?run=<id> 驱动 fetch /api/runs/{id}/report
-  渲染上屏+plots 图列表+files 下载链接+溯源结论徽标）；
+  渲染上屏+plots 图列表+files 下载链接+溯源结论徽标）；reports 页另注入 R61
+  运行列表区（run-list 挂载点——GET /api/runs/summaries 元数据表格：时间/
+  场景/样式/后端/状态/失效电平列+「查看报告」钻取链接+对比勾选框）与 R62
+  跨轮对比区（comparison 挂载点——勾选运行集 POST /api/runs/compare 出对比
+  表+薄弱环节结论，与 R60 报告查看区共页协作）；
 - config['dry_run']=True→不拉起不检端口，返回 {'app', 'launched': False, 'port',
   'host'}（测试经 TestClient 直接打 create 路由）；
 - 真拉起序：先探端口占用→ConsoleError（dry_run 下不检）；再延迟 import uvicorn
@@ -40,6 +44,7 @@ import socket
 import threading
 
 from src.edit_scenario_ui.edit_scenario_ui import edit_scenario_ui
+from src.list_run_summaries.run_list_area import build_run_list_area
 from src.load_scenario.load_scenario import ScenarioError, load_scenario
 from src.load_scenario.load_scenario import _ENVELOPE_KEYS as _SCENARIO_ENVELOPE_KEYS
 from src.load_scenario.validate_scenario_schema import _KNOWN_KEYS as _SCENARIO_KNOWN_KEYS
@@ -56,6 +61,7 @@ from src.stream_realtime_console.stream_realtime_console import (
     build_realtime_charts,
     stream_realtime_console,
 )
+from src.view_failure_comparison.comparison_area import build_comparison_area
 
 from .create_console_app import AppError, create_console_app
 
@@ -321,9 +327,22 @@ def serve_console(config: dict) -> dict:
         # URL 参数 ?run=<运行目录名> 取运行号→fetch /api/runs/{id}/report 服务端
         # 渲染 HTML 上屏+plots 图列表+files 下载链接+溯源结论徽标；端点经
         # mount_console_extensions 注册，report_root 即本 deps['report_root']）。
-        # 同 R57/R58 口径：仅缺省装配路径注入，显式 static_pages 直通不注入。
+        # R61 运行列表区与 R62 跨轮对比区同式注入 reports 页（共页协作：run-list
+        # 元数据表格行勾选→comparison 对比表+薄弱环节结论；数据源 GET
+        # /api/runs/summaries 与 POST /api/runs/compare——端点同样经
+        # mount_console_extensions 注册）。run-list 区块置于 report-view 区块
+        # 之前（其 fetch 先发，共页 #run-list 写入归属由区块内 MutationObserver
+        # 守护）。同 R57/R58 口径：仅缺省装配路径注入，显式 static_pages 直通
+        # 不注入。
         static_pages["reports.html"] = static_pages["reports.html"].replace(
-            "</body>", build_report_view_area() + "\n</body>", 1
+            "</body>",
+            build_run_list_area()
+            + "\n"
+            + build_comparison_area()
+            + "\n"
+            + build_report_view_area()
+            + "\n</body>",
+            1,
         )
 
     stop_flag = config.get("stop_flag")

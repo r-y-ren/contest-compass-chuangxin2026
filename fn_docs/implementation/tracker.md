@@ -997,13 +997,13 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] list_run_summaries · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn:list_run_summaries src/list_run_summaries/list_run_summaries.py && echo IMPL_OK → IMPL_OK (10-14)
 - [x] list_run_summaries · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/list_run_summaries/test_list_run_summaries.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-14)
 - [x] list_run_summaries · wired — 证据: bash -c grep -n "list_run_summaries" fn_work/src/localize_console_assets/mount_console_extensions.py | head -1 && cd fn_work && .venv/bin/python -m pytest -k report_center_e2e -q 2>&1 | tail -1 && echo WIRED_OK → WIRED_OK (10-14)
-- [ ] list_run_summaries · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] list_run_summaries · commit — 预告: fn(list_run_summaries): wired 含四文档变更
+- [x] list_run_summaries · 清单进位 — 证据: bash -c grep -n "^| list_run_summaries | B25 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK_读回在案 → LEDGER_OK_读回在案 (10-14)
+- [x] list_run_summaries · commit — 证据: bash -c git log --format=%h%n%s -1 && echo COMMIT_OK_ad9eb38 → COMMIT_OK_ad9eb38 (10-14)
 ### view_failure_comparison
-- [ ] view_failure_comparison · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] view_failure_comparison · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] view_failure_comparison · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] view_failure_comparison · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] view_failure_comparison · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn:view_failure_comparison src/view_failure_comparison/view_failure_comparison.py && echo IMPL_OK → IMPL_OK (10-14)
+- [x] view_failure_comparison · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/view_failure_comparison/test_view_failure_comparison.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-14)
+- [x] view_failure_comparison · wired — 证据: bash -c grep -n "view_failure_comparison" fn_work/src/localize_console_assets/mount_console_extensions.py | head -1 && echo WIRED_OK → WIRED_OK (10-14)
+- [x] view_failure_comparison · 清单进位 — 证据: bash -c grep -n "^| view_failure_comparison | B25 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK_读回在案 → LEDGER_OK_读回在案 (10-14)
 - [ ] view_failure_comparison · commit — 预告: fn(view_failure_comparison): wired 含四文档变更
 ## B25 批间门
 - [ ] B25 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
