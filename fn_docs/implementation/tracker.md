@@ -1355,11 +1355,11 @@ print("走查OK_两表读数")" → 走查OK_两表读数 (10-15)
 ### 安全红线章
 - [x] 安全红线章 · 落盘 — 证据: bash -c grep -q "^## 14. 安全红线" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 安全红线章 · 走查 — 证据: /tmp/b39_walk.sh → 台账副本: True 行 30 (10-15)
-- [ ] 安全红线章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 安全红线章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -cE "entries|tracker" >/dev/null && echo 进位OK → 进位OK (10-15)
 ### 清单台账章
 - [x] 清单台账章 · 落盘 — 证据: bash -c grep -q "^## 15. 清单台账" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
-- [ ] 清单台账章 · 走查 — 预告: update_ledger 副本+audit_ledger 实跑绿
-- [ ] 清单台账章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 清单台账章 · 走查 — 证据: /tmp/b39_audit.sh → 走查OK_体检100/100_零锚点问题 (10-15)
+- [x] 清单台账章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -cE "entries|tracker" >/dev/null && echo 进位OK → 进位OK (10-15)
 ## B39 批间门
 - [ ] B39 · 评审三轴 — 预告: 三轴审查
 - [ ] B39 · 对抗审查 — 预告: 对抗发现表，Critical 清零
