@@ -18,8 +18,8 @@ constexpr unsigned long kSeqTextMax = 99999999UL;  // 载荷 seq 文本 8 位十
 constexpr char kPayloadFiller = '#';               // seq 之外载荷填充字节（内容对统计无意义）
 constexpr uint8_t kArcRetryDelay = 2;              // ESB 自动重试等待 2×250µs=500µs
 constexpr uint8_t kArcRetryCount = 15;             // ESB 自动重试上限 15（ARC_CNT 4bit 域内满值）
-constexpr uint32_t kRpdListenUs = 200;             // RPD 采样监听窗时长（µs，~200µs）
-constexpr uint8_t kPlosWrapModulo = 16;            // PLOS nibble 差分回绕修正模数
+constexpr uint32_t kRpdListenUs = 200;  // RPD 采样监听窗时长（µs，名义 200µs——扣除 RX settle
+                                        // 后有效采样窗≈70µs，真机口径见 README/R87 校准）
 
 // RF24 的 read_register 为 protected——最小派生类只开一个 OBSERVE_TX 读口，不改任何行为
 class ObserveRf24 : public RF24 {
@@ -62,15 +62,13 @@ void accumulate_arc_after_send() {
 }
 
 // PLOS 累计：PLOS_CNT（OBSERVE_TX 高 4 位）为跨包累计、只在写 RF_CH 时清零、饱和保护于
-// 15——每报告周期"读-差分-累计"（nibble 回绕按 16 圈计数修正），随后写 RF_CH（同值
-// setChannel 重写）清零，把饱和钳口窗压缩到单个报告周期内（500ms≈25 包，周期内丢包
-// >15 才钳口漏计，README 口径声明）。
+// 15——每报告周期"读-差分-累计"，随后写 RF_CH（同值 setChannel 重写）清零，把饱和钳口
+// 窗压缩到单个报告周期内（500ms≈25 包，周期内丢包 >15 才钳口漏计，README 口径声明）。
 void accumulate_plos_periodic() {
     const uint8_t plos = (radio.observe_tx() >> 4) & 0x0F;
-    const uint8_t delta = plos >= last_plos
-                              ? (uint8_t)(plos - last_plos)
-                              : (uint8_t)(plos + kPlosWrapModulo - last_plos);
-    tx_lost_total += delta;
+    // 无回绕处理：PLOS_CNT 按 datasheet 饱和于 15 不回绕，且每周期写 RF_CH 清零后基线
+    // last_plos 恒 0，恒满足 plos>=last_plos（原 nibble+16 回绕分支为不可达死码，已删）。
+    tx_lost_total += (uint8_t)(plos - last_plos);
     radio.setChannel(link_channel);  // 写 RF_CH=datasheet 指定的 PLOS_CNT 唯一复位途径
     last_plos = 0;                   // 清零后下周期基线归零
 }
@@ -183,13 +181,17 @@ void counter_report_task_tick() {
         }
         // 1) PLOS 读-差分-累计（ARC 已在发送路径逐包累计，此处不重复调用防双计）
         accumulate_plos_periodic();
-        // 2) RPD 采样：发送间隙短暂进 RX 监听窗（~200µs）读 1bit 锁存位——门限 -64dBm，
-        //    仅 nRF24L01+（P 型）硬件有效（非 + 型恒读 0）；窗内读数=该窗内信道上是否
-        //    出现过 >-64dBm 的信号（对端常发+环境干扰都会置位，口径见 README）
+        // 2) RPD 采样：发送间隙短暂进 RX 监听窗（名义 ~200µs）读 1bit 锁存位——门限
+        //    -64dBm，仅 nRF24L01+（P 型）硬件有效（非 + 型恒读 0）；窗内读数=该窗内信道上
+        //    是否出现过 >-64dBm 的信号（置位源=同频其他射频/环境干扰——本拓扑对端纯接收
+        //    不发射，仅回 ESB ACK 且不在监听窗内，口径见 README）
         radio.startListening();
         delayMicroseconds(kRpdListenUs);
         const unsigned rpd = radio.testRPD() ? 1u : 0u;  // 窗内仍在 RX 态时读锁存位
-        radio.stopListening();  // 回 PTX 常态（stopListening 顺带 flush_tx，TX FIFO 本空，无害）
+        // 回 PTX 常态。RF24 1.6.2 的 stopListening 仅在启用 ack payload 时才 flush_tx
+        // （本工程未启用）——TX FIFO 由写路径管理：成功包硬件随 ACK 出队，失败包由上面
+        // MAX_RT 分支显式 flush_tx，此处不依赖 stopListening 清发送缓冲。
+        radio.stopListening();
         // 3) 编码吐串口（115200，\r\n 结尾）：NRF,<seq>,<sent>,<lost>,<retries>,<rpd>
         Serial.println(encode_nrf24_frame(tx_seq, tx_send_ok, tx_lost_total,
                                           tx_retries_total, rpd)
