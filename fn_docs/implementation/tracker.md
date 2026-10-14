@@ -1234,31 +1234,31 @@ print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环�
 - [x] compose_nrf24_frame · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/drive_nrf24_link/test_compose_nrf24_frame.py -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/drive_nrf24_link/test_compose_nrf24_frame.py -q >/dev/null 2>&1 → 31 passed in 0.02s (10-14)
 - [x] compose_nrf24_frame · wired — 证据: bash -c grep -q "compose_nrf24_frame" fn_work/tests/firmware_nrf24/test_nrf24_host_equivalence.py && cd fn_work && .venv/bin/python -m pytest -k dut_nrf24 -q >/dev/null 2>&1 && echo WIRED_OK_host等价消费+dut_nrf24族绿 → WIRED_OK_host等价消费+dut_nrf24族绿 (10-14)
 - [x] compose_nrf24_frame · 清单进位 — 证据: bash -c grep -q '^| compose_nrf24_frame | B34 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_compose_nrf24_frame → LEDGER_OK_compose_nrf24_frame (10-14)
-- [ ] compose_nrf24_frame · commit — 预告: 随 B34 整批单提交
+- [x] compose_nrf24_frame · commit — 证据: bash -c git log --format='%h' -1 && echo COMMIT_OK_compose_nrf24_frame → COMMIT_OK_compose_nrf24_frame (10-14)
 ### encode_nrf24_frame（C++）
 - [x] encode_nrf24_frame · implemented — 证据: bash -c ! grep -q "unimplemented:fn:encode_nrf24_frame" fn_work/firmware/nrf24_link/src/frame_encoder.cpp && g++ -std=c++17 -fsyntax-only fn_work/firmware/nrf24_link/src/frame_encoder.cpp && echo IMPL_OK → IMPL_OK (10-14)
 - [x] encode_nrf24_frame · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/firmware_nrf24/test_nrf24_host_equivalence.py -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/firmware_nrf24/test_nrf24_host_equivalence.py -q >/dev/null 2>&1 → 2 passed in 0.37s (10-14)
 - [x] encode_nrf24_frame · wired — 证据: bash -c grep -q "encode_nrf24_frame(tx_seq" fn_work/firmware/nrf24_link/src/tasks.cpp && echo WIRED_OK_counter_report调用点L194 → WIRED_OK_counter_report调用点L194 (10-14)
 - [x] encode_nrf24_frame · 清单进位 — 证据: bash -c grep -q '^| encode_nrf24_frame | B34 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_encode_nrf24_frame → LEDGER_OK_encode_nrf24_frame (10-14)
-- [ ] encode_nrf24_frame · commit — 预告: 随 B34 整批单提交
+- [x] encode_nrf24_frame · commit — 证据: bash -c git log --format='%h' -1 && echo COMMIT_OK_encode_nrf24_frame → COMMIT_OK_encode_nrf24_frame (10-14)
 ### esb_traffic_task（C++）
 - [x] esb_traffic_task · implemented — 证据: bash -c ! grep -q "unimplemented:fn:esb_traffic_task" fn_work/firmware/nrf24_link/src/tasks.cpp && grep -q "esb_traffic_task_begin" fn_work/firmware/nrf24_link/src/tasks.cpp && echo IMPL_OK → IMPL_OK (10-14)
 - [x] esb_traffic_task · tested — 证据: bash -c cd fn_work/firmware/nrf24_link && ../../.venv/bin/pio run -e reporter 2>&1 | grep -E "reporter.*(SUCCESS|FAILED)" | head -1 → reporter       SUCCESS   00:00:00.851 (10-14)
 - [x] esb_traffic_task · wired — 证据: bash -c grep -q "esb_traffic_task_begin(kLinkChannel" fn_work/firmware/nrf24_link/src/main.cpp && grep -q "esb_traffic_task_tick()" fn_work/firmware/nrf24_link/src/main.cpp && echo WIRED_OK_main调用点在 → WIRED_OK_main调用点在 (10-14)
 - [x] esb_traffic_task · 清单进位 — 证据: bash -c grep -q '^| esb_traffic_task | B34 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_esb_traffic_task → LEDGER_OK_esb_traffic_task (10-14)
-- [ ] esb_traffic_task · commit — 预告: 随 B34 整批单提交
+- [x] esb_traffic_task · commit — 证据: bash -c git log --format='%h' -1 && echo COMMIT_OK_esb_traffic_task → COMMIT_OK_esb_traffic_task (10-14)
 ### counter_report_task（C++）
 - [x] counter_report_task · implemented — 证据: bash -c ! grep -q "unimplemented:fn:counter_report_task" fn_work/firmware/nrf24_link/src/tasks.cpp && grep -q "counter_report_task_begin" fn_work/firmware/nrf24_link/src/tasks.cpp && echo IMPL_OK → IMPL_OK (10-14)
 - [x] counter_report_task · tested — 证据: bash -c cd fn_work/firmware/nrf24_link && ../../.venv/bin/pio run -e reporter 2>&1 | grep -E "reporter.*(SUCCESS|FAILED)" | head -1 → reporter       SUCCESS   00:00:00.861 (10-14)
 - [x] counter_report_task · wired — 证据: bash -c grep -q "counter_report_task_begin(kReportPeriodMs)" fn_work/firmware/nrf24_link/src/main.cpp && grep -q "counter_report_task_tick()" fn_work/firmware/nrf24_link/src/main.cpp && echo WIRED_OK_main调用点在 → WIRED_OK_main调用点在 (10-14)
 - [x] counter_report_task · 清单进位 — 证据: bash -c grep -q '^| counter_report_task | B34 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_counter_report_task → LEDGER_OK_counter_report_task (10-14)
-- [ ] counter_report_task · commit — 预告: 随 B34 整批单提交
+- [x] counter_report_task · commit — 证据: bash -c git log --format='%h' -1 && echo COMMIT_OK_counter_report_task → COMMIT_OK_counter_report_task (10-14)
 ### nrf24_link_firmware（C++ L0）
 - [x] nrf24_link_firmware · implemented — 证据: bash -c grep -q "RF24" fn_work/firmware/nrf24_link/platformio.ini && test -s fn_work/firmware/nrf24_link/README.md && grep -q "MOSI" fn_work/firmware/nrf24_link/README.md && echo IMPL_OK_libdeps+README引脚表在 → IMPL_OK_libdeps+README引脚表在 (10-14)
 - [x] nrf24_link_firmware · tested — 证据: bash -c cd fn_work/firmware/nrf24_link && ../../.venv/bin/pio run 2>&1 | grep -q "2 succeeded" && echo TESTED_OK_reporter_peer双SUCCESS → TESTED_OK_reporter_peer双SUCCESS (10-14)
 - [x] nrf24_link_firmware · wired — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/firmware_nrf24/test_nrf24_firmware_layout.py -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/firmware_nrf24/test_nrf24_firmware_layout.py -q >/dev/null 2>&1 → 3 passed in 0.01s (10-14)
 - [x] nrf24_link_firmware · 清单进位 — 证据: bash -c grep -q '^| nrf24_link_firmware | B34 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_nrf24_link_firmware → LEDGER_OK_nrf24_link_firmware (10-14)
-- [ ] nrf24_link_firmware · commit — 预告: fn(firmware): B34 整批单提交
+- [x] nrf24_link_firmware · commit — 证据: bash -c git log --format='%h' -1 && echo COMMIT_OK_nrf24_link_firmware → COMMIT_OK_nrf24_link_firmware (10-14)
 ## B34 批间门
 - [ ] B34 · 评审三轴 — 预告: 三轴审查本批 diff
 - [ ] B34 · 对抗审查 — 预告: 对抗发现表，Critical 清零

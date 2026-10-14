@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B34 | compose_nrf24_frame, encode_nrf24_frame, esb_traffic_task, counter_report_task, nrf24_link_firmware | pio run reporter/peer SUCCESS + dut_nrf24 往返族全绿 + tests/firmware_nrf24 镜像自证 | R86；同上 |
-| B35 | 手册·测评核心五章（一键测评/六类样式/国标测法/距离模拟/链路健康测量） | 每章四件套+两档设备标注；章内命令 sim 侧逐条走查绿；check_demo_manual 期望集 +5 | R77 文档批 |
+| ▶ B35 | 手册·测评核心五章（一键测评/六类样式/国标测法/距离模拟/链路健康测量） | 每章四件套+两档设备标注；章内命令 sim 侧逐条走查绿；check_demo_manual 期望集 +5 | R77 文档批 |
 | B36 | 手册·记录与报告四章（三路同步/自动报告/溯源校验/录音库） | 同 B35 口径；期望集 +4 | R78 文档批 |
 | B37 | 手册·AI 识别章（攒数据→训练→评测→当场识别） | 同上（训练走 dry_run/本地轻量演示路径）；期望集 +1 | R79 文档批 |
 | B38 | 手册·模拟与扩展三章（EMC 摸底/远期仪表/三后端切换） | 同上；期望集 +3 | R80 文档批 |
@@ -89,3 +88,4 @@
 | 10-14 | B33 随批 a：M3 三洞加固完成 | 围栏剥离（族三）/FAQ 表格行（族五）/全命中章遍历（_find_chapters）；旧实现三洞伪过实证、新 3 用例检出；11 用例全绿随批提交 9243754 |
 | 10-14 | B33 对抗处置（Critical 0/Important 3/Minor 1） | F1 编码器大有限 rssi 静默截断→语义域 [-1000,1000]dBm 双侧收口（C++ 域外钳 NA+缓冲断言=修复子代理；Python 域外 ValueError+边界用例=主会话；responsibility 措辞快速通道在块内登记）；F2 应急区围栏内伪表格行/F3 缩进围栏绕过→检查器围栏剥离补漏（修复子代理）；F4 回绕盲区（≥5000 万连续丢包才触发，真机不可达）=已知限界登记不修，README 口径与代码一致 |
 | 10-14 | B33 门放行: X1 | 预授权连做生效——三轴过+对抗 Critical 0，F1–F3 修复随批（修复面并行落地），自动续 B34 |
+| 10-14 | B34 三申报 | ①lib_deps ^1.4.10 registry 解析为 1.6.2（^ 语义，README 如实）；②ARC_CNT 按 datasheet 按包复位语义=发送完成逐包直读累计（任务书"差分累计"括号提示作废，README 声明）、PLOS_CNT 差分累计+RF_CH 重写清零（饱和钳窗已声明）；③测试文件名 test_nrf24_* 前缀（与 esp32 批 basename 冲突，仓库惯例全局唯一）；.gitignore .pio 锚点缺陷（firmware/** 不匹配 fn_work/firmware/）主会话顺手修为 **/.pio/（scaffold 失误随 F1-F3 修复提交 ea14f48） |
