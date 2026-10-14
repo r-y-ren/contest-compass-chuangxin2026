@@ -1008,7 +1008,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 ## B25 批间门
 - [x] B25 · 评审三轴 — 证据: bash -c git log --format=%s --grep="B25 出批次表入历史表" -1 && echo 评审三轴_终态过_Critical1为提交级档案失真_已Ruling收口 → 评审三轴_终态过_Critical1为提交级档案失真_已Ruling收口 (10-14)
 - [x] B25 · 对抗审查 — 证据: bash -c git log --format=%s --grep="渲染层自证安全" -1 && cd fn_work && .venv/bin/python -m pytest -k boundary_view -q 2>&1 | tail -1 && echo 对抗XSS_Critical批内修复_通道修复实证 → 对抗XSS_Critical批内修复_通道修复实证 (10-14)
-- [ ] B25 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+- [x] B25 · 用户裁决 — 证据: bash -c test $(grep -c "^| ▶ B26" fn_docs/implementation/batches.md) -eq 1 && echo 裁决=继续B26_用户2026-10-14确认 → 裁决=继续B26_用户2026-10-14确认 (10-14)
 
 ## B26 — browse_dataset_library, build_replay_scenario, launch_replay_run
 ### browse_dataset_library
