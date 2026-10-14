@@ -134,7 +134,7 @@
 | harden_emergency_stop | B24 | wired 10-13 | -k emergency_stop → 26 passed（含真运行急停 e2e：4.53s 提前终止/3 档/帧冻结）；委托 create_console_app.py:446；顺序断言停发射先于旗置位；C1 修复后生产接线真停 | 6c90e2b |
 | edit_scenario_ui | B24 | wired 10-13 | pytest tests/edit_scenario_ui/ → 8 passed；-k scenario_editor_e2e → 1 passed（表单/YAML 双模式+400 逐条上屏+卡片刷新）；注入 serve_console.py:311；存量 189 无回归；N2 多频段表单防护 | b125d10 |
 | render_report_html | B25 | wired 10-14 | pytest tests/serve_run_artifacts/test_render_report_html.py → 31 passed；调用点 serve_run_artifacts.py:191；plots 引用改端点+零外链三路断言 | — |
-| serve_run_artifacts | B25 | stub 10-13 | pytest -k report_view | — |
+| serve_run_artifacts | B25 | wired 10-14 | pytest tests/serve_run_artifacts/test_serve_run_artifacts.py → 40 passed；-k report_view → 2 passed（真 sim 运行报告页可读+三图+徽标+下载）；注册 mount_console_extensions.py:131；全套件 3196 | — |
 | list_run_summaries | B25 | stub 10-13 | pytest -k report_center_e2e | — |
 | view_failure_comparison | B25 | stub 10-13 | pytest -k boundary_view | — |
 | browse_dataset_library | B26 | stub 10-13 | pytest -k dataset_view_e2e | — |

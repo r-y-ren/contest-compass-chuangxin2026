@@ -986,12 +986,12 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] render_report_html · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/serve_run_artifacts/test_render_report_html.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-14)
 - [x] render_report_html · wired — 证据: bash -c grep -n "body = render_report_html" fn_work/src/serve_run_artifacts/serve_run_artifacts.py && echo WIRED_OK → WIRED_OK (10-14)
 - [x] render_report_html · 清单进位 — 证据: bash -c grep -n "^| render_report_html | B25 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-14)
-- [ ] render_report_html · commit — 预告: fn(render_report_html): wired 含四文档变更
+- [x] render_report_html · commit — 证据: bash -c git log --format=%h%n%s -1 && echo COMMIT_OK → COMMIT_OK (10-14)
 ### serve_run_artifacts
-- [ ] serve_run_artifacts · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] serve_run_artifacts · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] serve_run_artifacts · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] serve_run_artifacts · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] serve_run_artifacts · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn:serve_run_artifacts src/serve_run_artifacts/serve_run_artifacts.py && echo IMPL_OK → IMPL_OK (10-14)
+- [x] serve_run_artifacts · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/serve_run_artifacts/test_serve_run_artifacts.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-14)
+- [x] serve_run_artifacts · wired — 证据: bash -c grep -n "outcome = serve_run_artifacts" fn_work/src/localize_console_assets/mount_console_extensions.py && cd fn_work && .venv/bin/python -m pytest -k report_view -q 2>&1 | tail -1 && echo WIRED_OK_三端点注册_e2e真运行 → WIRED_OK_三端点注册_e2e真运行 (10-14)
+- [x] serve_run_artifacts · 清单进位 — 证据: bash -c grep -n "^| serve_run_artifacts | B25 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-14)
 - [ ] serve_run_artifacts · commit — 预告: fn(serve_run_artifacts): wired 含四文档变更
 ### list_run_summaries
 - [ ] list_run_summaries · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留

@@ -6,6 +6,10 @@
 （只保留 R56 快速通道②的唯一一处 mount_console_extensions(app, deps) 接线）。
 本批（R56）在册：vendor 资产路由——GET /assets/vendor/vue.global.prod.js 服务
 仓内 Vue3 生产版单文件（模块同级 vendor/ 目录，零 CDN、断网全可用）。
+R60 追加在册：serve_run_artifacts 运行产物三端点——GET /api/runs/{run_id}/report
+（report.md 服务端渲染 HTML+溯源结论徽标）、/api/runs/{run_id}/plots/{name}
+（PNG 曲线图）、/api/runs/{run_id}/files/{name}（白名单数据文件下载）；
+report_root 取 deps['report_root']（create_console_app 五必查键之一，天然贯通）。
 
 注意：本模块同 create_console_app，**不可**使用 `from __future__ import
 annotations`——路由处理器签名注解须在 def 时求值为真实类（FileResponse 是本函数
@@ -50,13 +54,16 @@ def mount_console_extensions(app, deps: dict):
 
     扩展约定：本函数体是 R57–R74 各批次服务端点的唯一注册现场——后续批次到货时
     在下方注册块区按 R 号顺序逐批追加（每块以 ``# ---- R<n> 功能块名 ----`` 注释
-    分隔），create_console_app 不再逐端点改动。本批（R56）在册：vendor 资产路由。
+    分隔），create_console_app 不再逐端点改动。在册批次：R56 vendor 资产路由；
+    R60 serve_run_artifacts 运行产物三端点（report/plots/files）。
 
     Args:
         app: FastAPI 应用（须具备路由注册能力——get 装饰器+routes 路由表；
             缺失→AppError）。
-        deps: create_console_app 的依赖注入 dict（runner/static_pages 等；本批
-            vendor 路由不消费其键，后续批次注册块按需取用）。
+        deps: create_console_app 的依赖注入 dict（runner/static_pages 等；
+            R56 vendor 路由不消费其键；R60 三端点请求期读 deps['report_root']
+            ——缺键/非非空 str→AppError field='report_root'，与
+            create_console_app 的 GET /api/runs 同口径）。
 
     Returns:
         注册完成后的同一 app（便于链式：mount_console_extensions(app, deps)）。
@@ -81,7 +88,7 @@ def mount_console_extensions(app, deps: dict):
     # 接线时 fastapi 已在工厂阶段就位，此处为独立调用兜底，同工厂口径）。
     try:
         from fastapi import HTTPException
-        from fastapi.responses import FileResponse
+        from fastapi.responses import FileResponse, HTMLResponse, Response
     except ImportError as exc:  # pragma: no cover - 环境相关，工厂侧已先拒
         raise AppError(f"FastAPI 运行库缺失——{FASTAPI_PIP_HINT}") from exc
 
@@ -100,6 +107,63 @@ def mount_console_extensions(app, deps: dict):
             )
         return FileResponse(VENDOR_VUE_PATH, media_type="application/javascript")
 
-    # ---- R57–R74 后续批次注册块：到货批次按 R 号顺序在此逐批追加 ----
+    # ---- R60 serve_run_artifacts：运行产物三端点（报告站内可读） ----
+    # 语义核心在 src.serve_run_artifacts.serve_run_artifacts（纯函数，错误以
+    # {'ok': False, 'error': 'rejected'|'not_found', 'status': 400|404} 标记
+    # dict 返回）；本路由层只做薄转接：ok→Response（report=HTML，plots/files=
+    # 字节+media_type）；标记→HTTPException 同状态码；叶子渲染错误（ValueError
+    # 族——文件损坏/零外链断言）→500 带指错（R60 口径）。report_root 请求期取
+    # deps（五必查键，create_console_app 装配侧天然贯通——与 GET /api/runs 同源）。
+
+    def _serve_artifact(run_id: str, kind: str, name: "str | None" = None):
+        """serve_run_artifacts 薄转接：dict 标记→HTTPException；ok→Response。"""
+        # 延迟 import：与 R56 块同口径（注册期不加载服务模块，请求期才 import）。
+        from src.serve_run_artifacts.serve_run_artifacts import serve_run_artifacts
+
+        root = deps.get("report_root")
+        if not isinstance(root, str) or not root:
+            raise AppError(
+                f"deps['report_root'] 未注入或非非空 str（R60 运行产物端点依赖），"
+                f"实际: {root!r}",
+                field="report_root",
+            )
+        try:
+            outcome = serve_run_artifacts(root, run_id, kind, name)
+        except ValueError as exc:  # 叶子渲染/读盘错误上抛→500 带指错（R60）
+            raise HTTPException(
+                status_code=500, detail=f"运行产物服务失败（{kind}）: {exc}"
+            ) from exc
+        if isinstance(outcome, dict) and outcome.get("ok") is True:
+            if outcome.get("kind") == "report":
+                return HTMLResponse(outcome["body"])
+            return Response(
+                content=outcome["body"], media_type=outcome["content_type"]
+            )
+        status = outcome.get("status") if isinstance(outcome, dict) else None
+        detail = (
+            outcome.get("detail") if isinstance(outcome, dict) else repr(outcome)
+        )
+        raise HTTPException(
+            status_code=int(status) if status in (400, 404) else 500,
+            detail=detail if isinstance(detail, str) else repr(detail),
+        )
+
+    @app.get("/api/runs/{run_id}/report")
+    async def get_run_report(run_id: str):
+        # report.md 服务端渲染 HTML（含溯源结论徽标）——路由不与 GET /api/runs/
+        # {run_id} 冲突（该路由单段参数，本路由恒三段以上路径形态）。
+        return _serve_artifact(run_id, "report")
+
+    @app.get("/api/runs/{run_id}/plots/{name}")
+    async def get_run_plot(run_id: str, name: str):
+        # PNG 曲线图字节（name 非 .png/含穿越→400；不存在→404）。
+        return _serve_artifact(run_id, "plots", name)
+
+    @app.get("/api/runs/{run_id}/files/{name}")
+    async def get_run_file(run_id: str, name: str):
+        # 白名单原始数据文件下载（白名单外/穿越→400；不存在→404）。
+        return _serve_artifact(run_id, "files", name)
+
+    # ---- R61–R74 后续批次注册块：到货批次按 R 号顺序在此逐批追加 ----
 
     return app

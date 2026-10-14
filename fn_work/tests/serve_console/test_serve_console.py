@@ -225,6 +225,34 @@ def test_console_api_default_index_injects_scenario_editor(tmp_path):
 
 
 @needs_fastapi
+def test_console_api_default_reports_page_injects_report_view_area(tmp_path):
+    """R60 wired 回归：缺省装配的 reports 页注入报告查看区（serve_console 报告
+    阅读视图挂载点——?run=<id> 驱动 fetch /api/runs/{id}/report 渲染+plots 图
+    列表+files 下载链接+溯源徽标）；区块根 id+fetch 接线在位且零外链；其余骨架
+    页不受注入影响；显式 static_pages 直通则不注入（同 R57 口径）。"""
+    cfg = _base_config(tmp_path)
+    cfg["dry_run"] = True
+    result = serve_console(cfg)
+    with TestClient(result["app"]) as client:
+        page = client.get("/pages/reports").text
+        overview = client.get("/pages/overview").text
+    assert 'id="report-view-area"' in page
+    assert "'/api/runs/' + encodeURIComponent(runId)" in page  # fetch 接线在位
+    assert "'/report'" in page and "'/files/' + fname" in page  # 三端点消费
+    assert "traceability-badge" in page  # 溯源徽标透显接线
+    assert "http://" not in page and "https://" not in page  # 零外链
+    assert 'id="report-view-area"' not in overview  # 其余骨架页不受影响
+
+    cfg2 = _base_config(tmp_path)
+    cfg2["dry_run"] = True
+    cfg2["static_pages"] = {"reports.html": "<html><body>x</body></html>"}
+    result2 = serve_console(cfg2)
+    with TestClient(result2["app"]) as client2:
+        page2 = client2.get("/pages/reports").text
+    assert "report-view-area" not in page2  # 显式直通：不注入
+
+
+@needs_fastapi
 def test_console_api_scenario_dir_uncreatable_console_error(tmp_path):
     """scenario_dir 不可创建（父为文件）→ConsoleError 指明路径（不静默 400 路由）。"""
     blocker = tmp_path / "afile"

@@ -24,7 +24,9 @@
   /pages/<七页 slug>，全站零 CDN；运行页另在 </body> 前注入 R57 场景编辑器
   区块（edit_scenario_ui 产出，装配期场景卡片为下拉/卡片视图初值）与 R58
   三路实时图区（stream_realtime_console 装配助手产出——KPI/频谱瀑布/事件
-  时间线，消费 /ws 三路帧）；
+  时间线，消费 /ws 三路帧）；reports 页同式注入 R60 报告查看区
+  （serve_run_artifacts 产出——?run=<id> 驱动 fetch /api/runs/{id}/report
+  渲染上屏+plots 图列表+files 下载链接+溯源结论徽标）；
 - config['dry_run']=True→不拉起不检端口，返回 {'app', 'launched': False, 'port',
   'host'}（测试经 TestClient 直接打 create 路由）；
 - 真拉起序：先探端口占用→ConsoleError（dry_run 下不检）；再延迟 import uvicorn
@@ -49,6 +51,7 @@ from src.localize_console_assets.mount_console_extensions import VENDOR_VUE_PATH
 from src.render_console_pages.build_scenario_cards import build_scenario_cards
 from src.render_console_pages.render_console_pages import render_console_pages
 from src.run_demo.run_demo import run_scenario
+from src.serve_run_artifacts.report_view_area import build_report_view_area
 from src.stream_realtime_console.stream_realtime_console import (
     build_realtime_charts,
     stream_realtime_console,
@@ -313,6 +316,14 @@ def serve_console(config: dict) -> dict:
             + build_realtime_charts()
             + "\n</body>",
             1,
+        )
+        # R60 快速通道：报告查看区注入 reports 页（报告阅读视图挂载点——JS 从
+        # URL 参数 ?run=<运行目录名> 取运行号→fetch /api/runs/{id}/report 服务端
+        # 渲染 HTML 上屏+plots 图列表+files 下载链接+溯源结论徽标；端点经
+        # mount_console_extensions 注册，report_root 即本 deps['report_root']）。
+        # 同 R57/R58 口径：仅缺省装配路径注入，显式 static_pages 直通不注入。
+        static_pages["reports.html"] = static_pages["reports.html"].replace(
+            "</body>", build_report_view_area() + "\n</body>", 1
         )
 
     stop_flag = config.get("stop_flag")
