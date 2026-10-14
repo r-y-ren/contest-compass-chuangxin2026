@@ -1401,35 +1401,35 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75)+chr(95)+chr(25298)+chr(36305))" → 
 ### 总览页条目
 - [x] 总览页条目 · 落盘 — 证据: bash -c grep -q "## 19. 总览页" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 总览页条目 · 走查 — 证据: bash -c /tmp/b41_walk.sh 2>/dev/null | grep -c ": 200" | grep -q "^7$" && echo 走查OK_七页全200 → 走查OK_七页全200 (10-15)
-- [ ] 总览页条目 · 进位+commit — 预告: 期望集进位+commit
+- [x] 总览页条目 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ### 运行页条目
 - [x] 运行页条目 · 落盘 — 证据: bash -c grep -q "## 20. 运行页" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 运行页条目 · 走查 — 证据: bash -c /tmp/b41_walk.sh 2>/dev/null | grep -c ": 200" | grep -q "^7$" && echo 走查OK_七页全200 → 走查OK_七页全200 (10-15)
-- [ ] 运行页条目 · 进位+commit — 预告: 期望集进位+commit
+- [x] 运行页条目 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ### 报告页条目
 - [x] 报告页条目 · 落盘 — 证据: bash -c grep -q "## 21. 报告页" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 报告页条目 · 走查 — 证据: bash -c /tmp/b41_walk.sh 2>/dev/null | grep -c ": 200" | grep -q "^7$" && echo 走查OK_七页全200 → 走查OK_七页全200 (10-15)
-- [ ] 报告页条目 · 进位+commit — 预告: 期望集进位+commit
+- [x] 报告页条目 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ### 数据页条目
 - [x] 数据页条目 · 落盘 — 证据: bash -c grep -q "## 22. 数据页" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 数据页条目 · 走查 — 证据: bash -c /tmp/b41_walk.sh 2>/dev/null | grep -c ": 200" | grep -q "^7$" && echo 走查OK_七页全200 → 走查OK_七页全200 (10-15)
-- [ ] 数据页条目 · 进位+commit — 预告: 期望集进位+commit
+- [x] 数据页条目 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ### AI 页条目
 - [x] AI 页条目 · 落盘 — 证据: bash -c grep -q "## 23. AI 页" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] AI 页条目 · 走查 — 证据: bash -c /tmp/b41_walk.sh 2>/dev/null | grep -c ": 200" | grep -q "^7$" && echo 走查OK_七页全200 → 走查OK_七页全200 (10-15)
-- [ ] AI 页条目 · 进位+commit — 预告: 期望集进位+commit
+- [x] AI 页条目 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ### 仪表页条目
 - [x] 仪表页条目 · 落盘 — 证据: bash -c grep -q "## 24. 仪表页" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 仪表页条目 · 走查 — 证据: bash -c /tmp/b41_walk.sh 2>/dev/null | grep -c ": 200" | grep -q "^7$" && echo 走查OK_七页全200 → 走查OK_七页全200 (10-15)
-- [ ] 仪表页条目 · 进位+commit — 预告: 期望集进位+commit
+- [x] 仪表页条目 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ### 台账页条目
 - [x] 台账页条目 · 落盘 — 证据: bash -c grep -q "## 25. 台账页" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 台账页条目 · 走查 — 证据: bash -c /tmp/b41_walk.sh 2>/dev/null | grep -c ": 200" | grep -q "^7$" && echo 走查OK_七页全200 → 走查OK_七页全200 (10-15)
-- [ ] 台账页条目 · 进位+commit — 预告: 期望集进位+commit
+- [x] 台账页条目 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ### 标定演示条目
 - [x] 标定演示条目 · 落盘 — 证据: bash -c grep -q "## 26. 标定演示" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 标定演示条目 · 走查 — 证据: bash -c /tmp/b41_walk.sh 2>/dev/null | grep -c ": 200" | grep -q "^7$" && echo 走查OK_七页全200 → 走查OK_七页全200 (10-15)
-- [ ] 标定演示条目 · 进位+commit — 预告: 期望集进位+commit
+- [x] 标定演示条目 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ## B41 批间门
 - [ ] B41 · 评审三轴 — 预告: 三轴审查
 - [ ] B41 · 对抗审查 — 预告: 对抗发现表，Critical 清零
