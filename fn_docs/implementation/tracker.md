@@ -982,10 +982,10 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B25 — render_report_html, serve_run_artifacts, list_run_summaries, view_failure_comparison
 ### render_report_html
-- [ ] render_report_html · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] render_report_html · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] render_report_html · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] render_report_html · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] render_report_html · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn:render_report_html src/serve_run_artifacts/render_report_html.py && echo IMPL_OK → IMPL_OK (10-14)
+- [x] render_report_html · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/serve_run_artifacts/test_render_report_html.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-14)
+- [x] render_report_html · wired — 证据: bash -c grep -n "body = render_report_html" fn_work/src/serve_run_artifacts/serve_run_artifacts.py && echo WIRED_OK → WIRED_OK (10-14)
+- [x] render_report_html · 清单进位 — 证据: bash -c grep -n "^| render_report_html | B25 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-14)
 - [ ] render_report_html · commit — 预告: fn(render_report_html): wired 含四文档变更
 ### serve_run_artifacts
 - [ ] serve_run_artifacts · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
