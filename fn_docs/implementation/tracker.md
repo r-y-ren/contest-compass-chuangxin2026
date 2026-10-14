@@ -1420,3 +1420,4 @@ print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环�
 - [ ] B42 · 对抗审查 — 预告: 对抗发现表，Critical 清零
 - [ ] B42 · 用户裁决 — 预告: 全部完成→/fn-close / 修订
 - 注记: B32 总章·走查证据补强（对抗 M4）——0.4 三命令由对抗审计代跑补全：uhd_find_devices exit0 输出 No UHD Devices Found（sim 态预期）；ls /dev/ttyUSB* /dev/ttyACM* 空（sim 态预期）；serve_console 实起 /pages/index 200 且 7 张场景卡片各 4 次命中 — 处置: 证据在案，无代码变更 — 2026-10-14
+- X1: 预授权连做 | 范围: 剩余全部 | 对象: fn-implement·批间门 | 原因: 用户字面「剩下批次自动继续，不用等我」（2026-10-14 会话原话「剩下批次自动继续，不用等我」） | 剩余: B34–B42 全部门 | 状态: active
