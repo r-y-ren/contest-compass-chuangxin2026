@@ -1012,22 +1012,22 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B26 — browse_dataset_library, build_replay_scenario, launch_replay_run
 ### browse_dataset_library
-- [ ] browse_dataset_library · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] browse_dataset_library · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] browse_dataset_library · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] browse_dataset_library · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] browse_dataset_library · commit — 预告: fn(browse_dataset_library): wired 含四文档变更
+- [x] browse_dataset_library · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn:browse_dataset_library src/*/browse_dataset_library.py 2>/dev/null; ! grep -rq unimplemented:fn:browse_dataset_library src/ && echo IMPL_OK_browse_dataset_library → IMPL_OK_browse_dataset_library (10-14)
+- [x] browse_dataset_library · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/browse_dataset_library/ -q 2>&1 | tail -1 && echo T1 → T1 (10-14)
+- [x] browse_dataset_library · wired — 证据: bash -c grep -c "R63" fn_work/src/localize_console_assets/mount_console_extensions.py && cd fn_work && .venv/bin/python -m pytest -k dataset_view_e2e -q 2>&1 | tail -1 && echo W1 → W1 (10-14)
+- [x] browse_dataset_library · 清单进位 — 证据: bash -c grep -q "^| browse_dataset_library | B26 | wired" fn_docs/implementation/functions.md && echo LO_browse_dataset_library → LO_browse_dataset_library (10-14)
+- [x] browse_dataset_library · commit — 证据: bash -c git log --format=%h -1 && echo C1 → C1 (10-14)
 ### build_replay_scenario
-- [ ] build_replay_scenario · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] build_replay_scenario · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] build_replay_scenario · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] build_replay_scenario · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] build_replay_scenario · commit — 预告: fn(build_replay_scenario): wired 含四文档变更
+- [x] build_replay_scenario · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn:build_replay_scenario src/*/build_replay_scenario.py 2>/dev/null; ! grep -rq unimplemented:fn:build_replay_scenario src/ && echo IMPL_OK_build_replay_scenario → IMPL_OK_build_replay_scenario (10-14)
+- [x] build_replay_scenario · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/launch_replay_run/test_build_replay_scenario.py -q 2>&1 | tail -1 && echo T2 → T2 (10-14)
+- [x] build_replay_scenario · wired — 证据: bash -c grep -n "build_replay_scenario" fn_work/src/launch_replay_run/launch_replay_run.py | head -1 && echo W2 → W2 (10-14)
+- [x] build_replay_scenario · 清单进位 — 证据: bash -c grep -q "^| build_replay_scenario | B26 | wired" fn_docs/implementation/functions.md && echo LO_build_replay_scenario → LO_build_replay_scenario (10-14)
+- [x] build_replay_scenario · commit — 证据: bash -c git log --format=%h -1 && echo C2 → C2 (10-14)
 ### launch_replay_run
-- [ ] launch_replay_run · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] launch_replay_run · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] launch_replay_run · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] launch_replay_run · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] launch_replay_run · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn:launch_replay_run src/*/launch_replay_run.py 2>/dev/null; ! grep -rq unimplemented:fn:launch_replay_run src/ && echo IMPL_OK_launch_replay_run → IMPL_OK_launch_replay_run (10-14)
+- [x] launch_replay_run · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/launch_replay_run/ -q 2>&1 | tail -1 && echo T3 → T3 (10-14)
+- [x] launch_replay_run · wired — 证据: bash -c grep -n "launch_replay_run(entry" fn_work/src/localize_console_assets/mount_console_extensions.py && cd fn_work && .venv/bin/python -m pytest -k replay_run -q 2>&1 | tail -1 && echo W3 → W3 (10-14)
+- [x] launch_replay_run · 清单进位 — 证据: bash -c grep -q "^| launch_replay_run | B26 | wired" fn_docs/implementation/functions.md && echo LO_launch_replay_run → LO_launch_replay_run (10-14)
 - [ ] launch_replay_run · commit — 预告: fn(launch_replay_run): wired 含四文档变更
 ## B26 批间门
 - [ ] B26 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）

@@ -30,7 +30,10 @@
   运行列表区（run-list 挂载点——GET /api/runs/summaries 元数据表格：时间/
   场景/样式/后端/状态/失效电平列+「查看报告」钻取链接+对比勾选框）与 R62
   跨轮对比区（comparison 挂载点——勾选运行集 POST /api/runs/compare 出对比
-  表+薄弱环节结论，与 R60 报告查看区共页协作）；
+  表+薄弱环节结论，与 R60 报告查看区共页协作）；data 页注入 R63 录音库页区
+  （dataset-library 区块——dataset-grid/filters 挂载点：GET /api/dataset
+  SigMF 真值对卡片+样式/日期过滤+索引未建提示与重建按钮，卡片「回放此条」
+  →POST /api/run/replay 一键回放（R64），轮询运行终态上屏）；
 - config['dry_run']=True→不拉起不检端口，返回 {'app', 'launched': False, 'port',
   'host'}（测试经 TestClient 直接打 create 路由）；
 - 真拉起序：先探端口占用→ConsoleError（dry_run 下不检）；再延迟 import uvicorn
@@ -43,6 +46,7 @@ import os
 import socket
 import threading
 
+from src.browse_dataset_library.dataset_area import build_dataset_area
 from src.edit_scenario_ui.edit_scenario_ui import edit_scenario_ui
 from src.list_run_summaries.run_list_area import build_run_list_area
 from src.load_scenario.load_scenario import ScenarioError, load_scenario
@@ -342,6 +346,17 @@ def serve_console(config: dict) -> dict:
             + "\n"
             + build_report_view_area()
             + "\n</body>",
+            1,
+        )
+        # R63 快速通道：录音库页区注入 data 页（dataset-library 区块——载入即
+        # fetch /api/dataset 出 SigMF 真值对卡片：样式/功率/时长/批次/运行来源
+        # 字段+样式/日期筛选（#filters 挂载点）+索引未建提示与「重建索引」按钮
+        # （POST /api/dataset/rebuild）；卡片「回放此条」按钮→POST /api/run/replay
+        # （R64 一键回放——经操控台 runner 发起，轮询 /api/runs/{id} 终态上屏）。
+        # 同 R57/R58/R60 口径：仅缺省装配路径注入，显式 static_pages 直通不注入。
+        static_pages["data.html"] = static_pages["data.html"].replace(
+            "</body>",
+            build_dataset_area() + "\n</body>",
             1,
         )
 

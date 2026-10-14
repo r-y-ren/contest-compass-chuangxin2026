@@ -16,6 +16,15 @@ R61 追加在册：list_run_summaries 报告中心元数据行端点——GET /a
 R62 追加在册：view_failure_comparison 跨轮失效对比端点——POST /api/runs/compare
 （body {'run_ids': [...]}→读各轮失效电平→compare_failure_boundaries 对比表+
 薄弱环节结论；无失效数据运行如实标注，全缺附「请选择其他运行」提示）。
+R63 追加在册：browse_dataset_library 数据集浏览两端点——GET /api/dataset
+（query 参数 style/date_from/date_to→index_dataset query 出 SigMF 真值对卡片，
+索引未建→missing 状态提示+重建入口标志不拦页）与 POST /api/dataset/rebuild
+（index_dataset rebuild 重建口径——runs_root=deps['report_root']，索引落
+report_root/dataset-index.json）。
+R64 追加在册：launch_replay_run 一键回放端点——POST /api/run/replay（body
+{'run_id': 录音条目标识}→索引定位条目→build_replay_scenario 装载期组装（损坏
+录音/声明缺失→400 错误信息进响应）→202+后台线程经 launch_replay_run(entry,
+deps['runner']) 发起，运行表/实时曲线/报告中心可见）。
 
 注意：本模块同 create_console_app，**不可**使用 `from __future__ import
 annotations`——路由处理器签名注解须在 def 时求值为真实类（FileResponse 是本函数
@@ -63,7 +72,10 @@ def mount_console_extensions(app, deps: dict):
     分隔），create_console_app 不再逐端点改动。在册批次：R56 vendor 资产路由；
     R60 serve_run_artifacts 运行产物三端点（report/plots/files）；R61
     list_run_summaries 运行摘要端点（GET /api/runs/summaries）；R62
-    view_failure_comparison 跨轮对比端点（POST /api/runs/compare）。
+    view_failure_comparison 跨轮对比端点（POST /api/runs/compare）；R63
+    browse_dataset_library 数据集浏览两端点（GET /api/dataset+POST
+    /api/dataset/rebuild）；R64 launch_replay_run 一键回放端点（POST
+    /api/run/replay）。
 
     Args:
         app: FastAPI 应用（须具备路由注册能力——get 装饰器+routes 路由表；
@@ -261,6 +273,175 @@ def mount_console_extensions(app, deps: dict):
         except ValueError as exc:  # 穿越形态等叶子形状拒绝→400 带指错
             raise AppError(str(exc), field="run_ids") from exc
 
-    # ---- R63–R74 后续批次注册块：到货批次按 R 号顺序在此逐批追加 ----
+    # ---- R63 browse_dataset_library：数据集浏览两端点 ----
+    # 语义核心在 src.browse_dataset_library.browse_dataset_library（纯函数——
+    # 经 index_dataset query 出 SigMF 真值对卡片+样式/日期过滤，卡片真值双源
+    # =索引条目+来源运行目录场景副本；索引未建→missing 状态提示+重建入口标志，
+    # 不报错拦页）；本路由层只做 query 参数透传与 QueryError→400。索引口径：
+    # runs_root=deps['report_root']（操控台运行目录根即 runs/<id>/result.json+
+    # recordings/ 的扫描对象），index_path=report_root/dataset-index.json
+    # （dataset_index_path 派生——R63/R64 端点共用唯一口径）。
+
+    def _r63_paths():
+        """R63/R64 端点的 (index_path, runs_root) 派生（deps 必查键，同 R60 口径）。"""
+        from src.browse_dataset_library.browse_dataset_library import dataset_index_path
+
+        root = deps.get("report_root")
+        if not isinstance(root, str) or not root:
+            raise AppError(
+                f"deps['report_root'] 未注入或非非空 str（R63 数据集浏览端点依赖），"
+                f"实际: {root!r}",
+                field="report_root",
+            )
+        return dataset_index_path(root), root
+
+    @app.get("/api/dataset")
+    async def browse_dataset(
+        style: "str | None" = None,
+        date_from: "str | None" = None,
+        date_to: "str | None" = None,
+    ) -> dict:
+        # 延迟 import：与 R60-R62 块同口径（注册期不加载服务模块，请求期才 import）。
+        from src.index_dataset.index_dataset import QueryError
+
+        from src.browse_dataset_library.browse_dataset_library import (
+            browse_dataset_library,
+        )
+
+        index_path, runs_root = _r63_paths()
+        query: dict = {}
+        if isinstance(style, str) and style.strip():
+            query["style"] = style.strip()
+        if isinstance(date_from, str) and date_from.strip():
+            query["date_from"] = date_from.strip()
+        if isinstance(date_to, str) and date_to.strip():
+            query["date_to"] = date_to.strip()
+        try:
+            return browse_dataset_library(
+                query or None, index_path=index_path, runs_root=runs_root
+            )
+        except QueryError as exc:  # 条件非法（未知键/日期反序等）→400 带指错
+            raise AppError(str(exc), field="query") from exc
+
+    @app.post("/api/dataset/rebuild")
+    async def rebuild_dataset_index() -> dict:
+        # 重建口径归 index_dataset('rebuild')：扫描 runs_root 各 run 目录
+        # （result.json+recordings），损坏运行 skipped 计数不短路；本层薄转接。
+        from src.index_dataset.index_dataset import index_dataset
+
+        index_path, runs_root = _r63_paths()
+        outcome = index_dataset(
+            "rebuild", index_path=index_path, runs_root=runs_root
+        )
+        return {
+            "index_status": "ready",
+            "rebuilt": outcome["rebuilt"],
+            "skipped": outcome["skipped"],
+            "index_path": index_path,
+        }
+
+    # ---- R64 launch_replay_run：一键回放端点 ----
+    # body {'run_id': str}（录音条目标识——数据页卡片「回放此条」的载荷）→
+    # 索引 list 定位条目→build_replay_scenario 装载期组装（损坏录音/声明缺失
+    # →ScenarioError 转 400，错误信息进响应上屏——不进后台线程后知后觉）→
+    # 202+后台线程经 launch_replay_run(entry, deps['runner']) 发起（与 /api/run
+    # 同款执行器与运行表：app.state.runs 可轮询，实时曲线/报告中心可见）。
+    # POST 路径不与 GET /api/runs/{run_id} 冲突，无需路由序手术。
+
+    import threading as _threading
+    import uuid as _uuid
+    from datetime import datetime as _datetime
+    from datetime import timezone as _timezone
+
+    from fastapi.responses import JSONResponse as _JSONResponse
+
+    @app.post("/api/run/replay")
+    async def replay_run(request: Request) -> "_JSONResponse":
+        # 延迟 import：与 R60-R63 块同口径（请求期才 import 服务模块）。
+        from src.index_dataset.index_dataset import index_dataset
+
+        from src.launch_replay_run.build_replay_scenario import (
+            ScenarioError,
+            build_replay_scenario,
+        )
+
+        try:
+            body = await request.json()
+        except Exception as exc:  # JSONDecodeError/空 body 等→400 field='body'
+            raise AppError(
+                f"请求体须为 JSON 对象 {{'run_id': str}}: {type(exc).__name__}: {exc}",
+                field="body",
+            ) from exc
+        if not isinstance(body, dict):
+            raise AppError(
+                f"请求体须为 JSON 对象，实际 {type(body).__name__}: {body!r}",
+                field="body",
+            )
+        run_id = body.get("run_id")
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise AppError(
+                f"run_id 必须为非空 str（录音条目标识——数据页卡片运行来源），"
+                f"实际: {run_id!r}",
+                field="run_id",
+            )
+        run_id = run_id.strip()
+
+        # 索引定位条目（list 全量→run_id 精确匹配；query 无 run_id 条件，list 即口径）
+        index_path, runs_root = _r63_paths()
+        entries = index_dataset(
+            "list", index_path=index_path, runs_root=runs_root
+        )["entries"]
+        entry = next(
+            (item for item in entries if item.get("run_id") == run_id), None
+        )
+        if entry is None:
+            raise AppError(
+                f"录音条目不在库: run_id={run_id!r}（索引 {len(entries)} 条——"
+                f"先 POST /api/dataset/rebuild 重建后再回放）",
+                field="run_id",
+            )
+        # 装载期组装（请求内完成——损坏录音/声明缺失的拒绝信息进响应）
+        try:
+            build_replay_scenario(entry)
+        except ScenarioError as exc:
+            raise AppError(
+                f"回放场景组装失败（录音损坏或安全声明缺失）: {exc}",
+                field="run_id",
+            ) from exc
+
+        replay_uuid = _uuid.uuid4().hex[:8]
+        # 启动即复位共享停机旗标（与 /api/run 同口径——上一轮 /api/stop 的遗留
+        # 信号不牵连本次回放）。
+        deps["stop_flag"]["flag"] = False
+        app.state.runs[replay_uuid] = {
+            "run_id": replay_uuid,
+            "status": "running",
+            "started_at": _datetime.now(_timezone.utc).isoformat(),
+            "replay_of": run_id,
+        }
+
+        def _replay_in_background() -> None:
+            # launch/runner 一切异常只落运行表——服务绝不因单次回放炸掉。
+            from src.launch_replay_run.launch_replay_run import launch_replay_run
+
+            try:
+                outcome = launch_replay_run(entry, deps["runner"])
+                app.state.runs[replay_uuid]["status"] = "done"
+                app.state.runs[replay_uuid]["result"] = outcome
+            except BaseException as exc:  # noqa: BLE001 - 后台线程隔离边界
+                app.state.runs[replay_uuid]["status"] = "failed"
+                app.state.runs[replay_uuid]["error"] = f"{type(exc).__name__}: {exc}"
+
+        _threading.Thread(
+            target=_replay_in_background,
+            daemon=True,
+            name=f"console-replay-{replay_uuid}",
+        ).start()
+        return _JSONResponse(
+            status_code=202,
+            content={"run_id": replay_uuid, "replay_of": run_id},
+        )
+
+    # ---- R65–R74 后续批次注册块：到货批次按 R 号顺序在此逐批追加 ----
 
     return app

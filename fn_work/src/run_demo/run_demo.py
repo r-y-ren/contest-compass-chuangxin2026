@@ -295,8 +295,23 @@ def _explicit_backend_name(name: str | None, scenario: dict) -> str | None:
     return None
 
 
+#: replay 后端专用透传键（R64 快速通道，登记于责任文档 R64 块引言）：场景携带
+#: sigmf_path/speed 时按 backend 类型透传给 replay 后端工厂（open_replay_backend）
+#: ——此前仅透传 freq_hz，replay 后端必需的录音路径无传入路径，后端实际不可用。
+_REPLAY_PARAM_KEYS = ("sigmf_path", "speed")
+
+
 def _backend_params(scenario: dict) -> dict:
-    """后端打开参数：场景 freq_hz 为正有限实数时透传（sim 域校验归后端工厂）。"""
+    """后端打开参数：按 backend 类型透传（R64 快速通道改造点，向后兼容）。
+
+    - freq_hz 为正有限实数时透传（sim/b210 口径不变，域校验归后端工厂）；
+    - backend='replay'（strip().lower()）时另透传 replay 专用键：
+      sigmf_path 须为非空 str（缺失→ValueError 早拒——replay 后端无 SigMF
+      无从打开，错误消息早暴露）；speed 在场且非 None 即透传（有限实数
+      ≥0.1 的域校验归 open_replay_backend，与 freq_hz 同口径）；
+    - 其余 backend 不透传 replay 键（非 replay 场景行为逐字不变）。
+    """
+    params: dict = {}
     freq = scenario.get("freq_hz")
     if (
         isinstance(freq, Real)
@@ -304,8 +319,21 @@ def _backend_params(scenario: dict) -> dict:
         and math.isfinite(float(freq))
         and float(freq) > 0.0
     ):
-        return {"freq_hz": float(freq)}
-    return {}
+        params["freq_hz"] = float(freq)
+    declared = scenario.get("backend")
+    if isinstance(declared, str) and declared.strip().lower() == "replay":
+        sigmf_path = scenario.get("sigmf_path")
+        if not isinstance(sigmf_path, str) or not sigmf_path.strip():
+            raise ValueError(
+                "backend='replay' 的场景必须携带 'sigmf_path'（非空 str，"
+                ".sigmf-meta 路径——replay 后端打开的录音真值对），实际: "
+                f"{sigmf_path!r}"
+            )
+        params["sigmf_path"] = sigmf_path
+        speed = scenario.get("speed")
+        if speed is not None:
+            params["speed"] = speed
+    return params
 
 
 def _sim_events(scenario: dict) -> list:
@@ -577,12 +605,31 @@ def _normalize_scenario_object(scenario: dict) -> dict:
         raise LoadScenarioError(
             f"场景必须为 dict（完整场景对象），实际 {type(scenario).__name__}: {scenario!r}"
         )
+    # R64 快速通道配套（登记于 R64 块引言改造点）：backend='replay' 的场景携
+    # sigmf_path/speed 两个 replay 专用键——schema 不在册，按信封键口径摘出
+    # （schema 不校验），校验/规范化后原样落位顶层（_backend_params 消费）。
+    # 非 replay 场景不摘——仍按未知键拒绝，既有拒绝行为向后兼容不放松。
+    declared_backend = scenario.get("backend")
+    replay_params = (
+        {
+            key: scenario[key]
+            for key in _REPLAY_PARAM_KEYS
+            if key in scenario
+        }
+        if isinstance(declared_backend, str)
+        and declared_backend.strip().lower() == "replay"
+        else {}
+    )
     nested = scenario.get("declarations")
     declarations = nested if isinstance(nested, dict) else {}
     shielded_box = declarations.get("shielded_box", scenario.get("shielded_box"))
     dut_scope = declarations.get("dut_scope", scenario.get("dut_scope"))
     bands = scenario.get("bands")
-    scenario_fields = {k: v for k, v in scenario.items() if k not in _ENVELOPE_KEYS}
+    scenario_fields = {
+        k: v
+        for k, v in scenario.items()
+        if k not in _ENVELOPE_KEYS and k not in replay_params
+    }
 
     errors = validate_scenario_schema(scenario_fields)
     if errors:
@@ -605,6 +652,7 @@ def _normalize_scenario_object(scenario: dict) -> dict:
     normalized["bands"] = bands
     normalized["shielded_box"] = shielded_box
     normalized["dut_scope"] = dut_scope
+    normalized.update(replay_params)  # R64：replay 专用键信封式落位（schema 不在册）
     return normalized
 
 
