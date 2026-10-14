@@ -1028,7 +1028,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] launch_replay_run · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/launch_replay_run/ -q 2>&1 | tail -1 && echo T3 → T3 (10-14)
 - [x] launch_replay_run · wired — 证据: bash -c grep -n "launch_replay_run(entry" fn_work/src/localize_console_assets/mount_console_extensions.py && cd fn_work && .venv/bin/python -m pytest -k replay_run -q 2>&1 | tail -1 && echo W3 → W3 (10-14)
 - [x] launch_replay_run · 清单进位 — 证据: bash -c grep -q "^| launch_replay_run | B26 | wired" fn_docs/implementation/functions.md && echo LO_launch_replay_run → LO_launch_replay_run (10-14)
-- [ ] launch_replay_run · commit — 预告: fn(launch_replay_run): wired 含四文档变更
+- [x] launch_replay_run · commit — 证据: bash -c git log --format=%h -1 && echo C3 → C3 (10-14)
 ## B26 批间门
 - [ ] B26 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
 - [ ] B26 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零

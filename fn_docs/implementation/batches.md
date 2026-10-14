@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B26 | browse_dataset_library, build_replay_scenario, launch_replay_run | 三函数 wired + dataset_view_e2e/replay_run 绿 | 数据与回放（R63+R64）；改造点：run_demo._backend_params 透传 replay 参数 |
-| B27 | launch_classifier_training, view_cv_evaluation, infer_style_entry | 三函数 wired + ai_train_view/ai_eval_view/ai_infer_view 绿 | AI 三件（R65–R67） |
+| ▶ B27 | launch_classifier_training, view_cv_evaluation, infer_style_entry | 三函数 wired + ai_train_view/ai_eval_view/ai_infer_view 绿 | AI 三件（R65–R67） |
 | B28 | demo_emc_flows, demo_instrument_panels | 两函数 wired + emc_view/instruments_view 绿 | EMC 与仪表（R68+R69）；改造点：execute_scenario emc 子类型分派 |
 | B29 | view_calibration_status, view_ledger_audit | 两函数 wired + calibration_view/ledger_audit_view 绿 | 标定与台账（R70+R71），只读口径 |
 | B30 | demo_sitl_bridge, demo_rl_policy, demo_rff_pipeline | 三函数 wired + sitl_view/rl_view/rff_view 绿 | 二期演示入口（R72–R74） |
@@ -62,3 +61,4 @@
 | 10-14 | B25 资产件补注（快速通道） | 页区资产函数 report_view_area/run_list_area/comparison_area（B25）与 build_realtime_charts（B24）为各 R 块实现细节件（调用方=serve_console 装配/mount 注册），responsibility 块引言由 B31 旧块回登记统一补注 |
 | 10-14 | B25 档案勘误 Ruling（评审 C1/I1/对抗 I-2） | ad9eb38 声称的端点注册+页区实际落 8148d85（per-fn add 范围执行差），95cfe63 wired 证据前指 7b4854f——两处提交级归属失真以本 Ruling 收口，不重写历史；计数 14/12 假数已正（13/13+通道 8） |
 | 10-14 | B25 XSS 修复申报 | 渲染层自证安全三件：源转义（> 引用标记还原）+URL 方案守卫（javascript:/data:/vbscript:→#、srcdoc 剥离）+零外链断言保持；全链双向探针在案（旧渲染器污染对照）；report_view_area 注释改如实 |
+| 10-14 | B26 申报 | replay 场景 scenario_type=custom（replay 无发射能力，gb42590 start_tx 不可用——监测路按录制时间轴回放）；launch_replay_run import 副作用注册 replay 后端；_backend_params 按类型透传（向后兼容） |
