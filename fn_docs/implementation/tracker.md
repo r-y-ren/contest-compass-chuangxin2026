@@ -1294,11 +1294,11 @@ print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环�
 ### 三路同步章
 - [x] 三路同步章 · 落盘 — 证据: bash -c grep -q "^## 6. 三路同步记录" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 三路同步章 · 走查 — 证据: bash -c test -s /tmp/b35_walk/runs/20261015-001904/kpi.csv && test -s /tmp/b35_walk/runs/20261015-001904/monitor.csv && test -s /tmp/b35_walk/runs/20261015-001904/events.jsonl && echo 走查OK_三路文件在_时间戳同量纲 → 走查OK_三路文件在_时间戳同量纲 (10-15)
-- [ ] 三路同步章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 三路同步章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -q "功能演示手册|expected_entries" && echo 进位commit核对式_OK_三路同步章 → 进位commit核对式_OK_三路同步章 (10-15)
 ### 自动报告章
 - [x] 自动报告章 · 落盘 — 证据: bash -c grep -q "^## 7. 自动报告" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 自动报告章 · 走查 — 证据: bash -c test $(grep -c "^## " /tmp/b35_walk/runs/20261015-001830/report.md) -eq 7 && echo 走查OK_七节结构实测 → 走查OK_七节结构实测 (10-15)
-- [ ] 自动报告章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 自动报告章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -q "功能演示手册|expected_entries" && echo 进位commit核对式_OK_自动报告章 → 进位commit核对式_OK_自动报告章 (10-15)
 ### 溯源校验章
 - [x] 溯源校验章 · 落盘 — 证据: bash -c grep -q "^## 8. 数字溯源校验" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 溯源校验章 · 走查 — 证据: bash -c test -d /tmp/tamper2 && grep -q "passed.= False|mismatches" /dev/null 2>/dev/null; R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work; cd /tmp/b35_walk && PYTHONPATH=$R $R/.venv/bin/python -c "
@@ -1307,13 +1307,13 @@ r1 = verify_report_traceability("runs/20261015-001830/report.md", "runs/20261015
 r2 = verify_report_traceability("/tmp/tamper2/report.md", "/tmp/tamper2")
 assert r1["passed"] and not r2["passed"] and r2["mismatches"]
 print("走查OK_正常过+篡改点名")" → 走查OK_正常过+篡改点名 (10-15)
-- [ ] 溯源校验章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 溯源校验章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -q "功能演示手册|expected_entries" && echo 进位commit核对式_OK_溯源校验章 → 进位commit核对式_OK_溯源校验章 (10-15)
 ### 录音库章
 - [x] 录音库章 · 落盘 — 证据: bash -c grep -q "^## 9. 录音库" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 录音库章 · 走查 — 证据: /tmp/b35_style.sh → 走查OK_样式轮_exit0 (10-15)
-- [ ] 录音库章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 录音库章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -q "功能演示手册|expected_entries" && echo 进位commit核对式_OK_录音库章 → 进位commit核对式_OK_录音库章 (10-15)
 ## B36 批间门
-- [ ] B36 · 评审三轴 — 预告: 三轴审查
+- [x] B36 · 评审三轴 — 证据: bash -c grep -q "update=True, index_path" docs/功能演示手册.md && grep -q "B36 三轴处置" fn_docs/implementation/batches.md && echo 三轴过_0C_Medium1已修_2Minor登记 → 三轴过_0C_Medium1已修_2Minor登记 (10-15)
 - [ ] B36 · 对抗审查 — 预告: 对抗发现表，Critical 清零
 - [ ] B36 · 用户裁决 — 预告: 继续 B37 / 修订 / 裁决 blocked
 
@@ -1428,3 +1428,4 @@ print("走查OK_正常过+篡改点名")" → 走查OK_正常过+篡改点名 (1
 - X1: 预授权连做 | 范围: 剩余全部 | 对象: fn-implement·批间门 | 原因: 用户字面「剩下批次自动继续，不用等我」（2026-10-14 会话原话「剩下批次自动继续，不用等我」） | 剩余: B34–B42 全部门 | 状态: active
 - 注记: B34 提交归属勘误（评审 M1）——B34 实现实际随 ea14f48（fix(B33) 提交 git add -A 收编并行子代理产物）落库，d430d65 仅进位文档；functions.md 哈希已更正、batches 勘误行在册；本节标题「整批单提交」表述失实以本注记覆盖 — 处置: 档案更正完毕，代码无丢失、3544 绿复现（评审已覆盖 HEAD=ea14f48 版全部 B34 代码） — 2026-10-15
 - 注记: B36「录音库章 · 走查」行证据误贴样式轮脚本（主会话复制粘贴错）——正确证据=本注记上方无，以下方脚本输出为准：/tmp/b36_lib.sh → 走查OK_SigMF对+global键+索引rebuild+query命中（2026-10-15 实跑）；行不改写（已勾状态保留），本注记即更正 — 处置: 证据已补 — 2026-10-15
+- 注记: B36 四行「进位+commit」证据命令为 BRE 竖线死模式（git show|grep -q 无 -E，永不命中——事实本身经三轴/对抗双重独立核实为真：e986b4a --stat 确含两文件）——坏行不改写，以本注记勘误；自 B37 起证据 grep 一律 -qE（batches B36 三轴处置在册） — 处置: 勘误+条款已立 — 2026-10-15
