@@ -53,3 +53,4 @@
 | 10-13 | B24 | edit_scenario_ui（8+e2e 1）+render_triple_stream_charts（27）+stream_realtime_console（22+e2e 2 真sim）+harden_emergency_stop（12+族24）；改造点：serve_console runner 挂 hub+图区注入、create_console_app 停止路由委托；随批整改 I1 ws 防线+N1 守卫四形态 | R57-R59 验收全绿（scenario_editor_e2e/realtime_streams_e2e/emergency_stop）；全套件 3111 零回归；commits b125d10/a794e50/962e9f8/6c90e2b |
 | 10-14 | B25 | render_report_html（31）+serve_run_artifacts（40+e2e 2）+list_run_summaries（14+e2e 3）+view_failure_comparison（13）；三端点+两页区+路由序手术（summaries 先于参数路由） | R60-R62 验收绿（report_view/report_center_e2e/boundary_view 族）；全套件 3225 零回归；commits 95cfe63/7b4854f/ad9eb38/8148d85 |
 | 10-14 | B26 | browse_dataset_library（14+e2e 2）+build_replay_scenario（12）+launch_replay_run（21 含端到端）；R64 改造点 _backend_params 透传+数据页区 | R63/R64 验收绿（dataset_view_e2e/replay_run）；全套件 3296 零回归；commits 3885ed3/d755baa/9dc39e3 |
+| 10-14 | B27 | 三函数（ai_train/eval/infer_view 11/10/13）+AI 页区+围栏 5 例+e2e 整改 | R65-R67 验收绿；全套件 3336 零回归；整批单提交 6097ba7 |

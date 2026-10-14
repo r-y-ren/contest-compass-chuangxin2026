@@ -140,9 +140,9 @@
 | browse_dataset_library | B26 | wired 10-14 | pytest tests/browse_dataset_library/ → 14 passed；-k dataset_view_e2e → 2 passed（录制→建库→过滤真链）；端点 mount R63 块+dataset 页区（端点/页区/e2e 实落 9dc39e3——证据锚点勘误见 batches 10-14 Ruling） | 3885ed3 |
 | build_replay_scenario | B26 | wired 10-14 | pytest → 12 passed（组装契约/声明红线全查/损坏拒）；调用点 launch_replay_run | d755baa |
 | launch_replay_run | B26 | wired 10-14 | pytest tests/launch_replay_run/ → 21 passed；-k replay_run → 21 passed（录制→回放 exit 0 端到端含浏览器链）；挂载 mount_console_extensions.py:428；全套件 3296 | 9dc39e3 |
-| launch_classifier_training | B27 | wired 10-14 | -k ai_train_view → 11 passed（dry_run 端到端+拒训原文上屏+模型列表）；端点 mount R65 块+train 页区 | B27批 |
-| view_cv_evaluation | B27 | wired 10-14 | -k ai_eval_view → 10 passed（矩阵/Macro-F1/三旗标/警告回显/EvalError 400）；端点 mount R66 块+eval 页区 | B27批 |
-| infer_style_entry | B27 | wired 10-14 | -k ai_infer_view → 13 passed（tone 样本正确标签 hit=True+模型缺失提示态）；端点 mount R67 块+infer 页区 | B27批 |
+| launch_classifier_training | B27 | wired 10-14 | -k ai_train_view → 11 passed（dry_run 端到端+拒训原文上屏+模型列表）；端点 mount R65 块+train 页区 | 6097ba7 |
+| view_cv_evaluation | B27 | wired 10-14 | -k ai_eval_view → 10 passed（矩阵/Macro-F1/三旗标/警告回显/EvalError 400）；端点 mount R66 块+eval 页区 | 6097ba7 |
+| infer_style_entry | B27 | wired 10-14 | -k ai_infer_view → 13 passed（tone 样本正确标签 hit=True+模型缺失提示态）；端点 mount R67 块+infer 页区 | 6097ba7 |
 | demo_emc_flows | B28 | stub 10-13 | pytest -k emc_view | — |
 | demo_instrument_panels | B28 | stub 10-13 | pytest -k instruments_view | — |
 | view_calibration_status | B29 | stub 10-13 | pytest -k calibration_view | — |
