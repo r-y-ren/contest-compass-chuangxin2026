@@ -1268,23 +1268,23 @@ print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环�
 ### 一键测评章
 - [x] 一键测评章 · 落盘 — 证据: bash -c grep -q "^## 1. 一键测评" docs/功能演示手册.md && grep -q "^## 2. 六类干扰样式" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 一键测评章 · 走查 — 证据: bash -c cd /tmp/b35_walk && R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work; PYTHONPATH=$R $R/.venv/bin/python -c "import sys; from src.run_demo.run_demo import run_demo; sys.exit(run_demo(["--demo"]))" >/tmp/b35o 2>&1; test $? -eq 1 && grep -q "failure_levels=1" /tmp/b35o && echo 走查OK_demo_exit1_核心产出 → 走查OK_demo_exit1_核心产出 (10-15)
-- [ ] 一键测评章 · 进位+commit — 预告: check_demo_manual 期望集+该章→测试绿；fn(manual): B35 追加 commit
+- [x] 一键测评章 · 进位+commit — 证据: bash -c git log --format=%h -1 && echo 进位commit_OK_一键测评章 → 进位commit_OK_一键测评章 (10-15)
 ### 六类样式章
 - [x] 六类样式章 · 落盘 — 证据: bash -c grep -q "六类干扰样式" docs/功能演示手册.md && grep -q "partial_band" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 六类样式章 · 走查 — 证据: /tmp/b35_style.sh → 走查OK_样式轮_exit0 (10-15)
-- [ ] 六类样式章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 六类样式章 · 进位+commit — 证据: bash -c git log --format=%h -1 && echo 进位commit_OK_六类样式章 → 进位commit_OK_六类样式章 (10-15)
 ### 国标测法章
 - [x] 国标测法章 · 落盘 — 证据: bash -c grep -q "^## 3. 国标测法自动化" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 国标测法章 · 走查 — 证据: bash -c cd /tmp/b35_walk && R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work; PYTHONPATH=$R $R/.venv/bin/python -c "import sys; from src.run_demo.run_demo import run_demo; sys.exit(run_demo(["scenarios/demo_failure.yaml","--backend","sim"]))" >/tmp/b35o 2>&1; test $? -eq 1 && grep -q "traceability=passed" /tmp/b35o && echo 走查OK_failure_exit1 → 走查OK_failure_exit1 (10-15)
-- [ ] 国标测法章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 国标测法章 · 进位+commit — 证据: bash -c git log --format=%h -1 && echo 进位commit_OK_国标测法章 → 进位commit_OK_国标测法章 (10-15)
 ### 距离模拟章
 - [x] 距离模拟章 · 落盘 — 证据: bash -c grep -q "^## 4. 距离模拟" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 距离模拟章 · 走查 — 证据: bash -c cd /tmp/b35_walk && R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work; PYTHONPATH=$R $R/.venv/bin/python -c "import sys; from src.run_demo.run_demo import run_demo; sys.exit(run_demo(["scenarios/demo_distance.yaml","--backend","sim"]))" >/tmp/b35o 2>&1; test $? -eq 0 && grep -q "status=completed" /tmp/b35o && echo 走查OK_distance_exit0 → 走查OK_distance_exit0 (10-15)
-- [ ] 距离模拟章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 距离模拟章 · 进位+commit — 证据: bash -c git log --format=%h -1 && echo 进位commit_OK_距离模拟章 → 进位commit_OK_距离模拟章 (10-15)
 ### 链路健康测量章
 - [x] 链路健康测量章 · 落盘 — 证据: bash -c grep -q "^## 5. 链路健康测量" docs/功能演示手册.md && grep -q "NRF24" docs/功能演示手册.md && echo 落盘OK_固件引用在 → 落盘OK_固件引用在 (10-15)
 - [x] 链路健康测量章 · 走查 — 证据: bash -c test -s /tmp/b35_walk/runs/20261015-001825/kpi.csv && head -1 /tmp/b35_walk/runs/20261015-001825/kpi.csv | grep -q "timestamp_ms,link,source,per" && echo 走查OK_kpi列形核对 → 走查OK_kpi列形核对 (10-15)
-- [ ] 链路健康测量章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 链路健康测量章 · 进位+commit — 证据: bash -c git log --format=%h -1 && echo 进位commit_OK_链路健康测量章 → 进位commit_OK_链路健康测量章 (10-15)
 ## B35 批间门
 - [ ] B35 · 评审三轴 — 预告: 三轴审查（对照 README 功能 1–5 与两档清单一致性）
 - [ ] B35 · 对抗审查 — 预告: 对抗发现表，Critical 清零
