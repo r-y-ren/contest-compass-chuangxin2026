@@ -68,3 +68,4 @@
 | 10-14 | B30 申报（网络中断续做） | 首派连接中断仍留半成品（同 B28 模式）——续做核实收全；sitl/rl/rff_area 三资产件（先例）；审计围栏 _r71_fence 对齐 replay 口径 |
 | 10-14 | B30 对抗中1低3转B31随批 | ①/api/demo/sitl run_id 加 report_root 围栏（绝对路径被 os.path.join 丢弃→界外读，对齐 R60/R71 口径）——**B31 已落地**（demo_sitl_bridge realpath+commonpath 围栏，ValueError→端点 400 field='run_id'，+2 测）；②calibration demo field 分流库层已正（HTTP 层 FastAPI 先 coerce，不追）；③围栏 TOCTOU 理论窗（演示台威胁模型不追）；④RL converged 判据弱（已如实标注，不追）。另 B24 三观察（tracker 注记）同批顺修：/api/run 启动复位清 stop_flag['backend'] 旧句柄（+1 测）、编辑器模式切换/YAML 重贴清 #editor-errors 陈旧警示（+1 测）、急停四分支文案字符串级测试（+1 测） |
 | 10-14 | B31 收尾申报 | fn-review 四 Important 就此闭环（R75 承接兑现）；资产件 14+build_realtime_charts 补注入域二十引言；域二十 25/25 wired 桩归零 |
+| 10-14 | B31 对抗中1低2处置 | ①fn-check venv 架空修复：.venv/bin/pytest 控制台脚本重建（force-reinstall），fn-check②现走 venv 口径 3411+5 全部通过（环境域修复，gitignore 域登记）；②低 2（R72 run_id="." 过栏、audit 伪块头同号顶替）记为已知限界交 fn-close 终检呈报 |

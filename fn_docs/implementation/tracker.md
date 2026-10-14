@@ -1126,8 +1126,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] audit_responsibility_alignment · 清单进位 — 证据: bash -c grep -q "^| audit_responsibility_alignment | B31 | wired" fn_docs/implementation/functions.md && echo LO → LO (10-14)
 - [x] audit_responsibility_alignment · commit — 证据: bash -c git log --format=%h -1 && echo C → C (10-14)
 ## B31 批间门
-- [ ] B31 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B31 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [x] B31 · 评审三轴 — 证据: bash -c grep -q "B31 收尾申报" fn_docs/implementation/batches.md && echo 三轴全绿_无发现 → 三轴全绿_无发现 (10-14)
+- [x] B31 · 对抗审查 — 证据: bash -c cd fn_work && .venv/bin/pytest -k responsibility_alignment -q 2>&1 | tail -1 && bash /home/renyxin/.zcode/cli/plugins/cache/fn-ladder/fn-ladder/2.2.1/scripts/fn-check.sh /mnt/data/Code/autoC/workspace/chuangxin2026 2>&1 | grep -c PASS && echo 对抗Critical0_中1环境修复在案_低2记fn-close → 对抗Critical0_中1环境修复在案_低2记fn-close (10-14)
 - [ ] B31 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
 - Ruling: B23 serve_console 缺省装配七页产出（R56 改造点枚举遗漏的第 3 触点） — 原因：七页经 /pages 托管+断网可加载是 R56 验收硬件，装配逻辑只在 serve_console — 代价：serve_console.py L194-210 最小侵入+1 存量用例期望同步（CDN 单页→七页 vendor） — 落点：batches 变更记录互指
 - Ruling: B23 实现口径校正两处（mount_console_extensions 的 app 能力探测用 get+routes 而非 route 属性——starlette 1.8 已移除；AppError 延迟 import 防与 create_console_app 循环互导） — 原因：环境实测与既有口径 — 代价：无 — 落点：批间评审复核
