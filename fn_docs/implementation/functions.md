@@ -123,7 +123,7 @@
 | run_rl_policy | B20 | wired 10-12 | 13 组；Q-learning+回退 | 91bba33 |
 | run_rff_pipeline | B20 | wired 10-12 | 7 组；端到端 F1 1.0 | 2b3917e |
 | execute_scenario | B21 | wired 10-12 | 18 passed；四类型分派 | 471e6bb |
-| run_demo | B21 | wired 10-12 | 23 passed；CLI 总装+真 --demo 0 退出 | 857f436 |
+| run_demo | B21 | wired 10-12 | 23 passed；CLI 总装（--demo 口径后经 1478365 改为中段失效触发 exit 1=核心产出演示，终检道②-B 实测锚定） | 857f436 |
 
 <!-- 演进周期追加（2026-10-13，域二十 25 函数） -->
 | render_console_navigation | B23 | wired 10-13 | pytest tests/localize_console_assets/test_render_console_navigation.py → 41 passed；调用点 render_console_pages.py:345；存量 108 passed 无回归 | b72b261 |
