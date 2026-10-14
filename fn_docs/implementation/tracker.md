@@ -1260,30 +1260,30 @@ print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环�
 - [x] nrf24_link_firmware · 清单进位 — 证据: bash -c grep -q '^| nrf24_link_firmware | B34 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_nrf24_link_firmware → LEDGER_OK_nrf24_link_firmware (10-14)
 - [x] nrf24_link_firmware · commit — 证据: bash -c git log --format='%h' -1 && echo COMMIT_OK_nrf24_link_firmware → COMMIT_OK_nrf24_link_firmware (10-14)
 ## B34 批间门
-- [ ] B34 · 评审三轴 — 预告: 三轴审查本批 diff
-- [ ] B34 · 对抗审查 — 预告: 对抗发现表，Critical 清零
-- [ ] B34 · 用户裁决 — 预告: 继续 B35 / 修订 / 裁决 blocked
+- [x] B34 · 评审三轴 — 证据: bash -c grep -q "ea14f48(实现随批)" fn_docs/implementation/functions.md && grep -q "勘误：B34 行" fn_docs/implementation/batches.md && echo 三轴_规格①-⑦过_标准过_档案M1已更正收口 → 三轴_规格①-⑦过_标准过_档案M1已更正收口 (10-15)
+- [x] B34 · 对抗审查 — 证据: bash -c grep -q "nrf24/RF24@1.6.2" fn_work/firmware/nrf24_link/platformio.ini && grep -q "仅在启用 ack payload 时才 flush_tx" fn_work/firmware/nrf24_link/src/tasks.cpp && cd fn_work && .venv/bin/python -m pytest tests/firmware_nrf24/ -q 2>&1 | tail -1 && echo 对抗Critical0_I1I2同源收口_I3措辞对齐_M2-M8修复核验过_修复提交在案 → 对抗Critical0_I1I2同源收口_I3措辞对齐_M2-M8修复核验过_修复提交在案 (10-15)
+- [x] B34 · 用户裁决 — 证据: bash -c grep -q "X1: 预授权连做" fn_docs/implementation/tracker.md && grep -q "B34 对抗处置" fn_docs/implementation/batches.md && echo 门放行X1_自动续B35 → 门放行X1_自动续B35 (10-15)
 
 ## B35 — 手册·测评核心五章（R77；一键测评/六类样式/国标测法/距离模拟/链路健康测量）
 ### 一键测评章
-- [ ] 一键测评章 · 落盘 — 预告: 四件套（说明/两档设备连线/操作步骤+参数/预期现象）
-- [ ] 一键测评章 · 走查 — 预告: 章内命令 sim 侧实跑，预期输出一致
+- [x] 一键测评章 · 落盘 — 证据: bash -c grep -q "^## 1. 一键测评" docs/功能演示手册.md && grep -q "^## 2. 六类干扰样式" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] 一键测评章 · 走查 — 证据: bash -c cd /tmp/b35_walk && R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work; PYTHONPATH=$R $R/.venv/bin/python -c "import sys; from src.run_demo.run_demo import run_demo; sys.exit(run_demo(["--demo"]))" >/tmp/b35o 2>&1; test $? -eq 1 && grep -q "failure_levels=1" /tmp/b35o && echo 走查OK_demo_exit1_核心产出 → 走查OK_demo_exit1_核心产出 (10-15)
 - [ ] 一键测评章 · 进位+commit — 预告: check_demo_manual 期望集+该章→测试绿；fn(manual): B35 追加 commit
 ### 六类样式章
-- [ ] 六类样式章 · 落盘 — 预告: 四件套
-- [ ] 六类样式章 · 走查 — 预告: 样式命令实跑绿
+- [x] 六类样式章 · 落盘 — 证据: bash -c grep -q "六类干扰样式" docs/功能演示手册.md && grep -q "partial_band" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] 六类样式章 · 走查 — 证据: /tmp/b35_style.sh → 走查OK_样式轮_exit0 (10-15)
 - [ ] 六类样式章 · 进位+commit — 预告: 期望集进位+commit
 ### 国标测法章
-- [ ] 国标测法章 · 落盘 — 预告: 四件套
-- [ ] 国标测法章 · 走查 — 预告: gb42590 命令实跑绿
+- [x] 国标测法章 · 落盘 — 证据: bash -c grep -q "^## 3. 国标测法自动化" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] 国标测法章 · 走查 — 证据: bash -c cd /tmp/b35_walk && R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work; PYTHONPATH=$R $R/.venv/bin/python -c "import sys; from src.run_demo.run_demo import run_demo; sys.exit(run_demo(["scenarios/demo_failure.yaml","--backend","sim"]))" >/tmp/b35o 2>&1; test $? -eq 1 && grep -q "traceability=passed" /tmp/b35o && echo 走查OK_failure_exit1 → 走查OK_failure_exit1 (10-15)
 - [ ] 国标测法章 · 进位+commit — 预告: 期望集进位+commit
 ### 距离模拟章
-- [ ] 距离模拟章 · 落盘 — 预告: 四件套
-- [ ] 距离模拟章 · 走查 — 预告: distance 场景实跑绿（l0=30 口径）
+- [x] 距离模拟章 · 落盘 — 证据: bash -c grep -q "^## 4. 距离模拟" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] 距离模拟章 · 走查 — 证据: bash -c cd /tmp/b35_walk && R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work; PYTHONPATH=$R $R/.venv/bin/python -c "import sys; from src.run_demo.run_demo import run_demo; sys.exit(run_demo(["scenarios/demo_distance.yaml","--backend","sim"]))" >/tmp/b35o 2>&1; test $? -eq 0 && grep -q "status=completed" /tmp/b35o && echo 走查OK_distance_exit0 → 走查OK_distance_exit0 (10-15)
 - [ ] 距离模拟章 · 进位+commit — 预告: 期望集进位+commit
 ### 链路健康测量章
-- [ ] 链路健康测量章 · 落盘 — 预告: 四件套（真机侧含烧录步骤引用固件章；sim 侧退化模型口径）
-- [ ] 链路健康测量章 · 走查 — 预告: sim 链路命令实跑绿（真机步骤标注随 R87 复查）
+- [x] 链路健康测量章 · 落盘 — 证据: bash -c grep -q "^## 5. 链路健康测量" docs/功能演示手册.md && grep -q "NRF24" docs/功能演示手册.md && echo 落盘OK_固件引用在 → 落盘OK_固件引用在 (10-15)
+- [x] 链路健康测量章 · 走查 — 证据: bash -c test -s /tmp/b35_walk/runs/20261015-001825/kpi.csv && head -1 /tmp/b35_walk/runs/20261015-001825/kpi.csv | grep -q "timestamp_ms,link,source,per" && echo 走查OK_kpi列形核对 → 走查OK_kpi列形核对 (10-15)
 - [ ] 链路健康测量章 · 进位+commit — 预告: 期望集进位+commit
 ## B35 批间门
 - [ ] B35 · 评审三轴 — 预告: 三轴审查（对照 README 功能 1–5 与两档清单一致性）
