@@ -328,6 +328,49 @@ def test_console_api_default_pages_inject_calibration_and_ledger_audit_areas(tmp
 
 
 @needs_fastapi
+def test_console_api_default_instruments_page_injects_demo_three_areas(tmp_path):
+    """R72/R73/R74 wired 回归：缺省装配的 instruments 页注入二期演示三页区
+    （sitl-bridge SITL 桥 dry_run 映射预览区+rl-policy sim 冒烟区+rff-pipeline
+    管道 smoke 区——三区块根 id+/api/demo/sitl|rl|rff 端点接线在位且零外链）；
+    其余骨架页不受注入影响；显式 static_pages 直通则不注入（同 R57/R60 口径）。"""
+    cfg = _base_config(tmp_path)
+    cfg["dry_run"] = True
+    result = serve_console(cfg)
+    with TestClient(result["app"]) as client:
+        instruments = client.get("/pages/instruments").text
+        overview = client.get("/pages/overview").text
+        ledger = client.get("/pages/ledger").text
+    # R72 SITL 桥演示页区（instruments 页）
+    assert 'id="sitl-bridge-area"' in instruments
+    assert "'/api/demo/sitl'" in instruments  # dry_run 映射预览 fetch 接线
+    assert "映射预览" in instruments and "run_id" in instruments
+    # R73 RL 策略演示页区（instruments 页）
+    assert 'id="rl-policy-area"' in instruments
+    assert "'/api/demo/rl'" in instruments  # sim 冒烟 fetch 接线
+    assert "reward_history" in instruments and "fallback" in instruments.lower()
+    # R74 RFF 管道演示页区（instruments 页）
+    assert 'id="rff-pipeline-area"' in instruments
+    assert "'/api/demo/rff'" in instruments  # smoke fetch 接线
+    assert "阶段进度" in instruments and "产物清单" in instruments
+    # 零外链+其余骨架页不受影响
+    assert "http://" not in instruments and "https://" not in instruments
+    for page in (overview, ledger):
+        assert "sitl-bridge-area" not in page
+        assert "rl-policy-area" not in page
+        assert "rff-pipeline-area" not in page
+
+    cfg2 = _base_config(tmp_path)
+    cfg2["dry_run"] = True
+    cfg2["static_pages"] = {"instruments.html": "<html><body>x</body></html>"}
+    result2 = serve_console(cfg2)
+    with TestClient(result2["app"]) as client2:
+        page2 = client2.get("/pages/instruments").text
+    assert "sitl-bridge-area" not in page2  # 显式直通：不注入
+    assert "rl-policy-area" not in page2
+    assert "rff-pipeline-area" not in page2
+
+
+@needs_fastapi
 def test_console_api_scenario_dir_uncreatable_console_error(tmp_path):
     """scenario_dir 不可创建（父为文件）→ConsoleError 指明路径（不静默 400 路由）。"""
     blocker = tmp_path / "afile"

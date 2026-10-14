@@ -4,6 +4,11 @@
 （GET /api/ledger/audit）+页区静态资产零外链。用例名统一 ``test_ledger_audit_view_``
 前缀（`pytest -k ledger_audit_view` 发现——R71 核验命令真身：审计结果字段断言）。
 
+B29 对抗中1低2 转 B30 随批①②补测：⑧⑨ 仓库根 realpath 围栏（拒 /etc/passwd、
+code_root=/、仓外 tmp 清单；放行仓内与 ../ 归一后仓内路径）、⑩ 空白 ledger_path
+→field='ledger_path'（错标修正）、⑪ /api/calibration demo 域错→field='demo'
+（映射处姊妹修正）。
+
 被测实现口径见 src/view_ledger_audit/view_ledger_audit.py 模块 docstring
 （audit_ledger 同源复用/仓库根锚定/只读基注契约）。
 """
@@ -170,34 +175,133 @@ def _client(tmp_path):
 @needs_fastapi
 def test_ledger_audit_view_endpoint_contract(tmp_path):
     """⑥ 端点合约：GET /api/ledger/audit（query ledger_path/code_root）→200
-    审计页数据；清单不存在→400 field='ledger_path'（AuditError 上屏口径）。"""
-    ledger = _write_ledger(tmp_path, _CLEAN_LEDGER)
-    code_root = _make_code_root(tmp_path)
+    审计页数据；清单不存在→400 field='ledger_path'（AuditError 上屏口径）。
+
+    B30 随批①围栏后端点只收仓内路径：200 例改用真清单+真代码树（仓库根锚定
+    同 test③ 真身口径——total=100 结构不变量）；错误例均落在仓库根内。"""
     client = _client(tmp_path)
 
+    # 仓内 200：真清单+真代码树（与缺省锚定同一对象——围栏放行）
     resp = client.get(
         "/api/ledger/audit",
-        params={"ledger_path": ledger, "code_root": code_root},
+        params={
+            "ledger_path": str(REAL_LEDGER),
+            "code_root": DEFAULT_AUDIT_CODE_ROOT,
+        },
     )
     assert resp.status_code == 200
     view = resp.json()
     assert view["ok"] is True and view["read_only"] is True
-    assert view["summary"] == {"done": 2, "total": 3, "remaining": 1}
+    assert view["summary"]["total"] == 100
 
+    # 仓内不存在清单：过围栏后 LedgerError→400 field='ledger_path'
     resp = client.get(
         "/api/ledger/audit",
-        params={"ledger_path": str(tmp_path / "ghost.md"), "code_root": code_root},
+        params={
+            "ledger_path": str(REPO_ROOT / "docs" / "ghost-ledger.md"),
+            "code_root": DEFAULT_AUDIT_CODE_ROOT,
+        },
     )
     assert resp.status_code == 400
     assert resp.json()["detail"]["field"] == "ledger_path"
     assert "不存在或不可读" in resp.json()["detail"]["error"]
 
+    # 仓内不存在代码树：过围栏后 count_comment_ratio ValueError→400 field='code_root'
     resp = client.get(
         "/api/ledger/audit",
-        params={"ledger_path": ledger, "code_root": str(tmp_path / "nope")},
+        params={
+            "ledger_path": str(REAL_LEDGER),
+            "code_root": str(REPO_ROOT / "fn_work" / "ghost-code-root"),
+        },
     )
     assert resp.status_code == 400
     assert resp.json()["detail"]["field"] == "code_root"
+
+
+# ---- B29 对抗中1低2 转 B30 随批①②：仓库根围栏+field 错标修正 ----
+
+
+@needs_fastapi
+def test_ledger_audit_view_repo_fence_rejects_outside_paths(tmp_path):
+    """⑧ 围栏拒界（B30 随批①，realpath 对齐 replay 口径）：ledger_path=/etc/
+    passwd、code_root=/（全盘扫 DoS 面）、tmp 仓外清单——一律 400 带指错
+    field=对应字段；/etc/passwd 此前经审计读回 200 的面在此收口。"""
+    client = _client(tmp_path)
+
+    resp = client.get("/api/ledger/audit", params={"ledger_path": "/etc/passwd"})
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail["field"] == "ledger_path" and "越界" in detail["error"]
+
+    resp = client.get("/api/ledger/audit", params={"code_root": "/"})
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail["field"] == "code_root" and "越界" in detail["error"]
+
+    # 仓外真实存在的清单（tmp 样板）同样拦下——不因「文件存在可读」放行
+    outside = _write_ledger(tmp_path, _CLEAN_LEDGER)
+    resp = client.get("/api/ledger/audit", params={"ledger_path": outside})
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["field"] == "ledger_path"
+
+
+@needs_fastapi
+def test_ledger_audit_view_repo_fence_allows_inside_paths(tmp_path):
+    """⑨ 围栏放行（B30 随批①）：仓内绝对路径/带 ../ 归一后仍仓内的路径→
+    200（realpath 归一口径——软链/穿越链解析后落仓库根内即放行）。"""
+    client = _client(tmp_path)
+    inside_via_parent = str(
+        REPO_ROOT / "docs" / ".." / "docs" / REAL_LEDGER.name
+    )
+    resp = client.get(
+        "/api/ledger/audit", params={"ledger_path": inside_via_parent}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["summary"]["total"] == 100
+
+
+@needs_fastapi
+def test_ledger_audit_view_blank_field_mislabel_fixed(tmp_path):
+    """⑩ field 错标修正（B30 随批②）：空白 ledger_path→ValueError 消息前缀
+    分流 field='ledger_path'（此前一律错标 code_root）；空白 code_root 仍
+    field='code_root'。"""
+    client = _client(tmp_path)
+
+    resp = client.get("/api/ledger/audit", params={"ledger_path": "  "})
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["field"] == "ledger_path"
+    assert "ledger_path" in resp.json()["detail"]["error"]
+
+    resp = client.get("/api/ledger/audit", params={"code_root": "  "})
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["field"] == "code_root"
+
+
+@needs_fastapi
+def test_ledger_audit_view_calibration_demo_field_mislabel_fixed(tmp_path, monkeypatch):
+    """⑪ 同批②姊妹修正（R70 /api/calibration 映射处）：demo 非 bool 的
+    ValueError→field='demo'（不再错标 section）；section 未知仍 field='section'。
+
+    HTTP 层 bool 形参由 FastAPI 先行 422 拦下，此处 monkeypatch 服务函数
+    直发两条域错——验证端点映射的前缀分流分支两向。"""
+    from src.view_calibration_status import view_calibration_status as vcs_module
+
+    def _fake(section, demo):  # 与真实签名同形（section, demo）——两域错分流
+        if section is not None:
+            raise ValueError(
+                f"section 必须为 gain|leakage|compensation 之一或 None，实际: {section!r}"
+            )
+        raise ValueError("demo 必须为 bool（合成数据演示触发），实际: 'yes'")
+
+    monkeypatch.setattr(vcs_module, "view_calibration_status", _fake)
+    client = _client(tmp_path)
+    resp = client.get("/api/calibration")
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["field"] == "demo"
+
+    resp = client.get("/api/calibration", params={"section": "ghost"})
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["field"] == "section"
 
 
 # ---- 页区静态资产（serve_console ledger 页注入的审计页区） ----

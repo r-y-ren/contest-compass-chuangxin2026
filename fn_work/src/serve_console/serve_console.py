@@ -41,7 +41,10 @@
   仪表面板与 visa-status VISA 槽位状态——零外链原生 fetch，端点经
   mount_console_extensions R68/R69 块注册）与 R70 标定页区（calibration-status
   区块——标定三件只读看板+合成数据演示一键走，GET /api/calibration——端点经
-  mount_console_extensions R70 块注册）；ledger 页注入 R71 台账审计页区
+  mount_console_extensions R70 块注册）与 R72-R74 二期演示三页区（sitl-bridge
+  SITL 桥 dry_run 映射预览区+rl-policy sim 冒烟区+rff-pipeline 管道 smoke 区
+  ——POST /api/demo/sitl|rl|rff 同步演示，端点经 mount_console_extensions
+  R72-R74 块注册）；ledger 页注入 R71 台账审计页区
   （ledger-audit 区块——audit-report/ledger-detail 挂载点：GET /api/ledger/audit
   done/total 明细+锚点失效清单+注释率，只读无写清单入口——端点经
   mount_console_extensions R71 块注册）；
@@ -60,6 +63,9 @@ import threading
 from src.browse_dataset_library.dataset_area import build_dataset_area
 from src.demo_emc_flows.emc_area import build_emc_area
 from src.demo_instrument_panels.panels_area import build_instrument_panels_area
+from src.demo_rff_pipeline.rff_area import build_rff_pipeline_area
+from src.demo_rl_policy.rl_area import build_rl_policy_area
+from src.demo_sitl_bridge.sitl_area import build_sitl_bridge_area
 from src.edit_scenario_ui.edit_scenario_ui import edit_scenario_ui
 from src.infer_style_entry.infer_area import build_infer_area
 from src.launch_classifier_training.train_area import build_train_area
@@ -434,6 +440,25 @@ def serve_console(config: dict) -> dict:
         static_pages["ledger.html"] = static_pages["ledger.html"].replace(
             "</body>",
             build_ledger_audit_area() + "\n</body>",
+            1,
+        )
+        # R72/R73/R74 快速通道：二期演示三页区注入 instruments 页（sitl-bridge
+        # 映射预览区+rl-policy 冒烟区+rff-pipeline 管道区三个区块——R72 SITL 桥
+        # 演示（run_id 输入→POST /api/demo/sitl 出台阶→丢包/时延映射预览表，
+        # SITL 不在位跳过标注如实上屏）、R73 RL 策略演示（轮数输入→POST
+        # /api/demo/rl 出末轮动作序列+逐轮回报曲线，不收敛回退固定策略如实
+        # 标注）、R74 RFF 管道演示（POST /api/demo/rff 出 fetch/features/
+        # grouped_cv/deploy 四阶段进度+产物清单，数据不足拒跑提示上屏）——
+        # 端点均经 mount_console_extensions R72-R74 块注册。同 R68-R71 口径：
+        # 仅缺省装配路径注入，显式 static_pages 直通不注入。
+        static_pages["instruments.html"] = static_pages["instruments.html"].replace(
+            "</body>",
+            build_sitl_bridge_area()
+            + "\n"
+            + build_rl_policy_area()
+            + "\n"
+            + build_rff_pipeline_area()
+            + "\n</body>",
             1,
         )
 

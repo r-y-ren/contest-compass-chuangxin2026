@@ -51,7 +51,18 @@ R70 追加在册：view_calibration_status 标定看板端点——GET /api/cali
 R71 追加在册：view_ledger_audit 台账审计端点——GET /api/ledger/audit
 （audit_ledger 上页：done/total 明细+锚点失效清单+注释率；缺省路径仓库根锚定
 （对齐 update_ledger/locate_ledger_row），只读无任何写清单入口——LedgerError/
-ValueError→400 错误信息上屏）。
+ValueError→400 错误信息上屏；B29 对抗中1低2 转 B30 随批①：ledger_path/code_root
+显式值加仓库根 realpath 围栏（对齐 _fence_replay_entry 口径——越界→400），
+②同批：ValueError 按消息前缀分流 field（ledger_path/code_root 不再错标）。
+R72 追加在册：demo_sitl_bridge SITL 桥演示端点——POST /api/demo/sitl（body
+{'run_id'}→读 report_root 历史运行提取 PER-功率台阶→bridge_to_sitl(dry_run)
+映射预览同步返回；SITL 不在位跳过标注不报错，R72 口径）。
+R73 追加在册：demo_rl_policy RL 策略演示端点——POST /api/demo/rl（body
+{'rounds'} 可省→run_rl_policy sim 小闭环冒烟一轮：动作序列/回报上屏，不收敛
+回退固定策略如实标注，R73 口径）。
+R74 追加在册：demo_rff_pipeline RFF 管道演示端点——POST /api/demo/rff（body
+{'params'} 可省→run_rff_pipeline smoke：四阶段进度+产物清单同步返回；数据不足
+TrainError→400 拒跑提示上屏，R74 口径）。
 
 注意：本模块同 create_console_app，**不可**使用 `from __future__ import
 annotations`——路由处理器签名注解须在 def 时求值为真实类（FileResponse 是本函数
@@ -111,7 +122,11 @@ def mount_console_extensions(app, deps: dict):
     /api/instruments/{instrument}/{action}+GET /api/instruments）；R70
     view_calibration_status 标定看板端点（GET /api/calibration——section/demo
     query：三件只读状态+合成演示一键走）；R71 view_ledger_audit 台账审计端点
-    （GET /api/ledger/audit——done/total 明细+锚点失效清单+注释率，只读）。
+    （GET /api/ledger/audit——done/total 明细+锚点失效清单+注释率，只读；B30
+    随批①仓库根围栏+②field 分流修正）；R72 demo_sitl_bridge SITL 桥演示端点
+    （POST /api/demo/sitl——dry_run 映射预览）；R73 demo_rl_policy RL 策略演示
+    端点（POST /api/demo/rl——sim 小闭环冒烟）；R74 demo_rff_pipeline RFF 管道
+    演示端点（POST /api/demo/rff——smoke 阶段进度+产物清单）。
 
     Args:
         app: FastAPI 应用（须具备路由注册能力——get 装饰器+routes 路由表；
@@ -906,10 +921,11 @@ def mount_console_extensions(app, deps: dict):
     # 标定三件（增益标定/自漏标定/全链路补偿）当前状态经 load_calibration_table
     # 口径只读上屏（在位/缺失【待实测】占位/损坏如实）+合成数据演示流程一键走
     # （build_gain_calibration 合成建表→非单调拒用等分支，仅写临时目录不改真实
-    # 标定表）；本路由层薄转接：query 参数 section（单件过滤）/demo（演示触发）
+    # 标定表））；本路由层薄转接：query 参数 section（单件过滤）/demo（演示触发）
     # 直传，GET 只读；ValueError（section 未知/demo 非 bool）→400 错误信息上屏
-    # （field='section'——演示分支失败不抛，结果如实上屏）。GET /api/calibration
-    # 为独立命名空间，与既有路由无冲突，无需路由序手术。
+    # （B29 对抗中1低2 转 B30 随批② field 错标修正：按消息前缀分流——demo 非
+    # bool→field='demo'、section 未知→field='section'，不再一律错标 section）。
+    # GET /api/calibration 为独立命名空间，与既有路由无冲突，无需路由序手术。
 
     @app.get("/api/calibration")
     async def calibration_status(section: str | None = None, demo: bool = False) -> dict:
@@ -920,8 +936,9 @@ def mount_console_extensions(app, deps: dict):
 
         try:
             return view_calibration_status(section, demo)
-        except ValueError as exc:  # section 未知/demo 非 bool→400 上屏
-            raise AppError(str(exc), field="section") from exc
+        except ValueError as exc:  # B30 随批②：前缀分流 field（demo/section）
+            field = "demo" if str(exc).startswith("demo") else "section"
+            raise AppError(str(exc), field=field) from exc
 
     # ---- R71 view_ledger_audit：台账审计端点 ----
     # 语义核心在 src.view_ledger_audit.view_ledger_audit（纯函数——audit_ledger
@@ -931,8 +948,35 @@ def mount_console_extensions(app, deps: dict):
     # 可选直传（缺省仓库根锚定），GET 只读；LedgerError（清单不存在/不可读）
     # →400 field='ledger_path'、ValueError（code_root 不存在/形状错）→400
     # field='code_root'（「AuditError 上屏」口径——错误信息进响应上屏）。
+    # B29 对抗中1低2 转 B30 随批①：显式 ledger_path/code_root 加仓库根 realpath
+    # 围栏（对齐 _fence_replay_entry 口径——realpath 解析后必须落在仓库根内，
+    # 否则 400 带指错；/etc/passwd 之类的库外路径与 code_root=/ 全盘扫在此拦下）；
+    # ②同批 field 错标修正：ValueError 按消息前缀分流（空白 ledger_path→
+    # field='ledger_path'，不再一律错标 code_root）。
     # GET /api/ledger/audit 与既有 GET /api/ledger（create_console_app 字面路由）
     # 路径互异，无参数路由遮蔽，无需路由序手术。
+
+    def _r71_fence_repo_root():
+        """仓库根围栏锚点（locate_ledger_row.DEFAULT_LEDGER_PATH 上两级——
+        仓库根锚定，与 view_ledger_audit 缺省路径同源；cwd 无关）。"""
+        import os as _os
+
+        from src.update_ledger.locate_ledger_row import DEFAULT_LEDGER_PATH
+
+        return _os.path.realpath(str(Path(DEFAULT_LEDGER_PATH).resolve().parents[1]))
+
+    def _r71_fence(value: str, field: str, repo_root: str) -> None:
+        """B30 随批①围栏判：显式路径 realpath 不落在仓库根内 → AppError 400。"""
+        import os as _os
+
+        resolved = _os.path.realpath(value)
+        if _os.path.commonpath([repo_root, resolved]) != repo_root:
+            raise AppError(
+                f"{field} 越界（台账审计仓库根围栏，对齐 replay 口径）: {value} "
+                f"解析后 {resolved} 不在仓库根 {repo_root} 内——审计只接受仓内"
+                "清单与代码树路径",
+                field=field,
+            )
 
     @app.get("/api/ledger/audit")
     async def ledger_audit(
@@ -942,13 +986,162 @@ def mount_console_extensions(app, deps: dict):
         from src.update_ledger.locate_ledger_row import LedgerError
         from src.view_ledger_audit.view_ledger_audit import view_ledger_audit
 
+        # B30 随批①：显式值先过仓库根围栏（缺省 None=仓库根锚定，天然在界）。
+        repo_root = _r71_fence_repo_root()
+        if ledger_path is not None:
+            _r71_fence(ledger_path, "ledger_path", repo_root)
+        if code_root is not None:
+            _r71_fence(code_root, "code_root", repo_root)
         try:
             return view_ledger_audit(ledger_path, code_root)
         except LedgerError as exc:  # 清单不存在/不可读→400 错误信息上屏
             raise AppError(str(exc), field="ledger_path") from exc
-        except ValueError as exc:  # code_root 形状/不存在→400 同口径
-            raise AppError(str(exc), field="code_root") from exc
+        except ValueError as exc:  # B30 随批②：消息前缀分流 field（不错标）
+            field = (
+                "ledger_path" if str(exc).startswith("ledger_path") else "code_root"
+            )
+            raise AppError(str(exc), field=field) from exc
 
-    # ---- R68–R74 后续批次注册块：到货批次按 R 号顺序在此逐批追加 ----
+    # ---- R72 demo_sitl_bridge：SITL 桥演示端点 ----
+    # 语义核心在 src.demo_sitl_bridge.demo_sitl_bridge（纯函数——report_root
+    # 历史运行→build_curve_frames 帧A 提取 PER-功率台阶→bridge_to_sitl(dry_run)
+    # 映射预览；SITL 不在位跳过标注不报错，R53 口径）；本路由层薄转接：body
+    # {'run_id': str} 形状校验（AppError 400 字段级指错）+report_root 请求期取
+    # deps（与 R60-R62 同口径）；ValueError（运行不存在/无 KPI 数据/形状错）→
+    # 400 field='run_id'（错误信息上屏——提示选择其他运行）。POST 独立命名空间
+    # /api/demo/*，与既有路由无冲突，无需路由序手术；dry_run 纯计算同步返回。
+
+    @app.post("/api/demo/sitl")
+    async def demo_sitl(request: Request) -> dict:
+        # 延迟 import：与 R60-R71 块同口径（请求期才 import 服务模块）。
+        from src.demo_sitl_bridge.demo_sitl_bridge import demo_sitl_bridge
+
+        try:
+            body = await request.json()
+        except Exception as exc:  # JSONDecodeError/空 body 等→400 field='body'
+            raise AppError(
+                f"请求体须为 JSON 对象 {{'run_id': str}}: {type(exc).__name__}: {exc}",
+                field="body",
+            ) from exc
+        if not isinstance(body, dict):
+            raise AppError(
+                f"请求体须为 JSON 对象，实际 {type(body).__name__}: {body!r}",
+                field="body",
+            )
+        run_id = body.get("run_id")
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise AppError(
+                f"run_id 必须为非空 str（历史运行目录名——报告中心行的同一口径），"
+                f"实际: {run_id!r}",
+                field="run_id",
+            )
+        root = deps.get("report_root")
+        if not isinstance(root, str) or not root:
+            raise AppError(
+                f"deps['report_root'] 未注入或非非空 str（R72 SITL 桥演示端点依赖），"
+                f"实际: {root!r}",
+                field="report_root",
+            )
+        try:
+            return demo_sitl_bridge(run_id, root)
+        except ValueError as exc:  # 运行不存在/无 KPI 数据→400 提示选其他运行
+            raise AppError(str(exc), field="run_id") from exc
+
+    # ---- R73 demo_rl_policy：RL 策略演示端点 ----
+    # 语义核心在 src.demo_rl_policy.demo_rl_policy（纯函数——run_rl_policy sim
+    # 小闭环冒烟一轮：短轮次固定参数+固定种子，动作序列/回报上屏；不收敛回退
+    # 固定策略如实标注，R54 口径）；本路由层薄转接：body {'rounds': int} 可省
+    # （空 body 容忍为 {}），rounds 域校验 field='rounds'；ValueError/PolicyError
+    # （演示异常——失败原因上屏不静默）→400 field='rounds'。POST 独立命名空间，
+    # 无路由冲突；sim 小闭环秒级同步返回。
+
+    @app.post("/api/demo/rl")
+    async def demo_rl(request: Request) -> dict:
+        # 延迟 import：与 R60-R72 块同口径（请求期才 import 服务模块）。
+        from src.run_rl_policy.run_rl_policy import PolicyError
+        from src.demo_rl_policy.demo_rl_policy import demo_rl_policy
+
+        try:
+            body = await request.json()
+        except Exception:  # 空 body 容忍（rounds 可缺省——缺省 8 轮冒烟）
+            body = {}
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            raise AppError(
+                f"请求体须为 JSON 对象 {{'rounds': int}}，实际 "
+                f"{type(body).__name__}: {body!r}",
+                field="rounds",
+            )
+        rounds = body.get("rounds")
+        if rounds is not None and (
+            isinstance(rounds, bool) or not isinstance(rounds, int)
+        ):
+            raise AppError(
+                f"rounds 必须为正 int | None（冒烟轮数，缺省 8；bool/非 int 拒），"
+                f"实际: {rounds!r}",
+                field="rounds",
+            )
+        try:
+            return demo_rl_policy(rounds)
+        except (PolicyError, ValueError) as exc:  # 演示异常→400 失败原因上屏
+            raise AppError(str(exc), field="rounds") from exc
+
+    # ---- R74 demo_rff_pipeline：RFF 管道演示端点 ----
+    # 语义核心在 src.demo_rff_pipeline.demo_rff_pipeline（纯函数——
+    # run_rff_pipeline smoke：小样本固定参数，fetch/features/grouped_cv/deploy
+    # 四阶段进度+产物清单）；本路由层薄转接：body {'params': dict} 可省（空
+    # body 容忍为 {}），params/query/hyperparams 形状校验 field='params'；
+    # 索引落点缺省注入（index_path=report_root/dataset-index.json、
+    # runs_root=report_root——R63/R64 同口径派生，显式给出则尊重）；TrainError
+    # （数据不足拒跑——R55 口径）与 ValueError→400 field='params'（拒跑提示
+    # 上屏不静默）。POST 独立命名空间，无路由冲突；smoke 秒级同步返回。
+
+    @app.post("/api/demo/rff")
+    async def demo_rff(request: Request) -> dict:
+        # 延迟 import：与 R60-R73 块同口径（请求期才 import 服务模块）。
+        import os
+
+        from src.browse_dataset_library.browse_dataset_library import dataset_index_path
+        from src.demo_rff_pipeline.demo_rff_pipeline import demo_rff_pipeline
+        from src.run_rff_pipeline.run_rff_pipeline import TrainError
+
+        try:
+            body = await request.json()
+        except Exception:  # 空 body 容忍（params 可缺省——全量条目 smoke）
+            body = {}
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            raise AppError(
+                f"请求体须为 JSON 对象 {{'params': dict}}，实际 "
+                f"{type(body).__name__}: {body!r}",
+                field="params",
+            )
+        params = body.get("params")
+        if params is not None and not isinstance(params, dict):
+            raise AppError(
+                f"params 必须为 dict | None（演示参数——query/hyperparams/索引落点），"
+                f"实际: {params!r}",
+                field="params",
+            )
+        root = deps.get("report_root")
+        if not isinstance(root, str) or not root:
+            raise AppError(
+                f"deps['report_root'] 未注入或非非空 str（R74 RFF 管道演示端点依赖），"
+                f"实际: {root!r}",
+                field="report_root",
+            )
+        effective = dict(params) if isinstance(params, dict) else {}
+        effective.setdefault("index_path", dataset_index_path(root))
+        effective.setdefault("runs_root", root)
+        try:
+            return demo_rff_pipeline(effective)
+        except TrainError as exc:  # 数据不足拒跑→400 提示上屏（R55 口径）
+            raise AppError(str(exc), field="params") from exc
+        except ValueError as exc:  # params/query/hyperparams 形状错→400 同口径
+            raise AppError(str(exc), field="params") from exc
+
+    # ---- R75+ 后续批次注册块：到货批次按 R 号顺序在此逐批追加 ----
 
     return app
