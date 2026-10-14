@@ -267,3 +267,29 @@ def test_emc_view_emc_area_zero_external_links_and_anchors():
         assert f"'{flow}'" in block  # 三流程下拉选项
     assert EMC_CHART_CLASS in block  # 图谱折线 class 锚点（canvas）
     assert "发起 EMC 演示" in block
+
+
+# ---- B28 对抗低2→B29 随批①：params 展开序收紧（保留字后置防覆写） ----
+
+
+def test_emc_view_params_cannot_hijack_reserved_flow_keys():
+    """⑪ 随批①回归：params 携带覆写键（scenario_type/emc_flow）不再劫持流程
+    分派——保留字后置展开，runner 收到的场景恒 scenario_type='emc'+
+    emc_flow=flow（业务键原样并入）。"""
+    captured = {}
+
+    def _runner(scenario):
+        captured.update(scenario)
+        return {"emc_payload": {"points": [{"freq_hz": 1e6, "power_dbm": -100.0}]}}
+
+    view = demo_emc_flows(
+        "sweep",
+        {"scenario_type": "tone", "emc_flow": "conduction", "band": "cispr_a"},
+        _runner,
+    )
+    assert view["ok"] is True and view["flow"] == "sweep"
+    assert captured["scenario_type"] == "emc"  # 覆写键被保留字后置顶回
+    assert captured["emc_flow"] == "sweep"
+    assert captured["band"] == "cispr_a"  # 业务键原样并入
+    assert view["scenario"]["scenario_type"] == "emc"
+    assert view["scenario"]["emc_flow"] == "sweep"

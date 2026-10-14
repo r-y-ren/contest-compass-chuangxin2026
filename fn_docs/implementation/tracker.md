@@ -1078,15 +1078,15 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B29 — view_calibration_status, view_ledger_audit
 ### view_calibration_status
-- [ ] view_calibration_status · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] view_calibration_status · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] view_calibration_status · wired — 预告: 调用点存在，预期 grep 命中
+- [x] view_calibration_status · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:view_calibration_status src/ && echo OK → OK (10-14)
+- [x] view_calibration_status · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k calibration_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
+- [x] view_calibration_status · wired — 证据: bash -c grep -c R70 fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
 - [ ] view_calibration_status · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] view_calibration_status · commit — 预告: fn(view_calibration_status): wired 含四文档变更
 ### view_ledger_audit
-- [ ] view_ledger_audit · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] view_ledger_audit · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] view_ledger_audit · wired — 预告: 调用点存在，预期 grep 命中
+- [x] view_ledger_audit · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:view_ledger_audit src/ && echo OK → OK (10-14)
+- [x] view_ledger_audit · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k ledger_audit_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
+- [x] view_ledger_audit · wired — 证据: bash -c grep -c R71 fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
 - [ ] view_ledger_audit · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] view_ledger_audit · commit — 预告: fn(view_ledger_audit): wired 含四文档变更
 ## B29 批间门

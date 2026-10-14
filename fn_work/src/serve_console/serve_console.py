@@ -39,7 +39,12 @@
   fetch，端点经 mount_console_extensions R65-R67 块注册）；instruments 页注入
   R68/R69 仪表两页区（emc-flows EMC 三流程表单区+instrument-panels 五台 sim
   仪表面板与 visa-status VISA 槽位状态——零外链原生 fetch，端点经
-  mount_console_extensions R68/R69 块注册）；
+  mount_console_extensions R68/R69 块注册）与 R70 标定页区（calibration-status
+  区块——标定三件只读看板+合成数据演示一键走，GET /api/calibration——端点经
+  mount_console_extensions R70 块注册）；ledger 页注入 R71 台账审计页区
+  （ledger-audit 区块——audit-report/ledger-detail 挂载点：GET /api/ledger/audit
+  done/total 明细+锚点失效清单+注释率，只读无写清单入口——端点经
+  mount_console_extensions R71 块注册）；
 - config['dry_run']=True→不拉起不检端口，返回 {'app', 'launched': False, 'port',
   'host'}（测试经 TestClient 直接打 create 路由）；
 - 真拉起序：先探端口占用→ConsoleError（dry_run 下不检）；再延迟 import uvicorn
@@ -75,8 +80,10 @@ from src.stream_realtime_console.stream_realtime_console import (
     build_realtime_charts,
     stream_realtime_console,
 )
+from src.view_calibration_status.calibration_area import build_calibration_status_area
 from src.view_cv_evaluation.eval_area import build_eval_area
 from src.view_failure_comparison.comparison_area import build_comparison_area
+from src.view_ledger_audit.audit_area import build_ledger_audit_area
 
 from .create_console_app import AppError, create_console_app
 
@@ -390,7 +397,7 @@ def serve_console(config: dict) -> dict:
         )
         # R68/R69 快速通道：仪表页区注入 instruments 页（emc-flows 表单区+
         # instrument-panels 面板区两个区块——R68 EMC 表单（三流程选择+参数
-        # JSON→POST /api/emc/{flow} 202→轮询 /api/runs/{id}→图谱段 SVG+口径
+        # JSON→POST /api/emc/{flow} 202→轮询 /api/runs/{id}→图谱段 canvas+口径
         # 声明+裁剪 warnings 上屏）与 R69 五台 sim 仪表面板（open/read-demo/
         # close→POST /api/instruments/{instrument}/{action}+GET /api/instruments
         # 面板/VISA 槽位状态）——端点均经 mount_console_extensions R68/R69 块
@@ -402,6 +409,31 @@ def serve_console(config: dict) -> dict:
             + "\n"
             + build_instrument_panels_area()
             + "\n</body>",
+            1,
+        )
+        # R70 快速通道：标定页区注入 instruments 页（instrument 挂载点附近——
+        # calibration-status 区块：标定三件（增益标定/自漏标定/全链路补偿）只读
+        # 看板，载入即 GET /api/calibration 刷当前状态（load_calibration_table
+        # 口径——在位/【待实测】占位如实/损坏原文上屏）+「合成演示」一键走
+        # GET /api/calibration?demo=1（build_gain_calibration 合成建表→非单调
+        # 拒用等分支结果上屏，只读不改真实标定表）——端点经
+        # mount_console_extensions R70 块注册。同 R68/R69 口径：仅缺省装配路径
+        # 注入，显式 static_pages 直通不注入。
+        static_pages["instruments.html"] = static_pages["instruments.html"].replace(
+            "</body>",
+            build_calibration_status_area() + "\n</body>",
+            1,
+        )
+        # R71 快速通道：台账页区注入 ledger 页（ledger-audit 区块——audit-report/
+        # ledger-detail 挂载点：GET /api/ledger/audit 出 done/total 明细+锚点失效
+        # 清单+注释率表格化上屏；缺省路径仓库根锚定（对齐 update_ledger/
+        # locate_ledger_row）；只读——无任何写清单入口，网页运行 ledger=False
+        # 现状不变（演示现场防误写）——端点经 mount_console_extensions R71 块
+        # 注册。同 R68/R69 口径：仅缺省装配路径注入，显式 static_pages 直通
+        # 不注入。
+        static_pages["ledger.html"] = static_pages["ledger.html"].replace(
+            "</body>",
+            build_ledger_audit_area() + "\n</body>",
             1,
         )
 

@@ -16,7 +16,7 @@ serve_console 缺省装配注入模式）：
   http(s) 外部资源引用（R56 断网全可用口径）。
 """
 
-#: 图谱 SVG 折线元素 class（页区协作锚点；模板内字面引用与此常量同值）。
+#: 图谱 canvas 折线元素 class（页区协作锚点；模板内字面引用与此常量同值）。
 EMC_CHART_CLASS = "emc-chart-line"
 
 

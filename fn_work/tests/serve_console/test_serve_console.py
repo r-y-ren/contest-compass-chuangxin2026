@@ -283,6 +283,51 @@ def test_console_api_default_ai_page_injects_train_eval_infer_areas(tmp_path):
 
 
 @needs_fastapi
+def test_console_api_default_pages_inject_calibration_and_ledger_audit_areas(tmp_path):
+    """R70/R71 wired 回归：缺省装配的 instruments 页注入标定看板区（instrument
+    挂载点附近——calibration-status 区块：三件只读看板+合成演示一键走，GET
+    /api/calibration 接线在位且零外链）、ledger 页注入台账审计页区
+    （ledger-audit 区块——audit-report/ledger-detail 挂载点，GET /api/ledger/audit
+    只读接线在位）；其余骨架页不受注入影响；显式 static_pages 直通则不注入
+    （同 R57/R60 口径）。"""
+    cfg = _base_config(tmp_path)
+    cfg["dry_run"] = True
+    result = serve_console(cfg)
+    with TestClient(result["app"]) as client:
+        instruments = client.get("/pages/instruments").text
+        ledger = client.get("/pages/ledger").text
+        overview = client.get("/pages/overview").text
+    # R70 标定页区（instruments 页）
+    assert 'id="calibration-status-area"' in instruments
+    assert "'/api/calibration'" in instruments  # 看板 fetch 接线在位
+    assert "'/api/calibration?demo=1'" in instruments  # 合成演示触发接线
+    assert "合成数据演示" in instruments and "只读" in instruments
+    # R71 台账审计页区（ledger 页）
+    assert 'id="ledger-audit-area"' in ledger
+    assert "'/api/ledger/audit'" in ledger  # 只读审计 fetch 接线在位
+    assert "audit-report" in ledger and "ledger-detail" in ledger  # 两挂载点消费
+    assert "无写清单入口" in ledger or "只读" in ledger
+    # 零外链+其余骨架页不受影响
+    for page in (instruments, ledger):
+        assert "http://" not in page and "https://" not in page
+    assert "calibration-status-area" not in overview
+    assert "ledger-audit-area" not in overview
+
+    cfg2 = _base_config(tmp_path)
+    cfg2["dry_run"] = True
+    cfg2["static_pages"] = {
+        "instruments.html": "<html><body>x</body></html>",
+        "ledger.html": "<html><body>y</body></html>",
+    }
+    result2 = serve_console(cfg2)
+    with TestClient(result2["app"]) as client2:
+        page2 = client2.get("/pages/instruments").text
+        page3 = client2.get("/pages/ledger").text
+    assert "calibration-status-area" not in page2  # 显式直通：不注入
+    assert "ledger-audit-area" not in page3
+
+
+@needs_fastapi
 def test_console_api_scenario_dir_uncreatable_console_error(tmp_path):
     """scenario_dir 不可创建（父为文件）→ConsoleError 指明路径（不静默 400 路由）。"""
     blocker = tmp_path / "afile"

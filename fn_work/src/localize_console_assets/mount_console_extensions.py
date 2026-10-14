@@ -44,6 +44,14 @@ R69 追加在册：demo_instrument_panels 仪表面板两端点——POST
 /api/instruments/{instrument}/{action}（五台 sim 仪表 open/read-demo/close
 状态机，非法状态 400 错误信息上屏）+GET /api/instruments（面板状态+VISA
 槽位状态总览）。
+R70 追加在册：view_calibration_status 标定看板端点——GET /api/calibration
+（query section/demo：标定三件只读状态（load_calibration_table 口径——在位/
+【待实测】占位/损坏如实）+demo=1 合成数据演示流程一键走（build_gain_calibration
+合成建表→非单调拒用等分支，仅写临时目录不改真实标定表））。
+R71 追加在册：view_ledger_audit 台账审计端点——GET /api/ledger/audit
+（audit_ledger 上页：done/total 明细+锚点失效清单+注释率；缺省路径仓库根锚定
+（对齐 update_ledger/locate_ledger_row），只读无任何写清单入口——LedgerError/
+ValueError→400 错误信息上屏）。
 
 注意：本模块同 create_console_app，**不可**使用 `from __future__ import
 annotations`——路由处理器签名注解须在 def 时求值为真实类（FileResponse 是本函数
@@ -100,7 +108,10 @@ def mount_console_extensions(app, deps: dict):
     infer_style_entry 主动推理端点（POST /api/ai/infer）；R68 demo_emc_flows
     EMC 三流程演示端点（POST /api/emc/{flow}——202+后台线程+运行表同 /api/run
     口径）；R69 demo_instrument_panels 仪表面板两端点（POST
-    /api/instruments/{instrument}/{action}+GET /api/instruments）。
+    /api/instruments/{instrument}/{action}+GET /api/instruments）；R70
+    view_calibration_status 标定看板端点（GET /api/calibration——section/demo
+    query：三件只读状态+合成演示一键走）；R71 view_ledger_audit 台账审计端点
+    （GET /api/ledger/audit——done/total 明细+锚点失效清单+注释率，只读）。
 
     Args:
         app: FastAPI 应用（须具备路由注册能力——get 装饰器+routes 路由表；
@@ -889,6 +900,54 @@ def mount_console_extensions(app, deps: dict):
             return demo_instrument_panels(instrument, action, body)
         except ValueError as exc:  # IllegalStateError 亦 ValueError 子类——400 上屏
             raise AppError(str(exc), field="instrument") from exc
+
+    # ---- R70 view_calibration_status：标定看板端点 ----
+    # 语义核心在 src.view_calibration_status.view_calibration_status（纯函数——
+    # 标定三件（增益标定/自漏标定/全链路补偿）当前状态经 load_calibration_table
+    # 口径只读上屏（在位/缺失【待实测】占位/损坏如实）+合成数据演示流程一键走
+    # （build_gain_calibration 合成建表→非单调拒用等分支，仅写临时目录不改真实
+    # 标定表）；本路由层薄转接：query 参数 section（单件过滤）/demo（演示触发）
+    # 直传，GET 只读；ValueError（section 未知/demo 非 bool）→400 错误信息上屏
+    # （field='section'——演示分支失败不抛，结果如实上屏）。GET /api/calibration
+    # 为独立命名空间，与既有路由无冲突，无需路由序手术。
+
+    @app.get("/api/calibration")
+    async def calibration_status(section: str | None = None, demo: bool = False) -> dict:
+        # 延迟 import：与 R60-R69 块同口径（请求期才 import 服务模块）。
+        from src.view_calibration_status.view_calibration_status import (
+            view_calibration_status,
+        )
+
+        try:
+            return view_calibration_status(section, demo)
+        except ValueError as exc:  # section 未知/demo 非 bool→400 上屏
+            raise AppError(str(exc), field="section") from exc
+
+    # ---- R71 view_ledger_audit：台账审计端点 ----
+    # 语义核心在 src.view_ledger_audit.view_ledger_audit（纯函数——audit_ledger
+    # 上页：done/total 明细+锚点失效清单+注释率；缺省路径仓库根锚定（对齐
+    # update_ledger/locate_ledger_row），只读无任何写清单入口——网页运行
+    # ledger=False 现状不变）；本路由层薄转接：query 参数 ledger_path/code_root
+    # 可选直传（缺省仓库根锚定），GET 只读；LedgerError（清单不存在/不可读）
+    # →400 field='ledger_path'、ValueError（code_root 不存在/形状错）→400
+    # field='code_root'（「AuditError 上屏」口径——错误信息进响应上屏）。
+    # GET /api/ledger/audit 与既有 GET /api/ledger（create_console_app 字面路由）
+    # 路径互异，无参数路由遮蔽，无需路由序手术。
+
+    @app.get("/api/ledger/audit")
+    async def ledger_audit(
+        ledger_path: str | None = None, code_root: str | None = None
+    ) -> dict:
+        # 延迟 import：与 R60-R70 块同口径（请求期才 import 服务模块）。
+        from src.update_ledger.locate_ledger_row import LedgerError
+        from src.view_ledger_audit.view_ledger_audit import view_ledger_audit
+
+        try:
+            return view_ledger_audit(ledger_path, code_root)
+        except LedgerError as exc:  # 清单不存在/不可读→400 错误信息上屏
+            raise AppError(str(exc), field="ledger_path") from exc
+        except ValueError as exc:  # code_root 形状/不存在→400 同口径
+            raise AppError(str(exc), field="code_root") from exc
 
     # ---- R68–R74 后续批次注册块：到货批次按 R 号顺序在此逐批追加 ----
 

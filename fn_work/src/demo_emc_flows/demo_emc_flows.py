@@ -6,8 +6,10 @@ demo_emc_flows L0；调用方 mount_console_extensions）。
 
 - 三流程网页可达：flow ∈ {'conduction','radiation','sweep'}（strip().lower()
   归一，未知值 ValueError）；params dict 原样并入场景——scenario =
-  {'scenario_type': 'emc', 'emc_flow': flow, **params}，经 runner（操控台
-  /api/run 同款后台执行器，scenario dict→result dict）发起；
+  {**params, 'scenario_type': 'emc', 'emc_flow': flow}（B28 对抗低2→B29 随批
+  ①收紧：端点保留字 scenario_type/emc_flow 后置——params 携带同名键不再劫持
+  流程分派），经 runner（操控台 /api/run 同款后台执行器，scenario dict→result
+  dict）发起；
 - execute_scenario 的 emc 子类型分派（R68 快速通道改造点，块引言在册）按
   'emc_flow' 落到 run_emc_conduction_sim / run_emc_radiation_sim /
   run_emc_sweep——本函数不直接调编排器（演示运行走操控台运行目录/报告中心，
@@ -139,7 +141,9 @@ def demo_emc_flows(flow: str, params: dict, runner) -> dict:
         flow: EMC 流程类型——'conduction'（LISN 传导摸底）| 'radiation'（屏蔽
             环境辐射摸底）| 'sweep'（模拟接收机步进扫频）；大小写不敏感，
             未知值 ValueError（端点层转 400 上屏）。
-        params: 流程参数 dict|None（原样并入场景后交下游 sim——conduction 常给
+        params: 流程参数 dict|None（原样并入场景后交下游 sim——保留字
+            scenario_type/emc_flow 后置覆写，params 同名键不劫持流程分派
+            （B29 随批①收紧）；conduction 常给
             freq_hz/limit_line_dbmv/rbw_hz/detector；radiation 常给 center_hz/
             span_hz/compensation_tables/peak_drop_db；sweep 常给 band 或
             start_hz/stop_hz/step_hz/scale/spurious_threshold_dbm）。
@@ -175,7 +179,7 @@ def demo_emc_flows(flow: str, params: dict, runner) -> dict:
             f" 执行器），实际: {runner!r}"
         )
 
-    scenario = {"scenario_type": "emc", "emc_flow": flow_key, **params}
+    scenario = {**params, "scenario_type": "emc", "emc_flow": flow_key}
     result = runner(scenario)
     if not isinstance(result, dict):
         raise ValueError(
