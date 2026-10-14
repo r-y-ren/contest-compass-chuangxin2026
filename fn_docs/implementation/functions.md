@@ -145,8 +145,8 @@
 | infer_style_entry | B27 | wired 10-14 | -k ai_infer_view → 13 passed（tone 样本正确标签 hit=True+模型缺失提示态）；端点 mount R67 块+infer 页区 | 6097ba7 |
 | demo_emc_flows | B28 | wired 10-14 | -k emc_view → 10 passed（三流程真跑+声明+越域标注+端点）；改造点 execute_scenario emc_flow 分派+4 回归 | 7c6eb8d |
 | demo_instrument_panels | B28 | wired 10-14 | -k instruments_view → 10 passed（五仪表周期+超域+VISA+端点）；端点 mount R69 块 | 7c6eb8d |
-| view_calibration_status | B29 | stub 10-13 | pytest -k calibration_view | — |
-| view_ledger_audit | B29 | stub 10-13 | pytest -k ledger_audit_view | — |
+| view_calibration_status | B29 | wired 10-14 | -k calibration_view → 8 passed（三件状态/占位如实/演示三分支/真实表零写）；端点 mount R70 块+calibration 页区 | af44c40 |
+| view_ledger_audit | B29 | wired 10-14 | -k ledger_audit_view → 7 passed（明细/锚点清单/注释率/仓库根锚定/只读）；端点 mount R71 块+audit 页区 | af44c40 |
 | demo_sitl_bridge | B30 | stub 10-13 | pytest -k sitl_view | — |
 | demo_rl_policy | B30 | stub 10-13 | pytest -k rl_view | — |
 | demo_rff_pipeline | B30 | stub 10-13 | pytest -k rff_view | — |

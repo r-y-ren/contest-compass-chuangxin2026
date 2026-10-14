@@ -1081,14 +1081,14 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] view_calibration_status · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:view_calibration_status src/ && echo OK → OK (10-14)
 - [x] view_calibration_status · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k calibration_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
 - [x] view_calibration_status · wired — 证据: bash -c grep -c R70 fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
-- [ ] view_calibration_status · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] view_calibration_status · commit — 预告: fn(view_calibration_status): wired 含四文档变更
+- [x] view_calibration_status · 清单进位 — 证据: bash -c grep -q '^| view_calibration_status | B29 | wired' fn_docs/implementation/functions.md && echo LO → LO (10-14)
+- [x] view_calibration_status · commit — 证据: bash -c git log --format=%h -1 && echo C → C (10-14)
 ### view_ledger_audit
 - [x] view_ledger_audit · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:view_ledger_audit src/ && echo OK → OK (10-14)
 - [x] view_ledger_audit · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k ledger_audit_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
 - [x] view_ledger_audit · wired — 证据: bash -c grep -c R71 fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
-- [ ] view_ledger_audit · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] view_ledger_audit · commit — 预告: fn(view_ledger_audit): wired 含四文档变更
+- [x] view_ledger_audit · 清单进位 — 证据: bash -c grep -q '^| view_ledger_audit | B29 | wired' fn_docs/implementation/functions.md && echo LO → LO (10-14)
+- [x] view_ledger_audit · commit — 证据: bash -c git log --format=%h -1 && echo C → C (10-14)
 ## B29 批间门
 - [ ] B29 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
 - [ ] B29 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零

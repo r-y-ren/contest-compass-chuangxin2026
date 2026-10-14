@@ -55,3 +55,4 @@
 | 10-14 | B26 | browse_dataset_library（14+e2e 2）+build_replay_scenario（12）+launch_replay_run（21 含端到端）；R64 改造点 _backend_params 透传+数据页区 | R63/R64 验收绿（dataset_view_e2e/replay_run）；全套件 3296 零回归；commits 3885ed3/d755baa/9dc39e3 |
 | 10-14 | B27 | 三函数（ai_train/eval/infer_view 11/10/13）+AI 页区+围栏 5 例+e2e 整改 | R65-R67 验收绿；全套件 3336 零回归；整批单提交 6097ba7 |
 | 10-14 | B28 | demo_emc_flows+demo_instrument_panels（emc/instruments_view 10+10）+emc 子类型改造点+B27 随批补测；中断续做 | R68/R69 验收绿；全套件 3358+5skip 零回归；整批单提交 7c6eb8d |
+| 10-14 | B29 | view_calibration_status+view_ledger_audit（15 测）+B28 随批 | R70/R71 验收绿；全套件 3375+5skip 零回归；整批单提交 af44c40 |
