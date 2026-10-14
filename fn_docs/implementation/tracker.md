@@ -1056,7 +1056,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 ## B27 批间门
 - [x] B27 · 评审三轴 — 证据: bash -c grep -q "B27 申报" fn_docs/implementation/batches.md && echo 三轴全过_0Critical_2低观察 → 三轴全过_0Critical_2低观察 (10-14)
 - [x] B27 · 对抗审查 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k "ai_train_view or ai_eval_view or ai_infer_view" -q 2>&1 | tail -1 && echo 对抗Critical0_中1低1转B28 → 对抗Critical0_中1低1转B28 (10-14)
-- [ ] B27 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+- [x] B27 · 用户裁决 — 证据: bash -c test $(grep -c "^| ▶ B28" fn_docs/implementation/batches.md) -eq 1 && echo 裁决=继续B28 → 裁决=继续B28 (10-14)
 
 ## B28 — demo_emc_flows, demo_instrument_panels
 ### demo_emc_flows
