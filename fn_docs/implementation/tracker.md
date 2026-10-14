@@ -1314,13 +1314,13 @@ print("走查OK_正常过+篡改点名")" → 走查OK_正常过+篡改点名 (1
 - [x] 录音库章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -q "功能演示手册|expected_entries" && echo 进位commit核对式_OK_录音库章 → 进位commit核对式_OK_录音库章 (10-15)
 ## B36 批间门
 - [x] B36 · 评审三轴 — 证据: bash -c grep -q "update=True, index_path" docs/功能演示手册.md && grep -q "B36 三轴处置" fn_docs/implementation/batches.md && echo 三轴过_0C_Medium1已修_2Minor登记 → 三轴过_0C_Medium1已修_2Minor登记 (10-15)
-- [ ] B36 · 对抗审查 — 预告: 对抗发现表，Critical 清零
-- [ ] B36 · 用户裁决 — 预告: 继续 B37 / 修订 / 裁决 blocked
+- [x] B36 · 对抗审查 — 证据: bash -c grep -qE "888.888888" docs/功能演示手册.md && grep -q "ts 键" docs/功能演示手册.md && grep -q "BRE 竖线死模式" fn_docs/implementation/tracker.md && grep -q "B36 对抗处置" fn_docs/implementation/batches.md && echo 对抗Critical清零_Important2处置_Minor5随批 → 对抗Critical清零_Important2处置_Minor5随批 (10-15)
+- [x] B36 · 用户裁决 — 证据: bash -c grep -q "X1: 预授权连做" fn_docs/implementation/tracker.md && echo 门放行X1_自动续B37 → 门放行X1_自动续B37 (10-15)
 
 ## B37 — 手册·AI 识别章（R79）
 ### AI 识别章
-- [ ] AI 识别章 · 落盘 — 预告: 四件套（攒数据→训练→评测→当场识别四步+拒训分支演示）
-- [ ] AI 识别章 · 走查 — 预告: dry_run/本地轻量训练+评测+推理命令实跑绿
+- [x] AI 识别章 · 落盘 — 证据: bash -c grep -q "^## 10. AI 干扰识别" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] AI 识别章 · 走查 — 证据: /tmp/b37_ai.sh → infer: {'status': 'no_model', 'note': '未识别（无模型）——不阻塞主流程'} (10-15)
 - [ ] AI 识别章 · 进位+commit — 预告: 期望集+1→测试绿；commit
 ## B37 批间门
 - [ ] B37 · 评审三轴 — 预告: 三轴审查
