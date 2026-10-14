@@ -17,11 +17,12 @@
   电平条目）'；result.json 缺失/损坏→note='无结果（result.json 缺失或损坏）'
   （不虚构不剔除）；
 - ``missing_runs``：report_root 下不存在的 run_id 列表；
-- 全缺（entries 空）时 conclusion 在 R26「无数据」结论后追加提示——
-  「请选择其他运行」（R62 签名意图：全缺→提示选其他运行）。
+- 全缺（entries 空——含空选择集）时 conclusion 在 R26「无数据」结论后追加提示
+  ——「请选择其他运行」（R62 签名意图：无可比数据→提示选其他运行）。
 """
 import math
 import os
+import re
 from numbers import Real
 
 from src.compare_failure_boundaries.compare_failure_boundaries import (
@@ -43,6 +44,10 @@ _EMPTY_HINT = "——所选运行均无失效数据，请选择其他运行"
 _RESULT_FILENAME = "result.json"
 _SCENARIO_FILENAME = "scenario.yaml"
 
+#: 运行名控制字符（\x00-\x1f 与 \x7f——URL 进来的名字早拒；NUL/换行等可欺
+#: 篡下游路径拼接与日志行，B25 M-1：非打印字符一律不入路径）。
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f\x7f]")
+
 
 def _is_finite_real(value: object) -> bool:
     """有限实数判定（bool 不算——freq_hz 换算口径不接受布尔）。"""
@@ -54,7 +59,9 @@ def _is_finite_real(value: object) -> bool:
 
 
 def _has_traversal(run_id: object) -> bool:
-    """run_id 穿越形态判定（与 serve_run_artifacts 同口径——URL 进来的名字早拒）。"""
+    """run_id 非法形态判定（与 serve_run_artifacts 同口径 + 控制字符扩展——URL
+    进来的名字早拒；B25 M-1：\x00-\x1f/\x7f 非打印字符可欺篡路径拼接与日志行，
+    一律按非法运行名拒）。"""
     if not isinstance(run_id, str) or not run_id:
         return True
     return (
@@ -63,6 +70,7 @@ def _has_traversal(run_id: object) -> bool:
         or "\\" in run_id
         or ".." in run_id
         or run_id in {".", ".."}
+        or _CONTROL_CHARS_RE.search(run_id) is not None
     )
 
 
@@ -125,13 +133,15 @@ def view_failure_comparison(run_ids: list, report_root: str) -> dict:
 
     Args:
         run_ids: 运行 id（report_root 下运行目录名）列表；非 list / 元素非 str /
-            空白 / 穿越形态（含 ..、/、\\\\、绝对路径）→ValueError（端点转 400）。
+            空白 / 穿越形态（含 ..、/、\\\\、绝对路径）/ 控制字符（\x00-\x1f、
+            \x7f——B25 M-1）→ValueError（端点转 400）。
         report_root: 运行根目录（与 list_run_summaries/serve_console
             deps['report_root'] 同源）；非 str/PathLike→ValueError。
 
     Returns:
         对比视图 dict（契约见模块 docstring）——运行无失效数据→
-        runs_without_failure 标注行；全缺→conclusion 附「请选择其他运行」提示。
+        runs_without_failure 标注行；全缺（含空选择集）→conclusion 附
+        「请选择其他运行」提示。
 
     Raises:
         ValueError: run_ids 形状非法（非 list/元素非 str/空白/穿越形态）或
@@ -146,7 +156,7 @@ def view_failure_comparison(run_ids: list, report_root: str) -> dict:
     if bad:
         raise ValueError(
             f"run_ids 含非法运行名（须为 report_root 下纯目录名，禁含 /、\\\\、"
-            f".. 或绝对路径）: {bad!r}"
+            f"..、控制字符（\\x00-\\x1f）或绝对路径）: {bad!r}"
         )
     if isinstance(report_root, os.PathLike):
         report_root = os.fspath(report_root)
@@ -182,7 +192,9 @@ def view_failure_comparison(run_ids: list, report_root: str) -> dict:
 
     outcome = compare_failure_boundaries(entries)
     conclusion = outcome["conclusion"]
-    if not entries and (runs_without_failure or missing_runs):
+    # 全缺（entries 空——含空选择集）→ 追加提示（R62 签名意图：无可比数据时
+    # 引导换选；空 run_ids 同属「无失效数据可比」，与 docstring 口径对齐）。
+    if not entries:
         conclusion = f"{conclusion}{_EMPTY_HINT}"
 
     # 降级单样式标注（R26 口径结构化）：有效样式（数值电平条目）恰 1——comparison

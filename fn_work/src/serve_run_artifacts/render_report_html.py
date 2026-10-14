@@ -1,11 +1,24 @@
-"""report.md 服务端渲染为 HTML（markdown 库）：零外链、图片引用改指本服务 plots 端点——重写规约与签名意图详见 fn_docs/responsibility.md（R60 L1）。
+"""report.md 服务端渲染为 HTML（markdown 库）：渲染层消毒（源转义+URL 方案守卫）+零外链+图片引用改指本服务 plots 端点——重写规约与签名意图详见 fn_docs/responsibility.md（R60 L1）。
 
 产出口径（R60 L1，python markdown 库服务端渲染，不依赖浏览器 markdown 引擎）：
+- XSS 消毒在渲染层自证安全（B25 C-1——不依赖上游字段白名单：恶意 style 等字段
+  经 build_report 全链已在真实浏览器实证可执行，故渲染层自身兜底）：
+  ① 源文本层：渲染前对 markdown 源做 HTML 转义（& < > → 实体）——markdown 库
+     默认放行行内原始 HTML，先转义即令 ``<script>``/``onerror=``/``<svg
+     onload=…>``/``srcdoc`` 恒为纯文本；markdown 自身语法不受影响（标题/表格/
+     代码块/图片链接均不含这三种字符），行首 ``> `` 引用标记转义后还原
+     （build_report 产 report.md 大量 '> ' 引用行——EMC/声明区/对比表口径）；
+  ② 属性层：渲染后对生成 HTML 做 URL 方案守卫——所有 href/src（含 srcset/
+     action 等资源属性，引号/无引号两态）仅放行非危险方案，javascript:/data:/
+     vbscript: （大小写不敏感、剥空白/控制符后判定）一律替换为不可导航占位
+     ``"#"``，srcdoc 属性整段剥离（正则后处理，零新依赖——markdown 原生链接
+     ``[x](javascript:…)`` 是转义拦不住的活载体，须此层守卫）；
 - 完整 HTML 文档（<!DOCTYPE html>+内联 <style>，无任何外部样式/脚本/字体引用）；
 - 图片引用改写：report.md 的相对路径图片引用 ``![alt](plots/xxx.png)`` 在渲染前
   改写为本服务端点引用 ``/api/runs/{run_id}/plots/xxx.png``（build_report 产出的
   三元曲线图恒为该形态——站内可读，客户端无需知晓 run 目录盘上位置）；
-- 零外链产物断言（口径沿用 localize_console_assets，宁严勿漏）：渲染产物经
+- 零外链产物断言（与方案守卫互补——http(s)/协议相对外链仍是渲染错误而非消毒
+  对象；口径沿用 localize_console_assets，宁严勿漏）：渲染产物经
   html.unescape 实体解码后大小写不敏感匹配 http(s):// 子串+属性值形态协议相对
   ``//`` 引用+CSS url(//——发现即 ValueError（不静默放行、不剥离外链改内容，
   报告若真含外部引用应在上游修，而不是渲染期掩耳盗铃）；
@@ -41,6 +54,74 @@ _PROTO_RELATIVE_ATTR_RE = re.compile(
 
 #: CSS url() 协议相对形态（自产模板不该有，出现即拒）。
 _CSS_URL_PROTO_RE = re.compile(r"url\(\s*//", re.IGNORECASE)
+
+# ---- XSS 消毒层（B25 C-1：渲染层自证安全，不依赖上游字段白名单） ----
+
+#: 源文本层：markdown 源 HTML 转义后，行首引用标记还原（build_report 产
+#: report.md 的 '> ' 引用行——EMC/声明区/失效对比表全靠它成块；markdown 允许
+#: 行首至多 3 空格前导）。还原仅限标记字符 '>' 本身——行内其余 '<' 已转义，
+#: 引用块内容不构成注入面。
+_SRC_ESCAPE_BLOCKQUOTE_RE = re.compile(r"^( {0,3})&gt;", re.MULTILINE)
+
+#: 属性层：URL 类属性全集（引号/无引号两态通吃）——方案守卫的扫描面。
+_URL_ATTR_VALUE_RE = re.compile(
+    r"""\b(?P<attr>(?:href|src|srcset|action|formaction|poster|background|cite|data)\s*=\s*)"""
+    r"""(?:"(?P<dq>[^"]*)"|'(?P<sq>[^']*)'|(?P<bare>[^\s>]*))""",
+    re.IGNORECASE,
+)
+
+#: srcdoc 属性（内嵌 HTML 文档载荷）——任何形态整段剥离。
+_SRCDOC_ATTR_RE = re.compile(
+    r"""\bsrcdoc\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)""", re.IGNORECASE
+)
+
+#: 危险 URL 方案（大小写不敏感；data: 宁全勿漏——良性 data:image 同被换占位：
+#: 产物图引用恒为 /api 端点相对路径，无 data: 需求）。
+_DANGEROUS_SCHEME_RE = re.compile(r"^(?:javascript|data|vbscript):", re.IGNORECASE)
+
+#: 浏览器 URL 方案解析前剥离的空白/控制符（"java\tscript:" 形态同判危险）。
+_URL_NOISE_RE = re.compile(r"[\s\x00-\x1f\x7f]")
+
+#: 危险方案属性值的替换占位（链接仍在、载荷死——不剥整个元素，保表格结构）。
+_SAFE_URL_PLACEHOLDER = '"#"'
+
+
+def _escape_markdown_source(md_text: str) -> str:
+    """源文本层消毒：& < > → HTML 实体，行首引用标记还原（详见模块 docstring ①）。
+
+    markdown 库默认放行行内原始 HTML——先转义即令 ``<script>``/``onerror=``/
+    ``srcdoc`` 等一切标签形态恒为纯文本；markdown 自身语法（``#`` 标题、``|``
+    表格、````` ````` 代码块、``![]()/[]()`` 图片链接）不含这三种字符，照常生成。
+    """
+    escaped = _html.escape(md_text, quote=False)
+    return _SRC_ESCAPE_BLOCKQUOTE_RE.sub(
+        lambda m: f"{m.group(1)}>", escaped
+    )
+
+
+def _neutralize_dangerous_urls(rendered_html: str) -> str:
+    """属性层 URL 方案守卫：javascript:/data:/vbscript: → 不可导航占位，srcdoc 剥离。
+
+    markdown 原生链接 ``[x](javascript:…)`` 经渲染生成活的 ``href="javascript:…"``
+    ——这是源转义拦不住的载体（链接语法本身不含 & < >），须渲染后属性级守卫。
+    判定口径与浏览器一致：值先经一次实体解码（浏览器属性解析语义）再剥空白/
+    控制符、大小写不敏感匹配方案头。
+    """
+    no_srcdoc = _SRCDOC_ATTR_RE.sub("", rendered_html)
+
+    def _guard(match: "re.Match[str]") -> str:
+        value = match.group("dq")
+        if value is None:
+            value = (
+                match.group("sq") if match.group("sq") is not None
+                else match.group("bare")
+            )
+        probe = _URL_NOISE_RE.sub("", _html.unescape(value))
+        if _DANGEROUS_SCHEME_RE.match(probe):
+            return match.group("attr") + _SAFE_URL_PLACEHOLDER
+        return match.group(0)
+
+    return _URL_ATTR_VALUE_RE.sub(_guard, no_srcdoc)
 
 #: 渲染产物文档模板：__TITLE__/__BODY__ 两令牌 str.replace 注入（不用 format——
 #: 避免 markdown 产物花括号冲突，与 render_console_pages 同手法）；内联样式仅
@@ -122,7 +203,8 @@ def render_report_html(report_path: str, run_id: str) -> str:
 
     Returns:
         完整 HTML 文档 str（<!DOCTYPE html>+内联样式+markdown 渲染正文；图片
-        src 已指向 /api/runs/{run_id}/plots/ 端点；产物经零外链断言）。
+        src 已指向 /api/runs/{run_id}/plots/ 端点；正文经渲染层消毒——源转义+URL
+        方案守卫；产物经零外链断言）。
 
     Raises:
         ValueError: report_path 不存在/非普通文件/非 str 路径；run_id 非 str、
@@ -163,9 +245,17 @@ def render_report_html(report_path: str, run_id: str) -> str:
         report_md,
     )
 
+    # XSS 消毒（B25 C-1，渲染层自证安全）：
+    # ① 源文本转义——markdown 库放行的行内原始 HTML 恒成纯文本（![]()/[]()
+    #    链接语法不含 & < >，改写结果不受影响）；
+    # ② markdown 渲染；
+    # ③ 属性级 URL 方案守卫——原生链接生成的 javascript:/data:/vbscript: href
+    #    换不可导航占位、srcdoc 剥离。
+    safe_md = _escape_markdown_source(rewritten)
     body_html = _markdown.markdown(
-        rewritten, extensions=["tables", "fenced_code"]
+        safe_md, extensions=["tables", "fenced_code"]
     )
+    body_html = _neutralize_dangerous_urls(body_html)
 
     safe_run_id = _html.escape(run_id, quote=True)
     page_html = _DOC_TEMPLATE.replace(

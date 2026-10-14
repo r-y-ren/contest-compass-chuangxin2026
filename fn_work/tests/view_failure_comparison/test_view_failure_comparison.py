@@ -1,6 +1,10 @@
 """view_failure_comparison 单测（R62）：合成多轮→compare_failure_boundaries 对比表/
 薄弱环节结论/单样式降级标注 + 无失效数据行标注 + POST /api/runs/compare 端点合约。
 
+对比表用例族名统一 test_boundary_view_ 前缀——R62 验收通道 ``pytest -k
+boundary_view``（合成多轮→对比表断言）经名发现本族（B25 I-1：验收命令不再
+零选集空转）。
+
 视图契约（被测实现口径，详见 src/view_failure_comparison/view_failure_comparison.py
 模块 docstring）：run_ids/entries/comparison(R26 原样)/weakest_style/weakest_freq_mhz/
 tie/n_unknown/n_freq_invalid/conclusion/degraded/runs_without_failure/missing_runs。
@@ -64,7 +68,7 @@ def _make_run(root, run_id, *, levels=None, corrupt=False, freq_hz=None, no_resu
 # ---- 对比表与薄弱环节结论 ----
 
 
-def test_multi_style_comparison_table_and_weakest(tmp_path):
+def test_boundary_view_multi_style_comparison_table_and_weakest(tmp_path):
     """两轮两样式→对比表升序两行+最薄弱样式=电平中位数最低者+结论含定位。"""
     root = str(tmp_path)
     _make_run(root, "run-a", levels=[("tone", -15.0)])
@@ -94,7 +98,7 @@ def test_multi_style_comparison_table_and_weakest(tmp_path):
     assert view["missing_runs"] == []
 
 
-def test_median_across_multiple_entries_per_style(tmp_path):
+def test_boundary_view_median_across_multiple_entries_per_style(tmp_path):
     """同样式多条目（一轮可产多条）→中位数聚合+按条目计数（R26 口径，非轮次数）。"""
     root = str(tmp_path)
     _make_run(root, "run-a", levels=[("tone", -10.0), ("tone", -20.0), ("tone", -17.0)])
@@ -111,7 +115,7 @@ def test_median_across_multiple_entries_per_style(tmp_path):
     assert tone_row["min_db"] == -20.0 and tone_row["max_db"] == -10.0
 
 
-def test_single_style_degraded_annotation(tmp_path):
+def test_boundary_view_single_style_degraded_annotation(tmp_path):
     """样本不足降级：两轮同一有效样式→comparison 置空+degraded=True+结论注明单样式
     （R26 口径结构化透出）。"""
     root = str(tmp_path)
@@ -125,7 +129,7 @@ def test_single_style_degraded_annotation(tmp_path):
     assert "有效 2 条（按条目计）" in view["conclusion"]
 
 
-def test_runs_without_failure_and_missing_runs(tmp_path):
+def test_boundary_view_runs_without_failure_and_missing_runs(tmp_path):
     """在位运行无失效数据→标注行（未失效/无结果）；不存在运行→missing_runs。"""
     root = str(tmp_path)
     _make_run(root, "ok", levels=[("tone", -15.0)])
@@ -145,7 +149,7 @@ def test_runs_without_failure_and_missing_runs(tmp_path):
     assert len(view["entries"]) == 1
 
 
-def test_all_runs_lack_data_hint_to_pick_others(tmp_path):
+def test_boundary_view_all_runs_lack_data_hint_to_pick_others(tmp_path):
     """全缺→R26「无数据」结论追加「请选择其他运行」提示（R62 签名意图）。"""
     root = str(tmp_path)
     _make_run(root, "no-failure", levels=[])
@@ -156,7 +160,7 @@ def test_all_runs_lack_data_hint_to_pick_others(tmp_path):
     assert "请选择其他运行" in view["conclusion"]
 
 
-def test_unknown_levels_counted_not_compared(tmp_path):
+def test_boundary_view_unknown_levels_counted_not_compared(tmp_path):
     """unknown 电平条目不进数值统计（R26 口径）——n_unknown 计数、该样式不出现于
     对比表（表中只有数值电平样式）。"""
     root = str(tmp_path)
@@ -173,7 +177,7 @@ def test_unknown_levels_counted_not_compared(tmp_path):
     assert "另有 1 条 unknown 电平条目未纳入数值统计" in view["conclusion"]
 
 
-def test_freq_enrichment_from_scenario_freq_hz(tmp_path):
+def test_boundary_view_freq_enrichment_from_scenario_freq_hz(tmp_path):
     """条目缺 freq_mhz 时由场景副本 freq_hz 换算补充（真实数据来源）→两频点可出
     最薄弱频点。"""
     root = str(tmp_path)
@@ -186,7 +190,7 @@ def test_freq_enrichment_from_scenario_freq_hz(tmp_path):
     assert "最薄弱频点为 5800.0 MHz" in view["conclusion"]
 
 
-def test_entry_native_freq_mhz_wins(tmp_path):
+def test_boundary_view_entry_native_freq_mhz_wins(tmp_path):
     """条目自带 freq_mhz 优先（不被场景副本换算覆盖）。"""
     root = str(tmp_path)
     _make_run(root, "run-a", levels=[("tone", -15.0)], freq_hz=2.4e9)
@@ -215,6 +219,35 @@ def test_invalid_run_ids_raise_valueerror(tmp_path):
         view_failure_comparison(["../etc/passwd"], root)  # 穿越形态早拒
     with pytest.raises(ValueError, match="非法运行名"):
         view_failure_comparison(["a/b"], root)
+
+
+@pytest.mark.parametrize(
+    "evil_name",
+    [
+        "run\x00a",  # NUL（早拒主形态——路径拼接/日志行欺篡载体）
+        "run\na",  # 换行（日志注入）
+        "run\ra",  # CR
+        "run\x1fa",  # US（\x1f 上边界）
+        "run\x7fa",  # DEL
+        "run\tb\x0b",  # TAB/VT 混杂
+    ],
+)
+def test_control_chars_in_run_ids_rejected(tmp_path, evil_name):
+    """B25 M-1：run_id 含控制字符（\x00-\x1f、\x7f）→ValueError 按非法运行名早拒
+    （端点转 400——非打印字符不入路径拼接）。"""
+    with pytest.raises(ValueError, match="非法运行名"):
+        view_failure_comparison([evil_name], str(tmp_path))
+
+
+def test_empty_run_ids_selection_gets_pick_others_hint(tmp_path):
+    """B25 M-2：空 run_ids 选择集→conclusion 同样追加「请选择其他运行」提示
+    （与 docstring「全缺（entries 空——含空选择集）」口径对齐——空选不再静默）。"""
+    view = view_failure_comparison([], str(tmp_path))
+    assert view["entries"] == []
+    assert view["runs_without_failure"] == []
+    assert view["missing_runs"] == []
+    assert view["conclusion"].startswith("无数据")
+    assert "请选择其他运行" in view["conclusion"]
 
 
 def test_invalid_report_root_raises_valueerror():

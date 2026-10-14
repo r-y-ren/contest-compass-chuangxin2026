@@ -91,8 +91,10 @@ _BLOCK_TEMPLATE = r"""<section id="report-view-area" aria-label="报告查看区
     return resp.text();
   }).then(function (htmlText) {
     mount.textContent = '';
-    // 服务端渲染产物（零外链已断言）整体上屏：正文+曲线图（端点引用）+
-    // 溯源结论徽标一并就位。
+    // 服务端渲染产物整体上屏：消毒在渲染层完成（render_report_html 对源文本
+    // HTML 转义+属性级 URL 方案守卫——标签形态恒为纯文本、危险方案恒为不可
+    // 导航占位），零外链断言只是外链口径的补充而非 XSS 安全依据（B25 C-1）。
+    // 正文+曲线图（端点引用）+溯源结论徽标一并就位。
     var box = document.createElement('div');
     box.id = 'report-html';
     box.innerHTML = htmlText;
