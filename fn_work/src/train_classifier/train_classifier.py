@@ -247,6 +247,26 @@ def train_classifier(
         }
 
     # ⑤ local：dummy 训练器——每类均值谱（时间平均谱再按类平均）。
+    # B27 对抗中1 转 B28 随批整改②：local 分支消费 dry_run——演练口径不落
+    # 模型文件（此前仅 remote 分支消费，网页 local+dry_run 复选框失联），返回
+    # 标注 dry_run（model_path=None，演练不产模型）。
+    if dry_run:
+        return {
+            "model_path": None,  # 演练口径：不落模型文件
+            "labels": labels,
+            "n_samples": len(samples),
+            "where": "local",
+            "dry_run": True,
+            "train_meta": {
+                **train_meta,
+                "dry_run_note": (
+                    "local+dry_run 演练：样本校验/谱特征全流程走通，"
+                    "模型不落盘（dry_run 消费——B28 整改）"
+                ),
+            },
+            "skipped": skipped,
+            "dispatched": False,
+        }
     buckets: dict[str, list[np.ndarray]] = {label: [] for label in labels}
     for style, prof in samples:
         buckets[style].append(prof)

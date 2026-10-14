@@ -36,7 +36,10 @@
   →POST /api/run/replay 一键回放（R64），轮询运行终态上屏）；ai 页注入
   R65/R66/R67 AI 三页区（train/eval/infer-panel 挂载点：训练任务发起+轮询+
   模型列表、分组 CV 评测矩阵+泄漏警告、主动推理样式+真值对照——零外链原生
-  fetch，端点经 mount_console_extensions R65-R67 块注册）；
+  fetch，端点经 mount_console_extensions R65-R67 块注册）；instruments 页注入
+  R68/R69 仪表两页区（emc-flows EMC 三流程表单区+instrument-panels 五台 sim
+  仪表面板与 visa-status VISA 槽位状态——零外链原生 fetch，端点经
+  mount_console_extensions R68/R69 块注册）；
 - config['dry_run']=True→不拉起不检端口，返回 {'app', 'launched': False, 'port',
   'host'}（测试经 TestClient 直接打 create 路由）；
 - 真拉起序：先探端口占用→ConsoleError（dry_run 下不检）；再延迟 import uvicorn
@@ -50,6 +53,8 @@ import socket
 import threading
 
 from src.browse_dataset_library.dataset_area import build_dataset_area
+from src.demo_emc_flows.emc_area import build_emc_area
+from src.demo_instrument_panels.panels_area import build_instrument_panels_area
 from src.edit_scenario_ui.edit_scenario_ui import edit_scenario_ui
 from src.infer_style_entry.infer_area import build_infer_area
 from src.launch_classifier_training.train_area import build_train_area
@@ -380,6 +385,22 @@ def serve_console(config: dict) -> dict:
             + build_eval_area()
             + "\n"
             + build_infer_area()
+            + "\n</body>",
+            1,
+        )
+        # R68/R69 快速通道：仪表页区注入 instruments 页（emc-flows 表单区+
+        # instrument-panels 面板区两个区块——R68 EMC 表单（三流程选择+参数
+        # JSON→POST /api/emc/{flow} 202→轮询 /api/runs/{id}→图谱段 SVG+口径
+        # 声明+裁剪 warnings 上屏）与 R69 五台 sim 仪表面板（open/read-demo/
+        # close→POST /api/instruments/{instrument}/{action}+GET /api/instruments
+        # 面板/VISA 槽位状态）——端点均经 mount_console_extensions R68/R69 块
+        # 注册。同 R57/R58/R60 口径：仅缺省装配路径注入，显式 static_pages
+        # 直通不注入。
+        static_pages["instruments.html"] = static_pages["instruments.html"].replace(
+            "</body>",
+            build_emc_area()
+            + "\n"
+            + build_instrument_panels_area()
             + "\n</body>",
             1,
         )

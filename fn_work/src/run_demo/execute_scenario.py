@@ -21,8 +21,14 @@ deps 注入本函数）。产出统一运行结果对象 {'status','result','str
 - 'custom'（自定义梯度）→ run_power_ladder（failure_cb 判据接线同 gb 口径：
   每档拉 judge_min_samples 个样本→聚合 compute_per→check_failure；判据工厂/
   DUT 源打开复用 execute_gb42590_protocol 的私有助手，保证两路判据逐字一致）；
-- 'emc'（EMC 场景演示）→ run_emc_sweep(ctx, scenario) 透传（模拟接收机步进
-  扫频，全程 simulated）；
+- 'emc'（EMC 场景演示）→ 子类型分派（R68 快速通道改造点，块引言在册）：
+  scenario['emc_flow']（或 scenario['params'] 通道内 'emc_flow' 键）给出
+  'conduction' → run_emc_conduction_sim(ctx, scenario)（LISN 传导摸底）、
+  'radiation' → run_emc_radiation_sim(ctx, scenario)（屏蔽环境辐射摸底）、
+  缺省/'sweep' → run_emc_sweep(ctx, scenario) 保持既有行为（模拟接收机步进
+  扫频）；子类型 strip().lower() 归一，未知值 → ScenarioError（发射前）；
+  三路 ctx/scenario 契约同构（em_receiver/spectrum_analyzer 注入优先，缺省
+  内部新建；全程 simulated）；
 - 其余（含缺键/非 str）→ ScenarioError（本文件定义的 ValueError 子类，发射前）。
 
 两级回落（scenario > ctx > 缺省，与 gb 口径一致）：'judge_min_samples'（每档
@@ -65,6 +71,8 @@ from src.map_distance_to_loss.map_distance_to_loss import (
 from src.normalize_kpi.normalize_kpi import normalize_kpi
 from src.record_run_streams.record_run_streams import KPI_HEADER, record_run_streams
 from src.run_baseline_check.run_baseline_check import run_baseline_check
+from src.run_emc_conduction_sim.run_emc_conduction_sim import run_emc_conduction_sim
+from src.run_emc_radiation_sim.run_emc_radiation_sim import run_emc_radiation_sim
 from src.run_emc_sweep.run_emc_sweep import run_emc_sweep
 from src.run_power_ladder.run_power_ladder import run_power_ladder
 from src.set_channel_attenuation.set_channel_attenuation import (
@@ -93,6 +101,9 @@ class ScenarioError(ValueError):
 #: scenario_type 缺失时的缺省类型——用户只写「样式+频段+声明」五项即按国标测法执行。
 _DEFAULT_SCENARIO_TYPE = "gb42590"
 _SCENARIO_TYPES = ("gb42590", "distance", "custom", "emc")
+
+#: emc 子类型在册清单（R68 快速通道：emc_flow 缺省 sweep 保持既有行为）。
+_EMC_FLOWS = ("conduction", "radiation", "sweep")
 
 #: kpi 行回填的 set_channel_attenuation 结果子集（溯源用：目标/实达/残差/下发态）。
 _ATTENUATION_KEYS = ("target_db", "achieved_db", "residual_db", "applied")
@@ -329,8 +340,30 @@ def _run_custom(ctx: dict, scenario: dict) -> dict:
     )
 
 
+def _emc_flow(scenario: dict) -> str:
+    """emc 子类型解析（R68 快速通道）：scenario['emc_flow'] > scenario['params']
+    通道内 'emc_flow' 键 > 缺省 'sweep'；strip().lower() 归一，未知值 ScenarioError。"""
+    raw = scenario.get("emc_flow")
+    if raw is None:
+        nested = scenario.get("params")
+        if isinstance(nested, dict):
+            raw = nested.get("emc_flow")
+    if raw is None:
+        return "sweep"  # 缺省子类型：保持既有 run_emc_sweep 行为
+    if not isinstance(raw, str) or raw.strip().lower() not in _EMC_FLOWS:
+        raise ScenarioError(
+            f"未知 emc_flow {raw!r}（在册: {list(_EMC_FLOWS)}，缺省 sweep）"
+        )
+    return raw.strip().lower()
+
+
 def _run_emc(ctx: dict, scenario: dict) -> dict:
-    """EMC 场景演示透传：run_emc_sweep(ctx, scenario)（模拟接收机步进扫频）。"""
+    """EMC 场景演示子类型分派（R68 快速通道）：conduction/radiation/sweep 三路。"""
+    flow = _emc_flow(scenario)
+    if flow == "conduction":
+        return run_emc_conduction_sim(ctx, scenario)
+    if flow == "radiation":
+        return run_emc_radiation_sim(ctx, scenario)
     return run_emc_sweep(ctx, scenario)
 
 
@@ -358,8 +391,9 @@ _STREAMS_NOTES = {
         "监测/录制三路（record_run_streams）归 run_demo 采集阶段另行执行"
     ),
     "emc": (
-        "emc: 模拟接收机步进扫频（run_emc_sweep），本阶段无 DUT 链路流采集；"
-        "监测/录制三路（record_run_streams）归 run_demo 采集阶段另行执行"
+        "emc: 模拟后端 EMC 摸底演示（R68 三流程：conduction/radiation/sweep，"
+        "emc_flow 分派缺省 sweep——run_emc_sweep 步进扫频），本阶段无 DUT 链路"
+        "流采集；监测/录制三路（record_run_streams）归 run_demo 采集阶段另行执行"
     ),
 }
 
@@ -386,6 +420,16 @@ def _streams_note(scenario_type: str, result: dict) -> str:
         )
     if scenario_type == "custom":
         return f"{note}；ladder reason={result.get('reason')}"
+    if scenario_type == "emc":
+        # 子类型按结果形状回推（R68：readings=conduction / spectrum=radiation /
+        # 其余含 points=sweep）——与人读溯源口径一致。
+        if isinstance(result.get("readings"), list):
+            flow = "conduction"
+        elif isinstance(result.get("spectrum"), dict):
+            flow = "radiation"
+        else:
+            flow = "sweep"
+        return f"{note}；emc_flow={flow}"
     return note
 
 
@@ -400,7 +444,9 @@ def execute_scenario(ctx: dict, scenario: dict | None = None) -> dict:
             'link_power_db'（阶梯基准）、可选 'jam_events'/'judge_min_samples'/
             'dwell_s'/'attenuator_cal' 等（两级回落与标定口径见各编排）；
         scenario: 场景 dict（None=取 ctx['scenario']）——'scenario_type' 缺省 gb42590
-            （'gb42590'|'distance'|'custom'|'emc'）；distance 另需 'distances'
+            （'gb42590'|'distance'|'custom'|'emc'）；emc 另可给 'emc_flow'
+            （'conduction'|'radiation'|'sweep'，缺省 sweep——R68 快速通道）；
+            distance 另需 'distances'
             （距离序列）与 'model_params'（map_distance_to_loss 参数，含可选
             domain/cal_table）；custom 另可给 'ladder'（start_db/step_db/
             stop_db/max_steps）、'dwell_s'、'per_threshold'。

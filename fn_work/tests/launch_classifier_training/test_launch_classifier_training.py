@@ -329,6 +329,28 @@ def test_ai_train_view_endpoint_local_train_then_models_listed(tmp_path):
     assert entry["size_bytes"] > 0
 
 
+def test_ai_train_view_local_dry_run_no_model_file(tmp_path):
+    """⑨b B27 对抗中1 转 B28 随批整改②：local+dry_run——样本校验/谱特征全流程
+    走通但模型不落盘（此前 dry_run 仅 remote 分支消费，网页复选框失联）。"""
+    index_path, runs_root, models_dir = _dataset(tmp_path)
+    handle = launch_classifier_training(
+        _params(index_path, runs_root, models_dir, dry_run=True)  # local+dry_run
+    )
+    assert handle["dry_run"] is True
+    task = _wait_task(handle["task_id"])
+    assert task["status"] == "done"  # 演练成功终态（不拒训）
+    result = task["result"]
+    assert result["model_path"] is None  # 演练口径：不落模型文件
+    assert result["dry_run"] is True  # 返回标注（消费方可辨）
+    assert result["where"] == "local"
+    assert set(result["labels"]) == {"tone", "bandlimited_noise"}
+    assert result["n_samples"] == 16  # 样本校验/谱特征全流程走通
+    assert "不落盘" in result["train_meta"]["dry_run_note"]  # 演练注记在案
+    assert not os.path.exists(
+        os.path.join(models_dir, "style_classifier.json")
+    )  # 模型文件真不在位
+
+
 @needs_fastapi
 def test_ai_train_view_endpoint_status_404_and_bad_shapes(tmp_path):
     """⑩ GET 未知任务→404；body 形状错（query 非 dict/where 越域/dry_run 非

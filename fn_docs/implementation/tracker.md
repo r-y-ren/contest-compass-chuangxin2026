@@ -1060,15 +1060,15 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B28 — demo_emc_flows, demo_instrument_panels
 ### demo_emc_flows
-- [ ] demo_emc_flows · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] demo_emc_flows · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] demo_emc_flows · wired — 预告: 调用点存在，预期 grep 命中
+- [x] demo_emc_flows · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:demo_emc_flows src/ && echo OK → OK (10-14)
+- [x] demo_emc_flows · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k emc_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
+- [x] demo_emc_flows · wired — 证据: bash -c grep -c R68 fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
 - [ ] demo_emc_flows · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] demo_emc_flows · commit — 预告: fn(demo_emc_flows): wired 含四文档变更
 ### demo_instrument_panels
-- [ ] demo_instrument_panels · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] demo_instrument_panels · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] demo_instrument_panels · wired — 预告: 调用点存在，预期 grep 命中
+- [x] demo_instrument_panels · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:demo_instrument_panels src/ && echo OK → OK (10-14)
+- [x] demo_instrument_panels · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k instruments_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
+- [x] demo_instrument_panels · wired — 证据: bash -c grep -c R69 fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
 - [ ] demo_instrument_panels · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] demo_instrument_panels · commit — 预告: fn(demo_instrument_panels): wired 含四文档变更
 ## B28 批间门

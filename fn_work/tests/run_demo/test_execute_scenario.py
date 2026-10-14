@@ -425,6 +425,114 @@ def test_emc_dispatch_passthrough(tmp_path, monkeypatch):
     assert "emc" in out["streams_note"]
 
 
+# ---------- ④b R68 emc 子类型分派：conduction/radiation/sweep/缺省 sweep ----------
+
+
+def _emc_fakes(monkeypatch, counters, seen):
+    """三路 emc 编排器假件：各记调用次数+捕获 scenario，返回形态真实负载
+    （readings/spectrum/points——streams_note 子类型回推口径的判形基元）。"""
+    payloads = {
+        "conduction": {"readings": [{"freq_hz": 10e6, "power_dbuv": 30.0}]},
+        "radiation": {"spectrum": {"freqs": [1e8], "power_db": [-40.0]}},
+        "sweep": {"points": [{"freq_hz": 1e6, "power_dbm": -100.0}]},
+    }
+    targets = {
+        "conduction": es_mod.run_emc_conduction_sim,
+        "radiation": es_mod.run_emc_radiation_sim,
+        "sweep": es_mod.run_emc_sweep,
+    }
+    for flow, target in targets.items():
+        monkeypatch.setattr(
+            es_mod,
+            target.__name__,
+            _make_emc_fake(flow, counters, seen, payloads[flow]),
+        )
+
+
+def _make_emc_fake(flow, counters, seen, payload):
+    def _fake(ctx, scenario):
+        counters[flow] = counters.get(flow, 0) + 1
+        seen[flow] = scenario
+        return payload
+
+    return _fake
+
+
+def test_emc_subtype_dispatch_conduction_radiation_sweep(tmp_path, monkeypatch):
+    """R68 快速通道：scenario['emc_flow'] 三路分派互不串台——conduction→
+    run_emc_conduction_sim、radiation→run_emc_radiation_sim、sweep→
+    run_emc_sweep（ctx/scenario 原样透传）；strip().lower() 归一；streams_note
+    按结果形状回推子类型（readings/spectrum/points）。"""
+    counters: dict = {}
+    seen: dict = {}
+    _emc_fakes(monkeypatch, counters, seen)
+    for raw_flow in ("conduction", "Radiation", "  SWEEP  "):
+        flow = raw_flow.strip().lower()
+        scenario = {"scenario_type": "emc", "emc_flow": raw_flow, "freq_hz": 10e6}
+        out = execute_scenario(make_ctx(tmp_path, scenario), scenario)
+        assert out["status"] == "completed"
+        assert f"emc_flow={flow}" in out["streams_note"]  # 子类型回推上注
+    assert counters == {"conduction": 1, "radiation": 1, "sweep": 1}  # 互不串台
+    # scenario 原样透传（emc_flow 键与流程参数都在——各 sim 自取所需）
+    assert seen["conduction"]["emc_flow"] == "conduction"
+    assert seen["conduction"]["freq_hz"] == 10e6
+
+
+def test_emc_subtype_default_sweep_keeps_legacy_behavior(tmp_path, monkeypatch):
+    """缺省子类型=sweep：无 emc_flow 键→run_emc_sweep（既有行为不变），scenario
+    原样（不注入缺省键）。"""
+    calls = []
+
+    def fake_sweep(ctx, scenario):
+        calls.append(scenario)
+        return {"points": []}
+
+    monkeypatch.setattr(es_mod, "run_emc_sweep", fake_sweep)
+    out = execute_scenario(
+        make_ctx(tmp_path), {"scenario_type": "emc", "band": "cispr_a"}
+    )
+    assert out["status"] == "completed"
+    assert len(calls) == 1
+    assert calls[0] == {"scenario_type": "emc", "band": "cispr_a"}  # 原样透传
+    assert "emc_flow=sweep" in out["streams_note"]  # 缺省口径上注
+
+
+def test_emc_subtype_params_channel_and_top_level_priority(tmp_path, monkeypatch):
+    """scenario['params'] 通道内 emc_flow 键同样消费（薄载荷透传口径）；显式
+    顶层键优先于 params 通道。"""
+    counters: dict = {}
+    seen: dict = {}
+    _emc_fakes(monkeypatch, counters, seen)
+    # params 通道：params.emc_flow=radiation → radiation 路
+    execute_scenario(
+        make_ctx(tmp_path),
+        {"scenario_type": "emc", "params": {"emc_flow": "radiation"}},
+    )
+    assert counters == {"radiation": 1}
+    # 顶层显式键优先：emc_flow=conduction 盖过 params 内 sweep
+    execute_scenario(
+        make_ctx(tmp_path),
+        {
+            "scenario_type": "emc",
+            "emc_flow": "conduction",
+            "params": {"emc_flow": "sweep"},
+        },
+    )
+    assert counters == {"radiation": 1, "conduction": 1}
+
+
+def test_emc_subtype_unknown_flow_rejected(tmp_path):
+    """未知 emc_flow → ScenarioError（发射前拒，在册清单进错误信息）。"""
+    with pytest.raises(ScenarioError, match="未知 emc_flow"):
+        execute_scenario(
+            make_ctx(tmp_path), {"scenario_type": "emc", "emc_flow": "bogus"}
+        )
+    with pytest.raises(ScenarioError, match="未知 emc_flow"):  # 非 str 同拒
+        execute_scenario(
+            make_ctx(tmp_path), {"scenario_type": "emc", "emc_flow": 42}
+        )
+
+
 # ---------- ⑤ ScenarioError 域：未知类型 / 缺类型 / 缺 scenario / 形状错 ----------
 
 

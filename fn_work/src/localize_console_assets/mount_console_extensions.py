@@ -36,6 +36,14 @@ R66 追加在册：view_cv_evaluation 评测端点——POST /api/ai/evaluate（
 模型标识→混淆矩阵/Macro-F1/泄漏警告结果；EvalError（分组缺失等）→400 上屏）。
 R67 追加在册：infer_style_entry 主动推理端点——POST /api/ai/infer（IQ 源选择
 （run_id/sigmf_path/query）→识别结果行+真值对照；模型缺失提示态不报错）。
+R68 追加在册：demo_emc_flows EMC 三流程演示端点——POST /api/emc/{flow}
+（conduction/radiation/sweep 参数表单→202+后台线程经操控台 runner（/api/run
+同款执行器）发起 demo_emc_flows→图谱段+make_disclaimer_block('emc') 口径
+声明；运行表同 /api/run 口径，GET /api/runs/{id} 轮询终态）。
+R69 追加在册：demo_instrument_panels 仪表面板两端点——POST
+/api/instruments/{instrument}/{action}（五台 sim 仪表 open/read-demo/close
+状态机，非法状态 400 错误信息上屏）+GET /api/instruments（面板状态+VISA
+槽位状态总览）。
 
 注意：本模块同 create_console_app，**不可**使用 `from __future__ import
 annotations`——路由处理器签名注解须在 def 时求值为真实类（FileResponse 是本函数
@@ -89,7 +97,10 @@ def mount_console_extensions(app, deps: dict):
     /api/run/replay——B26 对抗中2 转 B27 整改②：runs_root 路径围栏+
     source_scenario 白名单收缩）；R65 launch_classifier_training AI 训练三
     端点；R66 view_cv_evaluation 评测端点（POST /api/ai/evaluate）；R67
-    infer_style_entry 主动推理端点（POST /api/ai/infer）。
+    infer_style_entry 主动推理端点（POST /api/ai/infer）；R68 demo_emc_flows
+    EMC 三流程演示端点（POST /api/emc/{flow}——202+后台线程+运行表同 /api/run
+    口径）；R69 demo_instrument_panels 仪表面板两端点（POST
+    /api/instruments/{instrument}/{action}+GET /api/instruments）。
 
     Args:
         app: FastAPI 应用（须具备路由注册能力——get 装饰器+routes 路由表；
@@ -360,6 +371,8 @@ def mount_console_extensions(app, deps: dict):
     # →ScenarioError 转 400，错误信息进响应上屏——不进后台线程后知后觉）→
     # 202+后台线程经 launch_replay_run(entry, deps['runner']) 发起（与 /api/run
     # 同款执行器与运行表：app.state.runs 可轮询，实时曲线/报告中心可见）。
+    # B27 对抗中1 转 B28 随批整改①：下方 _fence_replay_entry 围栏补 .sigmf-data
+    # 同目录数据文件 realpath 校验（meta 在界而 data 软链出界→ScenarioError→400）。
     # POST 路径不与 GET /api/runs/{run_id} 冲突，无需路由序手术。
 
     import threading as _threading
@@ -384,12 +397,16 @@ def mount_console_extensions(app, deps: dict):
 
     def _fence_replay_entry(entry: dict, runs_root: str) -> dict:
         """索引入口 runs_root 路径围栏+source_scenario 收缩（B26 对抗中2 转
-        B27 随批整改②，调用点=POST /api/run/replay 的条目消费边界）。
+        B27 随批整改②，调用点=POST /api/run/replay 的条目消费边界；B27 对抗中1
+        转 B28 随批整改①：围栏补 .sigmf-data 同目录数据文件 realpath 校验——
+        meta 在界而 data 软链出界的「半对走私」同样拦下）。
 
         - 围栏：条目 sigmf_path 解析（'sigmf_path' 显式 > 'path' 目录最早
-          .sigmf-meta）后的 realpath 必须落在 realpath(runs_root) 内——越界
-          （索引被投毒指向库外路径/穿越链）→ ScenarioError（外层转 400 带
-          指错）；无可解析录音→不拦（交 build_replay_scenario 按既有口径拒）；
+          .sigmf-meta）后的 realpath 必须落在 realpath(runs_root) 内，**且**
+          同目录配对 .sigmf-data（meta 同名换尾）存在时其 realpath 亦须落在
+          runs_root 内——越界（索引被投毒指向库外路径/穿越链/data 软链出界）
+          → ScenarioError（外层转 400 带指错）；无可解析录音→不拦（交
+          build_replay_scenario 按既有口径拒）；
         - 收缩：index register 额外键原样透传的 'source_scenario' 仅保留
           白名单键（_SOURCE_SCENARIO_KEYS）——索引侧夹带的任意键在此剥除；
           收缩后为空 dict → 整键剥除（build_replay_scenario 走场景副本路）。
@@ -397,6 +414,15 @@ def mount_console_extensions(app, deps: dict):
         import os as _os
 
         from src.launch_replay_run.build_replay_scenario import ScenarioError as _ScenarioError
+
+        def _fence_inside(sigmf: str, resolved: str, fence_root: str) -> None:
+            """单路径围栏判：resolved 不落在 fence_root 内 → ScenarioError。"""
+            if _os.path.commonpath([fence_root, resolved]) != fence_root:
+                raise _ScenarioError(
+                    f"录音路径越界（索引入口 runs_root 围栏）: {sigmf} 解析后 "
+                    f"{resolved} 不在运行目录根 {fence_root} 内——索引条目疑似"
+                    "指向库外路径，拒绝回放"
+                )
 
         sigmf = None
         explicit_meta = entry.get("sigmf_path")
@@ -414,13 +440,14 @@ def mount_console_extensions(app, deps: dict):
                     sigmf = _os.path.join(recordings, metas[0])
         if sigmf is not None:
             fence_root = _os.path.realpath(runs_root)
-            resolved = _os.path.realpath(sigmf)
-            if _os.path.commonpath([fence_root, resolved]) != fence_root:
-                raise _ScenarioError(
-                    f"录音路径越界（索引入口 runs_root 围栏）: {sigmf} 解析后 "
-                    f"{resolved} 不在运行目录根 {fence_root} 内——索引条目疑似"
-                    "指向库外路径，拒绝回放"
-                )
+            _fence_inside(sigmf, _os.path.realpath(sigmf), fence_root)
+            # B27 对抗中1 转 B28 随批整改①：meta 同目录配对 .sigmf-data 的
+            # realpath 同样落 runs_root 校验——软链出界（meta 在界而 data 指
+            # 向库外真值对）在此拦下；data 文件不在位时不拦（缺对拒绝归
+            # build_replay_scenario 既有口径）。
+            data_path = sigmf[: -len(".sigmf-meta")] + ".sigmf-data"
+            if _os.path.isfile(data_path):
+                _fence_inside(data_path, _os.path.realpath(data_path), fence_root)
         source = entry.get("source_scenario")
         if isinstance(source, dict) and source:
             shrunk = {
@@ -743,6 +770,125 @@ def mount_console_extensions(app, deps: dict):
             return infer_style_entry(source)
         except ValueError as exc:  # 源形状错→400 字段级指错（提示态不在此列）
             raise AppError(str(exc), field="source") from exc
+
+    # ---- R68 demo_emc_flows：EMC 三流程演示端点 ----
+    # 语义核心在 src.demo_emc_flows.demo_emc_flows（纯函数——三流程表单参数→
+    # emc 场景（scenario_type='emc'+emc_flow）→经操控台 runner（/api/run 同款
+    # 执行器）发起→图谱段+make_disclaimer_block('emc') 口径声明收割）；本路由层
+    # 薄转接：body {'params': dict} 形状校验+202 后台线程+运行表（app.state.runs
+    # 同 /api/run 口径——启动即复位 stop_flag，GET /api/runs/{id} 轮询终态，done
+    # 附演示视图 / failed 附错误原文）。flow 未知/形状错 ValueError→400 field=
+    # 'flow'/'params'（错误信息上屏）。POST 路径 /api/emc/{flow} 为独立命名空间，
+    # 与既有路由无冲突，无需路由序手术。
+
+    @app.post("/api/emc/{flow}")
+    async def emc_flow_run(flow: str, request: Request) -> "_JSONResponse":
+        # 延迟 import：与 R60-R67 块同口径（请求期才 import 服务模块）。
+        from src.demo_emc_flows.demo_emc_flows import EMC_FLOWS, demo_emc_flows
+
+        if flow.strip().lower() not in EMC_FLOWS:
+            raise AppError(
+                f"flow 必须为 {list(EMC_FLOWS)} 之一（EMC 演示流程），实际: {flow!r}",
+                field="flow",
+            )
+        try:
+            body = await request.json()
+        except Exception as exc:  # 空 body 容忍为 {}（params 可缺省）
+            body = {}
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            raise AppError(
+                f"请求体须为 JSON 对象 {{'params': dict}}，实际 "
+                f"{type(body).__name__}: {body!r}",
+                field="params",
+            )
+        params = body.get("params", {})
+        if params is None:
+            params = {}
+        if not isinstance(params, dict):
+            raise AppError(
+                f"params 必须为 dict | None（EMC 流程表单参数），实际: {params!r}",
+                field="params",
+            )
+        emc_uuid = _uuid.uuid4().hex[:8]
+        # 启动即复位共享停机旗标（与 /api/run 同口径——新 run 不吃旧停机信号）。
+        deps["stop_flag"]["flag"] = False
+        app.state.runs[emc_uuid] = {
+            "run_id": emc_uuid,
+            "status": "running",
+            "started_at": _datetime.now(_timezone.utc).isoformat(),
+            "emc_flow": flow.strip().lower(),
+        }
+
+        def _emc_in_background() -> None:
+            # runner/收割一切异常只落运行表——服务绝不因单次演示炸掉。
+            try:
+                outcome = demo_emc_flows(flow, params, deps["runner"])
+                app.state.runs[emc_uuid]["status"] = "done"
+                app.state.runs[emc_uuid]["result"] = outcome
+            except BaseException as exc:  # noqa: BLE001 - 后台线程隔离边界
+                app.state.runs[emc_uuid]["status"] = "failed"
+                app.state.runs[emc_uuid]["error"] = f"{type(exc).__name__}: {exc}"
+
+        _threading.Thread(
+            target=_emc_in_background,
+            daemon=True,
+            name=f"console-emc-{emc_uuid}",
+        ).start()
+        return _JSONResponse(
+            status_code=202,
+            content={
+                "run_id": emc_uuid,
+                "flow": flow.strip().lower(),
+                "poll": f"/api/runs/{emc_uuid}",
+            },
+        )
+
+    # ---- R69 demo_instrument_panels：仪表面板两端点 ----
+    # 语义核心在 src.demo_instrument_panels.demo_instrument_panels（纯函数——
+    # 五台 sim 仪表 open/read-demo/close 状态机，模块级会话表；读数超模型域裁剪
+    # +标注不拒）与 list_instrument_panels（面板状态+VISA 槽位状态总览，只读）；
+    # 本路由层薄转接：POST body 即 read 可选配置 params dict（空 body 容忍为
+    # {}）；IllegalStateError/ValueError（未打开先读/形状错/仪表域错）→400 错误
+    # 信息上屏（field='instrument'）。GET /api/instruments 单段字面路由，POST
+    # /api/instruments/{instrument}/{action} 两段参数路由——段数互异不冲突，
+    # 且 GET 与 POST 方法互异，无需路由序手术。
+
+    @app.get("/api/instruments")
+    async def instruments_overview() -> dict:
+        # 延迟 import：与 R60-R68 块同口径（请求期才 import 服务模块）。
+        from src.demo_instrument_panels.demo_instrument_panels import (
+            list_instrument_panels,
+        )
+
+        return list_instrument_panels()
+
+    @app.post("/api/instruments/{instrument}/{action}")
+    async def instrument_panel_action(
+        instrument: str, action: str, request: Request
+    ) -> dict:
+        # 延迟 import：与 R60-R68 块同口径（请求期才 import 服务模块）。
+        from src.demo_instrument_panels.demo_instrument_panels import (
+            demo_instrument_panels,
+        )
+
+        try:
+            body = await request.json()
+        except Exception:  # 空 body 容忍（params 可缺省——open/close 无参数）
+            body = {}
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            raise AppError(
+                f"请求体须为 JSON 对象（read 可选配置参数），实际 "
+                f"{type(body).__name__}: {body!r}",
+                field="instrument",
+            )
+        try:
+            return demo_instrument_panels(instrument, action, body)
+        except ValueError as exc:  # IllegalStateError 亦 ValueError 子类——400 上屏
+            raise AppError(str(exc), field="instrument") from exc
 
     # ---- R68–R74 后续批次注册块：到货批次按 R 号顺序在此逐批追加 ----
 

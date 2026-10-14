@@ -222,3 +222,51 @@ def test_replay_run_fence_source_scenario_all_rogue_falls_back_to_copy(tmp_path)
     entry = _poll_done(client, resp.json()["run_id"])
     assert entry["status"] == "done"
     assert captured.get("style") == "tone"  # 副本真值（夹带 dict 被收缩剥除）
+
+
+@needs_fastapi
+def test_replay_run_fence_data_symlink_outside_runs_root_rejected(tmp_path):
+    """围栏④（B27 对抗中1 转 B28 随批整改①）：meta 在界而配对 .sigmf-data 软链
+    出界（指向库外真值对）——「半对走私」同样拦下→400 越界，不发起回放。"""
+    client, runs_root = _client(tmp_path)
+    _register_entry(tmp_path, runs_root)
+    # 库外真值对：outside/secret.sigmf-{data,meta}（越界目标存在——isfile 过、
+    # realpath 出界拦）
+    outside = tmp_path / "outside"
+    meta = _write_pair(outside, "secret", num_samples=64)
+    data_inside = os.path.join(
+        runs_root, "20260101-000000", "recordings", "20260101-000000.sigmf-data"
+    )
+    os.remove(data_inside)
+    os.symlink(os.path.join(str(outside), "secret.sigmf-data"), data_inside)
+    assert meta  # 库外 meta 仅作伴对（data 目标在位即可）
+    resp = client.post("/api/run/replay", json={"run_id": "fenced-01"})
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail["field"] == "run_id"
+    assert "越界" in detail["error"] and "runs_root 围栏" in detail["error"]
+
+
+@needs_fastapi
+def test_replay_run_fence_data_symlink_inside_runs_root_passthrough(tmp_path):
+    """围栏⑤（整改①不误伤）：.sigmf-data 软链指向 runs_root 界内共享存储
+    （realpath 仍落根内）→围栏放行——202+后台发起照常（runner 捕获 replay 场景）。"""
+    captured: dict = {}
+    client, runs_root = _client(tmp_path, captured=captured)
+    _register_entry(tmp_path, runs_root)
+    shared = tmp_path / "reports" / "shared"
+    shared.mkdir()
+    blob = shared / "blob.sigmf-data"
+    import numpy as np
+
+    np.zeros(32, dtype=np.complex64).tofile(str(blob))
+    data_inside = os.path.join(
+        runs_root, "20260101-000000", "recordings", "20260101-000000.sigmf-data"
+    )
+    os.remove(data_inside)
+    os.symlink(str(blob), data_inside)
+    resp = client.post("/api/run/replay", json={"run_id": "fenced-01"})
+    assert resp.status_code == 202  # 界内软链不拦
+    entry = _poll_done(client, resp.json()["run_id"])
+    assert entry["status"] == "done"
+    assert captured.get("backend") == "replay"  # 组装场景照常交 runner
