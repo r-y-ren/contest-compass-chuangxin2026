@@ -4,19 +4,25 @@
 
 - 断言族一（期望条目集齐）：expected_entries 每个名字须在手册里有一个二级标题
   （^## 开头）包含该名字——期望集按已交付批登记（R77–R83 各批验收即本函数
-  按批增长的期望集执行）；缺条目点名。
+  按批增长的期望集执行）；缺条目点名。**同名多章全审**（B32 M3 加固）：条目
+  审计在全部含名二级标题章上做，不止首个——防前章为全章掩盖后章残缺（或前
+  章为伪章）；任一命中章缺件即入 missing_sections（缺件章条目名可重名并列），
+  全部命中章齐件才计 passed。
 - 断言族二（四件套小节齐）：条目章（该条目二级标题到下一个二级标题）内须有
   四个三级标题（^###），分别含关键词 功能说明/所需设备与连线/操作步骤/预期现象。
 - 断言族三（两档标注）：每个「所需设备与连线」小节内须同时出现「便携档」与
-  「全量档」（小节体=该三级标题到下一任意层级标题；缺档记
-  ``所需设备与连线:<档名>`` 入 missing_sections——无专字段，如实并入缺件清单）。
+  「全量档」（小节体=该三级标题到下一任意层级标题；**围栏内词不算数**——B32
+  M3 加固：小节体先剥离代码围栏（```/~~~ 块）再查两档词，防命令注释里的档名
+  伪达标；缺档记 ``所需设备与连线:<档名>`` 入 missing_sections——无专字段，
+  如实并入缺件清单）。
 - 断言族四（零占位）：全文不得出现 待定/TODO/TBD/占位/待补充——注意**不匹配
   「待实测」**（平台合法口径词，README 标定演示条目明文使用）。
 - 断言族五（FAQ 覆盖）：解析 README「常见问题」无序列表每个问题，手册附录
-  「应急速查表」区（每个含「应急」的标题起到下一同级标题）须每条至少一行命中。
-  匹配口径取保守实现：FAQ 整条文本去标点（剔一切非 \\w 字符）后的前 12 个
-  字符为键，应急区任一行按同口径去标点后含该键即算覆盖——即应急表须逐字
-  回应 FAQ 症状短语，而非仅同义词呼应。
+  「应急速查表」区（每个含「应急」的标题起到下一同级标题）须每条至少一行命中，
+  且命中行必须是**表格行**（| 起始——B32 M3 加固：散文单行恰好复述 FAQ 症状
+  短语不算覆盖）。匹配口径取保守实现：FAQ 整条文本去标点（剔一切非 \\w 字符）
+  后的前 12 个字符为键，应急区表格行按同口径去标点后含该键即算覆盖——即应急
+  表须逐字回应 FAQ 症状短语，而非仅同义词呼应。
 - 分节归属：条目章边界=条目二级标题→下一个二级标题；标题解析跳过代码围栏
   （```/~~~ 内的 # 行不算标题，防命令注释伪标题截断章节）。
 
@@ -85,18 +91,25 @@ def check_demo_manual(manual_path: str | Path, readme_path: str | Path, expected
     manual_lines = manual.read_text(encoding="utf-8").splitlines()
     manual_headings = _scan_headings(manual_lines)
 
-    # 断言族一+二+三：逐期望条目检章在册、四件套齐、两档标注齐。
+    # 断言族一+二+三：逐期望条目检章在册（同名多章全审）、四件套齐、两档标注齐。
     missing_entries: list[str] = []
     missing_sections: list[dict] = []
     passed = 0
     for name in expected_entries:
-        chapter = _find_chapter(manual_headings, name)
-        if chapter is None:
+        chapters = _find_chapters(manual_headings, name)
+        if not chapters:
             missing_entries.append(name)
             continue
-        missing_bits = _audit_chapter(manual_headings, manual_lines, chapter)
-        if missing_bits:
-            missing_sections.append({"entry": name, "missing": missing_bits})
+        # 同名多章全审：任一命中章缺件即记（重名章的缺件并列，互不掩盖），
+        # 全部命中章齐件才计 passed（条目计数口径——非章计数）。
+        chapter_bits: list[list[str]] = []
+        for chapter in chapters:
+            bits = _audit_chapter(manual_headings, manual_lines, chapter)
+            if bits:
+                chapter_bits.append(bits)
+        if chapter_bits:
+            for bits in chapter_bits:
+                missing_sections.append({"entry": name, "missing": bits})
         else:
             passed += 1
 
@@ -133,6 +146,25 @@ def _scan_headings(lines: list[str]) -> list[tuple[int, int, str]]:
     return out
 
 
+def _strip_fenced(lines: list[str]) -> list[str]:
+    """剥离代码围栏块（```/~~~ 开合区连同围栏行本身），返回围栏外行清单。
+
+    仅两档词族（族三）小节体检查使用——防围栏内命令注释的档名伪达标
+    （B32 M3 加固）；占位族（族四）全文扫描**仍含围栏内**（手册面向演示者，
+    任何位置残留都算）——各族口径独立，本函数不改动其他族行为。
+    """
+    out: list[str] = []
+    in_fence = False
+    for raw in lines:
+        if _FENCE_RE.match(raw):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        out.append(raw)
+    return out
+
+
 def _end_line(headings: list[tuple[int, int, str]], pos: int, level: int, total: int) -> int:
     """从 headings[pos] 起下一个同级或更高级标题的行号（无则文末 total）——章/小节边界。"""
     for idx, lvl, _title in headings[pos + 1 :]:
@@ -141,13 +173,18 @@ def _end_line(headings: list[tuple[int, int, str]], pos: int, level: int, total:
     return total
 
 
-def _find_chapter(headings: list[tuple[int, int, str]], name: str) -> tuple[int, int] | None:
-    """定位含条目名的首个二级标题，返回章行区间 [起始行, 终止行)；未命中返回 None。"""
+def _find_chapters(headings: list[tuple[int, int, str]], name: str) -> list[tuple[int, int]]:
+    """定位含条目名的**全部**二级标题，返回各章行区间 [起始行, 终止行) 清单；未命中返回空。
+
+    不止取首个（B32 M3 加固）：同名多章或前章为伪章时，首匹配会让后章残缺
+    被掩盖——调用方须逐章审计（缺件章并列入 missing_sections）。
+    """
+    out: list[tuple[int, int]] = []
     for pos, (idx, level, title) in enumerate(headings):
         if level == 2 and name in title:
             # 终止行取大数即可：返回值仅作 lines 切片上界，Python 切片自钳。
-            return (idx, _end_line(headings, pos, 2, 10**9))
-    return None
+            out.append((idx, _end_line(headings, pos, 2, 10**9)))
+    return out
 
 
 def _audit_chapter(
@@ -156,7 +193,8 @@ def _audit_chapter(
     """条目章内四件套+两档标注体检；返回缺件清单（空=全过）。
 
     缺件形态：四件套缺→关键词本身；两档缺→``所需设备与连线:<档名>``（小节
-    本身缺失时不重复点名两档——缺小节已含其义）。
+    本身缺失时不重复点名两档——缺小节已含其义；小节体查两档词前剥离代码
+    围栏——围栏内命令注释的档名不算数，B32 M3 加固）。
     """
     start, end = chapter
     missing: list[str] = []
@@ -170,7 +208,7 @@ def _audit_chapter(
     if dev_pos is not None:
         h_start = headings[dev_pos][0]
         h_end = _end_line(headings, dev_pos, 3, len(lines))
-        body = "\n".join(lines[h_start:h_end])
+        body = "\n".join(_strip_fenced(lines[h_start:h_end]))
         for tier in _TIER_MARKS:
             if tier not in body:
                 missing.append(f"所需设备与连线:{tier}")
@@ -207,11 +245,19 @@ def _scan_placeholders(lines: list[str]) -> list[str]:
 def _emergency_lines(
     headings: list[tuple[int, int, str]], lines: list[str]
 ) -> list[str]:
-    """附录应急速查表区全部行：每个含「应急」的标题起到下一同级标题（多区拼接）。"""
+    """附录应急速查表区**表格行**（| 起始）：每个含「应急」的标题起到下一同级标题。
+
+    只收表格行（B32 M3 加固）——散文单行恰好复述 FAQ 症状短语不算覆盖，
+    防正文段落伪达标；多区拼接。
+    """
     out: list[str] = []
     for pos, (idx, level, title) in enumerate(headings):
         if _EMERGENCY_MARKER in title:
-            out.extend(lines[idx : _end_line(headings, pos, level, len(lines))])
+            out.extend(
+                raw
+                for raw in lines[idx : _end_line(headings, pos, level, len(lines))]
+                if raw.startswith("|")
+            )
     return out
 
 
@@ -234,7 +280,7 @@ def _parse_faq_items(readme_text: str) -> list[str]:
 def _audit_faq_coverage(
     headings: list[tuple[int, int, str]], lines: list[str], readme: Path
 ) -> list[str]:
-    """FAQ 覆盖审计：每条 FAQ 去标点前 12 字符为键，应急区任一行同口径含之即覆盖。"""
+    """FAQ 覆盖审计：每条 FAQ 去标点前 12 字符为键，应急区表格行（| 起始）同口径含之即覆盖。"""
     emergency = _emergency_lines(headings, lines)
     normalized_rows = [_normalize(raw) for raw in emergency]
     uncovered: list[str] = []

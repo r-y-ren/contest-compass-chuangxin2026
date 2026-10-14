@@ -1,4 +1,4 @@
-"""check_demo_manual 结构体检测试：完备通过/缺条目/缺四件套/缺两档/占位检出/FAQ 缺覆盖/文件缺失+真实手册冒烟。"""
+"""check_demo_manual 结构体检测试：完备通过/缺条目/缺四件套/缺两档/占位检出/FAQ 缺覆盖/围栏内两档词不算数/FAQ 散文单行不算覆盖/同名多章残章不掩盖/文件缺失+真实手册冒烟（B32 M3 三洞加固回归锚：⑧⑨⑩）。"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -78,15 +78,19 @@ _ROW_FAQ1 = '| 报"场景校验未通过" | 看错误清单第几条，缺声明
 _ROW_FAQ2 = '| 报"远程算力不可达" | 训练默认走远程显卡机，本地加 where=\'local\' 轻量跑 |'
 
 
-def _manual_with_emergency_rows(*rows: str) -> str:
-    """组装 fixture 手册：2 条目章+附录（应急速查表行数可变——FAQ 覆盖用例的手术位）。"""
-    appendix = (
+def _appendix_with_rows(*rows: str) -> str:
+    """附录 fixture：出发前检查单+现场应急速查表（表格行数可变——FAQ 覆盖用例手术位）。"""
+    return (
         "## 附录：出发前检查单\n\n- 主机、充电器、U 盘。\n\n"
         "## 附录：现场应急速查表\n\n| 症状 | 处置 |\n| --- | --- |\n"
         + "\n".join(rows)
         + "\n"
     )
-    return _HEADER + _CHAPTER_ONE + "\n" + _CHAPTER_TWO + "\n" + appendix
+
+
+def _manual_with_emergency_rows(*rows: str) -> str:
+    """组装 fixture 手册：2 条目章+附录（应急速查表行数可变——FAQ 覆盖用例的手术位）。"""
+    return _HEADER + _CHAPTER_ONE + "\n" + _CHAPTER_TWO + "\n" + _appendix_with_rows(*rows)
 
 
 _COMPLETE_MANUAL = _manual_with_emergency_rows(_ROW_FAQ1, _ROW_FAQ2)
@@ -161,6 +165,77 @@ def test_faq_uncovered_named(tmp_path):
     manual, readme = _write_pair(tmp_path, _manual_with_emergency_rows(_ROW_FAQ1))
     report = check_demo_manual(manual, readme, _EXPECTED)
     assert report["faq_uncovered"] == [_FAQ_KEY_2]
+    assert report["ok"] is False
+
+
+def test_tier_marks_only_inside_fence_detected_missing(tmp_path):
+    """⑧「一键测评」设备小节两档词仅现于代码围栏内（小节正文无）→ 检出两档缺件。
+
+    M3 围栏洞回归锚：旧口径小节体含围栏内文本，命令注释里的「便携档/全量档」
+    会伪达标——修复后小节体查两档词前剥离围栏块。
+    """
+    fenced_dev = (
+        "### 所需设备与连线\n"
+        "档位配置看命令注释：\n\n"
+        "```bash\n"
+        "# 便携档：sim 后端，无需射频硬件\n"
+        "# 全量档：主机接 B210 射频设备\n"
+        "```\n"
+    )
+    broken = _COMPLETE_MANUAL.replace(
+        "### 所需设备与连线\n"
+        "- 便携档：主机一台（sim 后端，无需射频硬件）。\n"
+        "- 全量档：主机+B210 射频设备+天线。\n",
+        fenced_dev,
+    )
+    manual, readme = _write_pair(tmp_path, broken)
+    report = check_demo_manual(manual, readme, _EXPECTED)
+    assert report["missing_sections"] == [
+        {"entry": "一键测评", "missing": ["所需设备与连线:便携档", "所需设备与连线:全量档"]}
+    ]
+    assert report["ok"] is False
+
+
+def test_faq_keys_in_prose_not_table_row_all_uncovered(tmp_path):
+    """⑨应急区散文单行含全部 FAQ 键（旧口径可伪过）但非表格行 → faq_uncovered 全列。
+
+    M3 散文洞回归锚：覆盖命中行必须是表格行（| 起始），散文复述症状短语不算。
+    """
+    prose_appendix = (
+        "## 附录：出发前检查单\n\n- 主机、充电器、U 盘。\n\n"
+        "## 附录：现场应急速查表\n\n"
+        '报"场景校验未通过"：看错误清单第几条——缺声明/超功率/超频段/样式拼错都会列明（散文备注）。\n'
+        "报\"远程算力不可达\"：训练默认走远程显卡机；没有就加 `where='local'` 参数本地轻量训练（散文备注）。\n"
+    )
+    manual, readme = _write_pair(
+        tmp_path, _HEADER + _CHAPTER_ONE + "\n" + _CHAPTER_TWO + "\n" + prose_appendix
+    )
+    report = check_demo_manual(manual, readme, _EXPECTED)
+    assert report["faq_uncovered"] == [_FAQ_KEY_1, _FAQ_KEY_2]
+    assert report["ok"] is False
+
+
+def test_duplicate_named_chapters_residual_not_masked(tmp_path):
+    """⑩双同名「一键测评」章一残一全 → 残章缺件入 missing_sections（首匹配不再掩盖）。
+
+    M3 首匹配歧义回归锚：审计须遍历全部含名二级标题章——首个全章不得掩盖
+    后续残章；残章缺件时该条目不计 passed（passed=1 仅 AI 认干扰）。
+    """
+    residual = _CHAPTER_ONE.replace("### 预期现象\n退出码 0，runs/ 下生成运行目录与报告。\n", "")
+    manual, readme = _write_pair(
+        tmp_path,
+        _HEADER
+        + _CHAPTER_ONE
+        + "\n"
+        + residual
+        + "\n"
+        + _CHAPTER_TWO
+        + "\n"
+        + _appendix_with_rows(_ROW_FAQ1, _ROW_FAQ2),
+    )
+    report = check_demo_manual(manual, readme, _EXPECTED)
+    assert report["missing_sections"] == [{"entry": "一键测评", "missing": ["预期现象"]}]
+    assert report["passed"] == 1
     assert report["ok"] is False
 
 
