@@ -155,3 +155,8 @@
 | seed_preset_scenarios | B32 | wired 10-14 | pytest tests/prepare_demo_assets/test_seed_preset_scenarios.py → 7 passed（7 模板全过 load_scenario+冲突/覆盖/不可写）；调用点 prepare_demo_assets.py:88 | 433e43e |
 | prewarm_demo_runs | B32 | wired 10-14 | pytest tests/prepare_demo_assets/test_prewarm_demo_runs.py → 5 passed（exit0/1 登记+exit2 中止不吞错+计数）；调用点 prepare_demo_assets.py:105 | e986122 |
 | prepare_demo_assets | B32 | wired 10-14 | pytest tests/prepare_demo_assets/ → 19 passed；顶层实跑临时目录 written=7+prewarm[0,0,1]+checklist12/16+env 四键；幂等 refused=7 | d7ffabc |
+| compose_esp32_frame | B33 | wired 10-14 | pytest tests/drive_esp32_link/test_compose_esp32_frame.py → 37 passed（往返/NA/非法族/golden 锁格式）；host 等价消费面 | 9243754 |
+| encode_esp32_frame | B33 | wired 10-14 | tests/firmware_esp32/test_host_equivalence.py → 2 passed（g++ harness 与 Python compose 逐字节一致+NA 钳制）；调用点 tasks.cpp:185 | 9243754 |
+| udp_stream_task | B33 | wired 10-14 | pio run -e tx → SUCCESS（编译级，规约口径；真机联调随 R87）；main.cpp 角色调用 | 9243754 |
+| kpi_report_task | B33 | wired 10-14 | pio run -e rx → SUCCESS；缺口/重复/回绕口径在 README 声明；main.cpp 角色调用 | 9243754 |
+| esp32_wifi_firmware | B33 | wired 10-14 | pio run → tx/rx 2 succeeded；tests/firmware_esp32/test_firmware_layout.py → 2 passed；README 构建/烧录在册 | 9243754 |

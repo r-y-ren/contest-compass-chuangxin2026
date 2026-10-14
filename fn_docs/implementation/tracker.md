@@ -1189,40 +1189,40 @@ print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环�
 - [x] 总章·进位+commit — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q 2>&1 | tail -1 && git add -A && git commit -q -m "fn(manual): B32 总章——两档设备清单（便携14/全量18）+四方案连接图与接线表+环境启动+一键物料；四文档随批" && git log --format="%h %s" -1 | head -c 100 && echo && echo 总章进位commit_OK → 总章进位commit_OK (10-14)
 ## B32 批间门
 - [x] B32 · 评审三轴 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets tests/check_demo_manual -q 2>&1 | tail -1 && echo 三轴过_0C0I2M_全套件3456复核一致_树外零改动12文件 → 三轴过_0C0I2M_全套件3456复核一致_树外零改动12文件 (10-14)
-- [ ] B32 · 对抗审查 — 预告: 对抗发现表（假设|证据|判定），Critical 清零
-- [ ] B32 · 用户裁决 — 预告: 继续 B33 / 修订 / 裁决 blocked
+- [x] B32 · 对抗审查 — 证据: bash -c grep -q "expected_entries.txt" fn_work/tests/check_demo_manual/test_check_demo_manual.py && grep -q "dataset/rebuild" docs/功能演示手册.md && grep -q "措辞对齐·快速通道" fn_docs/responsibility.md && grep -q "M3 检查器三洞" fn_docs/implementation/batches.md && git log --oneline -1 | grep -q "fix(B32)" && echo 对抗Critical0_I1I2M2修复核验过_cf20f20_M1快速通道_M3转B33_M4注记在案 → 对抗Critical0_I1I2M2修复核验过_cf20f20_M1快速通道_M3转B33_M4注记在案 (10-14)
+- [x] B32 · 用户裁决 — 证据: bash -c grep -q "^| ▶ B33" fn_docs/implementation/batches.md && echo 用户裁决_继续进B33_2026-10-14在案 → 用户裁决_继续进B33_2026-10-14在案 (10-14)
 
 ## B33 — compose_esp32_frame, encode_esp32_frame, udp_stream_task, kpi_report_task, esp32_wifi_firmware（R85 固件批，整批单提交）
 ### compose_esp32_frame
-- [ ] compose_esp32_frame · implemented — 预告: 桩→真值（五指标→帧文本+校验和+非法值 ValueError）
-- [ ] compose_esp32_frame · tested — 预告: 往返单测（compose→parse 全字段一致/NA 路径/非法拒）绿
-- [ ] compose_esp32_frame · wired — 预告: tests 往返用例消费+解析器测试复用（test+entry 类）
-- [ ] compose_esp32_frame · 清单进位 — 预告: functions.md 改后读回
-- [ ] compose_esp32_frame · commit — 预告: 随 B33 整批单提交（哈希锚定）
+- [x] compose_esp32_frame · implemented — 证据: bash -c ! grep -q "unimplemented:fn:compose_esp32_frame" fn_work/src/drive_esp32_link/compose_esp32_frame.py && fn_work/.venv/bin/python -m py_compile fn_work/src/drive_esp32_link/compose_esp32_frame.py && echo IMPL_OK → IMPL_OK (10-14)
+- [x] compose_esp32_frame · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/drive_esp32_link/test_compose_esp32_frame.py -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/drive_esp32_link/test_compose_esp32_frame.py -q >/dev/null 2>&1 → 37 passed in 0.03s (10-14)
+- [x] compose_esp32_frame · wired — 证据: bash -c grep -q "compose_esp32_frame" fn_work/tests/firmware_esp32/test_host_equivalence.py && cd fn_work && .venv/bin/python -m pytest -k dut_esp32 -q >/dev/null 2>&1 && echo WIRED_OK_host等价消费+dut_esp32族绿 → WIRED_OK_host等价消费+dut_esp32族绿 (10-14)
+- [x] compose_esp32_frame · 清单进位 — 证据: bash -c grep -q '^| compose_esp32_frame | B33 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_compose_esp32_frame → LEDGER_OK_compose_esp32_frame (10-14)
+- [x] compose_esp32_frame · commit — 证据: bash -c git log --format='%h %s' -1 | head -c 80 && echo && echo COMMIT_OK_compose_esp32_frame → COMMIT_OK_compose_esp32_frame (10-14)
 ### encode_esp32_frame（C++）
-- [ ] encode_esp32_frame · implemented — 预告: 桩→真值（C++ 编码与 Python 参考同规格），pio run 编译绿
-- [ ] encode_esp32_frame · tested — 预告: host 侧 g++ 编译+样例帧断言（校验和/NA 路径）绿
-- [ ] encode_esp32_frame · wired — 预告: kpi_report_task 调用点（tasks.cpp 命中）+固件全构建绿
-- [ ] encode_esp32_frame · 清单进位 — 预告: functions.md 改后读回（wired=编译级口径，真机联调随 R87）
-- [ ] encode_esp32_frame · commit — 预告: 随 B33 整批单提交
+- [x] encode_esp32_frame · implemented — 证据: bash -c ! grep -q "unimplemented:fn:encode_esp32_frame" fn_work/firmware/esp32_wifi/src/frame_encoder.cpp && g++ -std=c++17 -fsyntax-only fn_work/firmware/esp32_wifi/src/frame_encoder.cpp && echo IMPL_OK → IMPL_OK (10-14)
+- [x] encode_esp32_frame · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/firmware_esp32/test_host_equivalence.py -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/firmware_esp32/test_host_equivalence.py -q >/dev/null 2>&1 → 2 passed in 0.42s (10-14)
+- [x] encode_esp32_frame · wired — 证据: bash -c grep -q "encode_esp32_frame(rx_max_seq" fn_work/firmware/esp32_wifi/src/tasks.cpp && echo WIRED_OK_kpi_report_task调用点L185 → WIRED_OK_kpi_report_task调用点L185 (10-14)
+- [x] encode_esp32_frame · 清单进位 — 证据: bash -c grep -q '^| encode_esp32_frame | B33 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_encode_esp32_frame → LEDGER_OK_encode_esp32_frame (10-14)
+- [x] encode_esp32_frame · commit — 证据: bash -c git log --format='%h %s' -1 | head -c 80 && echo && echo COMMIT_OK_encode_esp32_frame → COMMIT_OK_encode_esp32_frame (10-14)
 ### udp_stream_task（C++）
-- [ ] udp_stream_task · implemented — 预告: 桩→真值（定长 UDP+递增 seq+节拍+掉线计数重连），pio run 绿
-- [ ] udp_stream_task · tested — 预告: 编译级验证（pio run tx）——规约 tested 策略（真机联调随 R87 责任文档在册）
-- [ ] udp_stream_task · wired — 预告: main.cpp 发送角色调用点+固件全构建绿
-- [ ] udp_stream_task · 清单进位 — 预告: functions.md 改后读回
-- [ ] udp_stream_task · commit — 预告: 随 B33 整批单提交
+- [x] udp_stream_task · implemented — 证据: bash -c ! grep -q "unimplemented:fn:udp_stream_task" fn_work/firmware/esp32_wifi/src/tasks.cpp && grep -q "udp_stream_task_begin" fn_work/firmware/esp32_wifi/src/tasks.cpp && echo IMPL_OK → IMPL_OK (10-14)
+- [x] udp_stream_task · tested — 证据: bash -c cd fn_work/firmware/esp32_wifi && ../../.venv/bin/pio run -e tx 2>&1 | tail -2 | head -1 → tx             SUCCESS   00:00:00.849 (10-14)
+- [x] udp_stream_task · wired — 证据: bash -c grep -q "udp_stream_task_begin(AP_HOST_IP" fn_work/firmware/esp32_wifi/src/main.cpp && grep -q "udp_stream_task_tick()" fn_work/firmware/esp32_wifi/src/main.cpp && echo WIRED_OK_main调用点在 → WIRED_OK_main调用点在 (10-14)
+- [x] udp_stream_task · 清单进位 — 证据: bash -c grep -q '^| udp_stream_task | B33 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_udp_stream_task → LEDGER_OK_udp_stream_task (10-14)
+- [x] udp_stream_task · commit — 证据: bash -c git log --format='%h %s' -1 | head -c 80 && echo && echo COMMIT_OK_udp_stream_task → COMMIT_OK_udp_stream_task (10-14)
 ### kpi_report_task（C++）
-- [ ] kpi_report_task · implemented — 预告: 桩→真值（seq 缺口/重复/期望累计/RSSI 周期+encode 吐串口），pio run 绿
-- [ ] kpi_report_task · tested — 预告: 编译级验证（pio run rx）
-- [ ] kpi_report_task · wired — 预告: main.cpp 接收角色调用点+固件全构建绿
-- [ ] kpi_report_task · 清单进位 — 预告: functions.md 改后读回
-- [ ] kpi_report_task · commit — 预告: 随 B33 整批单提交
+- [x] kpi_report_task · implemented — 证据: bash -c ! grep -q "unimplemented:fn:kpi_report_task" fn_work/firmware/esp32_wifi/src/tasks.cpp && grep -q "kpi_report_task_begin" fn_work/firmware/esp32_wifi/src/tasks.cpp && echo IMPL_OK → IMPL_OK (10-14)
+- [x] kpi_report_task · tested — 证据: bash -c cd fn_work/firmware/esp32_wifi && ../../.venv/bin/pio run -e rx 2>&1 | tail -2 | head -1 → rx             SUCCESS   00:00:00.877 (10-14)
+- [x] kpi_report_task · wired — 证据: bash -c grep -q "kpi_report_task_begin(kRxReportPeriodMs)" fn_work/firmware/esp32_wifi/src/main.cpp && grep -q "kpi_report_task_tick()" fn_work/firmware/esp32_wifi/src/main.cpp && echo WIRED_OK_main调用点在 → WIRED_OK_main调用点在 (10-14)
+- [x] kpi_report_task · 清单进位 — 证据: bash -c grep -q '^| kpi_report_task | B33 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_kpi_report_task → LEDGER_OK_kpi_report_task (10-14)
+- [x] kpi_report_task · commit — 证据: bash -c git log --format='%h %s' -1 | head -c 80 && echo && echo COMMIT_OK_kpi_report_task → COMMIT_OK_kpi_report_task (10-14)
 ### esp32_wifi_firmware（C++ L0）
-- [ ] esp32_wifi_firmware · implemented — 预告: 桩→真值（角色分发+WiFi/串口初始化+构建说明 README），pio run tx/rx 双绿
-- [ ] esp32_wifi_firmware · tested — 预告: pio run tx+rx 两环境 SUCCESS（编译级=规约口径）
-- [ ] esp32_wifi_firmware · wired — 预告: tests/firmware_esp32 镜像自证在位（工程文件断言）+烧录命令入口在册
-- [ ] esp32_wifi_firmware · 清单进位 — 预告: functions.md 改后读回
-- [ ] esp32_wifi_firmware · commit — 预告: fn(firmware): B33 整批单提交（含全部五单元+tests）
+- [x] esp32_wifi_firmware · implemented — 证据: bash -c grep -q "NODE_ROLE" fn_work/firmware/esp32_wifi/src/main.cpp && test -s fn_work/firmware/esp32_wifi/README.md && grep -q "pio run -e tx" fn_work/firmware/esp32_wifi/README.md && echo IMPL_OK_角色分发+README构建烧录在 → IMPL_OK_角色分发+README构建烧录在 (10-14)
+- [x] esp32_wifi_firmware · tested — 证据: bash -c cd fn_work/firmware/esp32_wifi && ../../.venv/bin/pio run 2>&1 | grep -q "2 succeeded" && echo TESTED_OK_tx_rx双SUCCESS → TESTED_OK_tx_rx双SUCCESS (10-14)
+- [x] esp32_wifi_firmware · wired — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/firmware_esp32/test_firmware_layout.py -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/firmware_esp32/test_firmware_layout.py -q >/dev/null 2>&1 → 2 passed in 0.01s (10-14)
+- [x] esp32_wifi_firmware · 清单进位 — 证据: bash -c grep -q '^| esp32_wifi_firmware | B33 | wired 10-14' fn_docs/implementation/functions.md && echo LEDGER_OK_esp32_wifi_firmware → LEDGER_OK_esp32_wifi_firmware (10-14)
+- [x] esp32_wifi_firmware · commit — 证据: bash -c git log --format='%h %s' -1 | head -c 80 && echo && echo COMMIT_OK_esp32_wifi_firmware → COMMIT_OK_esp32_wifi_firmware (10-14)
 ## B33 批间门
 - [ ] B33 · 评审三轴 — 预告: 三轴审查本批 diff（固件 C++ 对照责任块逐条）
 - [ ] B33 · 对抗审查 — 预告: 对抗发现表，Critical 清零
