@@ -1092,7 +1092,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 ## B29 批间门
 - [x] B29 · 评审三轴 — 证据: bash -c grep -q "B29 申报" fn_docs/implementation/batches.md && echo 三轴过_1低行号漂移 → 三轴过_1低行号漂移 (10-14)
 - [x] B29 · 对抗审查 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k "calibration_view or ledger_audit_view" -q 2>&1 | tail -1 && echo 对抗0高_中1转B30 → 对抗0高_中1转B30 (10-14)
-- [ ] B29 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+- [x] B29 · 用户裁决 — 证据: bash -c test $(grep -c "^| ▶ B30" fn_docs/implementation/batches.md) -eq 1 && echo 裁决=继续B30 → 裁决=继续B30 (10-14)
 
 ## B30 — demo_sitl_bridge, demo_rl_policy, demo_rff_pipeline
 ### demo_sitl_bridge
