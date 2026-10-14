@@ -1004,7 +1004,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] view_failure_comparison · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/view_failure_comparison/test_view_failure_comparison.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-14)
 - [x] view_failure_comparison · wired — 证据: bash -c grep -n "view_failure_comparison" fn_work/src/localize_console_assets/mount_console_extensions.py | head -1 && echo WIRED_OK → WIRED_OK (10-14)
 - [x] view_failure_comparison · 清单进位 — 证据: bash -c grep -n "^| view_failure_comparison | B25 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK_读回在案 → LEDGER_OK_读回在案 (10-14)
-- [ ] view_failure_comparison · commit — 预告: fn(view_failure_comparison): wired 含四文档变更
+- [x] view_failure_comparison · commit — 证据: bash -c git log --format=%h%n%s -1 && echo COMMIT_OK → COMMIT_OK (10-14)
 ## B25 批间门
 - [ ] B25 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
 - [ ] B25 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
