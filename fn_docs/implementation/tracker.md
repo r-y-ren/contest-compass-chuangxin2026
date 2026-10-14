@@ -978,7 +978,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 ## B24 批间门
 - [x] B24 · 评审三轴 — 证据: bash -c git log --format=%s --grep="B24 出批次表入历史表" -1 && echo 评审三轴过_Critical0_Important0_Minor4留痕 → 评审三轴过_Critical0_Important0_Minor4留痕 (10-14)
 - [x] B24 · 对抗审查 — 证据: bash -c git log --format=%s --grep="对抗 Critical 修复" -1 && cd fn_work && .venv/bin/python -m pytest -k emergency_stop -q 2>&1 | tail -1 && echo 对抗C1C1b成立_批内修复_决定性e2e在案 → 对抗C1C1b成立_批内修复_决定性e2e在案 (10-14)
-- [ ] B24 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+- [x] B24 · 用户裁决 — 证据: bash -c grep -c "^- [x] B24 · " fn_docs/implementation/tracker.md && test $(grep -c "^| ▶ B25" fn_docs/implementation/batches.md) -eq 1 && echo 裁决=继续B25_用户2026-10-14确认 → 裁决=继续B25_用户2026-10-14确认 (10-14)
 
 ## B25 — render_report_html, serve_run_artifacts, list_run_summaries, view_failure_comparison
 ### render_report_html
