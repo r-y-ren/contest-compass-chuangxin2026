@@ -5,6 +5,7 @@
 > **实现期发现结构性变化（函数增/删/拆/并/职责或调用关系变化）必须回到 fn-divide 改本文档**（快速确认通道），不得只在代码里改。
 > 需求依据：`fn_docs/requirements.md`（55 条 R，2026-10-11 细化版）；全部函数 `[新增]`（旧实现已删，无存量改造）。
 > **演进轮（2026-10-13）**：域二十 R56–R75 新增块见文末（P1 块随 R 号标注）；旧块不动。涉及旧函数的接线改造以各块引言内「改造点·快速通道」变更说明登记（R56/R58/R59/R64/R68/R75 共 6 处），均在用户裁决"管线允许顺手改但逐条登记"授权内。
+> **演进轮②（2026-10-14）**：域二十一 R76–R87 新增块见文末（R82 演示批、R87 延后为 P1）；旧块不动、无旧函数改造。**承载方式例外**：R77–R83 为手册章节文档交付物、R87 为真机复查过程交付物——矩阵注明"无代码单元"（规格=需求条目，结构自检经 check_demo_manual 承载、命令走查按批执行）；代码单元=prepare_demo_assets / check_demo_manual / 固件两工程（esp32_wifi_firmware、nrf24_link_firmware）及 Python 帧参考实现两叶。
 
 ## 结构概览（纯结构，不带职责）
 
@@ -148,6 +149,21 @@
 - demo_rl_policy ← R73 [P1]
 - demo_rff_pipeline ← R74 [P1]
 - audit_responsibility_alignment ← R75
+- prepare_demo_assets ← R76
+  - seed_preset_scenarios
+  - prewarm_demo_runs
+- check_demo_manual ← R84（承载 R76–R84 各批手册结构自检）
+- esp32_wifi_firmware ← R85
+  - encode_esp32_frame
+  - udp_stream_task
+  - kpi_report_task
+  - compose_esp32_frame
+- nrf24_link_firmware ← R86
+  - encode_nrf24_frame
+  - esb_traffic_task
+  - counter_report_task
+  - compose_nrf24_frame
+（域二十一另含无代码单元的交付物：手册各批章节文档 ← R76–R84、真机复查记录 ← R87——承载方式见矩阵）
 
 ## 需求覆盖矩阵（P1 在 R 号后标注；非功能约束不进矩阵，fn-close 终检对照 requirements 非功能节）
 
@@ -228,6 +244,18 @@
 | R73 [P1] | demo_rl_policy |
 | R74 [P1] | demo_rff_pipeline |
 | R75 | audit_responsibility_alignment |
+| R76 | prepare_demo_assets（手册总章文档交付物另见需求条目） |
+| R77 | （文档交付物：测评核心五章；无代码单元——结构自检 check_demo_manual、命令走查按批） |
+| R78 | （文档交付物：记录与报告四章；无代码单元——同上） |
+| R79 | （文档交付物：AI 识别章；无代码单元——同上） |
+| R80 | （文档交付物：模拟与扩展三章；无代码单元——同上） |
+| R81 | （文档交付物：安全与台账二章；无代码单元——同上） |
+| R82 [P1] | （文档交付物：二期进阶三章；无代码单元——同上） |
+| R83 | （文档交付物：操控台七页章；无代码单元——同上） |
+| R84 | check_demo_manual（附录与总装文档交付物另见需求条目） |
+| R85 | esp32_wifi_firmware（+Python 叶 compose_esp32_frame） |
+| R86 | nrf24_link_firmware（+Python 叶 compose_nrf24_frame） |
+| R87 [P1·延后] | （过程交付物：真机复查记录——设备在位后按用户命令触发；无代码单元） |
 
 ## 共享函数（shared/：多顶层共用；矩阵挂全部受益需求）
 
@@ -1482,3 +1510,107 @@
   - 调用方：维护与验收命令（pytest）
   - tested 策略：自有单测（构造漏登→检出；全登→通过）
   - 核验命令：测试: responsibility_alignment
+
+## 功能块 prepare_demo_assets ← R76
+
+（R76：手册总章——两档设备清单与连接（便携/全量各自全量清单，补充小件直接并入不单列）+ASCII 连接图与接线表+主机环境启动+演示前准备。**文档交付物**：docs/功能演示手册.md 总章由实现批撰写（规格=需求 R76）；本函数承载总章中**可执行**的演示前准备物料——预置场景、预跑历史（操控台报告中心/录音库/AI 页有数据可翻）、出发检查单。批序首位：R76 → R85/R86 → R77…R84。）
+
+- **prepare_demo_assets** [L0|新增]
+  - 职责：演示物料准备编排：seed_preset_scenarios 把内置演示场景模板集写入 scenarios/（清单与手册总章一一对应：冒烟零失效/失效演示/距离演变/带录音攒数据/EMC/编辑器练手等）→ prewarm_demo_runs 预跑若干轮 sim 运行落 runs/（走 run_demo 既有入口；含 record:true 轮次以产出带标注 SigMF 录音供 AI 页与录音库演示）→ 汇总物料报告与出发前检查单数据（两档设备勾选表+环境自检命令结果）。幂等：目标已存在不覆盖，显式 overwrite 才覆盖。
+  - 签名意图：输入: scenario_dir / runs_root / 预跑轮次配置（overwrite=False）/ 输出: 物料报告（写入场景清单+预跑运行目录列表+检查单数据）/ 错误: 目录冲突未授权覆盖→拒绝并列冲突项。
+  - 调用方：演示者命令（手册总章；entry 类）
+  - tested 策略：自有单测（临时目录：预置齐+预跑退出码语义正确+幂等拒覆盖）
+  - 核验命令：测试: demo_assets
+  - **seed_preset_scenarios** [L1|新增]
+    - 职责：把内置演示场景模板集（与手册总章清单一致）写为 scenarios/ 下 YAML 文件；文件已存在且内容不同→计为冲突项不覆盖。
+    - 签名意图：输入: 目标目录（+overwrite）/ 输出: 写入文件清单+冲突清单 / 错误: 目录不可写→上抛。
+    - 调用方：prepare_demo_assets
+    - tested 策略：上游覆盖: prepare_demo_assets
+    - 核验命令：上游覆盖: prepare_demo_assets
+  - **prewarm_demo_runs** [L1|新增]
+    - 职责：按配置预跑若干轮 sim 运行（场景取预置集，逐轮走 run_demo 既有入口）落 runs/；校验各轮退出码语义（--demo 口径 exit 1=测到失效属预期产出，如实登记不算失败）；单轮意外失败即中止并列已跑清单（不吞错）。
+    - 签名意图：输入: 场景清单+runs_root+轮次配置 / 输出: 运行目录列表+各轮退出码 / 错误: 意外退出码→中止并报告。
+    - 调用方：prepare_demo_assets
+    - tested 策略：上游覆盖: prepare_demo_assets
+    - 核验命令：上游覆盖: prepare_demo_assets
+
+## 功能块 check_demo_manual ← R84（承载 R76–R84 结构自检）
+
+（R84：手册附录+总装——现场应急速查表（症状→处置，覆盖 README FAQ 全部条目）+总目录+出发前检查单；**全手册结构自检**是本块可执行核心，R77–R83 各批验收命令即本函数按批登记的期望章节集执行（期望集随批增长）。）
+
+- **check_demo_manual** [L0|新增]
+  - 职责：手册结构体检：解析 docs/功能演示手册.md——①断言期望功能条目集齐（期望集按已交付批登记，缺条目点名）；②每条目四件套小节齐（功能说明/两档所需设备及连线/操作步骤/预期现象）且两档（便携/全量）标注齐；③全文无"待定/TODO/占位"残留标记；④附录应急速查表覆盖 fn_docs/README.md「常见问题」全部条目（标题关键词映射，未覆盖点名）。汇总输出体检报告。
+  - 签名意图：输入: 手册路径+README 路径+期望条目清单 / 输出: 体检报告（ok 布尔+缺失条目/缺件/占位/FAQ 未覆盖四清单+通过项计数）/ 错误: 手册或 README 文件缺失→上抛。
+  - 调用方：验收命令（pytest；test+entry 类）
+  - tested 策略：自有单测（构造缺件/占位/FAQ 缺覆盖手册→检出；完备手册→通过）
+  - 核验命令：测试: demo_manual_check
+
+## 功能块 esp32_wifi_firmware ← R85
+
+（R85：ESP32 WiFi 链路固件工程——PlatformIO 工程 fn_work/firmware/esp32_wifi/（platformio 装进 .venv，不动全局）。**拓扑定桩=成对节点**：发送节点按固定节拍向接收节点发定长 UDP 载荷（payload 含递增 seq）；接收节点按 seq 缺口统计丢包 err、以重复 seq 计应用层重发 retries、累计期望包数 sent、周期读自身 WiFi RSSI，经 USB 串口吐 KPI 帧。**帧协议与 parse_esp32_frame 契约逐字对齐**：`ESP,<seq>,<sent>,<err>,<retries>,<rssi>[*<hex>]`，校验和=帧体 sum&0xFF 十六进制；计数口径在工程 README 声明，实测数字禁止预写。本期**编译级验证**（pio run+Python 帧参考实现往返）；烧录与射频联调随 R87。）
+
+- **esp32_wifi_firmware** [L0|新增]（PlatformIO 工程交付物——C++；编排单元）
+  - 职责：固件工程主体：节点角色配置（发送/接收二选一，构建参数区分）、WiFi 与串口初始化、主循环编排（发送角色→udp_stream_task；接收角色→kpi_report_task）；platformio.ini 与构建说明（两角色构建/烧录命令、波特率）随工程交付。
+  - 签名意图：输入: 构建角色参数（NODE_ROLE=tx/rx）/ 输出: 可烧录固件映像（pio run 产物）/ 错误: 编译失败→构建非零退出。
+  - 调用方：演示者烧录命令（手册链路健康测量条目；entry 类）
+  - tested 策略：编译级（pio run）+上游覆盖: compose_esp32_frame 往返
+  - 核验命令：测试: firmware_esp32
+  - **encode_esp32_frame** [L1|新增]（C++）
+    - 职责：KPI 帧编码：五指标→`ESP,<seq>,<sent>,<err>,<retries>,<rssi>` 文本行+可选校验和后缀（帧体 sum&0xFF 十六进制）+\n——与 parse_esp32_frame 严格口径互逆（整数字段非负十进制、rssi 浮点或 NA）。
+    - 签名意图：输入: 五指标值（+校验和开关）/ 输出: 帧文本行 / 错误: 值域非法→固件侧钳制并计数（不吐非法帧）。
+    - 调用方：kpi_report_task
+    - tested 策略：上游覆盖: compose_esp32_frame（Python 同规格往返）
+    - 核验命令：上游覆盖: firmware_esp32
+  - **udp_stream_task** [L1|新增]（C++）
+    - 职责：发送节点业务流：定长 UDP 载荷（含递增 seq）按固定节拍发往接收节点地址；发送失败与 WiFi 掉线计数并重连。
+    - 签名意图：输入: 目标地址/节拍/载荷长 / 输出: 无线业务流 / 错误: WiFi 掉线→重连+计数（不中断主循环）。
+    - 调用方：esp32_wifi_firmware（发送角色主循环）
+    - tested 策略：编译级；真机联调随 R87
+    - 核验命令：上游覆盖: firmware_esp32
+  - **kpi_report_task** [L1|新增]（C++）
+    - 职责：接收节点统计与上报：按 seq 缺口算 err、重复 seq 计 retries、累计 sent、周期读 RSSI（NA 化处理不可得值）；encode_esp32_frame 编码后吐串口。
+    - 签名意图：输入: 收包回调流 / 输出: 串口 KPI 帧流 / 错误: 计数回绕→置标记位并继续（不断流）。
+    - 调用方：esp32_wifi_firmware（接收角色主循环）
+    - tested 策略：编译级；真机联调随 R87
+    - 核验命令：上游覆盖: firmware_esp32
+  - **compose_esp32_frame** [L1|新增]（Python——帧协议参考实现，落 drive_esp32_link 包）
+    - 职责：Python 侧帧生成（与固件 encode_esp32_frame 同规格）：五指标→合法帧文本（含校验和后缀可选路径），供固件往返用例与解析器测试复用——固件与解析器协议漂移的单点防线。
+    - 签名意图：输入: 五指标值（+checksum 开关）/ 输出: 帧文本 / 错误: 非法值域→ValueError。
+    - 调用方：pytest 往返用例（test+entry 类）
+    - tested 策略：自有单测（compose→parse 往返全字段一致；非法值拒）
+    - 核验命令：测试: dut_esp32（往返用例族）
+
+## 功能块 nrf24_link_firmware ← R86
+
+（R86：NRF24 链路固件工程——PlatformIO 工程 fn_work/firmware/nrf24_link/。**拓扑定桩=一对 ESP32+RF24 节点**：ESB（自动应答）模式对发定长包；**发送节点为报告节点**——sent=已发累计、lost=PLOS_CNT、retries=ARC_CNT、seq 递增，rpd=报告节点发包间隙短暂进监听窗读 RPD 锁存位（0/1）。**帧协议与 parse_nrf24_frame 契约逐字对齐**：`NRF,<seq>,<sent>,<lost>,<retries>,<rpd>`（六字段严格非负整数）。编译级验证同 R85；烧录联调随 R87。）
+
+- **nrf24_link_firmware** [L0|新增]（PlatformIO 工程交付物——C++；编排单元）
+  - 职责：固件工程主体：SPI/RF24 初始化、ESB 通道参数（与手册演示频段一致）、主循环编排 esb_traffic_task+counter_report_task；platformio.ini 与构建说明随工程交付。
+  - 签名意图：输入: 构建角色（发送报告节点/对端）/ 输出: 可烧录固件映像 / 错误: 编译失败→构建非零退出。
+  - 调用方：演示者烧录命令（entry 类）
+  - tested 策略：编译级（pio run）+上游覆盖: compose_nrf24_frame 往返
+  - 核验命令：测试: firmware_nrf24
+  - **encode_nrf24_frame** [L1|新增]（C++）
+    - 职责：KPI 帧编码：五计数值→`NRF,<seq>,<sent>,<lost>,<retries>,<rpd>` 文本行+\n——与 parse_nrf24_frame 严格口径互逆（字段非负十进制整数、rpd∈{0,1}）。
+    - 签名意图：输入: 五计数值 / 输出: 帧文本行 / 错误: 值域非法→固件侧钳制并计数。
+    - 调用方：counter_report_task
+    - tested 策略：上游覆盖: compose_nrf24_frame（Python 同规格往返）
+    - 核验命令：上游覆盖: firmware_nrf24
+  - **esb_traffic_task** [L1|新增]（C++）
+    - 职责：ESB 业务流：定长载荷（含递增 seq）按固定节拍经 RF24 自动应答模式发送；发送失败与掉线计数。
+    - 签名意图：输入: 通道参数/节拍/载荷长 / 输出: 无线业务流 / 错误: 发送失败→计数并继续。
+    - 调用方：nrf24_link_firmware（发送角色主循环）
+    - tested 策略：编译级；真机联调随 R87
+    - 核验命令：上游覆盖: firmware_nrf24
+  - **counter_report_task** [L1|新增]（C++）
+    - 职责：计数与上报：周期读 NRF24 状态寄存器（PLOS_CNT/ARC_CNT）累计 lost/retries、维护 sent/seq、发包间隙短监听窗读 RPD；encode_nrf24_frame 编码后吐串口。
+    - 签名意图：输入: 寄存器读数流 / 输出: 串口 KPI 帧流 / 错误: 计数回绕→置标记位并继续。
+    - 调用方：nrf24_link_firmware（发送角色主循环）
+    - tested 策略：编译级；真机联调随 R87
+    - 核验命令：上游覆盖: firmware_nrf24
+  - **compose_nrf24_frame** [L1|新增]（Python——帧协议参考实现，落 drive_nrf24_link 包）
+    - 职责：Python 侧帧生成（与固件 encode_nrf24_frame 同规格）：五计数值→合法帧文本，供固件往返用例与解析器测试复用——协议漂移单点防线。
+    - 签名意图：输入: 五计数值 / 输出: 帧文本 / 错误: 非法值域（含 rpd∉{0,1}）→ValueError。
+    - 调用方：pytest 往返用例（test+entry 类）
+    - tested 策略：自有单测（compose→parse 往返全字段一致；非法值拒）
+    - 核验命令：测试: dut_nrf24（往返用例族）

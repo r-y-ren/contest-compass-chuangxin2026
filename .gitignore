@@ -21,3 +21,4 @@ my_LLM_valut/
 my_LLM_valut/raw/pdfs/
 fn_work/runs/
 /runs/
+firmware/**/.pio/
