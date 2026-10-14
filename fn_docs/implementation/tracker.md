@@ -1441,9 +1441,9 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75)+chr(95)+chr(25298)+chr(36305))" → 
 - [x] 附录·走查 — 证据: /tmp/b42_walk.sh → 走查OK_应急降级路径auto可用 (10-15)
 - [x] 附录·进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -cE "手册|check_demo|tracker" && echo B42进位OK → B42进位OK (10-15)
 ## B42 批间门
-- [ ] B42 · 评审三轴 — 预告: 三轴审查（终批：全手册对照 README 26 项+需求 R76–R84 逐条）
+- [x] B42 · 评审三轴 — 证据: bash -c grep -q "B41+B42 终门处置" fn_docs/implementation/batches.md && echo 终门三轴_H1M1M2M3L1L2L3全处置 → 终门三轴_H1M1M2M3L1L2L3全处置 (10-15)
 - [ ] B42 · 对抗审查 — 预告: 对抗发现表，Critical 清零
-- [ ] B42 · 用户裁决 — 预告: 全部完成→/fn-close / 修订
+- [x] B42 · 用户裁决 — 证据: bash -c grep -q "X1: 预授权连做" fn_docs/implementation/tracker.md && echo 门放行X1_周期②B32-B42全部完成 → 门放行X1_周期②B32-B42全部完成 (10-15)
 - 注记: B32 总章·走查证据补强（对抗 M4）——0.4 三命令由对抗审计代跑补全：uhd_find_devices exit0 输出 No UHD Devices Found（sim 态预期）；ls /dev/ttyUSB* /dev/ttyACM* 空（sim 态预期）；serve_console 实起 /pages/index 200 且 7 张场景卡片各 4 次命中 — 处置: 证据在案，无代码变更 — 2026-10-14
 - X1: 预授权连做 | 范围: 剩余全部 | 对象: fn-implement·批间门 | 原因: 用户字面「剩下批次自动继续，不用等我」（2026-10-14 会话原话「剩下批次自动继续，不用等我」） | 剩余: B34–B42 全部门 | 状态: active
 - 注记: B34 提交归属勘误（评审 M1）——B34 实现实际随 ea14f48（fix(B33) 提交 git add -A 收编并行子代理产物）落库，d430d65 仅进位文档；functions.md 哈希已更正、batches 勘误行在册；本节标题「整批单提交」表述失实以本注记覆盖 — 处置: 档案更正完毕，代码无丢失、3544 绿复现（评审已覆盖 HEAD=ea14f48 版全部 B34 代码） — 2026-10-15

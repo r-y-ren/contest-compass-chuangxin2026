@@ -199,7 +199,9 @@ def _find_chapters(headings: list[tuple[int, int, str]], name: str) -> list[tupl
         # 终止行取大数即可：返回值仅作 lines 切片上界，Python 切片自钳。
         span = (idx, _end_line(headings, pos, 2, 10**9))
         stripped = title.strip().lstrip('#').strip()
-        _seqless = stripped.split('. ', 1)[-1] if len(stripped.split('. ', 1)) == 2 else stripped
+        # 序号剥除兼容 "N. " 与 "N."（无空格）两种形态（终门 M2：后者曾绕过）
+        _seqless = re.split(r"^\d+\.\s*", stripped, maxsplit=1)
+        _seqless = _seqless[1] if len(_seqless) == 2 else stripped
         # 全等 或 "条目名+括注后缀"（如「国标测法自动化（GB 42590 §5.11）」）；
         # 拼接章（「A 与 B」）的连接词后缀不算括注 → 不入 exact。
         _is_exact = _seqless == name or (
@@ -210,8 +212,9 @@ def _find_chapters(headings: list[tuple[int, int, str]], name: str) -> list[tupl
         (exact if _is_exact else substr).append(span)
     if exact:
         return exact
-    # 回退：仅当没有任何 "N. " 序号形态章含名时，才接受无序号子串章
-    return [] if any(l == 2 and '. ' in t for _, l, t in headings if name in t) else substr
+    # 回退：无序号/无空格序号形态的章，标题剥序号后须与条目名全等才收
+    #（终门 M2：子串回退曾被无序号拼接章绕过——回退同权全等契约）
+    return []
 
 
 def _audit_chapter(
@@ -235,7 +238,7 @@ def _audit_chapter(
     if dev_pos is not None:
         h_start = headings[dev_pos][0]
         h_end = _end_line(headings, dev_pos, 3, len(lines))
-        body = "\n".join(_strip_fenced(lines[h_start:h_end]))
+        body = "\n".join(_strip_fenced(lines[h_start + 1 : h_end]))  # +1 跳过标题行（终门 M3：标题自含两档词曾自满足）
         for tier in _TIER_MARKS:
             if tier not in body:
                 missing.append(f"所需设备与连线:{tier}")
