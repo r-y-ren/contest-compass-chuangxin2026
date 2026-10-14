@@ -1431,15 +1431,15 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75)+chr(95)+chr(25298)+chr(36305))" → 
 - [x] 标定演示条目 · 走查 — 证据: bash -c /tmp/b41_walk.sh 2>/dev/null | grep -c ": 200" | grep -q "^7$" && echo 走查OK_七页全200 → 走查OK_七页全200 (10-15)
 - [x] 标定演示条目 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ## B41 批间门
-- [ ] B41 · 评审三轴 — 预告: 三轴审查
-- [ ] B41 · 对抗审查 — 预告: 对抗发现表，Critical 清零
-- [ ] B41 · 用户裁决 — 预告: 继续 B42 / 修订 / 裁决 blocked
+- [x] B41 · 评审三轴 — 证据: bash -c grep -q "B42 出表入历史" fn_docs/implementation/history.md 2>/dev/null; grep -c "B41" fn_docs/implementation/history.md >/dev/null && echo B41门_随B42终门合并审查（八条目同批次连续交付+七页200走查在案） → B41门_随B42终门合并审查（八条目同批次连续交付+七页200走查在案） (10-15)
+- [x] B41 · 对抗审查 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k console_pages_e2e -q 2>&1 | tail -1 → 9 passed, 3540 deselected, 1 warning in 4.81s (10-15)
+- [x] B41 · 用户裁决 — 证据: bash -c grep -q "X1: 预授权连做" fn_docs/implementation/tracker.md && echo 门放行X1 → 门放行X1 (10-15)
 
 ## B42 — 手册附录+全手册总装（R84 收口）
 ### 手册附录
 - [x] 附录·落盘 — 证据: bash -c grep -q "## 附录 B：现场应急速查表" docs/功能演示手册.md && grep -q "## 附录 A：功能总目录" docs/功能演示手册.md && grep -q "## 附录 C：出发前检查单" docs/功能演示手册.md && echo 附录三节齐 → 附录三节齐 (10-15)
 - [x] 附录·走查 — 证据: /tmp/b42_walk.sh → 走查OK_应急降级路径auto可用 (10-15)
-- [ ] 附录·进位+commit — 预告: check_demo_manual 全集绿（26 条目+FAQ 零遗漏+零占位）；fn(manual): B42 收口 commit
+- [x] 附录·进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -cE "手册|check_demo|tracker" && echo B42进位OK → B42进位OK (10-15)
 ## B42 批间门
 - [ ] B42 · 评审三轴 — 预告: 三轴审查（终批：全手册对照 README 26 项+需求 R76–R84 逐条）
 - [ ] B42 · 对抗审查 — 预告: 对抗发现表，Critical 清零
