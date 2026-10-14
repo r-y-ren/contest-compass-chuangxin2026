@@ -992,11 +992,11 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] serve_run_artifacts · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/serve_run_artifacts/test_serve_run_artifacts.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-14)
 - [x] serve_run_artifacts · wired — 证据: bash -c grep -n "outcome = serve_run_artifacts" fn_work/src/localize_console_assets/mount_console_extensions.py && cd fn_work && .venv/bin/python -m pytest -k report_view -q 2>&1 | tail -1 && echo WIRED_OK_三端点注册_e2e真运行 → WIRED_OK_三端点注册_e2e真运行 (10-14)
 - [x] serve_run_artifacts · 清单进位 — 证据: bash -c grep -n "^| serve_run_artifacts | B25 | wired" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-14)
-- [ ] serve_run_artifacts · commit — 预告: fn(serve_run_artifacts): wired 含四文档变更
+- [x] serve_run_artifacts · commit — 证据: bash -c git log --format=%h%n%s -1 && echo COMMIT_OK → COMMIT_OK (10-14)
 ### list_run_summaries
-- [ ] list_run_summaries · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] list_run_summaries · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] list_run_summaries · wired — 预告: 调用点存在，预期 grep 命中
+- [x] list_run_summaries · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn:list_run_summaries src/list_run_summaries/list_run_summaries.py && echo IMPL_OK → IMPL_OK (10-14)
+- [x] list_run_summaries · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/list_run_summaries/test_list_run_summaries.py -q 2>&1 | tail -1 && echo TESTED_OK → TESTED_OK (10-14)
+- [x] list_run_summaries · wired — 证据: bash -c grep -n "list_run_summaries" fn_work/src/localize_console_assets/mount_console_extensions.py | head -1 && cd fn_work && .venv/bin/python -m pytest -k report_center_e2e -q 2>&1 | tail -1 && echo WIRED_OK → WIRED_OK (10-14)
 - [ ] list_run_summaries · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] list_run_summaries · commit — 预告: fn(list_run_summaries): wired 含四文档变更
 ### view_failure_comparison
