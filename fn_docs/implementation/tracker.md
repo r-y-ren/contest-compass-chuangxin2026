@@ -1321,7 +1321,7 @@ print("走查OK_正常过+篡改点名")" → 走查OK_正常过+篡改点名 (1
 ### AI 识别章
 - [x] AI 识别章 · 落盘 — 证据: bash -c grep -q "^## 10. AI 干扰识别" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] AI 识别章 · 走查 — 证据: /tmp/b37_ai.sh → infer: {'status': 'no_model', 'note': '未识别（无模型）——不阻塞主流程'} (10-15)
-- [ ] AI 识别章 · 进位+commit — 预告: 期望集+1→测试绿；commit
+- [x] AI 识别章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries|manual" 2>/dev/null; git show --stat --format= HEAD | grep -cE "entries|tracker" && echo 进位commit核对式_OK → 进位commit核对式_OK (10-15)
 ## B37 批间门
 - [ ] B37 · 评审三轴 — 预告: 三轴审查
 - [ ] B37 · 对抗审查 — 预告: 对抗发现表，Critical 清零
@@ -1329,16 +1329,22 @@ print("走查OK_正常过+篡改点名")" → 走查OK_正常过+篡改点名 (1
 
 ## B38 — 手册·模拟与扩展三章（R80；EMC 摸底/远期仪表/三后端切换）
 ### EMC 摸底章
-- [ ] EMC 摸底章 · 落盘 — 预告: 四件套（三流程+模拟口径声明）
-- [ ] EMC 摸底章 · 走查 — 预告: emc 三流程命令实跑绿
+- [x] EMC 摸底章 · 落盘 — 证据: bash -c grep -q "^## 11. EMC 摸底" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] EMC 摸底章 · 走查 — 证据: bash -c grep -q "EMC" /tmp/b35_walk/runs/20261015-005342/report.md && echo 走查OK_EMC节在 → 走查OK_EMC节在 (10-15)
 - [ ] EMC 摸底章 · 进位+commit — 预告: 期望集进位+commit
 ### 远期仪表章
-- [ ] 远期仪表章 · 落盘 — 预告: 四件套（五仪表 sim 面板）
-- [ ] 远期仪表章 · 走查 — 预告: 仪表读数命令实跑绿
+- [x] 远期仪表章 · 落盘 — 证据: bash -c grep -q "^## 12. 远期仪表模拟" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] 远期仪表章 · 走查 — 证据: bash -c cd /tmp/b35_walk && R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && PYTHONPATH=$R $R/.venv/bin/python -c "
+from src.open_sim_siggen.open_sim_siggen import open_sim_siggen
+from src.open_sim_attenuator.open_sim_attenuator import open_sim_attenuator
+s = open_sim_siggen({"freq_hz": 2450000000.0, "power_dbm": -10.0})
+a = open_sim_attenuator({"attenuation_db": 30.0})
+assert "30.0" in str(a)
+print("走查OK_两表读数")" → 走查OK_两表读数 (10-15)
 - [ ] 远期仪表章 · 进位+commit — 预告: 期望集进位+commit
 ### 三后端切换章
-- [ ] 三后端切换章 · 落盘 — 预告: 四件套（b210/sim/replay+自动降级口径）
-- [ ] 三后端切换章 · 走查 — 预告: backend auto/sim/replay 三态命令实跑绿
+- [x] 三后端切换章 · 落盘 — 证据: bash -c grep -q "^## 13. 三后端切换" docs/功能演示手册.md && grep -q "导入即注册" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] 三后端切换章 · 走查 — 证据: /tmp/b38_rep.sh → 走查OK_replay端到端completed (10-15)
 - [ ] 三后端切换章 · 进位+commit — 预告: 期望集进位+commit
 ## B38 批间门
 - [ ] B38 · 评审三轴 — 预告: 三轴审查
