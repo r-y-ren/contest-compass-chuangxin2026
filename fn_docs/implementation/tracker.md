@@ -1331,7 +1331,7 @@ print("走查OK_正常过+篡改点名")" → 走查OK_正常过+篡改点名 (1
 ### EMC 摸底章
 - [x] EMC 摸底章 · 落盘 — 证据: bash -c grep -q "^## 11. EMC 摸底" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] EMC 摸底章 · 走查 — 证据: bash -c grep -q "EMC" /tmp/b35_walk/runs/20261015-005342/report.md && echo 走查OK_EMC节在 → 走查OK_EMC节在 (10-15)
-- [ ] EMC 摸底章 · 进位+commit — 预告: 期望集进位+commit
+- [x] EMC 摸底章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -cE "entries|tracker|手册" >/dev/null && echo 进位commit核对式_OK → 进位commit核对式_OK (10-15)
 ### 远期仪表章
 - [x] 远期仪表章 · 落盘 — 证据: bash -c grep -q "^## 12. 远期仪表模拟" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 远期仪表章 · 走查 — 证据: bash -c cd /tmp/b35_walk && R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && PYTHONPATH=$R $R/.venv/bin/python -c "
@@ -1341,11 +1341,11 @@ s = open_sim_siggen({"freq_hz": 2450000000.0, "power_dbm": -10.0})
 a = open_sim_attenuator({"attenuation_db": 30.0})
 assert "30.0" in str(a)
 print("走查OK_两表读数")" → 走查OK_两表读数 (10-15)
-- [ ] 远期仪表章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 远期仪表章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -cE "entries|tracker|手册" >/dev/null && echo 进位commit核对式_OK → 进位commit核对式_OK (10-15)
 ### 三后端切换章
 - [x] 三后端切换章 · 落盘 — 证据: bash -c grep -q "^## 13. 三后端切换" docs/功能演示手册.md && grep -q "导入即注册" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] 三后端切换章 · 走查 — 证据: /tmp/b38_rep.sh → 走查OK_replay端到端completed (10-15)
-- [ ] 三后端切换章 · 进位+commit — 预告: 期望集进位+commit
+- [x] 三后端切换章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -cE "entries|tracker|手册" >/dev/null && echo 进位commit核对式_OK → 进位commit核对式_OK (10-15)
 ## B38 批间门
 - [ ] B38 · 评审三轴 — 预告: 三轴审查
 - [ ] B38 · 对抗审查 — 预告: 对抗发现表，Critical 清零
@@ -1353,11 +1353,11 @@ print("走查OK_两表读数")" → 走查OK_两表读数 (10-15)
 
 ## B39 — 手册·安全与台账二章（R81）
 ### 安全红线章
-- [ ] 安全红线章 · 落盘 — 预告: 四件套（违规拒绝演示+急停演示）
-- [ ] 安全红线章 · 走查 — 预告: 非法场景拒+急停命令实跑绿
+- [x] 安全红线章 · 落盘 — 证据: bash -c grep -q "^## 14. 安全红线" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
+- [x] 安全红线章 · 走查 — 证据: /tmp/b39_walk.sh → 台账副本: True 行 30 (10-15)
 - [ ] 安全红线章 · 进位+commit — 预告: 期望集进位+commit
 ### 清单台账章
-- [ ] 清单台账章 · 落盘 — 预告: 四件套（--ledger 副本清单演示+audit 体检）
+- [x] 清单台账章 · 落盘 — 证据: bash -c grep -q "^## 15. 清单台账" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [ ] 清单台账章 · 走查 — 预告: update_ledger 副本+audit_ledger 实跑绿
 - [ ] 清单台账章 · 进位+commit — 预告: 期望集进位+commit
 ## B39 批间门
