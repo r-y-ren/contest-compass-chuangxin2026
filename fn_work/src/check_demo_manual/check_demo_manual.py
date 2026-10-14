@@ -187,13 +187,31 @@ def _find_chapters(headings: list[tuple[int, int, str]], name: str) -> list[tupl
 
     不止取首个（B32 M3 加固）：同名多章或前章为伪章时，首匹配会让后章残缺
     被掩盖——调用方须逐章审计（缺件章并列入 missing_sections）。
+    全等匹配（B42 加固，B35 F3 登记）：期望条目与章的契约是标题剥序号后**全等**
+    （"## N. <名>"）——拼接章（"## 5. A 与 B"）不再顶替任何条目：无全等章即
+    missing_entry，由调用方点名。子串匹配仅在无序号形态的非常规章上作回退。
     """
-    out: list[tuple[int, int]] = []
+    exact: list[tuple[int, int]] = []
+    substr: list[tuple[int, int]] = []
     for pos, (idx, level, title) in enumerate(headings):
-        if level == 2 and name in title:
-            # 终止行取大数即可：返回值仅作 lines 切片上界，Python 切片自钳。
-            out.append((idx, _end_line(headings, pos, 2, 10**9)))
-    return out
+        if level != 2 or name not in title:
+            continue
+        # 终止行取大数即可：返回值仅作 lines 切片上界，Python 切片自钳。
+        span = (idx, _end_line(headings, pos, 2, 10**9))
+        stripped = title.strip().lstrip('#').strip()
+        _seqless = stripped.split('. ', 1)[-1] if len(stripped.split('. ', 1)) == 2 else stripped
+        # 全等 或 "条目名+括注后缀"（如「国标测法自动化（GB 42590 §5.11）」）；
+        # 拼接章（「A 与 B」）的连接词后缀不算括注 → 不入 exact。
+        _is_exact = _seqless == name or (
+            _seqless.startswith(name)
+            and len(_seqless) > len(name)
+            and _seqless[len(name)] in "（(【["
+        )
+        (exact if _is_exact else substr).append(span)
+    if exact:
+        return exact
+    # 回退：仅当没有任何 "N. " 序号形态章含名时，才接受无序号子串章
+    return [] if any(l == 2 and '. ' in t for _, l, t in headings if name in t) else substr
 
 
 def _audit_chapter(

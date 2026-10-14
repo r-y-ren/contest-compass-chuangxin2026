@@ -1323,9 +1323,9 @@ print("走查OK_正常过+篡改点名")" → 走查OK_正常过+篡改点名 (1
 - [x] AI 识别章 · 走查 — 证据: /tmp/b37_ai.sh → infer: {'status': 'no_model', 'note': '未识别（无模型）——不阻塞主流程'} (10-15)
 - [x] AI 识别章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries|manual" 2>/dev/null; git show --stat --format= HEAD | grep -cE "entries|tracker" && echo 进位commit核对式_OK → 进位commit核对式_OK (10-15)
 ## B37 批间门
-- [ ] B37 · 评审三轴 — 预告: 三轴审查
-- [ ] B37 · 对抗审查 — 预告: 对抗发现表，Critical 清零
-- [ ] B37 · 用户裁决 — 预告: 继续 B38 / 修订 / 裁决 blocked
+- [x] B37 · 评审三轴 — 证据: bash -c grep -q "B37 门处置" fn_docs/implementation/batches.md && echo B37三轴全过_S1-S10 → B37三轴全过_S1-S10 (10-15)
+- [x] B37 · 对抗审查 — 证据: bash -c grep -q "限界如实" docs/功能演示手册.md && grep -q "类别覆盖不足拒训" docs/功能演示手册.md && echo B37对抗0C_I1M1M4已修_M2M3登记 → B37对抗0C_I1M1M4已修_M2M3登记 (10-15)
+- [x] B37 · 用户裁决 — 证据: bash -c grep -q "X1: 预授权连做" fn_docs/implementation/tracker.md && echo 门放行X1 → 门放行X1 (10-15)
 
 ## B38 — 手册·模拟与扩展三章（R80；EMC 摸底/远期仪表/三后端切换）
 ### EMC 摸底章
@@ -1347,9 +1347,9 @@ print("走查OK_两表读数")" → 走查OK_两表读数 (10-15)
 - [x] 三后端切换章 · 走查 — 证据: /tmp/b38_rep.sh → 走查OK_replay端到端completed (10-15)
 - [x] 三后端切换章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -cE "entries|tracker|手册" >/dev/null && echo 进位commit核对式_OK → 进位commit核对式_OK (10-15)
 ## B38 批间门
-- [ ] B38 · 评审三轴 — 预告: 三轴审查
-- [ ] B38 · 对抗审查 — 预告: 对抗发现表，Critical 清零
-- [ ] B38 · 用户裁决 — 预告: 继续 B39 / 修订 / 裁决 blocked
+- [x] B38 · 评审三轴 — 证据: bash -c grep -q "B38 门处置" fn_docs/implementation/batches.md && echo B38三轴全过 → B38三轴全过 (10-15)
+- [x] B38 · 对抗审查 — 证据: bash -c grep -q "自动探测不可用" docs/功能演示手册.md && grep -q "未判定（未提供限值线）" docs/功能演示手册.md && echo B38对抗0C_A1A2A3已修_A4登记 → B38对抗0C_A1A2A3已修_A4登记 (10-15)
+- [x] B38 · 用户裁决 — 证据: bash -c grep -q "X1: 预授权连做" fn_docs/implementation/tracker.md && echo 门放行X1 → 门放行X1 (10-15)
 
 ## B39 — 手册·安全与台账二章（R81）
 ### 安全红线章
@@ -1361,9 +1361,9 @@ print("走查OK_两表读数")" → 走查OK_两表读数 (10-15)
 - [x] 清单台账章 · 走查 — 证据: /tmp/b39_audit.sh → 走查OK_体检100/100_零锚点问题 (10-15)
 - [x] 清单台账章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -cE "entries|tracker" >/dev/null && echo 进位OK → 进位OK (10-15)
 ## B39 批间门
-- [ ] B39 · 评审三轴 — 预告: 三轴审查
-- [ ] B39 · 对抗审查 — 预告: 对抗发现表，Critical 清零
-- [ ] B39 · 用户裁决 — 预告: 继续 B40 / 修订 / 裁决 blocked
+- [x] B39 · 评审三轴 — 证据: bash -c grep -q "declarations" docs/功能演示手册.md && grep -q "合规红线 ≤0.0 dBm" docs/功能演示手册.md && echo B39三轴_H1已修_有条件通过兑现 → B39三轴_H1已修_有条件通过兑现 (10-15)
+- [x] B39 · 对抗审查 — 证据: bash -c grep -q "B39 门处置" fn_docs/implementation/batches.md && grep -q "误贴台账输出" fn_docs/implementation/tracker.md && echo B39对抗H1修复_M1Ruling_L1L2随批 → B39对抗H1修复_M1Ruling_L1L2随批 (10-15)
+- [x] B39 · 用户裁决 — 证据: bash -c grep -q "X1: 预授权连做" fn_docs/implementation/tracker.md && echo 门放行X1 → 门放行X1 (10-15)
 
 ## B40 — 手册·二期进阶三章（R82 [P1]；SITL 联动/RL 策略/RFF 指纹）
 ### SITL 联动章
@@ -1393,9 +1393,9 @@ except Exception as e:
 print(chr(36208)+chr(26597)+chr(79)+chr(75)+chr(95)+chr(25298)+chr(36305))" → 走查OK_拒跑 (10-15)
 - [x] RFF 指纹章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ## B40 批间门
-- [ ] B40 · 评审三轴 — 预告: 三轴审查
-- [ ] B40 · 对抗审查 — 预告: 对抗发现表，Critical 清零
-- [ ] B40 · 用户裁决 — 预告: 继续 B41 / 修订 / 裁决 blocked
+- [x] B40 · 评审三轴 — 证据: bash -c grep -q "B40 门处置" fn_docs/implementation/batches.md && echo B40三轴通过 → B40三轴通过 (10-15)
+- [x] B40 · 对抗审查 — 证据: bash -c grep -q "六档功率阶梯" docs/功能演示手册.md && grep -q "rounds=2" docs/功能演示手册.md && grep -q "前置：dataset/index.json" docs/功能演示手册.md && echo B40对抗H1M1L1已修 → B40对抗H1M1L1已修 (10-15)
+- [x] B40 · 用户裁决 — 证据: bash -c grep -q "X1: 预授权连做" fn_docs/implementation/tracker.md && echo 门放行X1 → 门放行X1 (10-15)
 
 ## B41 — 手册·操控台七页章（R83；总览/运行/报告/数据/AI/仪表/台账+标定，共 8 条目）
 ### 总览页条目
@@ -1437,8 +1437,8 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75)+chr(95)+chr(25298)+chr(36305))" → 
 
 ## B42 — 手册附录+全手册总装（R84 收口）
 ### 手册附录
-- [ ] 附录·落盘 — 预告: 应急速查表（README FAQ 全量映射）+总目录+出发前检查单
-- [ ] 附录·走查 — 预告: 应急处置口径逐条可执行核对（降级命令实跑）
+- [x] 附录·落盘 — 证据: bash -c grep -q "## 附录 B：现场应急速查表" docs/功能演示手册.md && grep -q "## 附录 A：功能总目录" docs/功能演示手册.md && grep -q "## 附录 C：出发前检查单" docs/功能演示手册.md && echo 附录三节齐 → 附录三节齐 (10-15)
+- [x] 附录·走查 — 证据: /tmp/b42_walk.sh → 走查OK_应急降级路径auto可用 (10-15)
 - [ ] 附录·进位+commit — 预告: check_demo_manual 全集绿（26 条目+FAQ 零遗漏+零占位）；fn(manual): B42 收口 commit
 ## B42 批间门
 - [ ] B42 · 评审三轴 — 预告: 三轴审查（终批：全手册对照 README 26 项+需求 R76–R84 逐条）
@@ -1449,3 +1449,4 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75)+chr(95)+chr(25298)+chr(36305))" → 
 - 注记: B34 提交归属勘误（评审 M1）——B34 实现实际随 ea14f48（fix(B33) 提交 git add -A 收编并行子代理产物）落库，d430d65 仅进位文档；functions.md 哈希已更正、batches 勘误行在册；本节标题「整批单提交」表述失实以本注记覆盖 — 处置: 档案更正完毕，代码无丢失、3544 绿复现（评审已覆盖 HEAD=ea14f48 版全部 B34 代码） — 2026-10-15
 - 注记: B36「录音库章 · 走查」行证据误贴样式轮脚本（主会话复制粘贴错）——正确证据=本注记上方无，以下方脚本输出为准：/tmp/b36_lib.sh → 走查OK_SigMF对+global键+索引rebuild+query命中（2026-10-15 实跑）；行不改写（已勾状态保留），本注记即更正 — 处置: 证据已补 — 2026-10-15
 - 注记: B36 四行「进位+commit」证据命令为 BRE 竖线死模式（git show|grep -q 无 -E，永不命中——事实本身经三轴/对抗双重独立核实为真：e986b4a --stat 确含两文件）——坏行不改写，以本注记勘误；自 B37 起证据 grep 一律 -qE（batches B36 三轴处置在册） — 处置: 勘误+条款已立 — 2026-10-15
+- 注记: B39「安全红线章 · 走查」行证据 token 误贴台账输出（脚本含 guard 三查但打印尾行是台账）——guard 侧实证=门审查 H1 复核的嵌套形状各恰 1 违例（B39 门处置行在册） — 处置: 勘误注记，行不改写 — 2026-10-15
