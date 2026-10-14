@@ -203,3 +203,27 @@ def test_console_ui_start_run_polls_run_status_to_completion(tmp_path):
     assert "failure_levels" in html and "report_path" in html  # 结果行字段
     assert "运行完成" in html  # 终态回显（done/failed 两分支文案）
     assert "运行失败" in html
+
+
+def test_console_ui_emergency_stop_four_branch_copy_true_values_first(tmp_path):
+    """⑯ B24 观察③（B31 随批）：急停按钮四分支文案字符串级在位——按
+    /api/stop 响应真值分流（emergency_stop.transmit.status 优先），不虚报
+    「发射已停」；分支序=异常/已停/无后端/兜底（含网络失败 catch）。"""
+    html = render_console_pages(str(tmp_path), {})["pages"]["index.html"]
+    assert 'id="emergency-stop"' in html  # 急停按钮锚点
+    assert "fetch('/api/stop'" in html  # 接线端点
+    copy_pairs = [
+        ("es.status === 'stop_failed'", "急停异常（发射侧失败，旗已置位）"),
+        ("tx.status === 'stopped'", "急停已执行（发射已停）"),
+        ("tx.status === 'no_backend'", "急停旗已置（当前无发射后端在途）"),
+    ]
+    for condition, copy in copy_pairs:
+        assert condition in html, condition  # 分流条件（真值优先）
+        assert copy in html, copy  # 对应文案原文
+    # 兜底分支双文案+网络失败 catch（四分支+异常路径全覆盖）
+    assert "急停旗已置" in html and "急停请求发送（无在途发射）" in html
+    assert "急停失败: " in html
+    # 真值优先于兜底：stop_failed 分流先于 transmit 状态分流
+    assert html.index("es.status === 'stop_failed'") < html.index(
+        "tx.status === 'stopped'"
+    )

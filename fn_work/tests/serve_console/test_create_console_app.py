@@ -180,6 +180,22 @@ def test_post_run_returns_202_and_runs_in_background(tmp_path):
 
 
 @needs_fastapi
+def test_post_run_resets_flag_and_stale_backend_handle(tmp_path):
+    """⑩b 启动复位双清（B24 观察①，B31 随批）：遗留 flag=True+旧轮写回的
+    'backend' 句柄→POST /api/run 202 即 flag=False 且 'backend' 被清——新 run
+    启动窗口内 /api/stop 不吃旧停机信号、不误停已关后端（run_scenario 后端
+    打开后自行写回，生命周期与新 run 对齐）。"""
+    deps = _base_deps(tmp_path)
+    deps["stop_flag"] = {"flag": True, "backend": object()}  # 上一轮遗留态
+    app = create_console_app(deps)
+    with TestClient(app) as client:
+        resp = client.post("/api/run", json={"scenario": {"style": "tone"}})
+    assert resp.status_code == 202
+    assert deps["stop_flag"]["flag"] is False
+    assert "backend" not in deps["stop_flag"]  # 旧句柄窗口关闭
+
+
+@needs_fastapi
 def test_post_run_missing_scenario_400(tmp_path):
     """⑪ body 缺 scenario→400 field='scenario'。"""
     app = create_console_app(_base_deps(tmp_path))

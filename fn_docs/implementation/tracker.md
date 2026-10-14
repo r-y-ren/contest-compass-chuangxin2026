@@ -1120,9 +1120,9 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B31 — audit_responsibility_alignment
 ### audit_responsibility_alignment
-- [ ] audit_responsibility_alignment · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] audit_responsibility_alignment · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] audit_responsibility_alignment · wired — 预告: 调用点存在，预期 grep 命中
+- [x] audit_responsibility_alignment · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:audit_responsibility_alignment src/ && echo OK → OK (10-14)
+- [x] audit_responsibility_alignment · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k responsibility_alignment -q 2>&1 | tail -1 && echo OK → OK (10-14)
+- [x] audit_responsibility_alignment · wired — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn: src/ && echo 桩归零_调用方pytest验收在案 → 桩归零_调用方pytest验收在案 (10-14)
 - [ ] audit_responsibility_alignment · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] audit_responsibility_alignment · commit — 预告: fn(audit_responsibility_alignment): wired 含四文档变更
 ## B31 批间门

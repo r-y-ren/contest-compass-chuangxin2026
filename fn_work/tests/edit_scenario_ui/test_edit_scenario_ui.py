@@ -145,3 +145,19 @@ def test_scenario_editor_form_mode_multi_band_guard_wired():
         "该场景含多频段，表单模式保存将只保留所选频段——请用 YAML 模式" in block
     )  # 警示文案原文（B24 N2 规约口径）
     assert "表单模式仅能表达单一频段" in block  # 表单面板静态提示
+
+
+def test_scenario_editor_stale_errors_cleared_on_mode_switch_and_yaml_input():
+    """⑨ B24 观察②（B31 随批顺修）：#editor-errors 陈旧警示清空——模式切换
+    setMode 先 showErrors([]) 再按需重发多带警示；YAML textarea input 事件
+    （重贴/编辑）即清空（警示不跨输入存活，保存时按需重现）。"""
+    block = edit_scenario_ui([])
+    # setMode 内清空先于多带警示重发
+    setmode = block.split("function setMode", 1)[1].split("function ", 1)[0]
+    assert "showErrors([]);" in setmode
+    assert setmode.index("showErrors([]);") < setmode.index("warnMultiBandInForm()")
+    # YAML 重贴/编辑清空：input 监听挂 #editor-yaml 且回调清错误清单
+    yaml_input = "$('editor-yaml').addEventListener('input',"
+    assert yaml_input in block
+    handler = block.split(yaml_input, 1)[1].split(";", 1)[0]
+    assert "showErrors([])" in handler

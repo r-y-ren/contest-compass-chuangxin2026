@@ -243,7 +243,8 @@ def create_console_app(deps: dict) -> "FastAPI":
       - DELETE /api/scenarios/{name}——删除 <name>.yaml（不存在→404；name 非法
         →400 同 POST 口径）；
       - POST /api/run——JSON body {'scenario': dict}→后台线程调 runner，202 {'run_id'}；
-        启动即复位 stop_flag（新 run 不吃旧停机信号）；body 非 JSON 对象→400
+        启动即复位 stop_flag（flag 置 False+清遗留 'backend' 旧句柄——新 run 不吃
+        旧停机信号、不误停旧后端，B24 观察① B31 随批）；body 非 JSON 对象→400
         field='body'，scenario 缺失/非 dict→400 field='scenario'；
       - GET  /api/runs——report_root 子目录名列表（新建在前）；根缺失→400
         field='report_root'；
@@ -413,6 +414,11 @@ def create_console_app(deps: dict) -> "FastAPI":
         # 启动即复位共享停机旗标——上一轮 /api/stop 的遗留信号不牵连本次运行
         # （新 run 不吃旧停机信号；对在途旧 run 的共享旗影响属共享旗设计固有口径）。
         deps["stop_flag"]["flag"] = False
+        # B24 观察①（B31 随批顺修，2026-10-14）：同步清上一轮写回的 'backend'
+        # 旧后端句柄——防新 run 启动窗口内 /api/stop 拿到已关闭后端误停
+        # （run_scenario 后端打开后会重新写回；窗口期内急停走 no_backend 幂等
+        # 口径，结果仍正确——本清理由"理论竞态窗"收敛为"句柄生命周期对齐"）。
+        deps["stop_flag"].pop("backend", None)
         app.state.runs[run_id] = {
             "run_id": run_id,
             "status": "running",

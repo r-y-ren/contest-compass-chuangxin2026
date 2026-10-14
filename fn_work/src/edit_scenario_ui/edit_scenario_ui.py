@@ -6,7 +6,9 @@
   （textarea 直接粘贴场景文本），一键互切；B24 N2 丢带防护——表单仅能表达
   单一频段，YAML 载入多带场景时切表单即警示、表单保存被阻止（countBands
   前端启发式：数 bands 行内流式对/块序列条目；服务端 load_scenario 仍为
-  唯一权威校验）；
+  唯一权威校验）；B24 观察②（B31 随批顺修，2026-10-14）——模式切换与 YAML
+  重贴/编辑即清空 #editor-errors 陈旧警示（警示不跨输入存活，保存/切模式
+  时按需重现）；
 - 三操作接线既有场景 CRUD 端点：新建→POST /api/scenarios {'name','content'}、
   编辑→PUT /api/scenarios/{name} {'content'}（目标取场景下拉）、删除→DELETE
   /api/scenarios/{name}；表单模式提交前在浏览器内组装等价 YAML 文本，校验
@@ -181,7 +183,9 @@ window.__EDITOR_CARDS__ = __CARDS_JSON__;
     return [fallback];
   }
 
-  // ---- 模式切换（表单 ⇄ YAML） ----
+  // ---- 模式切换（表单 ⇄ YAML）----
+  // B24 观察②（B31 随批顺修）：切换先清空 #editor-errors 陈旧警示——上一模式/
+  // 上次保存失败留下的清单不再误导当前输入（表单侧多带警示随后按需重发）。
   function setMode(mode) {
     var isForm = mode === 'form';
     $('editor-panel-form').hidden = !isForm;
@@ -190,10 +194,14 @@ window.__EDITOR_CARDS__ = __CARDS_JSON__;
     $('editor-btn-yaml-save').hidden = isForm;
     $('editor-btn-mode-form').classList.toggle('active', isForm);
     $('editor-btn-mode-yaml').classList.toggle('active', !isForm);
+    showErrors([]);
     if (isForm) { warnMultiBandInForm(); }
   }
   $('editor-btn-mode-form').addEventListener('click', function () { setMode('form'); });
   $('editor-btn-mode-yaml').addEventListener('click', function () { setMode('yaml'); });
+  // B24 观察②（B31 随批顺修）：YAML 重贴/编辑即清陈旧警示——多带丢带警示与
+  // 服务端错误清单不跨粘贴存活（下次保存重新全口径校验，警示按需重现）。
+  $('editor-yaml').addEventListener('input', function () { showErrors([]); });
 
   // ---- B24 N2：多频段场景的表单丢带防护 ----
   // 表单只能表达单一频段（bands 单选）：YAML 载入多带场景后若以表单模式保存，

@@ -6,6 +6,11 @@ fn_docs/responsibility.md（R72 demo_sitl_bridge L0；调用方 mount_console_ex
 
 - 选历史运行：``report_root/<run_id>/`` 运行目录（与 R60 产物端点/R61 摘要行
   同锚点）；run_id/report_root 非非空 str → ValueError（形状先拒）；
+  B30 对抗①转 B31 随批落地（2026-10-14）：run_id 加 report_root realpath
+  围栏（对齐 R60/R71 口径）——``realpath(join(report_root, run_id))`` 解析后
+  必须落在 ``realpath(report_root)`` 内（commonpath 判），绝对路径（被
+  os.path.join 丢弃根→界外读）与 ``..`` 穿越一律 ValueError（端点层转 400
+  field='run_id'）；
 - 提取 PER-功率台阶：run 目录 kpi.csv+events.jsonl 读回（build_report 同款
   只读——kpi 行 timestamp_ms/judge_per、events 逐行 JSON 含权威盖戳 ts）→
   build_curve_frames 帧A（power_step 事件开窗、窗内 judge_per 均值——R25 三图
@@ -162,6 +167,20 @@ def demo_sitl_bridge(run_id: str, report_root: str) -> dict:
         )
     run_id = run_id.strip()
     run_dir = os.path.join(report_root, run_id)
+    # B30 对抗①转 B31 随批：report_root realpath 围栏（对齐 R60/R71 口径）——
+    # 绝对路径（os.path.join 丢弃根）与 ../ 穿越解析后落界外 → 早拒（越界
+    # 目标即便真实存在也不读——演示只接受 report_root 下运行目录）。
+    fence_root = os.path.realpath(report_root)
+    resolved = os.path.realpath(run_dir)
+    try:
+        inside = os.path.commonpath([fence_root, resolved]) == fence_root
+    except ValueError:  # 不同盘符/混合形态——按越界处理（Linux 不触，防御口径）
+        inside = False
+    if not inside:
+        raise ValueError(
+            f"run_id 越界（report_root 围栏，对齐 R60/R71 口径）: {run_id!r} 解析后 "
+            f"{resolved} 不在 {fence_root} 内——只接受 report_root 下一级运行目录名"
+        )
     if not os.path.isdir(run_dir):
         raise ValueError(
             f"运行目录不存在: {run_dir}（run_id={run_id!r}）——请选择其他运行"

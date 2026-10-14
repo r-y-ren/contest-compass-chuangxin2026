@@ -175,6 +175,40 @@ def test_sitl_view_endpoint_contract(tmp_path):
     assert "请选择其他运行" in resp.json()["detail"]["error"]
 
 
+# ---- report_root 围栏（B30 对抗①转 B31 随批，2026-10-14） ----
+
+
+def test_sitl_view_run_id_fence_rejects_absolute_and_traversal(tmp_path):
+    """⑦ 围栏（函数层）：绝对路径 run_id（os.path.join 丢弃根→界外读）与
+    ../ 穿越（界外真目录也不读）→ValueError 越界；界内子目录名照常放行。"""
+    root = str(tmp_path / "reports")
+    _make_run(root)
+    outside = tmp_path / "outside" / "run-x"
+    outside.mkdir(parents=True)  # 界外真目录（穿越目标真实存在——仍拒）
+    with pytest.raises(ValueError, match="越界"):
+        demo_sitl_bridge(str(outside), root)  # 绝对路径：join 丢弃 report_root
+    with pytest.raises(ValueError, match="越界"):
+        demo_sitl_bridge("../outside/run-x", root)  # 相对穿越出根
+    with pytest.raises(ValueError, match="越界"):
+        demo_sitl_bridge("/etc", root)  # 系统目录绝对路径
+    view = demo_sitl_bridge("run-001", root)  # 界内正常名不受围栏影响
+    assert view["ok"] is True and view["n_steps"] == 2
+
+
+@needs_fastapi
+def test_sitl_view_endpoint_fence_400(tmp_path):
+    """⑧ 围栏（端点层）：POST /api/demo/sitl 绝对/穿越 run_id→400
+    field='run_id'（ValueError 越界经薄转接上屏，对齐 R60/R71 口径）。"""
+    root = str(tmp_path / "reports")
+    _make_run(root)
+    client = _client(tmp_path)
+    for bad in ("/etc/passwd", "../outside/run-x"):
+        resp = client.post("/api/demo/sitl", json={"run_id": bad})
+        assert resp.status_code == 400
+        assert resp.json()["detail"]["field"] == "run_id"
+        assert "越界" in resp.json()["detail"]["error"]
+
+
 # ---- 页区静态资产（serve_console instruments 页注入的 SITL 桥演示页区） ----
 
 

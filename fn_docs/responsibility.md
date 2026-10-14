@@ -256,6 +256,8 @@
 
 （R1：场景 YAML 加载与校验——字段完整性、取值域、频段白名单（经 guard_compliance）、功率上限；非法即退出码 2 并指错。）
 
+> 演进补注（2026-10-14，R75）：validate_scenario_schema 场景白名单键域实测 **63 键**（_KNOWN_KEYS——演进期净增 41 键入册放行不校验取值的口径：执行信封键与可选字段在册即放行，取值红线仍归 guard_compliance/下游）；键数以代码 _KNOWN_KEYS len 为动态锚（serve_console._MERGEABLE_KEYS 同源消费，audit_responsibility_alignment 对账校验——键数漂移即漏登）。
+
 - **load_scenario** [L0|新增]
   - 职责：读取场景 YAML 文件并产出规范化场景对象：依次完成文件读取（YAML 解析失败→指错行）、validate_scenario_schema 字段校验、guard_compliance 红线校验（拒则退出码 2 语义异常）、normalize_scenario 规范化（默认值填充、单位统一）；是场景进入系统的唯一入口。
   - 签名意图：输入: 场景文件路径 / 输出: 规范化场景对象（样式/频段/梯度/判据/后端）/ 错误: ScenarioError（含字段名与原因，供退出码 2）。
@@ -1002,6 +1004,8 @@
 
 （R44：一键命令编排器——单命令串联主链、参数化后端/场景、分阶段退出码、异常先停发射。）
 
+> 演进补注（2026-10-14，R75）：本块新增公共入口 **run_scenario**（`__all__` 导出；无头单场景运行——网页操控台/程序化复用通道，不打印不退出、一切入返回值 dict；与 CLI run_demo 同构编排链，共享 _execute_pipeline/_execute_stage；scenario 完整 dict 直装载为第二通道——网页侧薄载荷的名解析与文件合并在 serve_console 缺省 runner 完成；可选 stop 急停协作容器（B24 C1：{'flag'} 编排旗+'backend' 后端句柄写回通道）；返回 status/exit_code/failure_levels 同 CLI 三态口径，stopped=1 未完成口径）。
+
 - **run_demo** [L0|新增]
   - 职责：CLI 总入口（`demo` 命令）：load_scenario→guard_compliance→autodetect_backend→resolve_clock_reference→manage_run 内 execute_scenario（基线→步进→采集→失效→出结果）→build_report→verify_report_traceability→update_ledger（可选）；退出码 0/1/2 语义贯通；任何异常经 stop_transmit_safely 收尾。
   - 签名意图：输入: CLI 参数（场景路径/后端/选项）/ 输出: 运行目录+摘要行+退出码 / 错误: 校验失败=2；运行失败=1（均已停发射）。
@@ -1059,6 +1063,8 @@
 
 （R47：Web 服务与 API——FastAPI+WS、场景 CRUD/启动急停/状态流/报告列表、非法请求 400 指错。）
 
+> 演进补注（2026-10-14，R75）：场景启动 **双载荷合并契约**——POST /api/run body {'scenario': dict}：全载荷（含 'style'）直行；薄载荷（缺 'style'）须携 'name'，经 scenario_dir/<name>.yaml 全口径装载后在册键覆盖合并（可合并键域 _MERGEABLE_KEYS = 场景在册键 ∪ 执行信封键）。**_KNOWN_KEYS 跨模块耦合**：_MERGEABLE_KEYS 直接取自 src.load_scenario.validate_scenario_schema._KNOWN_KEYS（场景白名单键数单一事实源——键域变动两处同振，audit_responsibility_alignment 以代码实测键数为动态锚校验本契约登记在册）。
+
 - **serve_console** [L0|新增]
   - 职责：Web 服务入口：create_console_app 构建 FastAPI 应用（场景 CRUD、run 启动/急停、状态与实时流端点、报告列表、清单完成度代理端点）+静态页面托管+WS 连接管理；uvicorn 拉起；非法请求 400 带字段级指错。
   - 签名意图：输入: 服务配置（端口/运行根目录）/ 输出: 运行中的服务 / 错误: 端口占用→ServiceError。
@@ -1075,6 +1081,8 @@
 ## 功能块 render_console_pages ← R48
 
 （R48：操控台前端——Vue3 CDN+Canvas 页面、场景卡/状态/报告中心/清单入口、断线提示重连。）
+
+> 演进补注（2026-10-14，R75）：页面元素枚举更新（演进期实测全集）——急停按钮（#emergency-stop，四分支文案按 /api/stop 响应真值优先：stop_failed 异常/stopped 已停/no_backend 旗置/兜底）；运行结果轮询回显（202→GET /api/runs/{id} 至终态，120s 超时提示转报告中心）；清单完成度内联（/api/ledger 直读 done/total）；场景编辑器区块（#scenario-editor，R57 表单/YAML 双模式）；三路图区（Canvas 实时 KPI/监测/控制帧渲染，R58，急停红标含 emergency_stopped 帧）等；页面骨架经 localize_console_assets 七页化（R56，Vue3 vendor 本地化）。
 
 - **render_console_pages** [L0|新增]
   - 职责：前端页面产出：单文件 HTML+Vue3(CDN)+Canvas 页面（无 Node 构建）——场景卡片、滑杆调参、后端/链路/时钟状态区、报告中心列表、清单完成度入口；build_scenario_cards 由场景目录渲染卡片数据；WS 断线横幅+自动重连。
@@ -1222,6 +1230,8 @@
   - 核验命令：测试: rff_pipeline
 
 <!-- ══ 域二十：展示层全能力演进（2026-10-13 fn-divide 演进轮追加；旧块不动） ══ -->
+
+> 资产件清单注（2026-10-14，R75）：report_view_area/run_list_area/comparison_area/dataset_area/train_area/eval_area/infer_area/emc_area/panels_area/calibration_area/audit_area/sitl_area/rl_area/rff_area+build_realtime_charts=装配资产件（页区/图表 HTML 产出函数，调用方=serve_console 缺省装配与 mount_console_extensions 注册），B24–B30 各批申报在案（B25 资产件补注先例：细节件不单列功能块，归各 R 块实现）。
 
 ## 功能块 localize_console_assets ← R56
 
@@ -1431,7 +1441,7 @@
 
 ## 功能块 demo_sitl_bridge ← R72 [P1]
 
-（R72：SITL 桥演示入口——bridge_to_sitl dry_run 演示模式上页（映射预览）；SITL 不在位跳过标注。无旧函数改造。）
+（R72：SITL 桥演示入口——bridge_to_sitl dry_run 演示模式上页（映射预览）；SITL 不在位跳过标注。无旧函数改造。B30 对抗①转 B31 随批（2026-10-14）：run_id 加 report_root realpath 围栏——解析后须落 realpath(report_root) 内（绝对/穿越→ValueError，端点转 400 field='run_id'，对齐 R60/R71 口径）。）
 
 - **demo_sitl_bridge** [L0|新增]
   - 职责：SITL 演示端点与页区：选历史运行→提取 PER-功率台阶→bridge_to_sitl(dry_run=True) 出注入映射预览（台阶→丢包/时延表）上屏；SITL 不在位显示跳过标注不报错（沿用 R53）。
