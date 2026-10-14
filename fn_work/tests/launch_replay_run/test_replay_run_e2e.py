@@ -5,19 +5,30 @@
   模块名 ``test_replay_run_e2e``（`pytest -k replay_run` 经模块关键字发现）——
   R64 核验命令 ``replay_run`` 的真身（回放运行 exit 0 端到端）。
 
+B26 对抗中2 转 B27 随批整改①（e2e 录制场景 num_samples>0）：sim 管线
+record:true **结构性出空录音**——execute 阶段收发射后采集阶段监测路恒空读
+（read_samples 无发射流）熔断收尾，录制恒 num_samples=0（实测 monitor.csv 仅
+表头行），空录音使回放空转也绿。整改：recorded_run 落地后**预置一段合成
+SigMF 对**（tone IQ 8192 样本）覆盖空对——回放链消费真实 IQ，终局断言回放
+运行 monitor.csv 数据行>0（空转恒仅表头）+源录音 num_samples>0。申报：录音
+内容为合成预置（非 sim 采集实录），录制链本身仍走真 record:true 运行。
+
 验收链（数据与回放垂直切片）：
 - 真运行：serve_console dry_run **缺省 runner**（真跑 sim 场景，抄
   test_report_view_e2e 的真运行模式）→POST /api/run record:true 薄载荷→轮询至
-  done→report_root 下真实 run 目录（recordings/ SigMF 真值对+scenario.yaml）；
+  done→report_root 下真实 run 目录（recordings/ SigMF 真值对+scenario.yaml）
+  →合成 SigMF 对覆盖空录音（整改①）；
 - 建索引：浏览器数据页「重建索引」按钮（初始未建索引提示态）→POST
   /api/dataset/rebuild→卡片可见（样式/功率/时长/批次/运行来源真值）；
 - 过滤：样式不命中→空态；样式命中+日期区间→单卡；
 - 一键回放：卡片「回放此条」→POST /api/run/replay→202→GET /api/runs/{id}
-  轮询至 done→result.exit_code==0（回放运行 completed——R64 验收原文）。
+  轮询至 done→result.exit_code==0（回放运行 completed——R64 验收原文）
+  →回放消费真实 IQ（monitor 数据行>0——整改①终局证据）。
 
 环境缺 playwright/uvicorn/fastapi 时整族 skip。
 """
 import json
+import os
 import socket
 import threading
 import time
@@ -137,7 +148,11 @@ def console_server(tmp_path_factory):
 @pytest.fixture(scope="module")
 def recorded_run(console_server):
     """真跑一次 record:true 最小 sim 运行至终态，返回 (run_name, result)——
-    run_name 即 report_root 下运行目录名（数据页卡片/回放端点的 run_id 口径）。"""
+    run_name 即 report_root 下运行目录名（数据页卡片/回放端点的 run_id 口径）。
+
+    整改①：运行落地后预置一段合成 SigMF 对（tone IQ 8192 样本）覆盖空录音
+    ——sim 管线 record:true 结构性出空录音（采集阶段发射已收，监测路恒空读
+    熔断），空对让回放空转也绿；合成对使「录制→入库→回放」链消费真实 IQ。"""
     base = console_server["base"]
     run_uuid = _post(base, "/api/run", {"scenario": {"name": "rec_fast"}})["run_id"]
     entry = None
@@ -150,8 +165,55 @@ def recorded_run(console_server):
     assert entry is not None and entry["status"] == "done"
     result = entry["result"]
     assert result["status"] == "completed"  # 真跑完成（非校验失败回执）
-    run_name = result["run_dir"].rstrip("/").split("/")[-1]
+    run_dir = result["run_dir"]
+    _overlay_synthetic_recording(run_dir)  # 整改①：合成对覆盖空录音
+    run_name = run_dir.rstrip("/").split("/")[-1]
     return run_name, result
+
+
+#: 合成录音参数：tone IQ（0.05fs 单音，8192 样本 ≥ nfft 与回放窗），fs/中心频点
+#: 与 rec_fast 场景一致（卡片真值/回放沿用不受覆盖影响）。
+_SYNTH_N = 8192
+_SYNTH_FS = 1.0e6
+_SYNTH_FREQ = 2.4e9
+
+
+def _overlay_synthetic_recording(run_dir: str) -> str:
+    """预置合成 SigMF 对（num_samples>0）覆盖 run 的空录音，返回 meta 路径。
+
+    整改①申报口径：录音内容为合成 tone IQ（非 sim 采集实录）——sim 管线
+    record:true 结构性出空录音，此处以合成对保住「入库→回放」链的真实 IQ 消费；
+    覆盖而非追加（recordings 内仅一对，最早 meta 解析无歧义）。"""
+    import numpy as np
+
+    rec_dir = os.path.join(run_dir, "recordings")
+    metas = sorted(n for n in os.listdir(rec_dir) if n.endswith(".sigmf-meta"))
+    assert metas, "record:true 运行未产出 SigMF 对（录制链前置失败）"
+    stem = os.path.join(rec_dir, metas[0][: -len(".sigmf-meta")])
+    t = np.arange(_SYNTH_N) / _SYNTH_FS
+    iq = (0.5 * np.exp(2j * np.pi * 0.05 * _SYNTH_FS * t)).astype(np.complex64)
+    iq.tofile(stem + ".sigmf-data")
+    meta = {
+        "global": {
+            "core:datatype": "cf32_le",
+            "core:sample_rate": _SYNTH_FS,
+            "core:version": "1.2.0",
+            "jam:backend": "sim",
+            "jam:run_id": os.path.basename(run_dir.rstrip(os.sep)),
+            "core:num_samples": _SYNTH_N,
+        },
+        "captures": [{"core:sample_start": 0, "core:frequency": _SYNTH_FREQ}],
+        "annotations": [
+            {
+                "core:sample_start": 0,
+                "core:sample_count": _SYNTH_N,
+                "jam:style": "tone",  # 真值标注（与场景副本 style 一致）
+            }
+        ],
+    }
+    with open(stem + ".sigmf-meta", "w", encoding="utf-8") as fh:
+        json.dump(meta, fh)
+    return stem + ".sigmf-meta"
 
 
 @needs_e2e
@@ -160,9 +222,15 @@ def test_dataset_view_e2e_rebuild_cards_filter_replay_exit_zero(
 ):
     """R63+R64 主链路端到端：真录制运行→数据页（未建索引提示→浏览器点重建→
     卡片可见→样式/日期过滤）→一键回放（浏览器点「回放此条」）→回放运行
-    exit 0。"""
+    exit 0（整改①：回放消费真实 IQ——源录音 num_samples>0+monitor 数据行>0）。"""
     base = console_server["base"]
-    run_name, _ = recorded_run
+    run_name, recorded_result = recorded_run
+
+    # ---- 整改①源侧证据：合成对在位且 num_samples>0（空录音不可再漏网） ----
+    rec_dir = os.path.join(recorded_result["run_dir"], "recordings")
+    src_meta = sorted(n for n in os.listdir(rec_dir) if n.endswith(".sigmf-meta"))[0]
+    with open(os.path.join(rec_dir, src_meta), encoding="utf-8") as fh:
+        assert json.load(fh)["global"]["core:num_samples"] > 0
 
     # ---- ① 浏览器：数据页初始未建索引提示态 → 点「重建索引」→ 卡片可见 ----
     with sync_playwright() as p:
@@ -259,6 +327,14 @@ def test_dataset_view_e2e_rebuild_cards_filter_replay_exit_zero(
     assert outcome["backend"] == "replay"
     assert outcome["scenario"]["sigmf_path"].endswith(".sigmf-meta")
     assert entry["replay_of"] == run_name  # 来源运行留痕
+
+    # ---- 整改①终局证据：回放消费真实 IQ（非空转）——回放运行 monitor 路有
+    # 数据行（空录音回放恒仅表头——监测路读不到任何块）。
+    with open(
+        os.path.join(outcome["run_dir"], "monitor.csv"), encoding="utf-8"
+    ) as fh:
+        monitor_rows = sum(1 for _ in fh)
+    assert monitor_rows > 1  # 表头+至少一块——真实 IQ 时间轴被回放
 
 
 @needs_e2e

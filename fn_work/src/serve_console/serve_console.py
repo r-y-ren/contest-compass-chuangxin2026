@@ -33,7 +33,10 @@
   表+薄弱环节结论，与 R60 报告查看区共页协作）；data 页注入 R63 录音库页区
   （dataset-library 区块——dataset-grid/filters 挂载点：GET /api/dataset
   SigMF 真值对卡片+样式/日期过滤+索引未建提示与重建按钮，卡片「回放此条」
-  →POST /api/run/replay 一键回放（R64），轮询运行终态上屏）；
+  →POST /api/run/replay 一键回放（R64），轮询运行终态上屏）；ai 页注入
+  R65/R66/R67 AI 三页区（train/eval/infer-panel 挂载点：训练任务发起+轮询+
+  模型列表、分组 CV 评测矩阵+泄漏警告、主动推理样式+真值对照——零外链原生
+  fetch，端点经 mount_console_extensions R65-R67 块注册）；
 - config['dry_run']=True→不拉起不检端口，返回 {'app', 'launched': False, 'port',
   'host'}（测试经 TestClient 直接打 create 路由）；
 - 真拉起序：先探端口占用→ConsoleError（dry_run 下不检）；再延迟 import uvicorn
@@ -48,6 +51,8 @@ import threading
 
 from src.browse_dataset_library.dataset_area import build_dataset_area
 from src.edit_scenario_ui.edit_scenario_ui import edit_scenario_ui
+from src.infer_style_entry.infer_area import build_infer_area
+from src.launch_classifier_training.train_area import build_train_area
 from src.list_run_summaries.run_list_area import build_run_list_area
 from src.load_scenario.load_scenario import ScenarioError, load_scenario
 from src.load_scenario.load_scenario import _ENVELOPE_KEYS as _SCENARIO_ENVELOPE_KEYS
@@ -65,6 +70,7 @@ from src.stream_realtime_console.stream_realtime_console import (
     build_realtime_charts,
     stream_realtime_console,
 )
+from src.view_cv_evaluation.eval_area import build_eval_area
 from src.view_failure_comparison.comparison_area import build_comparison_area
 
 from .create_console_app import AppError, create_console_app
@@ -357,6 +363,24 @@ def serve_console(config: dict) -> dict:
         static_pages["data.html"] = static_pages["data.html"].replace(
             "</body>",
             build_dataset_area() + "\n</body>",
+            1,
+        )
+        # R65/R66/R67 快速通道：AI 页区注入 ai 页（train-panel/eval-panel/
+        # infer-panel 三挂载点——R65 训练面板（POST /api/ai/train 发起+任务
+        # 轮询+GET /api/ai/models 模型列表）、R66 评估面板（POST /api/ai/
+        # evaluate 出混淆矩阵/Macro-F1/泄漏警告）、R67 推理面板（POST
+        # /api/ai/infer 出样式+置信度+真值对照）——端点均经
+        # mount_console_extensions 注册，模型落点即本 deps['report_root']/
+        # models/）。同 R57/R58/R60 口径：仅缺省装配路径注入，显式
+        # static_pages 直通不注入。
+        static_pages["ai.html"] = static_pages["ai.html"].replace(
+            "</body>",
+            build_train_area()
+            + "\n"
+            + build_eval_area()
+            + "\n"
+            + build_infer_area()
+            + "\n</body>",
             1,
         )
 

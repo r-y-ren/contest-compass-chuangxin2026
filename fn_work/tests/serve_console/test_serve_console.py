@@ -253,6 +253,36 @@ def test_console_api_default_reports_page_injects_report_view_area(tmp_path):
 
 
 @needs_fastapi
+def test_console_api_default_ai_page_injects_train_eval_infer_areas(tmp_path):
+    """R65/R66/R67 wired 回归：缺省装配的 ai 页注入训练/评估/推理三页区
+    （train-panel/eval-panel/infer-panel 挂载点——三区块根 id+/api/ai/* 端点
+    接线在位且零外链）；其余骨架页不受注入影响；显式 static_pages 直通则
+    不注入（同 R57/R60 口径）。"""
+    cfg = _base_config(tmp_path)
+    cfg["dry_run"] = True
+    result = serve_console(cfg)
+    with TestClient(result["app"]) as client:
+        page = client.get("/pages/ai").text
+        overview = client.get("/pages/overview").text
+    assert 'id="train-panel-area"' in page  # R65 训练面板
+    assert 'id="eval-panel-area"' in page  # R66 评估面板
+    assert 'id="infer-panel-area"' in page  # R67 推理面板
+    assert "'/api/ai/train'" in page and "'/api/ai/models'" in page  # R65 端点接线
+    assert "'/api/ai/evaluate'" in page  # R66 端点接线
+    assert "'/api/ai/infer'" in page  # R67 端点接线
+    assert "http://" not in page and "https://" not in page  # 零外链
+    assert "train-panel-area" not in overview  # 其余骨架页不受影响
+
+    cfg2 = _base_config(tmp_path)
+    cfg2["dry_run"] = True
+    cfg2["static_pages"] = {"ai.html": "<html><body>x</body></html>"}
+    result2 = serve_console(cfg2)
+    with TestClient(result2["app"]) as client2:
+        page2 = client2.get("/pages/ai").text
+    assert "train-panel-area" not in page2  # 显式直通：不注入
+
+
+@needs_fastapi
 def test_console_api_scenario_dir_uncreatable_console_error(tmp_path):
     """scenario_dir 不可创建（父为文件）→ConsoleError 指明路径（不静默 400 路由）。"""
     blocker = tmp_path / "afile"

@@ -1036,22 +1036,22 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 
 ## B27 — launch_classifier_training, view_cv_evaluation, infer_style_entry
 ### launch_classifier_training
-- [ ] launch_classifier_training · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] launch_classifier_training · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] launch_classifier_training · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] launch_classifier_training · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] launch_classifier_training · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:launch_classifier_training src/ && echo OK → OK (10-14)
+- [x] launch_classifier_training · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k ai_train_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
+- [x] launch_classifier_training · wired — 证据: bash -c grep -c "R65" fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
+- [x] launch_classifier_training · 清单进位 — 证据: bash -c grep -q '^| launch_classifier_training | B27 | wired' fn_docs/implementation/functions.md && echo LO_OK → LO_OK (10-14)
 - [ ] launch_classifier_training · commit — 预告: fn(launch_classifier_training): wired 含四文档变更
 ### view_cv_evaluation
-- [ ] view_cv_evaluation · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] view_cv_evaluation · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] view_cv_evaluation · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] view_cv_evaluation · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] view_cv_evaluation · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:view_cv_evaluation src/ && echo OK → OK (10-14)
+- [x] view_cv_evaluation · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k ai_eval_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
+- [x] view_cv_evaluation · wired — 证据: bash -c grep -c "R66" fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
+- [x] view_cv_evaluation · 清单进位 — 证据: bash -c grep -q '^| view_cv_evaluation | B27 | wired' fn_docs/implementation/functions.md && echo LO_OK → LO_OK (10-14)
 - [ ] view_cv_evaluation · commit — 预告: fn(view_cv_evaluation): wired 含四文档变更
 ### infer_style_entry
-- [ ] infer_style_entry · implemented — 预告: 桩替换为真值，预期本函数无 unimplemented 残留
-- [ ] infer_style_entry · tested — 预告: 自有单测绿，预期 pytest → passed
-- [ ] infer_style_entry · wired — 预告: 调用点存在，预期 grep 命中
-- [ ] infer_style_entry · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] infer_style_entry · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:infer_style_entry src/ && echo OK → OK (10-14)
+- [x] infer_style_entry · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k ai_infer_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
+- [x] infer_style_entry · wired — 证据: bash -c grep -c "R67" fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
+- [x] infer_style_entry · 清单进位 — 证据: bash -c grep -q '^| infer_style_entry | B27 | wired' fn_docs/implementation/functions.md && echo LO_OK → LO_OK (10-14)
 - [ ] infer_style_entry · commit — 预告: fn(infer_style_entry): wired 含四文档变更
 ## B27 批间门
 - [ ] B27 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）

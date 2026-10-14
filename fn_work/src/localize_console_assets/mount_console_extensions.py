@@ -24,7 +24,18 @@ report_root/dataset-index.json）。
 R64 追加在册：launch_replay_run 一键回放端点——POST /api/run/replay（body
 {'run_id': 录音条目标识}→索引定位条目→build_replay_scenario 装载期组装（损坏
 录音/声明缺失→400 错误信息进响应）→202+后台线程经 launch_replay_run(entry,
-deps['runner']) 发起，运行表/实时曲线/报告中心可见）。
+deps['runner']) 发起，运行表/实时曲线/报告中心可见）。B26 对抗中2 转 B27 随批
+整改②（索引入口 runs_root 路径围栏）：条目 sigmf_path 解析后必须落在 runs_root
+内（否则 ScenarioError→400）；index register 透传的 source_scenario 收缩
+（仅取白名单键）——见 R64 注册块内围栏助手。
+R65 追加在册：launch_classifier_training AI 训练三端点——POST /api/ai/train
+（训练参数→后台任务 202+任务句柄，拒训终态 failed 附原文）、GET
+/api/ai/train/{task_id}（任务状态轮询）、GET /api/ai/models（run 目录根
+models/ 模型文件列表）。
+R66 追加在册：view_cv_evaluation 评测端点——POST /api/ai/evaluate（数据筛选+
+模型标识→混淆矩阵/Macro-F1/泄漏警告结果；EvalError（分组缺失等）→400 上屏）。
+R67 追加在册：infer_style_entry 主动推理端点——POST /api/ai/infer（IQ 源选择
+（run_id/sigmf_path/query）→识别结果行+真值对照；模型缺失提示态不报错）。
 
 注意：本模块同 create_console_app，**不可**使用 `from __future__ import
 annotations`——路由处理器签名注解须在 def 时求值为真实类（FileResponse 是本函数
@@ -75,7 +86,10 @@ def mount_console_extensions(app, deps: dict):
     view_failure_comparison 跨轮对比端点（POST /api/runs/compare）；R63
     browse_dataset_library 数据集浏览两端点（GET /api/dataset+POST
     /api/dataset/rebuild）；R64 launch_replay_run 一键回放端点（POST
-    /api/run/replay）。
+    /api/run/replay——B26 对抗中2 转 B27 整改②：runs_root 路径围栏+
+    source_scenario 白名单收缩）；R65 launch_classifier_training AI 训练三
+    端点；R66 view_cv_evaluation 评测端点（POST /api/ai/evaluate）；R67
+    infer_style_entry 主动推理端点（POST /api/ai/infer）。
 
     Args:
         app: FastAPI 应用（须具备路由注册能力——get 装饰器+routes 路由表；
@@ -355,6 +369,71 @@ def mount_console_extensions(app, deps: dict):
 
     from fastapi.responses import JSONResponse as _JSONResponse
 
+    #: B26 对抗中2 转 B27 整改②：source_scenario 白名单（register 额外键透传的
+    #: 来源场景收缩域——build_replay_scenario 消费键集，超出键一律剥除）。
+    _SOURCE_SCENARIO_KEYS = (
+        "style",
+        "fs",
+        "freq_hz",
+        "power_dbm",
+        "duration_s",
+        "bands",
+        "shielded_box",
+        "dut_scope",
+    )
+
+    def _fence_replay_entry(entry: dict, runs_root: str) -> dict:
+        """索引入口 runs_root 路径围栏+source_scenario 收缩（B26 对抗中2 转
+        B27 随批整改②，调用点=POST /api/run/replay 的条目消费边界）。
+
+        - 围栏：条目 sigmf_path 解析（'sigmf_path' 显式 > 'path' 目录最早
+          .sigmf-meta）后的 realpath 必须落在 realpath(runs_root) 内——越界
+          （索引被投毒指向库外路径/穿越链）→ ScenarioError（外层转 400 带
+          指错）；无可解析录音→不拦（交 build_replay_scenario 按既有口径拒）；
+        - 收缩：index register 额外键原样透传的 'source_scenario' 仅保留
+          白名单键（_SOURCE_SCENARIO_KEYS）——索引侧夹带的任意键在此剥除；
+          收缩后为空 dict → 整键剥除（build_replay_scenario 走场景副本路）。
+        """
+        import os as _os
+
+        from src.launch_replay_run.build_replay_scenario import ScenarioError as _ScenarioError
+
+        sigmf = None
+        explicit_meta = entry.get("sigmf_path")
+        if isinstance(explicit_meta, str) and explicit_meta.strip():
+            sigmf = explicit_meta.strip()
+        else:
+            recordings = entry.get("path")
+            if isinstance(recordings, str) and recordings.strip():
+                try:
+                    names = _os.listdir(recordings)
+                except OSError:
+                    names = []
+                metas = sorted(n for n in names if n.endswith(".sigmf-meta"))
+                if metas:
+                    sigmf = _os.path.join(recordings, metas[0])
+        if sigmf is not None:
+            fence_root = _os.path.realpath(runs_root)
+            resolved = _os.path.realpath(sigmf)
+            if _os.path.commonpath([fence_root, resolved]) != fence_root:
+                raise _ScenarioError(
+                    f"录音路径越界（索引入口 runs_root 围栏）: {sigmf} 解析后 "
+                    f"{resolved} 不在运行目录根 {fence_root} 内——索引条目疑似"
+                    "指向库外路径，拒绝回放"
+                )
+        source = entry.get("source_scenario")
+        if isinstance(source, dict) and source:
+            shrunk = {
+                key: source[key] for key in _SOURCE_SCENARIO_KEYS if key in source
+            }
+            fenced = dict(entry)
+            if shrunk:
+                fenced["source_scenario"] = shrunk
+            else:
+                fenced.pop("source_scenario", None)
+            return fenced
+        return entry
+
     @app.post("/api/run/replay")
     async def replay_run(request: Request) -> "_JSONResponse":
         # 延迟 import：与 R60-R63 块同口径（请求期才 import 服务模块）。
@@ -400,8 +479,11 @@ def mount_console_extensions(app, deps: dict):
                 f"先 POST /api/dataset/rebuild 重建后再回放）",
                 field="run_id",
             )
-        # 装载期组装（请求内完成——损坏录音/声明缺失的拒绝信息进响应）
+        # 装载期组装（请求内完成——损坏录音/声明缺失的拒绝信息进响应）；
+        # 先过索引入口围栏+source_scenario 收缩（B26 对抗中2 转 B27 整改②——
+        # 越界/夹带键在此拦下，与组装拒绝同走 400；收缩后的条目即回放消费对象）。
         try:
+            entry = _fence_replay_entry(entry, runs_root)
             build_replay_scenario(entry)
         except ScenarioError as exc:
             raise AppError(
@@ -442,6 +524,226 @@ def mount_console_extensions(app, deps: dict):
             content={"run_id": replay_uuid, "replay_of": run_id},
         )
 
-    # ---- R65–R74 后续批次注册块：到货批次按 R 号顺序在此逐批追加 ----
+    # ---- R65 launch_classifier_training：AI 训练任务三端点 ----
+    # 语义核心在 src.launch_classifier_training.launch_classifier_training
+    # （任务表自建键空间——后台线程调 train_classifier，拒训 TrainError 终态
+    # failed 附原文；run 目录根 models/ 模型文件列表）；本路由层薄转接：
+    # body 形状校验（AppError 400 字段级指错）+操控台域缺省注入（index_path/
+    # runs_root 与 R63/R64 同口径派生；out_path 缺省 report_root/models/
+    # style_classifier.json——GET /api/ai/models 的扫描对象，显式给出则尊重）。
+    # POST 路径不与既有路由冲突；GET /api/ai/train/{task_id} 单段参数路由在
+    # /api/ai 命名空间内无字面同段路由，无需路由序手术。
+
+    def _ai_models_dir() -> str:
+        """R65/R67 端点的模型目录（report_root/models——list_model_files 扫描对象）。"""
+        import os
+
+        root = deps.get("report_root")
+        if not isinstance(root, str) or not root:
+            raise AppError(
+                f"deps['report_root'] 未注入或非非空 str（R65 AI 训练端点依赖），"
+                f"实际: {root!r}",
+                field="report_root",
+            )
+        return os.path.join(root, "models")
+
+    @app.post("/api/ai/train")
+    async def ai_train(request: Request) -> "_JSONResponse":
+        # 延迟 import：与 R60-R64 块同口径（请求期才 import 服务模块）。
+        import os
+
+        from src.launch_classifier_training.launch_classifier_training import (
+            DEFAULT_WHERE,
+            launch_classifier_training,
+        )
+
+        try:
+            body = await request.json()
+        except Exception as exc:  # JSONDecodeError/空 body 等→400 field='body'
+            raise AppError(
+                f"请求体须为 JSON 对象 {{'query': dict, 'where', 'dry_run', "
+                f"'hyperparams'}}: {type(exc).__name__}: {exc}",
+                field="body",
+            ) from exc
+        if not isinstance(body, dict):
+            raise AppError(
+                f"请求体须为 JSON 对象，实际 {type(body).__name__}: {body!r}",
+                field="body",
+            )
+        query = body.get("query", {})
+        if query is None:
+            query = {}
+        if not isinstance(query, dict):
+            raise AppError(
+                f"query 必须为 dict（数据集检索条件——train_classifier 数据筛选），"
+                f"实际: {query!r}",
+                field="query",
+            )
+        where = body.get("where", DEFAULT_WHERE)
+        if where is None:
+            where = DEFAULT_WHERE
+        if not isinstance(where, str) or where not in ("remote", "local"):
+            raise AppError(
+                f"where 必须为 'remote' 或 'local'（执行地），实际: {where!r}",
+                field="where",
+            )
+        dry_run = body.get("dry_run", False)
+        if not isinstance(dry_run, bool):
+            raise AppError(
+                f"dry_run 必须为 bool（远程不真派发开关），实际: {dry_run!r}",
+                field="dry_run",
+            )
+        hyperparams = body.get("hyperparams")
+        if hyperparams is None:
+            hyperparams = {}
+        if not isinstance(hyperparams, dict):
+            raise AppError(
+                f"hyperparams 必须为 dict | None（训练超参），实际 "
+                f"{type(hyperparams).__name__}",
+                field="hyperparams",
+            )
+        index_path, runs_root = _r63_paths()
+        hp = dict(hyperparams)
+        hp.setdefault("index_path", index_path)
+        hp.setdefault("runs_root", runs_root)
+        hp.setdefault(
+            "out_path", os.path.join(_ai_models_dir(), "style_classifier.json")
+        )
+        try:
+            handle = launch_classifier_training(
+                {
+                    "query": query,
+                    "where": where,
+                    "dry_run": dry_run,
+                    "hyperparams": hp,
+                }
+            )
+        except ValueError as exc:  # 形状错（端点层已前置校验同域——兜底同口径）
+            raise AppError(str(exc), field="query") from exc
+        return _JSONResponse(status_code=202, content=handle)
+
+    @app.get("/api/ai/train/{task_id}")
+    async def ai_train_status(task_id: str) -> dict:
+        # 任务状态轮询：running/done（附 train_classifier 完整返回）/failed
+        # （附拒训/远程不可达错误原文——信息原样上屏）。
+        from src.launch_classifier_training.launch_classifier_training import (
+            get_training_task,
+        )
+
+        task = get_training_task(task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail=f"训练任务不存在: {task_id}")
+        return task
+
+    @app.get("/api/ai/models")
+    async def ai_models() -> dict:
+        # 模型文件列表：run 目录根 models/ 下 *.json（新在前；labels 读取损坏
+        # 文件如实 None）；目录缺失→空列表（未训练提示态，不报错）。
+        from src.launch_classifier_training.launch_classifier_training import (
+            list_model_files,
+        )
+
+        models_dir = _ai_models_dir()
+        rows = list_model_files(models_dir)
+        return {"models": rows, "count": len(rows), "models_dir": models_dir}
+
+    # ---- R66 view_cv_evaluation：评测可视化端点 ----
+    # 语义核心在 src.view_cv_evaluation.view_cv_evaluation（纯函数——取数+
+    # 谱特征化→grouped_cv_evaluate 出混淆矩阵/Macro-F1/泄漏三旗标+警告文案
+    # 捕获回显）；本路由层薄转接：body 形状校验+索引落点注入（query 传输键，
+    # 与 R65 同口径）；EvalError（分组缺失/检索非法/零匹配等 R31 拒绝）→400
+    # 错误信息进响应上屏。
+
+    @app.post("/api/ai/evaluate")
+    async def ai_evaluate(request: Request) -> dict:
+        # 延迟 import：与 R60-R65 块同口径（请求期才 import 服务模块）。
+        from src.view_cv_evaluation.view_cv_evaluation import (
+            EvalError,
+            view_cv_evaluation,
+        )
+
+        try:
+            body = await request.json()
+        except Exception as exc:
+            raise AppError(
+                f"请求体须为 JSON 对象 {{'query': dict, 'model_path': str}}: "
+                f"{type(exc).__name__}: {exc}",
+                field="body",
+            ) from exc
+        if not isinstance(body, dict):
+            raise AppError(
+                f"请求体须为 JSON 对象，实际 {type(body).__name__}: {body!r}",
+                field="body",
+            )
+        query = body.get("query", {})
+        if query is None:
+            query = {}
+        if not isinstance(query, dict):
+            raise AppError(
+                f"query 必须为 dict（数据集筛选），实际: {query!r}", field="query"
+            )
+        model_path = body.get("model_path", "models/style_classifier.json")
+        if not isinstance(model_path, str) or not model_path.strip():
+            raise AppError(
+                f"model_path 必须为非空 str（模型标识——结果页溯源回显），"
+                f"实际: {model_path!r}",
+                field="model_path",
+            )
+        index_path, runs_root = _r63_paths()
+        eval_query = dict(query)
+        eval_query.setdefault("index_path", index_path)
+        eval_query.setdefault("runs_root", runs_root)
+        try:
+            return view_cv_evaluation(eval_query, model_path)
+        except EvalError as exc:  # R31 拒绝族→400 错误信息进响应上屏
+            raise AppError(str(exc), field="query") from exc
+        except ValueError as exc:  # nfft/k 等形状错→400 同口径
+            raise AppError(str(exc), field="query") from exc
+
+    # ---- R67 infer_style_entry：主动推理端点 ----
+    # 语义核心在 src.infer_style_entry.infer_style_entry（纯函数——IQ 源三选一
+    # 解析→predict_style 结果行+真值双源对照（SigMF 标注→场景副本）+hit 判定；
+    # 模型缺失→no_model 提示态不报错）；本路由层薄转接：body 即 source 透传+
+    # 索引落点注入+缺省模型回落（report_root/models/style_classifier.json 在位
+    # 即用，'model' 显式给出则尊重）；一切提示态行 200 原样返回（不阻塞）。
+
+    @app.post("/api/ai/infer")
+    async def ai_infer(request: Request) -> dict:
+        # 延迟 import：与 R60-R66 块同口径（请求期才 import 服务模块）。
+        import os
+
+        from src.infer_style_entry.infer_style_entry import infer_style_entry
+
+        try:
+            body = await request.json()
+        except Exception as exc:
+            raise AppError(
+                f"请求体须为 JSON 对象 {{'run_id'|'sigmf_path'|'query', 'model'?}}: "
+                f"{type(exc).__name__}: {exc}",
+                field="body",
+            ) from exc
+        if not isinstance(body, dict):
+            raise AppError(
+                f"请求体须为 JSON 对象（IQ 源选择），实际 {type(body).__name__}: {body!r}",
+                field="body",
+            )
+        source = dict(body)
+        index_path, runs_root = _r63_paths()
+        source.setdefault("index_path", index_path)
+        source.setdefault("runs_root", runs_root)
+        if "model" not in source:
+            # 缺省模型回落：run 目录根 models/style_classifier.json 在位即用
+            # （不在位保持 None——R32 no_model 提示态，不报错）。
+            default_model = os.path.join(
+                _ai_models_dir(), "style_classifier.json"
+            )
+            if os.path.isfile(default_model):
+                source["model"] = default_model
+        try:
+            return infer_style_entry(source)
+        except ValueError as exc:  # 源形状错→400 字段级指错（提示态不在此列）
+            raise AppError(str(exc), field="source") from exc
+
+    # ---- R68–R74 后续批次注册块：到货批次按 R 号顺序在此逐批追加 ----
 
     return app
