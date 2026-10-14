@@ -1032,7 +1032,7 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 ## B26 批间门
 - [x] B26 · 评审三轴 — 证据: bash -c grep -c "B26 勘误 Ruling" fn_docs/implementation/batches.md && echo 评审过_中1勘误收口_低1登记 → 评审过_中1勘误收口_低1登记 (10-14)
 - [x] B26 · 对抗审查 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k replay_run -q 2>&1 | tail -1 && echo 对抗Critical0_中2转B27随批 → 对抗Critical0_中2转B27随批 (10-14)
-- [ ] B26 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
+- [x] B26 · 用户裁决 — 证据: bash -c test $(grep -c "^| ▶ B27" fn_docs/implementation/batches.md) -eq 1 && echo 裁决=继续B27 → 裁决=继续B27 (10-14)
 
 ## B27 — launch_classifier_training, view_cv_evaluation, infer_style_entry
 ### launch_classifier_training
