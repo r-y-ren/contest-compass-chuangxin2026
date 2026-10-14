@@ -147,7 +147,7 @@
 | demo_instrument_panels | B28 | wired 10-14 | -k instruments_view → 10 passed（五仪表周期+超域+VISA+端点）；端点 mount R69 块 | 7c6eb8d |
 | view_calibration_status | B29 | wired 10-14 | -k calibration_view → 8 passed（三件状态/占位如实/演示三分支/真实表零写）；端点 mount R70 块+calibration 页区 | af44c40 |
 | view_ledger_audit | B29 | wired 10-14 | -k ledger_audit_view → 7 passed（明细/锚点清单/注释率/仓库根锚定/只读）；端点 mount R71 块+audit 页区 | af44c40 |
-| demo_sitl_bridge | B30 | stub 10-13 | pytest -k sitl_view | — |
-| demo_rl_policy | B30 | stub 10-13 | pytest -k rl_view | — |
-| demo_rff_pipeline | B30 | stub 10-13 | pytest -k rff_view | — |
+| demo_sitl_bridge | B30 | wired 10-14 | -k sitl_view → 6 passed（dry_run 映射+缺席标注+无台阶拒）；端点 mount R72 块+sitl 页区 | 106a19a |
+| demo_rl_policy | B30 | wired 10-14 | -k rl_view → 7 passed（冒烟一轮+回退分支+rounds 域拒）；端点 mount R73 块+rl 页区 | 106a19a |
+| demo_rff_pipeline | B30 | wired 10-14 | -k rff_view → 7 passed（四阶段+产物+拒跑）；端点 mount R74 块+rff 页区 | 106a19a |
 | audit_responsibility_alignment | B31 | stub 10-13 | pytest -k responsibility_alignment | — |

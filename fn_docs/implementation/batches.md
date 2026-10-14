@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B30 | demo_sitl_bridge, demo_rl_policy, demo_rff_pipeline | 三函数 wired + sitl_view/rl_view/rff_view 绿 | 二期演示入口（R72–R74） |
-| B31 | audit_responsibility_alignment | wired + responsibility_alignment 绿 + fn-check①桩归零 | 对账收尾（R75）；旧块回登记：run_scenario 入口/双载荷契约/63 键域/R48 元素枚举 |
+| ▶ B31 | audit_responsibility_alignment | wired + responsibility_alignment 绿 + fn-check①桩归零 | 对账收尾（R75）；旧块回登记：run_scenario 入口/双载荷契约/63 键域/R48 元素枚举 |
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
 | 日期 | 事件 | 说明 |
@@ -65,5 +64,6 @@
 | 10-14 | B27 对抗中1/低1 转 B28 随批 | ①replay 围栏补 .sigmf-data 路径 realpath 校验（软链出界 202 放行）；②local+dry_run 复选框失联（train_classifier dry_run 仅 remote 分支消费） |
 | 10-14 | B28 申报（中断续做） | 首子代理额度中断留 src 半成品（测试全缺）——续做子代理核实+补测 27 例；emc_area SVG 命名空间字面量踩零外链断言→canvas 改造；B27 随批 a/b 首代理已写、续做补测 3 例 |
 | 10-14 | B28 对抗低2转B29随批 | ①/api/emc/{flow} params 展开序收紧（端点保留字 scenario_type/emc_flow 后置防覆写）；②serve_console:393/emc_area:19 SVG 注释改 canvas 口径；观察：硬链出界属 realpath 围栏固有限（威胁模型=本地 fs 写权限，不追） |
-| 10-14 | B29 申报 | 随批 a 展开序现场在 demo_emc_flows.py:178（白名单外单文件，登记项落地处）；calibration_area/audit_area 两资产件（先例） |
+| 10-14 | B29 申报 | 随批 a 展开序现场在 demo_emc_flows.py:182（白名单外单文件，登记项落地处）；calibration_area/audit_area 两资产件（先例） |
 | 10-14 | B29 对抗中1低2转B30随批 | ①/api/ledger/audit 的 ledger_path/code_root 加仓库根围栏（realpath 对齐 replay 口径——/etc/passwd→200 与 code_root=/ 全盘扫 DoS 面收口）；②400 field 错标修正（空白 ledger_path→field=ledger_path）；③勘误：随批 a 锚点 :178→:182（docstring 增行漂移） |
+| 10-14 | B30 申报（网络中断续做） | 首派连接中断仍留半成品（同 B28 模式）——续做核实收全；sitl/rl/rff_area 三资产件（先例）；审计围栏 _r71_fence 对齐 replay 口径 |
