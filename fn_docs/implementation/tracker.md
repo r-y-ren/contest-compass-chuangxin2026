@@ -1188,7 +1188,7 @@ with tempfile.TemporaryDirectory() as td:
 print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环境自检+物料命令+手册smoke全过 (10-14)
 - [x] 总章·进位+commit — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q 2>&1 | tail -1 && git add -A && git commit -q -m "fn(manual): B32 总章——两档设备清单（便携14/全量18）+四方案连接图与接线表+环境启动+一键物料；四文档随批" && git log --format="%h %s" -1 | head -c 100 && echo && echo 总章进位commit_OK → 总章进位commit_OK (10-14)
 ## B32 批间门
-- [ ] B32 · 评审三轴 — 预告: 规格/标准/档案同步三轴审查本批 diff
+- [x] B32 · 评审三轴 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets tests/check_demo_manual -q 2>&1 | tail -1 && echo 三轴过_0C0I2M_全套件3456复核一致_树外零改动12文件 → 三轴过_0C0I2M_全套件3456复核一致_树外零改动12文件 (10-14)
 - [ ] B32 · 对抗审查 — 预告: 对抗发现表（假设|证据|判定），Critical 清零
 - [ ] B32 · 用户裁决 — 预告: 继续 B33 / 修订 / 裁决 blocked
 
@@ -1419,3 +1419,4 @@ print("走查OK_环境自检+物料命令+手册smoke全过")" → 走查OK_环�
 - [ ] B42 · 评审三轴 — 预告: 三轴审查（终批：全手册对照 README 26 项+需求 R76–R84 逐条）
 - [ ] B42 · 对抗审查 — 预告: 对抗发现表，Critical 清零
 - [ ] B42 · 用户裁决 — 预告: 全部完成→/fn-close / 修订
+- 注记: B32 总章·走查证据补强（对抗 M4）——0.4 三命令由对抗审计代跑补全：uhd_find_devices exit0 输出 No UHD Devices Found（sim 态预期）；ls /dev/ttyUSB* /dev/ttyACM* 空（sim 态预期）；serve_console 实起 /pages/index 200 且 7 张场景卡片各 4 次命中 — 处置: 证据在案，无代码变更 — 2026-10-14

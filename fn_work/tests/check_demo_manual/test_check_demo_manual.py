@@ -176,16 +176,44 @@ def test_missing_files_raise_file_not_found(tmp_path):
         check_demo_manual(manual, tmp_path / "不存在的README.md", ["一键测评"])
 
 
+#: 期望集登记文件（随批增长）：一行一条目名，# 注释行与空行忽略；B32 为空
+#: （仅总章交付），B35 起每批在此追加一行条目名——smoke 硬门随之加压。
+_EXPECTED_ENTRIES_FILE = Path(__file__).resolve().parent / "expected_entries.txt"
+
+
+def _load_expected_entries() -> list[str]:
+    """读期望集登记文件：忽略 # 注释行与空行，其余每行去空白取一个条目名。"""
+    lines = _EXPECTED_ENTRIES_FILE.read_text(encoding="utf-8").splitlines()
+    return [line.strip() for line in lines if line.strip() and not line.lstrip().startswith("#")]
+
+
 def test_demo_manual_check_real_manual_smoke():
     """最外层集成锚（R77–R83 各批验收命令同源）：对真实 docs/功能演示手册.md 冒烟。
 
-    B32 之前真实手册尚未成型 → 存在性跳过；交付后本用例自动生效——只断言调用
-    不抛异常与报告六键形状（结构缺件断言由各批按登记的期望条目集自行负责）。
+    期望集自 expected_entries.txt 读取（随批增长，B32 为空）：①三硬门随批
+    生效——missing_entries/missing_sections/placeholders 必空；②总章锚在位
+    ——0.1 便携档设备清单与 0.5 演示前准备两节标题必在；③FAQ 覆盖两态——
+    附录应急速查表（存在含「应急」的标题）交付后 faq_uncovered 必空，
+    B42 附录落地前不硬卡（跳过该断言）。
     """
     if not REAL_MANUAL.is_file():
         pytest.skip("docs/功能演示手册.md 尚未交付（真实手册逐步成型后本用例自动生效）")
     if not REAL_README.is_file():
         pytest.skip("fn_docs/README.md 不在预期位置，无法做真实手册冒烟")
-    report = check_demo_manual(REAL_MANUAL, REAL_README, expected_entries=[])
-    assert isinstance(report, dict)
-    assert set(report) == {"ok", "missing_entries", "missing_sections", "placeholders", "faq_uncovered", "passed"}
+    report = check_demo_manual(REAL_MANUAL, REAL_README, _load_expected_entries())
+    # ① 随批硬门：期望集条目全在册且四件套/两档齐、零占位残留。
+    assert report["missing_entries"] == []
+    assert report["missing_sections"] == []
+    assert report["placeholders"] == []
+    # ② 总章锚：0.1 便携档设备清单与 0.5 演示前准备两节标题在位。
+    manual_text = REAL_MANUAL.read_text(encoding="utf-8")
+    assert "0.1 便携演示档设备清单" in manual_text
+    assert "0.5 演示前准备" in manual_text
+    # ③ FAQ 覆盖两态：附录已交付（含「应急」的标题在册）→ 须全覆盖；
+    #    未交付（B42 前）→ 跳过该断言不硬卡。
+    has_emergency_heading = any(
+        raw.lstrip().startswith("#") and "应急" in raw
+        for raw in manual_text.splitlines()
+    )
+    if has_emergency_heading:
+        assert report["faq_uncovered"] == []

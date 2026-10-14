@@ -85,3 +85,5 @@
 | 10-14 | check_demo_manual 前置 B32（偏离 R84 批序） | 检查器随首批实现、期望集随批增长——使每个手册批的验收命令 pytest -k demo_manual_check 可执行；B42 只收口附录+全集（原因：批批可用；代价：无；落点：本行+tracker B32 注） |
 | 10-14 | 档位裁决=子代理逐函数（用户批表门口选择） | B32–B34 函数批：子代理实现+主会话调度/记账/串行提交（subagent 不动 git）；B35–B42 文档批主会话撰写、走查证据贴主会话 |
 | 10-14 | B32 prewarm 两申报 | ①签名微调：增仅关键字 scenario_dir=None（场景名目录上下文，预授权项）；②落点口径：预跑走 run_scenario 无头等价入口非 run_demo CLI——后者 runs_root 硬编码 cwd 相对且台账缺省开启会污染清单；台账缺省不动=预跑不写清单（子代理申报，主会话核实采纳） |
+| 10-14 | B32 对抗处置（Critical 0/Important 2/Minor 4） | I1 验收命令期望集零落点→修复子代理落地 expected_entries.txt 机制+smoke 硬门；I2 手册 0.5 补数据集索引重建步骤；M1 responsibility seed L1 措辞对齐（快速通道在块内登记）；M2 备件包补 USB 集线器+12/14 聚合口径注；M3 检查器三洞（围栏内两档词/FAQ 散文单行/首匹配歧义）**转 B33 随批**（全词优先 B42 收口前）；M4 总章走查证据补强注记入 tracker |
+| 10-14 | 勘误：B32 行「demo_manual_check 绿（总章期望集）」措辞失实 | 总章非功能条目、B32 期望集实为空——机制经 I1 修复后落地（expected_entries.txt 随批追加）；history 行不回改（只追加原则），本行即为勘误真值 |
