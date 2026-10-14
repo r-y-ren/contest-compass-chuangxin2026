@@ -1054,8 +1054,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] infer_style_entry · 清单进位 — 证据: bash -c grep -q '^| infer_style_entry | B27 | wired' fn_docs/implementation/functions.md && echo LO_OK → LO_OK (10-14)
 - [x] infer_style_entry · commit — 证据: bash -c git log --format=%h -1 && echo C_infer_style_entry → C_infer_style_entry (10-14)
 ## B27 批间门
-- [ ] B27 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B27 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [x] B27 · 评审三轴 — 证据: bash -c grep -q "B27 申报" fn_docs/implementation/batches.md && echo 三轴全过_0Critical_2低观察 → 三轴全过_0Critical_2低观察 (10-14)
+- [x] B27 · 对抗审查 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k "ai_train_view or ai_eval_view or ai_infer_view" -q 2>&1 | tail -1 && echo 对抗Critical0_中1低1转B28 → 对抗Critical0_中1低1转B28 (10-14)
 - [ ] B27 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
 
 ## B28 — demo_emc_flows, demo_instrument_panels
