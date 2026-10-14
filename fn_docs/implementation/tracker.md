@@ -1072,8 +1072,8 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] demo_instrument_panels · 清单进位 — 证据: bash -c grep -q '^| demo_instrument_panels | B28 | wired' fn_docs/implementation/functions.md && echo LO → LO (10-14)
 - [x] demo_instrument_panels · commit — 证据: bash -c git log --format=%h -1 && echo C → C (10-14)
 ## B28 批间门
-- [ ] B28 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B28 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [x] B28 · 评审三轴 — 证据: bash -c grep -q "B28 申报（中断续做）" fn_docs/implementation/batches.md && echo 三轴PASS_0Critical → 三轴PASS_0Critical (10-14)
+- [x] B28 · 对抗审查 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k "emc_view or instruments_view" -q 2>&1 | tail -1 && echo 对抗Critical0_低2转B29 → 对抗Critical0_低2转B29 (10-14)
 - [ ] B28 · 用户裁决 — 预告: 继续 / 修订 / 裁决 blocked
 
 ## B29 — view_calibration_status, view_ledger_audit
