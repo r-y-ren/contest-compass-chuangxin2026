@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B28 | demo_emc_flows, demo_instrument_panels | 两函数 wired + emc_view/instruments_view 绿 | EMC 与仪表（R68+R69）；改造点：execute_scenario emc 子类型分派 |
-| B29 | view_calibration_status, view_ledger_audit | 两函数 wired + calibration_view/ledger_audit_view 绿 | 标定与台账（R70+R71），只读口径 |
+| ▶ B29 | view_calibration_status, view_ledger_audit | 两函数 wired + calibration_view/ledger_audit_view 绿 | 标定与台账（R70+R71），只读口径 |
 | B30 | demo_sitl_bridge, demo_rl_policy, demo_rff_pipeline | 三函数 wired + sitl_view/rl_view/rff_view 绿 | 二期演示入口（R72–R74） |
 | B31 | audit_responsibility_alignment | wired + responsibility_alignment 绿 + fn-check①桩归零 | 对账收尾（R75）；旧块回登记：run_scenario 入口/双载荷契约/63 键域/R48 元素枚举 |
 
@@ -65,3 +64,4 @@
 | 10-14 | B26 对抗中2 转 B27 随批 | ①e2e 录制场景 num_samples>0（空录音使回放空转也绿）；②索引入口 runs_root 路径围栏+register 透传收缩 |
 | 10-14 | B27 申报 | 整批单提交（惯例修正首发）；sim record:true 结构性空录音实证→e2e 改合成预置 SigMF（8192 样本，判别力封死空对回放）；source_scenario 白名单收缩落点=操控台索引入口消费边界 |
 | 10-14 | B27 对抗中1/低1 转 B28 随批 | ①replay 围栏补 .sigmf-data 路径 realpath 校验（软链出界 202 放行）；②local+dry_run 复选框失联（train_classifier dry_run 仅 remote 分支消费） |
+| 10-14 | B28 申报（中断续做） | 首子代理额度中断留 src 半成品（测试全缺）——续做子代理核实+补测 27 例；emc_area SVG 命名空间字面量踩零外链断言→canvas 改造；B27 随批 a/b 首代理已写、续做补测 3 例 |

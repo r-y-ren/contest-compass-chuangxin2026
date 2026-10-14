@@ -1063,14 +1063,14 @@ print(f'对账一致: 责任文档函数 {len(names)} == src 桩文件 {len(stub
 - [x] demo_emc_flows · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:demo_emc_flows src/ && echo OK → OK (10-14)
 - [x] demo_emc_flows · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k emc_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
 - [x] demo_emc_flows · wired — 证据: bash -c grep -c R68 fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
-- [ ] demo_emc_flows · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] demo_emc_flows · commit — 预告: fn(demo_emc_flows): wired 含四文档变更
+- [x] demo_emc_flows · 清单进位 — 证据: bash -c grep -q '^| demo_emc_flows | B28 | wired' fn_docs/implementation/functions.md && echo LO → LO (10-14)
+- [x] demo_emc_flows · commit — 证据: bash -c git log --format=%h -1 && echo C → C (10-14)
 ### demo_instrument_panels
 - [x] demo_instrument_panels · implemented — 证据: bash -c cd fn_work && ! grep -rq unimplemented:fn:demo_instrument_panels src/ && echo OK → OK (10-14)
 - [x] demo_instrument_panels · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k instruments_view -q 2>&1 | tail -1 && echo OK → OK (10-14)
 - [x] demo_instrument_panels · wired — 证据: bash -c grep -c R69 fn_work/src/localize_console_assets/mount_console_extensions.py && echo OK → OK (10-14)
-- [ ] demo_instrument_panels · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] demo_instrument_panels · commit — 预告: fn(demo_instrument_panels): wired 含四文档变更
+- [x] demo_instrument_panels · 清单进位 — 证据: bash -c grep -q '^| demo_instrument_panels | B28 | wired' fn_docs/implementation/functions.md && echo LO → LO (10-14)
+- [x] demo_instrument_panels · commit — 证据: bash -c git log --format=%h -1 && echo C → C (10-14)
 ## B28 批间门
 - [ ] B28 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
 - [ ] B28 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零

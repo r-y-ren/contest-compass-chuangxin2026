@@ -54,3 +54,4 @@
 | 10-14 | B25 | render_report_html（31）+serve_run_artifacts（40+e2e 2）+list_run_summaries（14+e2e 3）+view_failure_comparison（13）；三端点+两页区+路由序手术（summaries 先于参数路由） | R60-R62 验收绿（report_view/report_center_e2e/boundary_view 族）；全套件 3225 零回归；commits 95cfe63/7b4854f/ad9eb38/8148d85 |
 | 10-14 | B26 | browse_dataset_library（14+e2e 2）+build_replay_scenario（12）+launch_replay_run（21 含端到端）；R64 改造点 _backend_params 透传+数据页区 | R63/R64 验收绿（dataset_view_e2e/replay_run）；全套件 3296 零回归；commits 3885ed3/d755baa/9dc39e3 |
 | 10-14 | B27 | 三函数（ai_train/eval/infer_view 11/10/13）+AI 页区+围栏 5 例+e2e 整改 | R65-R67 验收绿；全套件 3336 零回归；整批单提交 6097ba7 |
+| 10-14 | B28 | demo_emc_flows+demo_instrument_panels（emc/instruments_view 10+10）+emc 子类型改造点+B27 随批补测；中断续做 | R68/R69 验收绿；全套件 3358+5skip 零回归；整批单提交 7c6eb8d |

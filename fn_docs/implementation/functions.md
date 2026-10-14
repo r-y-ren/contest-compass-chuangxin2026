@@ -143,8 +143,8 @@
 | launch_classifier_training | B27 | wired 10-14 | -k ai_train_view → 11 passed（dry_run 端到端+拒训原文上屏+模型列表）；端点 mount R65 块+train 页区 | 6097ba7 |
 | view_cv_evaluation | B27 | wired 10-14 | -k ai_eval_view → 10 passed（矩阵/Macro-F1/三旗标/警告回显/EvalError 400）；端点 mount R66 块+eval 页区 | 6097ba7 |
 | infer_style_entry | B27 | wired 10-14 | -k ai_infer_view → 13 passed（tone 样本正确标签 hit=True+模型缺失提示态）；端点 mount R67 块+infer 页区 | 6097ba7 |
-| demo_emc_flows | B28 | stub 10-13 | pytest -k emc_view | — |
-| demo_instrument_panels | B28 | stub 10-13 | pytest -k instruments_view | — |
+| demo_emc_flows | B28 | wired 10-14 | -k emc_view → 10 passed（三流程真跑+声明+越域标注+端点）；改造点 execute_scenario emc_flow 分派+4 回归 | 7c6eb8d |
+| demo_instrument_panels | B28 | wired 10-14 | -k instruments_view → 10 passed（五仪表周期+超域+VISA+端点）；端点 mount R69 块 | 7c6eb8d |
 | view_calibration_status | B29 | stub 10-13 | pytest -k calibration_view | — |
 | view_ledger_audit | B29 | stub 10-13 | pytest -k ledger_audit_view | — |
 | demo_sitl_bridge | B30 | stub 10-13 | pytest -k sitl_view | — |
