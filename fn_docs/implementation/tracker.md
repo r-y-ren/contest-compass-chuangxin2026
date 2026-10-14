@@ -1373,7 +1373,7 @@ from src.demo_sitl_bridge.demo_sitl_bridge import demo_sitl_bridge
 r = demo_sitl_bridge(chr(50)+chr(48)+chr(50)+chr(54)+chr(49)+chr(48)+chr(49)+chr(53)+chr(45)+chr(48)+chr(48)+chr(49)+chr(56)+chr(51)+chr(48), chr(114)+chr(117)+chr(110)+chr(115))
 assert r[chr(111)+chr(107)] is True
 print(chr(36820)+chr(26597)+chr(79)+chr(75))" → 返查OK (10-15)
-- [ ] SITL 联动章 · 进位+commit — 预告: 期望集进位+commit
+- [x] SITL 联动章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ### RL 策略章
 - [x] RL 策略章 · 落盘 — 证据: bash -c grep -q "^## 17. RL 干扰策略" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] RL 策略章 · 走查 — 证据: bash -c cd /tmp/b35_walk && R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && PYTHONPATH=$R $R/.venv/bin/python -c "
@@ -1381,7 +1381,7 @@ from src.demo_rl_policy.demo_rl_policy import demo_rl_policy
 r = demo_rl_policy(rounds=1)
 assert r.get(chr(111)+chr(107)) is True
 print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
-- [ ] RL 策略章 · 进位+commit — 预告: 期望集进位+commit
+- [x] RL 策略章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ### RFF 指纹章
 - [x] RFF 指纹章 · 落盘 — 证据: bash -c grep -q "^## 18. RFF 指纹识别" docs/功能演示手册.md && echo 落盘OK → 落盘OK (10-15)
 - [x] RFF 指纹章 · 走查 — 证据: bash -c cd /tmp/b35_walk && R=/mnt/data/Code/autoC/workspace/chuangxin2026/fn_work && PYTHONPATH=$R $R/.venv/bin/python -c "
@@ -1391,7 +1391,7 @@ try:
 except Exception as e:
     assert chr(25298) in str(e)
 print(chr(36208)+chr(26597)+chr(79)+chr(75)+chr(95)+chr(25298)+chr(36305))" → 走查OK_拒跑 (10-15)
-- [ ] RFF 指纹章 · 进位+commit — 预告: 期望集进位+commit
+- [x] RFF 指纹章 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -qE "expected_entries" && echo 进位OK → 进位OK (10-15)
 ## B40 批间门
 - [ ] B40 · 评审三轴 — 预告: 三轴审查
 - [ ] B40 · 对抗审查 — 预告: 对抗发现表，Critical 清零
