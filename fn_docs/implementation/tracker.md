@@ -1670,7 +1670,7 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 ### spectral_template_match
 - [x] spectral_template_match · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn: src/shared/spectral_template_match.py && .venv/bin/python -m py_compile src/shared/spectral_template_match.py && echo STM桩消_真值编译过 → STM桩消_真值编译过 (10-15)
 - [x] spectral_template_match · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/shared/test_spectral_template_match.py -q && echo STM_8例绿 → STM_8例绿 (10-15)
-- [ ] spectral_template_match · wired — 预告: 调用点存在（B47 后续 _template_classify 与 B48 make_predict_style_callbacks——本步先 grep 桩 import 面占位+批内 wired 补证），预期 grep 命中
+- [x] spectral_template_match · wired — 证据: bash -c grep -cF 'spectral_template_match(' fn_work/src/predict_style/predict_style.py && grep -qF 'spectral_template_match' fn_work/src/grouped_cv_evaluate/make_predict_style_callbacks.py && echo STM_wired_B47调用点577行在_B48文件引用在 → STM_wired_B47调用点577行在_B48文件引用在 (10-15)
   — 批内时序注记: Ruling⑪——wired 待首个调用方 _template_classify 落地后合并补证勾记（B44 Ruling⑥ 先例）
 - [x] spectral_template_match · 清单进位 — 证据: bash -c grep -qF 'spectral_template_match | B47 | tested 10-15' fn_docs/implementation/functions.md && echo 进位读回OK_wired进位随Ruling11批内补 → 进位读回OK_wired进位随Ruling11批内补 (10-15)
 - [x] spectral_template_match · commit — 证据: bash -c git cat-file -e 0d0cdfe && git show --stat --format= 0d0cdfe | grep -cE 'spectral_template_match|batches.md|functions.md|tracker.md' && echo STM_commit_0d0cdfe_4文件在 → STM_commit_0d0cdfe_4文件在 (10-15)
@@ -1694,12 +1694,13 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [ ] _rule_decision · wired — 预告: 调用点=改造后 _classify_dummy（批内补证），预期 grep 命中
   — 批内时序注记: Ruling⑪同款——wired 待 _classify_dummy 改造落地后补证
 - [x] _rule_decision · 清单进位 — 证据: bash -c grep -qF '_rule_decision | B47 | tested 10-15' fn_docs/implementation/functions.md && echo RD进位读回OK → RD进位读回OK (10-15)
-- [ ] _rule_decision · commit — 预告: fn(_rule_decision): wired 含四文档变更
+- [x] _rule_decision · commit — 证据: bash -c git cat-file -e b048e56 && git show --stat --format= b048e56 | grep -c predict_style && echo RD_commit_b048e56在 → RD_commit_b048e56在 (10-15)
 ### _template_classify
-- [ ] _template_classify · implemented — 预告: 桩替换真值（谱向量归一+调 spectral_template_match+未校准标注组装），预期该桩 grep 消失
-- [ ] _template_classify · tested — 预告: 模板命中/标注组装/形状交上层用例，预期 pytest → passed
+- [x] _template_classify · implemented — 证据: bash -c cd fn_work && ! grep -qF 'unimplemented:fn:_template_classify' src/predict_style/predict_style.py && grep -qF 'from src.shared.spectral_template_match import spectral_template_match' src/predict_style/predict_style.py && echo TC桩消_import在 → TC桩消_import在 (10-15)
+- [x] _template_classify · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/predict_style/test_predict_style.py -q && echo TC_54绿含5新例含等价锚 → TC_54绿含5新例含等价锚 (10-15)
 - [ ] _template_classify · wired — 预告: 调用点=改造后 _predict_one（批内补证），预期 grep 命中
-- [ ] _template_classify · 清单进位 — 预告: functions.md 状态行改后读回
+  — 批内时序注记: Ruling⑪同款——wired 待 _predict_one 改造落地后补证
+- [x] _template_classify · 清单进位 — 证据: bash -c grep -qF '_template_classify | B47 | tested 10-15' fn_docs/implementation/functions.md && grep -qF 'spectral_template_match | B47 | wired 10-15' fn_docs/implementation/functions.md && echo TC进位OK_STM_wired回补在 → TC进位OK_STM_wired回补在 (10-15)
 - [ ] _template_classify · commit — 预告: fn(_template_classify): wired 含四文档变更
 ### _classify_dummy（改造）
 - [ ] _classify_dummy · implemented — 预告: 改造体落地（门控感知编排：分流判据→on 段→段内谱+特征+决策/短段 pulse/连续不变+features 扩键），预期门控感知行为用例绿

@@ -613,3 +613,75 @@ def test_rule_decision_equivalence_anchor_against_full_pipeline():
     assert label == "pulse"
     assert result["label"] == label
     assert result["confidence"] == confidence
+
+
+# --- B47 _template_classify 模板路分类组装（R92）：合成模板直测+锚域+透传锚+等价锚 ---
+
+from src.predict_style.predict_style import _template_classify  # noqa: E402
+from src.shared.spectral_template_match import spectral_template_match  # noqa: E402
+
+
+def _template_weights(n=32):
+    """两类合成模板模型 weights（{class_mean_spectra: {label: 模板向量}}）：
+    tone 单峰=[10,0,...,0]、bandlimited_noise 平铺=[1]*n/√n 量级。"""
+    tone = np.zeros(n)
+    tone[0] = 10.0
+    noise = np.full(n, 1.0 / np.sqrt(n))
+    return {"class_mean_spectra": {"tone": tone, "bandlimited_noise": noise}}
+
+
+def test_template_classify_template_hit_tone():
+    """① 模板命中：待测 profile 近 tone 模板（+0.01 均匀扰动）→ label='tone'
+    且 conf>0.5（softmax over negative distances 近邻模板主导）。"""
+    weights = _template_weights()
+    profile = weights["class_mean_spectra"]["tone"] + 0.01
+    label, confidence, _extras = _template_classify(profile, weights, list(_LABELS))
+    assert label == "tone"
+    assert confidence > 0.5
+
+
+def test_template_classify_labels_anchor_restricts_to_seven():
+    """② labels 锚域透传：锚外模板键（mystery_style 单峰 bin1，与待测 profile
+    零距离=若入域必胜）不参与匹配——结果 label 仍限七类名内。"""
+    weights = _template_weights()
+    mystery = np.zeros(32)
+    mystery[1] = 10.0
+    weights["class_mean_spectra"]["mystery_style"] = mystery
+    label, _confidence, _extras = _template_classify(mystery, weights, list(_LABELS))
+    assert label != "mystery_style"
+    assert label in _LABELS
+
+
+def test_template_classify_extras_uncalibrated_note_and_template_path():
+    """③ 第三项 dict 两键齐：confidence_note 含'未校准'、template_path is True。"""
+    weights = _template_weights()
+    _label, _confidence, extras = _template_classify(
+        weights["class_mean_spectra"]["tone"], weights, list(_LABELS)
+    )
+    assert set(extras) == {"confidence_note", "template_path"}
+    assert "未校准" in extras["confidence_note"]
+    assert extras["template_path"] is True
+
+
+def test_template_classify_dimension_mismatch_value_error_passthrough():
+    """④ 底层形状异常透传锚：profile 维度与模板不一致（33 vs 32）→
+    spectral_template_match 的 ValueError 原样透传（不吞不改）。"""
+    weights = _template_weights()
+    with pytest.raises(ValueError, match="维度不一致"):
+        _template_classify(np.zeros(33), weights, list(_LABELS))
+
+
+def test_template_classify_equivalence_anchor_with_shared_matcher():
+    """⑤ 值等价锚：同输入下 (label, conf) 与直接调 spectral_template_match 完全
+    相等（组装层纯转发+特征键追加，零口径漂移）。"""
+    rng = np.random.default_rng(11)
+    weights = _template_weights()
+    for _ in range(5):
+        profile = rng.uniform(0.0, 10.0, 32)
+        label, confidence, _extras = _template_classify(
+            profile, weights, list(_LABELS)
+        )
+        direct = spectral_template_match(
+            profile, weights["class_mean_spectra"], list(_LABELS)
+        )
+        assert (label, confidence) == direct

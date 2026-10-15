@@ -11,6 +11,7 @@ import numpy as np
 from src.index_dataset.index_dataset import index_dataset
 from src.make_spectrogram.make_spectrogram import make_spectrogram
 from src.open_replay_backend.read_sigmf_timeline import read_sigmf_timeline
+from src.shared.spectral_template_match import spectral_template_match
 
 __all__ = ["SEVEN_STYLE_LABELS", "predict_style"]
 
@@ -560,5 +561,27 @@ def _template_classify(
     """模板路分类组装（R92）：待测时间平均谱向量（全段或 on 段，与
     class_mean_spectra 训练口径一致）→ shared/spectral_template_match 出
     (label, confidence)；未校准标注与模板路特征键随第三项 dict 返回（口径见
-    requirements R92）。形状非法不在本层拒（交 _predict_one 回退规则路）。"""
-    raise NotImplementedError("unimplemented:fn:_template_classify")
+    requirements R92）。形状非法不在本层拒（交 _predict_one 回退规则路）。
+
+    - profile：dB 时间平均谱一维向量（调用方算好谱并均值化——本函数不重新算谱；
+      与模板向量维度一致性由 spectral_template_match 校验，ValueError 原样透传）；
+    - weights：模型 dict，取 weights['class_mean_spectra']（{label: 模板向量}，
+      键存在性由调用方 _predict_one 分流保证——缺键 KeyError 自然抛，层内契约）；
+    - labels：七类名序列锚（透传 spectral_template_match 的 labels 参数，结果
+      label 限该域）；
+    - 第三项 dict 恒两键：'confidence_note'（未校准标注）与 'template_path':
+      True（模板路标识——规则路结果无此键）。
+    """
+    # 约束：labels 锚域/模板维度/非数值校验全由 spectral_template_match 承载，
+    # ValueError 不吞不改地透传（回退编排是 _predict_one 改造步职责）。
+    label, confidence = spectral_template_match(
+        profile, weights["class_mean_spectra"], labels
+    )
+    return label, confidence, {
+        # 约束：置信度为 softmax over negative distances 未校准分数——校准需
+        # 独立校准集，留远期。
+        "confidence_note": (
+            "未校准分数（softmax over negative distances；校准需独立校准集，留远期）"
+        ),
+        "template_path": True,
+    }
