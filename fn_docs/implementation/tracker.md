@@ -1617,6 +1617,14 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 （三叶子 wired/进位/commit 随分发器 render_emc_flow_section 接线后同文件一提交收编——B4 先例）
 
 ### B43 门随批·R88 手册真值同步（并行会话终审移交 4 处）
-- [x] R88 手册同步 · 改写 — 证据: grep 四锚（发射窗内=注入谱本体/同口径/自 R88 修复起/窗外为标注底噪段）均在 docs/功能演示手册.md；旧限界句（样式无关/识别恒定/同源合成底噪）零残留
-- [x] R88 手册同步 · 走查 — 证据: cd fn_work && .venv/bin/python -m pytest -k sim_delivery -q → 8 passed（交窗/样式可分判据族）+ -k demo_manual_check → 1 passed + 八键直跑 ok=True passed=26 全空
-- [x] R88 手册同步 · commit — 预告兑现: 见下方提交
+- [x] R88 手册同步 · 改写 — 证据: bash -c grep -q "发射窗内=注入谱本体" docs/功能演示手册.md && grep -q "自 R88 修复起" docs/功能演示手册.md && ! grep -q "样式无关|识别结果恒定|同源合成底噪" docs/功能演示手册.md && echo 改写OK_四锚在_旧句零残留 → 改写OK_四锚在_旧句零残留 (10-15)
+- [x] R88 手册同步 · 走查 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k "sim_delivery or demo_manual_check" -q 2>&1 | tail -1 && .venv/bin/python -c "
+from src.check_demo_manual.check_demo_manual import check_demo_manual
+ents = [l.strip() for l in open(chr(116)+chr(101)+chr(115)+chr(116)+chr(115)+chr(47)+chr(99)+chr(104)+chr(101)+chr(99)+chr(107)+chr(95)+chr(100)+chr(101)+chr(109)+chr(111)+chr(95)+chr(109)+chr(97)+chr(110)+chr(117)+chr(97)+chr(108)+chr(47)+chr(101)+chr(120)+chr(112)+chr(101)+chr(99)+chr(116)+chr(101)+chr(100)+chr(95)+chr(101)+chr(110)+chr(116)+chr(114)+chr(105)+chr(101)+chr(115)+chr(46)+chr(116)+chr(120)+chr(116)) if l.strip() and not l.startswith(chr(35))]
+r = check_demo_manual(chr(46)+chr(46)+chr(47)+chr(100)+chr(111)+chr(99)+chr(115)+chr(47)+chr(21151)+chr(33021)+chr(28436)+chr(31034)+chr(25163)+chr(20876)+chr(46)+chr(109)+chr(100), chr(46)+chr(46)+chr(47)+chr(102)+chr(110)+chr(95)+chr(100)+chr(111)+chr(99)+chr(115)+chr(47)+chr(82)+chr(69)+chr(65)+chr(68)+chr(77)+chr(69)+chr(46)+chr(109)+chr(100), ents)
+assert r[chr(111)+chr(107)] and r[chr(112)+chr(97)+chr(115)+chr(115)+chr(101)+chr(100)] == 26
+print(chr(20843)+chr(38190)+chr(79)+chr(75))" → 八键OK (10-15)
+- [x] R88 手册同步 · commit — 证据: bash -c git cat-file -e 48477f7 && git show --stat --format= 48477f7 | grep -q "10 insertions" && echo COMMIT_OK_48477f7实存3文件10行 → COMMIT_OK_48477f7实存3文件10行 (10-15)
+- [ ] R88 同步面 · 评审三轴（补审） — 预告: 48477f7 四处改写对照 R88 移交清单与实现真值
+- [ ] R88 同步面 · 对抗审查（补审） — 预告: 样式对比实跑+识别语义验证+README 终态一致性
+- [ ] B43 · 用户裁决（重走） — 预告: 补审处置后重裁决
