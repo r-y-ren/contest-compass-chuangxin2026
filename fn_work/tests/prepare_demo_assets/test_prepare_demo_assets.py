@@ -253,3 +253,21 @@ def test_authoritative_constants_shape():
         "demo_failure.yaml",
     ]
     assert all(name in PRESET_SCENARIOS for name in pda.PREWARM_SCENARIOS)
+
+
+def test_checklist_manual_sync_anchor():
+    """⑦ DEMO_CHECKLIST↔手册 0.1 表逐行同步锚（R94 对抗 F5 落地"后续加固项"）：
+    0.1 表设备行数 == DEMO_CHECKLIST 长度；每项关键词在对应表行出现（序=行序）。"""
+    import re as _re
+    from pathlib import Path as _P
+
+    manual = _P(__file__).resolve().parents[3] / "docs" / "功能演示手册.md"
+    text = manual.read_text(encoding="utf-8")
+    m = _re.search(r"### 0\.1 演示设备全集清单.*?(?=\n### )", text, _re.S)
+    assert m, "0.1 节未找到"
+    rows = [r for r in m.group(0).splitlines() if _re.match(r"\| \d+[ab]? \|", r)]
+    assert len(rows) == len(DEMO_CHECKLIST), f"0.1 表 {len(rows)} 行 != checklist {len(DEMO_CHECKLIST)} 项"
+    for row, item in zip(rows, DEMO_CHECKLIST):
+        key = _re.match(r"\| \d+[ab]? \| ([^|]+) \|", row).group(1).strip()
+        k4 = key.replace("（", "(").split("(")[0][:4]  # 表行取主名前 4 字
+        assert k4 in item or item[:4] in key, f"不同步: 表行'{key}' vs 项'{item}'"

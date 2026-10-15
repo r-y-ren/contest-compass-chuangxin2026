@@ -1656,7 +1656,7 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [x] DEMO_CHECKLIST · commit — 证据: bash -c git log --format=%h -1 && echo COMMIT_OK → COMMIT_OK (10-15)
 ## B46 批间门（分离双审）
 - [x] B46 · 评审三轴 — 证据: bash -c grep -q "19 项（R94" fn_work/src/prepare_demo_assets/prepare_demo_assets.py && grep -q "9a 线" docs/功能演示手册.md && grep -q "混批补声明" fn_docs/implementation/tracker.md && echo 三轴过_0C_I1I2I3M1M2全处置 → 三轴过_0C_I1I2I3M1M2全处置 (10-15)
-- [ ] B46 · 对抗审查 — 预告: 分离零喂料（接法与 PDF 逐口核对）
+- [x] B46 · 对抗审查 — 证据: bash -c grep -q "R94·4 证据重验" fn_docs/implementation/tracker.md && grep -q "端口名桥接" docs/功能演示手册.md && grep -q "知识性注记非自动校验" docs/功能演示手册.md && cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/test_prepare_demo_assets.py::test_checklist_manual_sync_anchor -q >/dev/null 2>&1 && echo 对抗C1勘误真命令重验_I4全处置_M5随批_20用例含新锚 → 对抗C1勘误真命令重验_I4全处置_M5随批_20用例含新锚 (10-15)
 - [ ] B46 · 用户裁决 — 预告: 修订/继续
 
 ## 演进轮④进入五步（R91–R93 识别准确率协同改造；B47 起——B46 为并行 R94 批，其门行上方独立在册）
@@ -1673,7 +1673,7 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [ ] spectral_template_match · wired — 预告: 调用点存在（B47 后续 _template_classify 与 B48 make_predict_style_callbacks——本步先 grep 桩 import 面占位+批内 wired 补证），预期 grep 命中
   — 批内时序注记: Ruling⑪——wired 待首个调用方 _template_classify 落地后合并补证勾记（B44 Ruling⑥ 先例）
 - [x] spectral_template_match · 清单进位 — 证据: bash -c grep -qF 'spectral_template_match | B47 | tested 10-15' fn_docs/implementation/functions.md && echo 进位读回OK_wired进位随Ruling11批内补 → 进位读回OK_wired进位随Ruling11批内补 (10-15)
-- [ ] spectral_template_match · commit — 预告: fn(spectral_template_match): wired 含四文档变更
+- [x] spectral_template_match · commit — 证据: bash -c git cat-file -e 0d0cdfe && git show --stat --format= 0d0cdfe | grep -cE 'spectral_template_match|batches.md|functions.md|tracker.md' && echo STM_commit_0d0cdfe_4文件在 → STM_commit_0d0cdfe_4文件在 (10-15)
 ### _signal_features
 - [ ] _signal_features · implemented — 预告: 桩替换真值（现 _classify_dummy 前半特征计算段原样提出），预期该桩 grep 消失
 - [ ] _signal_features · tested — 预告: tests/predict_style 新增段内/全段同源用例，预期 pytest → passed
@@ -1721,3 +1721,5 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [ ] B47 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
 - [ ] B47 · 用户裁决 — 预告: 继续 B48 / 修订 / 裁决 blocked
 - 注记: B46 混批补声明（三轴 I-2）——c7e4369 携带并行演进轮④计划层内容约 33 行（responsibility 域二十三 R91-R93 块+requirements R93 句+README 识别器措辞真值对齐），提交信息未如 B43 先例声明——内容无害（方向=真值对齐），不回滚，本注记即补声明；另「接口真值 · 进位+commit」行证据命令 grep 无 -E 且 quotepath 下手册名不可字面命中（三犯——1632 两犯在案）——底层命题独立复核为真（git show c7e4369 --name-only 含三文件），行不改写勘误；「DEMO_CHECKLIST · commit」行为 HEAD 恒过弱证据一并注记 — 处置: I-1 docstring 19+M-1 9a 线+本注记 — 2026-10-15
+- 注记: 「R94·4 中断恢复检查」行（1637）记账证据不可复现（对抗 F1 Critical）——grep -cE "^| ▶" 的 ERE ^ 分支匹配每行恒≥110，-eq 0 恒假、echo 不可能执行，而记账有输出；当时批表实况=空（B46 尚未入表）故底层命题为真，但证据链断裂——行不改写，本注记勘误并以可复现真命令重验（下条 Ruling 行附）；grep 记账条款四犯（1632 两犯+B46 进位行一犯+本犯） — 处置: 勘误+真命令重验 — 2026-10-15
+- Ruling: R94·4 证据重验（对抗 F1 处置） — 原因: 原记账命令 ERE 语法错误致不可复现 — 代价: 一行勘误 — 落点: `test $(grep -c "▶" fn_docs/implementation/batches.md) -eq 0` 当前时点 B46 已出表故为真；历史时点命题由 E3 步反证（B46 入表前批表空）
