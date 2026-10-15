@@ -1629,3 +1629,32 @@ print(chr(20843)+chr(38190)+chr(79)+chr(75))" → 八键OK (10-15)
 - [x] R88 同步面 · 对抗审查（补审） — 证据: bash -c ! grep -qE "带标注的底噪段|窗外=带标注|真机实测同口径" docs/功能演示手册.md && grep -q "双面真值" docs/功能演示手册.md && grep -q "不落盘" docs/功能演示手册.md && cd fn_work && .venv/bin/python -m pytest -k "sim_delivery or demo_manual_check" -q >/dev/null 2>&1 && echo 补审对抗_C1回双面真值_F2F3F4F5F6处置_9绿 → 补审对抗_C1回双面真值_F2F3F4F5F6处置_9绿 (10-15)
 - [x] B43 · 用户裁决（重走） — 证据: bash -c grep -q "B43 重走补审处置" fn_docs/implementation/batches.md && grep -q "双面真值" docs/功能演示手册.md && echo 门放行_重走闭环_R90进fn-close → 门放行_重走闭环_R90进fn-close (10-15)
 - 注记: 「R88 手册同步 · 改写」行（1620）证据命令缺陷——旧句残留 grep 无 -E（BRE 竖线字面量、恒过）且回显称四锚实查两锚；底层命题经补审独立复核为真（-E 全式零残留+四锚在）——行不改写，本注记勘误；条款重申：记账 grep 一律 -qE（B36 C1 后本会话再犯，两犯记录在案） — 处置: 勘误+条款 — 2026-10-15
+
+## 设备真值轮进入五步（R94，2026-10-15）
+- [x] R94·1 前置检查 — 证据: bash -c grep -q "功能块 设备接口真值同步 ← R94" fn_docs/responsibility.md && grep -q "改造点·快速通道（R94）" fn_docs/responsibility.md && cd fn_work && .venv/bin/python -m py_compile src/prepare_demo_assets/prepare_demo_assets.py && echo E1_OK → E1_OK (10-15)
+- [x] R94·2 轻量对账 — 证据: bash -c test $(grep -c "| wired " fn_docs/implementation/functions.md) -ge 168 && cd fn_work && .venv/bin/python -m pytest --collect-only -q 2>&1 | tail -1 && echo E2_OK_基线在 → E2_OK_基线在 (10-15)
+- [x] R94·3 批次计划 — 证据: bash -c grep -q "▶ B46" fn_docs/implementation/batches.md && echo E3_OK_B46单批轻量在表 → E3_OK_B46单批轻量在表 (10-15)
+- [x] R94·4 中断恢复检查 — 证据: bash -c test $(grep -cE "^| ▶" fn_docs/implementation/batches.md) -eq 0 && echo E4_OK_批表空_无滞留（并行B44B45已出表） → E4_OK_批表空_无滞留（并行B44B45已出表） (10-15)
+- [x] R94·5 功能演进判定 — 证据: bash -c test -f fn_docs/acceptance.md && grep -q "R94" fn_docs/requirements.md && echo E5_OK → E5_OK (10-15)
+
+## B46 — 设备接口真值同步（R94）：手册四处+DEMO_CHECKLIST 行细分
+### 手册 v2.1（文档交付物）
+- [x] 接口真值 · 修订 — 证据: bash -c ! grep -qE "CH1（MMCX）|CH2（MMCX）|B210 CH1|B210 CH2|MMCX转SMA" docs/功能演示手册.md && grep -q "TRX1（SMA" docs/功能演示手册.md && grep -q "usrp_b210_fpga.bin" docs/功能演示手册.md && grep -q "9a.*MMCX公转SMA母" docs/功能演示手册.md && echo 修订OK_零残留+TRX1RX2+FPGA三事实+清单细分 → 修订OK_零残留+TRX1RX2+FPGA三事实+清单细分 (10-15)
+- [x] 接口真值 · 走查 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q >/dev/null 2>&1 && .venv/bin/python -m pytest tests/check_demo_manual/ -q 2>&1 | tail -1 → 24 passed in 0.11s (10-15)
+- [ ] 接口真值 · 进位+commit — 预告: 整批提交（显式路径）
+### prepare_demo_assets（改造点·DEMO_CHECKLIST 行细分）
+- [x] DEMO_CHECKLIST · implemented — 证据: bash -c grep -q "MMCX公转SMA母转接线×1（GPS" fn_work/src/prepare_demo_assets/prepare_demo_assets.py && echo IMPL_OK_细分两行在 → IMPL_OK_细分两行在 (10-15)
+- [x] DEMO_CHECKLIST · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/ -q 2>&1 | tail -1 → 19 passed in 63.51s (0:01:03) (10-15)
+- [x] DEMO_CHECKLIST · wired — 证据: bash -c cd fn_work && .venv/bin/python -c "
+import tempfile
+from src.prepare_demo_assets.prepare_demo_assets import prepare_demo_assets
+with tempfile.TemporaryDirectory() as td:
+    r = prepare_demo_assets(td, td + chr(47) + "runs", rounds=1)
+    assert len(r["checklist"]) == 19
+print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
+- [x] DEMO_CHECKLIST · 清单进位 — 证据: bash -c grep -q "prepare_demo_assets | B46 | wired 10-15（改造点 R94 行细分）" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-15)
+- [ ] DEMO_CHECKLIST · commit — 预告: 随批提交
+## B46 批间门（分离双审）
+- [ ] B46 · 评审三轴 — 预告: 规格=R94 块/标准/档案
+- [ ] B46 · 对抗审查 — 预告: 分离零喂料（接法与 PDF 逐口核对）
+- [ ] B46 · 用户裁决 — 预告: 修订/继续

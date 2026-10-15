@@ -175,3 +175,4 @@
 | _emc_radiation_md | B45 | wired 10-15 | 同上（谱表有界/洁净度/补偿 4 例） | bafa338 收编 |
 | _emc_sweep_md | B45 | wired 10-15 | 同上（点表/spurious/超限 3 例） | bafa338 收编 |
 | render_emc_flow_section | B45 | wired 10-15 | pytest tests/render_emc_flow_section → 11 passed+tests/build_report → 60 passed（四形状分支含缺项回归）；调用点 build_report.py:461 | bafa338 |
+| prepare_demo_assets | B46 | wired 10-15（改造点 R94 行细分） | 19 passed；报告 checklist=19 项（9a/9b 转接线细分）；下标锚位移同步 | B46H |

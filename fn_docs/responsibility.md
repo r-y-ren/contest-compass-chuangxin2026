@@ -5,6 +5,7 @@
 > **实现期发现结构性变化（函数增/删/拆/并/职责或调用关系变化）必须回到 fn-divide 改本文档**（快速确认通道），不得只在代码里改。
 > 需求依据：`fn_docs/requirements.md`（55 条 R，2026-10-11 细化版）；全部函数 `[新增]`（旧实现已删，无存量改造）。
 > **演进轮（2026-10-13）**：域二十 R56–R75 新增块见文末（P1 块随 R 号标注）；旧块不动。涉及旧函数的接线改造以各块引言内「改造点·快速通道」变更说明登记（R56/R58/R59/R64/R68/R75 共 6 处），均在用户裁决"管线允许顺手改但逐条登记"授权内。
+> **设备真值轮（2026-10-15）**：R94 设备接口真值同步（编号让号——并行演进轮④先占 R91–R93）——文档交付物+DEMO_CHECKLIST 常量行修订（改造点·快速通道登记于 R76 块）；旧块其余不动。
 > **修订轮（2026-10-15）**：R90 手册结构 v2（单一真机方案+章级三件套；编号让号——并行缺陷修复会话先占 R88/R89）——文档交付物+两处既有函数改造点（check_demo_manual 契约 v2、prepare_demo_assets DEMO_CHECKLIST 单列化），改造点以各既有块引言内「改造点·快速通道（R90）」登记；旧块其余不动。
 > **演进轮②（2026-10-14）**：域二十一 R76–R87 新增块见文末（R82 演示批、R87 延后为 P1）；旧块不动、无旧函数改造。**承载方式例外**：R77–R83 为手册章节文档交付物、R87 为真机复查过程交付物——矩阵注明"无代码单元"（规格=需求条目，结构自检经 check_demo_manual 承载、命令走查按批执行）；代码单元=prepare_demo_assets / check_demo_manual / 固件两工程（esp32_wifi_firmware、nrf24_link_firmware）及 Python 帧参考实现两叶。
 
@@ -171,11 +172,14 @@
   - _emc_conduction_md
   - _emc_radiation_md
   - _emc_sweep_md
+- 设备接口真值同步（文档交付物） ← R94
+  （改造点·快速通道：prepare_demo_assets DEMO_CHECKLIST 第 9 行细分——见 R76 块追加注记）
 - 手册结构修订 v2（文档交付物） ← R90
   （改造点·快速通道：check_demo_manual 契约 v2 ／ prepare_demo_assets DEMO_CHECKLIST 单列化——见各自块引言）
 （域二十一另含无代码单元的交付物：手册各批章节文档 ← R76–R84、真机复查记录 ← R87——承载方式见矩阵；
   R90 修订交付物=总章 v2+26 章三件套化+附录同步——承载方式见矩阵）
 （域二十二=R88/R89 登记缺陷闭合：涉及既有 wired 函数的改造点（run_power_ladder/execute_gb42590_protocol/run_demo._execute_stage/record_run_streams/run_demo._report_payload/build_report）均走快速通道，变更说明见各功能块引言；shared 新上提 normalize_monitor_block 见共享函数节）
+（域二十三=R91/R92/R93 识别准确率协同改造：改造集中在既有顶层 predict_style（R91 规则路门控感知+R92 模板路分流——新叶 _signal_features/_extract_gate_segments/_rule_decision/_template_classify）与 grouped_cv_evaluate（R93 对齐回调 make_predict_style_callbacks+口径标注）、view_cv_evaluation（R93 默认注入）；改造点均走快速通道，变更说明见各既有块引言+域二十三功能块；shared 新上提 spectral_template_match 见共享函数节）
 
 ## 需求覆盖矩阵（P1 在 R 号后标注；非功能约束不进矩阵，fn-close 终检对照 requirements 非功能节）
 
@@ -269,8 +273,12 @@
 | R86 | nrf24_link_firmware（+Python 叶 compose_nrf24_frame） |
 | R87 [P1·延后] | （过程交付物：真机复查记录——设备在位后按用户命令触发；无代码单元） |
 | R90 | 手册结构修订 v2（文档交付物：总章/26 章/附录重写，无新代码单元）+ 改造点：check_demo_manual、prepare_demo_assets |
+| R94 | 设备接口真值同步（文档交付物：手册 0.1/0.2/0.3/边界表/残留清扫）+ 改造点：prepare_demo_assets（DEMO_CHECKLIST 行细分） |
 | R88 | tap_tx_window_blocks（+四处快速通道改造点：run_power_ladder 增 dwell_cb 缝、execute_gb42590_protocol 装配接线、run_demo._execute_stage 停检凭据贯通、record_run_streams 监测源前置消费——详见功能块引言） |
 | R89 | render_emc_flow_section（+两处快速通道改造点：run_demo._report_payload 三形状映射、build_report EMC 段入口切换——详见功能块引言） |
+| R91 | predict_style（改造承载：_classify_dummy 门控感知两级分类——新增叶 _signal_features/_extract_gate_segments/_rule_decision；详见域二十三功能块） |
+| R92 | predict_style（改造承载：_predict_one 模板路分流+新增叶 _template_classify；shared 新上提 spectral_template_match——详见域二十三功能块） |
+| R93 | grouped_cv_evaluate（改造承载：新增叶 make_predict_style_callbacks 对齐回调+口径标注；view_cv_evaluation 默认注入——详见域二十三功能块） |
 
 ## 共享函数（shared/：多顶层共用；矩阵挂全部受益需求）
 
@@ -299,6 +307,11 @@
   - 签名意图：输入: 后端原始块（dict/二元组/其他）/ 输出: 归一块 dict（或原样透传形状）/ 错误: 不抛（形状拒归 capture 侧）。
   - tested 策略：上游覆盖: record_run_streams + tap_tx_window_blocks（sim_delivery 族）
   - 核验命令：上游覆盖: record_run_streams
+- **spectral_template_match**（调用方：predict_style._template_classify, grouped_cv_evaluate.make_predict_style_callbacks——R92 推理模板路与 R93 评测对齐 predict_fn 的**同一实现**，"评测的=部署的"由此函数承载）〔新上提·演进轮④ 2026-10-15：R92/R93 两受益方同源归一〕
+  - 职责：谱模板匹配分类纯函数：待测特征向量（时间平均谱，dB 或线性口径由调用方归一后传入）vs 各类模板向量（class_mean_spectra 同构）→逐类距离→**softmax over negative distances** 出 (label, confidence)——最近质心分类器业内标准置信度口径；距离度量确定性（平手取排序最小类，先例沿 R31 _dummy_predict）。confidence 附语义=未校准分数（校准标注由调用方组装）。
+  - 签名意图：输入: features 数值向量 + class_mean_spectra（label→模板向量 dict）+ labels 序列 / 输出: (label: str, confidence: 0–1 float) / 错误: 模板空/维度不一致→ValueError（形状先拒，不静默兜底）。
+  - tested 策略：自有单测（距离序+softmax 值域+平手确定性+维度拒）
+  - 核验命令：测试: predict_style or grouped_cv（两上游验收面继承：R92 端到端全链+R93 对齐用例）
 
 ## 功能块 load_scenario ← R1
 
@@ -881,6 +894,7 @@
 ## 功能块 grouped_cv_evaluate ← R31
 
 （R31：分组 CV 评测——按录制批次分组防泄漏、混淆矩阵+Macro-F1、目标 0.85 如实记录。）
+〔改造点·快速通道（R93·演进轮④ 2026-10-15）：报告增评测口径标注字段（缺省 intrinsic_dummy/对齐 aligned_template）+官方对齐回调 make_predict_style_callbacks（新叶）——内置 dummy 保留缺省、既有自定义回调参数面与样本契约不变；详见域二十三功能块〕
 
 - **grouped_cv_evaluate** [L0|新增]
   - 职责：评测协议：make_group_splits 按录制批次（run id）划分 K 折（同批次不跨组）→逐折训练/推理（小模型或已训模型微调口径）→汇总混淆矩阵+Macro-F1+分组泄漏自检（构造段级划分对比实验证明无泄漏高估）；内部目标 0.85 不达标如实记录。
@@ -898,6 +912,7 @@
 ## 功能块 predict_style ← R32
 
 （R32：识别推理服务——单 run/单段 IQ 出样式+置信度入报告、模型缺失标注不阻塞。）
+〔改造点·快速通道（R91/R92·演进轮④ 2026-10-15）：决策序门控感知化（_classify_dummy 改造+三新叶 _signal_features/_extract_gate_segments/_rule_decision——两叶自现体内提出）+模板路分流（_predict_one 改造+新叶 _template_classify+shared spectral_template_match）——改造后目标态详见域二十三功能块；顶层签名与批量行为不变〕
 
 - **predict_style** [L0|新增]
   - 职责：推理入口：加载模型（缺失→返回"未识别"标注不阻塞主流程）→make_spectrogram→七分类前向→输出（标签+置信度+模型版本）供报告识别段；支持批量段聚合投票。
@@ -1424,6 +1439,7 @@
 ## 功能块 view_cv_evaluation ← R66
 
 （R66：AI 评测可视化——grouped_cv_evaluate 网页触发+混淆矩阵/Macro-F1/泄漏警告结果页。无旧函数改造。）
+〔改造点·快速通道（R93·演进轮④ 2026-10-15）：评测默认注入 make_predict_style_callbacks 对齐回调（模板路同源口径）+eval_protocol 口径标注上屏，可显式选内置 dummy 对照；既有取数/渲染契约不变——详见域二十三功能块〕
 
 - **view_cv_evaluation** [L0|新增]
   - 职责：评测端点与结果页：接收数据筛选+模型→调 grouped_cv_evaluate→混淆矩阵表格化+Macro-F1+分组泄漏检测警告如实回显；分组信息缺失拒绝信息上屏（沿用 R31）。
@@ -1534,7 +1550,8 @@
 ## 功能块 prepare_demo_assets ← R76
 
 （R76：手册总章——两档设备清单与连接（便携/全量各自全量清单，补充小件直接并入不单列）
-（**改造点·快速通道（R90，门口确认项）**：DEMO_CHECKLIST 由两档 dict（"便携档"/"全量档"两键）**单列化**为单一清单列表（现有可用全集序）——演示输出与手册 v2 单一方案口径一致（两档词不再出现在一键物料报告）；测试形状断言同步。备选=不动代码、手册措辞解耦并注明报告键为平台内部数据——默认取单列化，门口可否决。）+ASCII 连接图与接线表+主机环境启动+演示前准备。**文档交付物**：docs/功能演示手册.md 总章由实现批撰写（规格=需求 R76）；本函数承载总章中**可执行**的演示前准备物料——预置场景、预跑历史（操控台报告中心/录音库/AI 页有数据可翻）、出发检查单。批序首位：R76 → R85/R86 → R77…R84。）
+（**改造点·快速通道（R90，门口确认项）**：DEMO_CHECKLIST 由两档 dict（"便携档"/"全量档"两键）**单列化**为单一清单列表（现有可用全集序）——演示输出与手册 v2 单一方案口径一致（两档词不再出现在一键物料报告）；测试形状断言同步。备选=不动代码、手册措辞解耦并注明报告键为平台内部数据——默认取单列化，门口可否决。）
+（**改造点·快速通道（R94）**：DEMO_CHECKLIST 第 9 行"MMCX 转 SMA 转接线×2"按设备清单真值细分为两行——"MMCX公转SMA公×1（PPS/10M 外接备用）"+"MMCX公转SMA母×1（GPS 天线接 GPS 口用）"；18 项变 19 项，与手册 0.1 表同步；测试形状断言同步。）+ASCII 连接图与接线表+主机环境启动+演示前准备。**文档交付物**：docs/功能演示手册.md 总章由实现批撰写（规格=需求 R76）；本函数承载总章中**可执行**的演示前准备物料——预置场景、预跑历史（操控台报告中心/录音库/AI 页有数据可翻）、出发检查单。批序首位：R76 → R85/R86 → R77…R84。）
 
 - **prepare_demo_assets** [L0|新增]
   - 职责：演示物料准备编排：seed_preset_scenarios 把内置演示场景模板集写入 scenarios/（清单与手册总章一一对应：冒烟零失效/失效演示/距离演变/带录音攒数据/EMC/编辑器练手等）→ prewarm_demo_runs 预跑若干轮 sim 运行落 runs/（走 run_demo 既有入口；含 record:true 轮次以产出带标注 SigMF 录音供 AI 页与录音库演示）→ 汇总物料报告与出发前检查单数据（两档设备勾选表+环境自检命令结果）。幂等：目标已存在不覆盖，显式 overwrite 才覆盖。
@@ -1699,3 +1716,80 @@
   - 调用方：文档批（B43 总章+契约 / B44 刷章）。
   - tested 策略：check_demo_manual 契约 v2 断言（smoke 全集）
   - 核验命令：测试: demo_manual_check（R88 验收继承）
+
+<!-- ══ 域二十三：识别准确率协同改造（2026-10-15 fn-divide 演进轮④追加；旧块不动） ══ -->
+
+## 功能块 predict_style（改造承载） ← R91+R92
+
+（R91+R92：识别器门控感知两级分类+推理消费训练产出。**现状断点**：`_classify_dummy` 决策序规则一（门控脉冲：duty∈[0.05,0.5]+周期峰）被平台录音的阶梯驻留通断包络劫持——占空 0.225–0.415 入窗+驻留周期峰 → 恒 pulse@0.76，样式信息在 on 段谱形可辨但不被看（R88 后录音含真实通断结构所致）；且 `loaded['weights']` 全程不参与分类（仅进 model_version 哈希）——train_classifier local 产的 class_mean_spectra 模板无消费者。**改造后目标态**：①规则路（无 weights）门控感知两级分类——包络存在显著通断结构（连续性判据，实现定标）→提取 on 段连通集；段累计样本足够谱分析（≥K×nfft，K 实现定标）→段内谱（make_spectrogram 复用，frames=0 即不可谱分析）+段内特征+段内决策出样式标签；段过短→规则一 pulse 口径维持；段内复现周期门控（阶梯×注入 pulse 两层嵌套）→段内决策自然再判 pulse；连续录音→现行为不变。②模板路（weights 含 class_mean_spectra）——同一门控感知骨架上段内时间平均谱→spectral_template_match（shared，softmax over negative distances 业内口径）出标签+置信度。③features 披露扩门控键：有通断结构时追加 gated/on_ratio/on_segments（centroid_hz/bandwidth_3db 保留；tests/predict_style 键集合断言同步更新——管线顺手改登记）；模板路置信度附未校准标注（features/note 口径实现定标）。④防退化边界：合成短脉冲串仍 pulse、合成连续样式仍原类、模型缺 class_mean_spectra 键→回退规则路+note 标注。零能量退化/short_iq/status 行等既有口径全部不变。**改造点·快速通道（结构性变更留痕）**：`predict_style` [改造] docstring 输出口径同步（签名/批量行为不变）；`_predict_one` [改造] ⑤⑥ 分流编排（模板/规则随 weights）；`_classify_dummy` [改造] 门控感知编排（现内联特征计算段提出为 _signal_features、决策 if-elif 链提出为 _rule_decision——两处提出为纯函数供全段/段内复用）；新增叶 _extract_gate_segments/_template_classify；shared 新上提 spectral_template_match 见共享函数节。）
+
+- **predict_style** [L0|改造]
+  - 职责：识别推理入口（模型装载/批量分流）——签名与批量行为不变；docstring 输出口径同步改造后真值：features 含门控分析键（有通断结构时）、模板路（含 class_mean_spectra 模型）置信度未校准标注、规则路防退化口径。
+  - 签名意图：输入: iq_source（单源三形态/批量）+model+nfft / 输出: 单源 dict/批量 list[dict]（label/confidence/model_version/features[扩键]/iq_source）/ 错误: 不抛口径不变（nfft 非法 ValueError 透传除外）。
+  - 调用方：build_report；infer_style_entry；serve_console（在线识别）
+  - tested 策略：自有单测（predict_style/infer_style 族——R91/R92 验收继承）
+  - 核验命令：测试: predict_style or infer_style（R91 验收②；R92 全链另由 train_classifier 联合用例承载）
+  - **_predict_one** [L1|改造]
+    - 职责：单源推理编排：模型①②→IQ 取数③→谱图④→分类⑤⑥。⑤⑥ 改为分流：loaded 含 weights['class_mean_spectra'] → 模板路——门控感知（复用段提取）后段内时间平均谱向量 → _template_classify；weights 无该键（含裸 labels 模型）→ _classify_dummy 规则路；weights 有键但形状非法（非 label→向量 dict/维度不一致）→ 回退规则路+note 标注（不新增错误类型）。model_version 语义不变（kind-sha256(weights)）。
+    - 签名意图：输入: 单源+loaded 模型 dict+nfft / 输出: 结果行 dict / 错误: 沿既有 status 行（no_model/unsupported_model/no_iq/bad_iq/short_iq）。
+    - 调用方：predict_style
+    - tested 策略：上游覆盖: predict_style
+    - 核验命令：上游覆盖: predict_style
+    - **_template_classify** [L2|新增]
+      - 职责：模板路分类组装：待测谱向量（归一口径由本函数统一定义——全段或 on 段时间平均谱，与 class_mean_spectra 训练口径一致）→ 调 shared/spectral_template_match 出 (label, confidence)；未校准标注与模板路特征键组装（口径实现定标，R92 内容约束）。
+      - 签名意图：输入: 谱向量 + weights['class_mean_spectra'] + labels / 输出: (label, confidence, features 追加项) / 错误: 形状非法→交由 _predict_one 回退（不在本层拒）。
+      - 调用方：_predict_one
+      - tested 策略：上游覆盖: predict_style（R92 端到端全链用例：攒数→local 训练→识别六样式全对）
+      - 核验命令：上游覆盖: predict_style
+    - **_classify_dummy** [L2|改造]
+      - 职责：规则路分类编排（门控感知两级）：全段特征（_signal_features）→通断结构分流判据（显著 duty_off，实现定标）→①连续：全段决策（_rule_decision）；②门控：on 段提取（_extract_gate_segments）→段累计样本≥K×nfft→段内谱（make_spectrogram(iq_on)）+段内特征+段内决策（段内次级门控特征自然再判 pulse）→段过短→(pulse, 规则一置信度公式)；features 组装：centroid_hz/bandwidth_3db 恒有，有通断结构追加 gated/on_ratio/on_segments；零能量退化钳置信口径不变。
+      - 签名意图：输入: iq + spec_res（全段谱结果）/ 输出: (label, confidence, features) / 错误: 不抛（退化口径沿 B14 低#4）。
+      - 调用方：_predict_one
+      - tested 策略：上游覆盖: predict_style（R91 sim_delivery 六样式识别器级用例+防退化用例）
+      - 核验命令：上游覆盖: predict_style
+      - **_signal_features** [L3|新增（自现体内提出·快速通道）]
+        - 职责：特征计算纯函数（现 _classify_dummy 前半计算段提出）：IQ+谱→特征 dict——centroid/bw3db/occ20/ripple20/env_cv/duty_on/duty_gated/gate_periodic（含 _gate_autocorr_peak 调用）/peak_bins 轨迹 sweep_range/reversals。全段/段内两处同源复用。
+        - 签名意图：输入: iq 数组 + spec 谱矩阵 / 输出: 特征 dict / 错误: 不抛（空/退化由数值口径自兜）。
+        - 调用方：_classify_dummy
+        - tested 策略：上游覆盖: predict_style
+        - 核验命令：上游覆盖: predict_style
+      - **_extract_gate_segments** [L3|新增]
+        - 职责：二值门控序列→连通 on 段表 [(start, end_exclusive), ...]（纯转变；空输入→空表；段序确定）。
+        - 签名意图：输入: gate bool 数组 / 输出: 段表 list[tuple[int, int]] / 错误: 不抛。
+        - 调用方：_classify_dummy；_predict_one（模板路门控感知复用）
+        - tested 策略：上游覆盖: predict_style
+        - 核验命令：上游覆盖: predict_style
+      - **_rule_decision** [L3|新增（自现体内提出·快速通道）]
+        - 职责：六规则决策序纯函数（现 _classify_dummy 后半 if-elif 链提出，判据与置信度公式原样）：门控脉冲→扫频轨迹（chirp/sweep）→tone→partial_band→bandlimited_noise→composite 兜底。特征 dict 输入（全段或段内同构）——段内特征命中门控脉冲即两层门控判 pulse。
+        - 签名意图：输入: 特征 dict / 输出: (label, confidence) / 错误: 不抛（兜底 composite）。
+        - 调用方：_classify_dummy
+        - tested 策略：上游覆盖: predict_style
+        - 核验命令：上游覆盖: predict_style
+
+## 功能块 grouped_cv_evaluate（改造承载） ← R93
+
+（R93：评测口径对齐推理口径。**现状断点**：grouped_cv_evaluate 缺省内置 dummy（类均值最近邻/欧氏）与 predict_style 部署口径不同源——评测分不背书部署行为。**对齐口径的形状边界（划分期交叉验证如实声明）**：CV samples 契约={'label','features'=数值向量}（view_cv 以 make_spectrogram 时间平均谱向量喂入），规则路与门控感知需原始 IQ——**特征向量形状下不可 CV 复现**；故对齐=**模板路同源**：train_fn/predict_fn 与部署模板路共用同一实现（shared/spectral_template_match——"评测的=部署的"由函数级同源承载）；含门控感知的完整识别行为准确度由 R91/R92 的 sim 识别器级验收承载（pytest 六样式）。**目标态**：官方对齐回调工厂注入既有自定义回调参数面（成对 train_fn/predict_fn，无新参数缝）；评测报告增口径标注字段（缺省 intrinsic_dummy / 对齐 aligned_template——分组 CV/泄漏自检/0.85 如实记录全部不变）；view_cv_evaluation 默认注入对齐回调（可显式选内置 dummy 对照）、口径标注上屏。**改造点·快速通道**：`grouped_cv_evaluate` [改造] 口径标注字段；`view_cv_evaluation` [改造] 默认注入（见其块引言）；新增叶 make_predict_style_callbacks。）
+
+- **grouped_cv_evaluate** [L0|改造]
+  - 职责：评测协议（分组 CV+泄漏自检+Macro-F1/0.85 如实记录）不变；增评测口径标注：报告附 'eval_protocol' 字段——内置 dummy（缺省）→'intrinsic_dummy'，注入 make_predict_style_callbacks 对齐回调→'aligned_template'（标注与回调来源一致性由调用方保证，本函数不嗅探回调身份）。
+  - 签名意图：输入: samples+k+train_fn/predict_fn（既有契约不变）/ 输出: 评测报告 dict（增 'eval_protocol' 键）/ 错误: 沿既有 ValueError 族不变。
+  - 调用方：train_classifier（训练后评测）；view_cv_evaluation；build_report（识别段）
+  - tested 策略：自有单测（grouped_cv 族——R93 验收继承：对齐口径用例矩阵字段+口径标注断言）
+  - 核验命令：测试: grouped_cv（R93 验收）
+  - **make_predict_style_callbacks** [L1|新增]
+    - 职责：对齐回调工厂（纯适配，无状态）：返回成对 (train_fn, predict_fn)——train_fn：逐折训练集 samples→类均值模板（label→均值谱向量，与 train_classifier local 的 class_mean_spectra 同构口径）；predict_fn：样本 features→调 shared/spectral_template_match（与部署模板路同一实现）出 label。成对返回满足 grouped_cv_evaluate 既有自定义回调契约。
+    - 签名意图：输入: 无（或模型 labels 序列作模板键域锚）/ 输出: (train_fn, predict_fn) 成对回调 / 错误: 不抛（形状错由 grouped_cv_evaluate 既有校验拒）。
+    - 调用方：view_cv_evaluation（默认注入）；CLI/测试显式注入
+    - tested 策略：上游覆盖: grouped_cv_evaluate（对齐口径用例）
+    - 核验命令：上游覆盖: grouped_cv_evaluate
+
+## 功能块 设备接口真值同步 ← R94（文档交付物）
+
+（R94：据 docs/USRP_B210说明.pdf+设备清单.txt 更新——①**0.2 连接方式重写**：注入发=TRX1 口（SMA 直连 30dB 衰减器→双频天线A 或 SMA 负载闭合，无 MMCX 转接）；监测收=RX2 口（SMA 直连双频天线B）；MMCX 两线归位（公转母=GPS 天线接 GPS 口【MMCX】；公转公=PPS/10M 外接备用）；总图+接线表全用真实端口名（TRX1/RX1/RX2/TRX2 四 SMA+GPS/PPS/10M 三 MMCX）。②**0.3 加 FPGA 校验步**：新主机首次需替换 usrp_b210_fpga.bin 为 K7 优化版镜像（本演示机已替换——真机跑通在案）；GPSDO 插槽已移除不可接；板载 GPS 锁定时外接 PPS 不可用。③**0.1 清单行更新**：MMCX 两行细分+B210 行注接口布局；DEMO_CHECKLIST 同步（改造点）。④**残留清扫**：全文"CH1（MMCX）/CH2（MMCX）/MMCX 转 SMA→射频"旧接法零残留（含设备边界对照表、26 章、README 已同步句复核）。代码零改动——端口映射与 configure_b210_channels 白名单一致（tx=TX/RX 口、rx 缺省 RX2）。）
+
+- **设备接口真值同步** [L0|文档交付物]
+  - 职责：按上述规格修订手册四处+DEMO_CHECKLIST 行；验收=旧接法 grep -qE 零命中+契约 v2 八键绿+分高双审门。
+  - 签名意图：输入: PDF+清单真值+R94 规格 / 输出: 手册/常量修订 / 错误: N/A（文档+常量）。
+  - 调用方：文档批（单批轻量）。
+  - tested 策略：check_demo_manual 契约 v2+prepare 形状断言
+  - 核验命令：测试: demo_manual_check（R94 验收继承）
