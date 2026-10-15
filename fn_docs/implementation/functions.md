@@ -182,7 +182,7 @@
 | _template_classify | B47 | wired 10-15 | pytest tests/predict_style → 67 passed（模板命中/未校准标注/透传/值等价锚 5 例）；调用点 _predict_one 模板路分流 | 1bb61cd+回补 |
 | _classify_dummy | B47 | wired 10-15（改造承载 R91） | pytest tests/predict_style → 61 passed（阶梯 tone→tone@0.943 旧实现 pulse@0.79 R91 核心断言/段内噪声/两层门控兜底/连续零扩键/短脉冲维持/判别负例锚⑦ 两档几何）+sim_delivery 8+infer_style 13；调用点 _predict_one 存量 | 8013afd |
 | _predict_one | B47 | wired 10-15（改造承载 R92；含 _load_model 顶层模板规整快速通道） | pytest tests/predict_style → 67 passed（模板/规则分流/形状回退+note/门控录音 gated 三键/train_classifier 产物形态模板路+指纹/train_meta 不入哈希 6 例）+train_classifier+infer_style_entry+sim_delivery 四族 64 绿；调用点 predict_style 两处（单源+批量） | f2b6913 |
-| predict_style | B47 | wired 10-15（改造承载 R91/R92 顶层） | R91 sim_delivery 识别器级族：六样式硬判全对（tone 0.943/sweep 0.700/chirp 0.750/bandlimited_noise 0.837/partial_band 0.550/pulse 0.901 兜底）+composite 弱判；R92 全链六类全对（合成 18 段→类均值模板→新种子测试段模板路 conf 1.000）；顶层实跑阶梯 tone→tone+gated 键；调用面 build_report/infer_style_entry；全套件 3684 绿 | 待commit |
+| predict_style | B47 | wired 10-15（改造承载 R91/R92 顶层） | R91 sim_delivery 识别器级族：六样式硬判全对（tone 0.943/sweep 0.700/chirp 0.750/bandlimited_noise 0.837/partial_band 0.550/pulse 0.901 兜底）+composite 弱判；R92 全链六类全对（合成 18 段→类均值模板→新种子测试段模板路 conf 1.000）；顶层实跑阶梯 tone→tone+gated 键；调用面 build_report/infer_style_entry；全套件 3684 绿 | 263c506 |
 | make_predict_style_callbacks | B48 | stub 10-15 | —（桩在位 make_predict_style_callbacks.py:31） | — |
 | grouped_cv_evaluate | B48 | stub 10-15 | —（改造承载 R93；同上） | — |
 | view_cv_evaluation | B48 | stub 10-15 | —（改造承载 R93 默认注入；同上） | — |

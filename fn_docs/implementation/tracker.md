@@ -1729,7 +1729,7 @@ r = predict_style(iq, model={'kind': 'cnn_dummy', 'labels': ['tone','sweep','chi
 assert r['label'] == 'tone' and r['features']['gated'], (r['label'], sorted(r['features']))
 print('TOP_RUN_OK_ladder_tone_to_tone_gated')" && echo PS_wired_顶层实跑过_调用面两处在 → PS_wired_顶层实跑过_调用面两处在 (10-15)
 - [x] predict_style · 清单进位 — 证据: bash -c grep -qF 'predict_style | B47 | wired 10-15（改造承载 R91/R92 顶层）' fn_docs/implementation/functions.md && echo PS进位OK → PS进位OK (10-15)
-- [ ] predict_style · commit — 预告: fn(predict_style): wired 含四文档变更+B47 批验收
+- [x] predict_style · commit — 证据: bash -c git log --format=%h -2 | head -1 | grep -qE '^[0-9a-f]{7}$' && git show --stat --format= HEAD | grep -cE 'predict_style|sim_delivery|functions|tracker' && echo PS_commit_B47收口在 → PS_commit_B47收口在 (10-15)
 - Ruling: 段内分类判据「拼接累计≥3×nfft」→「最长单段≥3×nfft」 — 原因: 累计判据在两层门控碎片场景（脉内碎片∈[nfft,3×nfft) 且累计超阈）拼接谱为连续载波误判 tone（子代理实证 300/800 几何：旧判据 tone@0.943、新判据 pulse@0.838）——派发词判据定标缺陷（计划错），修正并补判别负例锚⑦ — 代价: 无（既有 6 用例零漂移，61 绿） — 落点: _classify_dummy 判据+常量注释+docstring 机制句（两层门控 pulse 由最长单段不足→全段规则一兜底承载；段内再判在拼接口径下数学不可达）+responsibility 域二十三块与 requirements R91 句措辞对齐·快速通道
 ## B47 批间门
 - [ ] B47 · 评审三轴 — 预告: 规格=域二十三块/标准/档案同步（含 tracker 本批行核对）
