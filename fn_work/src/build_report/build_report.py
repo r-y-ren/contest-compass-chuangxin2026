@@ -12,10 +12,14 @@
 - ④ 样式识别：run_dir/models/style_classifier.json 存在才载入 predict_style
   （不存在→段标「未识别（无模型）」，R32 口径不阻塞；IQ 取 result['iq_source']，
   缺则 recordings/ 首个 .sigmf-meta，再缺→no_iq 如实标注）；
-- ⑤ EMC 段：result 含 'emc' 键（run_emc_conduction_sim 输出形状）才嵌入，全段
-  以 '> ' 引用行呈现（模拟读数非实测——R46 溯源时按口径行白名单计 contextual）；
-  'emc' 非 dict → 缺项段且不据此附 simulated_parts/emc 级声明（B18 低#15）；
-  动态文本单元格消毒（换行折叠 ' / '、'|' 转义——B18 中#8/#9）；
+- ⑤ EMC 段：result 含 'emc' 键才嵌入，经 render_emc_flow_section 按段内
+  'flow' 标签三流程分节（conduction 传导摸底/radiation 辐射摸底/sweep 步进
+  扫频；标签缺省按形状回推：readings 列表→传导、spectrum dict→辐射、其余→
+  扫频），全段以 '> ' 引用行呈现（模拟读数非实测——R46 溯源时按口径行白名单
+  计 contextual）；'emc' 非 dict → 缺项段（标题不含具体流程——形状不可知）且
+  不据此附 simulated_parts/emc 级声明（B18 低#15）；动态文本单元格消毒
+  （换行折叠 ' / '、'|' 转义——B18 中#8/#9；段渲染实现已迁
+  render_emc_flow_section 模块——R89 快速通道留痕）；
 - ⑥ 口径脚注：render_disclaimer_sections——backend/clock_ref/run_id 取自
   result，per_basis 恒 True（PER 口径平台级）；涉 EMC 段时 simulated_parts
   附「EMC 传导摸底段」；
@@ -38,6 +42,9 @@ from src.compare_failure_boundaries.compare_failure_boundaries import (
 )
 from src.plot_triple_curves.plot_triple_curves import plot_triple_curves
 from src.predict_style.predict_style import predict_style
+from src.render_emc_flow_section.render_emc_flow_section import (
+    render_emc_flow_section,
+)
 
 __all__ = ["build_report"]
 
@@ -331,68 +338,6 @@ def _style_md(result: dict, run_dir: str, missing: list[str]) -> str:
     return "\n".join(lines)
 
 
-def _emc_md(result: dict, missing: list[str]) -> str | None:
-    """EMC 传导摸底段（result 含 'emc' 才嵌入）：全段 '> ' 引用行（模拟读数）。
-    动态文本单元格消毒（换行折叠 ' / '、'|' 转义——注入不破引用表，B18 中#8/#9）。"""
-    emc = result.get("emc")
-    if emc is None:
-        return None
-    if not isinstance(emc, dict):
-        missing.append("emc（result['emc'] 非 dict——EMC 段缺项）")
-        return "\n".join(
-            ["## EMC 传导摸底（模拟）", "", "> 缺项：result['emc'] 形状异常（非 dict）——不虚构读数。"]
-        )
-
-    lines = [
-        "## EMC 传导摸底（模拟）",
-        "",
-        "> 本段读数全部由模拟后端产生（simulated 读数），非 CISPR 16-1-1 测量接收机实测值。",
-    ]
-    readings = emc.get("readings")
-    if isinstance(readings, list) and readings:
-        lines.append("> 频点 (Hz) | 读数 (dBm) | 换算 (dBµV) | 裕量 (dB)")
-        for reading in readings:
-            if not isinstance(reading, dict):
-                continue
-            margin = reading.get("margin_db")
-            margin_text = (
-                "未判定（未提供限值线）" if margin is None else f"{margin} dB"
-            )
-            lines.append(
-                f"> {_sanitize_cell(str(reading.get('freq_hz')))} Hz"
-                f" | {_sanitize_cell(str(reading.get('power_dbm')))} dBm"
-                f" | {_sanitize_cell(str(reading.get('power_dbuv')))} dBµV"
-                f" | {_sanitize_cell(margin_text)}"
-            )
-    else:
-        lines.append("> 缺项：无读数（readings 为空）——不虚构。")
-    if emc.get("detector") is not None:
-        detector = str(emc.get("detector"))
-        lines.append(f"> 检波器：{_sanitize_cell(detector.splitlines()[0])}")
-        lines.extend(
-            f"> {_sanitize_cell(part)}" for part in detector.splitlines()[1:]
-        )
-    passed = emc.get("passed")
-    if passed is None:
-        lines.append("> passed：未判定（未提供限值线）")
-    else:
-        verdict = "合规（演示口径，非认证）" if passed else "不合规（演示口径，非认证）"
-        lines.append(f"> passed：{verdict}")
-    for key in ("compliance_note", "limit_note", "reading_note", "conversion_note"):
-        value = emc.get(key)
-        if isinstance(value, str):
-            lines.extend(_quoted_text_lines(value))
-    warnings = emc.get("warnings")
-    if isinstance(warnings, list):
-        for item in warnings:
-            lines.extend(_quoted_text_lines(str(item)))
-    disclaimer = emc.get("disclaimer")
-    if isinstance(disclaimer, str):
-        lines.extend(_quoted_text_lines(disclaimer))
-    lines.append("> simulated = True（本段全部读数带模拟标记）")
-    return "\n".join(lines)
-
-
 def _freq_md(
     result: dict,
     monitor_n: int | None,
@@ -513,7 +458,7 @@ def build_report(run_dir: str, result: dict) -> str:
     )
     sections.append(_failure_md(failure_levels, missing))
     sections.append(_style_md(result, run_dir, missing))
-    emc_section = _emc_md(result, missing)
+    emc_section = render_emc_flow_section(result, missing)
     # 仅 dict 形状的 emc 才算真有模拟读数段（非 dict → 缺项段，不算模拟段——
     # 不据此附 simulated_parts/emc 级声明，B18 低#15）。
     emc_is_simulated = isinstance(result.get("emc"), dict)

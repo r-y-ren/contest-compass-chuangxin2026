@@ -3,7 +3,10 @@
 （mock 不调用）、EMC 段引用行嵌入、数字全部可回查数据文件（虚构检测）、频点
 图谱位直传/缺省占位、模型在位识别、全空目录缺项、result/路径形状错拒绝、
 上下文字段缺→未记录、失效对比段整段引用块（聚合值口径行）、注入字段消毒
-（换行折叠/竖线转义）、emc 非 dict 不附 simulated_parts。"""
+（换行折叠/竖线转义）、emc 非 dict 不附 simulated_parts；
+EMC 三流程分节（R89，经 render_emc_flow_section 分发）：flow 标签
+conduction/radiation/sweep 各节标题与表体、sweep 标签优先于 readings 形状
+（映射层 flow 标签依赖下一任务 _report_payload 改造补齐）。"""
 from __future__ import annotations
 
 import json
@@ -382,14 +385,15 @@ def test_report_builder_injected_context_fields_sanitized(tmp_path):
 
 
 def test_report_builder_emc_non_dict_no_simulated_parts(tmp_path):
-    """⑲ emc 形状防御（B18 低#15）：result['emc'] 非 dict → EMC 缺项段仍在，
-    但不据此附 simulated_parts（脚注无 emc 级声明/CISPR 16-1-1 句）。"""
+    """⑲ emc 形状防御（B18 低#15）：result['emc'] 非 dict → EMC 缺项段仍在
+    （R89 起标题不含具体流程——形状不可知），但不据此附 simulated_parts
+    （脚注无 emc 级声明/CISPR 16-1-1 句）。"""
     _write_full_run(tmp_path)
     result = _full_result()
     result["emc"] = "not-a-dict"
     text = Path(build_report(str(tmp_path), result)).read_text(encoding="utf-8")
 
-    assert "## EMC 传导摸底（模拟）" in text
+    assert "## EMC 摸底（模拟）" in text
     assert "形状异常（非 dict）" in text
     assert "emc（result['emc'] 非 dict——EMC 段缺项）" in text  # 进缺项汇总
     assert "CISPR 16-1-1" not in text  # 无模拟段 → 不拼 emc 级声明块
@@ -421,3 +425,101 @@ def test_report_builder_emc_text_injection_does_not_break_quote_table(tmp_path):
     emc_zone = text.split("## EMC 传导摸底（模拟）")[1].split("\n\n")[0]
     quoted = [ln for ln in emc_zone.split("\n") if ln.strip()]
     assert all(ln.startswith(">") for ln in quoted), "EMC 段出现非引用行"
+
+
+# --------------------------------------------- EMC 三流程分节（R89 分发器） ----
+
+
+def test_report_builder_emc_flow_conduction_section(tmp_path):
+    """⑳ flow='conduction'+readings 形状→「EMC 传导摸底（模拟）」标题与裕量表行
+    （分发器经 build_report 入口整链嵌入——标签显式命定传导子渲染器）。"""
+    _write_full_run(tmp_path)
+    result = _full_result()
+    result["emc"] = {"flow": "conduction", **_emc_result()}
+    text = Path(build_report(str(tmp_path), result)).read_text(encoding="utf-8")
+
+    assert "## EMC 传导摸底（模拟）" in text
+    assert "> 频点 (Hz) | 读数 (dBm) | 换算 (dBµV) | 裕量 (dB)" in text
+    assert "> 150000.0 Hz | -57.0 dBm | 50.0 dBµV | 10.0 dB" in text
+    assert "## EMC 辐射摸底（模拟）" not in text
+    assert "## EMC 步进扫频（模拟）" not in text
+    assert "CISPR 16-1-1" in text  # dict 形状 → simulated_parts → emc 级声明
+
+
+def test_report_builder_emc_flow_radiation_section(tmp_path):
+    """㉑ flow='radiation'+spectrum/cleanliness 形状→「EMC 辐射摸底（模拟）」+
+    谱图表行+洁净度三指标+补偿区（脚注 emc 级声明同附）。"""
+    _write_full_run(tmp_path)
+    result = _full_result()
+    result["emc"] = {
+        "flow": "radiation",
+        "spectrum": {"freqs": [1.0e6, 2.0e6], "power_db": [-56.2, -70.1]},
+        "cleanliness": {
+            "in_band_peaks": 2,
+            "out_of_band_ratio_db": -23.4,
+            "peak_threshold_db": -62.2,
+            "criterion": "简单阈值判据（演示口径）：示例判据文字",
+        },
+        "compensated": True,
+        "compensation_note": "补偿表有贡献（示例）",
+        "uncertainty_db": 0.5,
+        "simulated": True,
+    }
+    text = Path(build_report(str(tmp_path), result)).read_text(encoding="utf-8")
+
+    assert "## EMC 辐射摸底（模拟）" in text
+    assert "> 频点 (Hz) | 功率 (dB)" in text
+    assert "> 1000000.0 Hz | -56.2 dB" in text
+    assert "> 带内峰簇数（in_band_peaks）：2" in text
+    assert "> 带外杂散比（out_of_band_ratio_db）：-23.4 dB" in text
+    assert "> 补偿：已补偿（compensated=True）" in text
+    assert "## EMC 传导摸底（模拟）" not in text
+    assert "CISPR 16-1-1" in text
+
+
+def test_report_builder_emc_flow_sweep_label_section(tmp_path):
+    """㉒ flow='sweep'+points（并带映射层 readings←points 适配键）→「EMC 步进
+    扫频（模拟）」+扫频点表+n_points；标签优先于 readings 形状回推。
+
+    依赖序申明：现有 run_demo._report_payload 对 sweep 结果只附 readings←points
+    适配、不带 flow 标签——分发器形状回推会误判 conduction（已知口径缝）。本测
+    以带 flow='sweep' 标签的 payload 验证标签优先；映射层补 flow 标签归下一任务
+    _report_payload 改造。"""
+    _write_full_run(tmp_path)
+    result = _full_result()
+    points = [
+        {"freq_hz": 1.0e6, "power_dbm": -95.5},
+        {"freq_hz": 2.0e6, "power_dbm": -98.0, "spurious": True},
+    ]
+    result["emc"] = {
+        "flow": "sweep",
+        "points": points,
+        "readings": points,  # 现有映射形状（readings←points 适配）并立在场
+        "n_points": 2,
+        "simulated": True,
+    }
+    text = Path(build_report(str(tmp_path), result)).read_text(encoding="utf-8")
+
+    assert "## EMC 步进扫频（模拟）" in text
+    assert "> 频点 (Hz) | 读数 (dBm) | spurious" in text
+    assert "> 1000000.0 Hz | -95.5 dBm | -" in text
+    assert "> 2000000.0 Hz | -98.0 dBm | True" in text
+    assert "> 扫频点总数（n_points）：2" in text
+    # 标签优先：虽带 readings 形状，不落传导表头/裕量列（修正扫频误挂传导的瑕疵）
+    assert "## EMC 传导摸底（模拟）" not in text
+    assert "换算 (dBµV)" not in text
+
+
+def test_report_builder_emc_flow_missing_section_title_generic(tmp_path):
+    """㉓ result['emc'] 非 dict（list 形）→缺项段标题「EMC 摸底（模拟）」不含
+    具体流程（形状不可知）+不附 simulated_parts（回归 B18 低#15 口径）。"""
+    _write_full_run(tmp_path)
+    result = _full_result()
+    result["emc"] = ["not", "a", "dict"]
+    text = Path(build_report(str(tmp_path), result)).read_text(encoding="utf-8")
+
+    assert "## EMC 摸底（模拟）" in text
+    assert "> 缺项：result['emc'] 形状异常（非 dict）——不虚构读数。" in text
+    assert "## EMC 传导摸底（模拟）" not in text
+    assert "emc（result['emc'] 非 dict——EMC 段缺项）" in text  # 进缺项汇总
+    assert "CISPR 16-1-1" not in text  # 不据此附 simulated_parts/emc 级声明
