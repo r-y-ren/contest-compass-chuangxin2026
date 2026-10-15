@@ -506,3 +506,37 @@ def test_gb42590_executor_judge_exception_appends_aborted_stop(tmp_path, monkeyp
     assert "KpiError" in events[-1]["error"]
     assert "judge-side normalize exploded" in events[-1]["error"]
     assert "stop_tx" in backend.log  # ladder 先停发射再透传（安全序不变）
+
+
+# ---------------------------------------------------------------------------
+# ⑰ tap 装配缝异常（B44 对抗 I-2）：白名单 kind='sim' 后端 capabilities() 抛
+#    RuntimeError → start_tx 已起发射，须先停发射（stop_tx）再透传同异常
+# ---------------------------------------------------------------------------
+class ExplodingCapsSimBackend(FakeJamBackend):
+    """白名单 sim 假后端：capabilities() 探测即抛 RuntimeError（装配缝注入）。
+
+    本应为 kind='sim'（tap 启用白名单成员，read_samples 可调用——继承
+    FakeJamBackend 真实契约），但 capabilities 涉 IO 抛错：tap 装配缝位于
+    start_tx 的停发射保护之后、run_power_ladder 之前——若无独立保护，
+    发射已起却无人停发射（发射登记态残留）。
+    """
+
+    def capabilities(self):
+        raise RuntimeError("boom: capabilities io exploded")
+
+
+def test_gb42590_executor_tap_assembly_error_stops_tx_first_then_propagates(tmp_path):
+    backend = ExplodingCapsSimBackend()
+
+    with pytest.raises(RuntimeError, match="capabilities io exploded"):
+        execute_gb42590_protocol(sim_ctx(tmp_path, backend=backend, n_events=3))
+
+    log = backend.log
+    # 发射已起（装配缝在 start_tx 成功之后），且异常透传前先停发射
+    assert backend.start_tx_calls == 1
+    assert "start_tx" in log
+    assert "stop_tx" in log
+    assert log.index("stop_tx") > log.index("start_tx")  # 先停发射
+    assert "set_tx_gain:0" in log  # stop_transmit_safely 全流程（含增益归零）
+    # 未进阶梯：tap 装配缝异常在 run_power_ladder 之前
+    assert [e for e in log if e.startswith("set_attenuation:")] == []

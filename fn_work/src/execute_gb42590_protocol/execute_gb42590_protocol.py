@@ -29,7 +29,8 @@
 ③ 阶梯：backend.start_tx([iq]) 起发射→run_power_ladder（GB 缺省 −5dB 起 5dB 步、
   0dBm 红线截断；failure_cb=KPI 判据；dwell 透传；ladder 收尾自停发射）。R88
   交错缝口径：start_tx 成功后调 tap_tx_window_blocks(ctx) 装配发射窗监测采集
-  （能力探测只读不抛；启用白名单 capabilities kind ∈ {sim,b210}，replay/无
+  （能力探测只读；装配若抛错→先停发射再透传，同 start_tx 口径；启用白名单
+  capabilities kind ∈ {sim,b210}，replay/无
   backend 返回 None）——装配非 None 则 ladder 调用传 dwell_cb=tap_kit['dwell_cb']
   （dwell 分片停检+逐 tick 拉 read_samples 块归一盖戳入 ctx['tx_window_blocks']，
   采集阶段 record_run_streams 前置消费），None 则不传 dwell_cb（调用保持现状）。
@@ -734,11 +735,25 @@ def execute_gb42590_protocol(ctx: dict, scenario: dict | None = None) -> dict:
                 run_token=ctx.get("run_token"),
             )
             raise
-        # R88 交错缝装配（发射窗监测采集）：start_tx 成功后调 tap——能力探测只读
-        # 不抛，返回值仅决定 ladder 的 dwell_cb 传参；None（replay/无 backend/
-        # 白名单外）→ 不传（现状调用不变）。块缓冲挂 ctx['tx_window_blocks']
-        # （run_demo 采集阶段 record_run_streams 前置消费——录音窗覆盖发射窗）。
-        tap_kit = tap_tx_window_blocks(ctx)
+        # R88 交错缝装配（发射窗监测采集）：start_tx 成功后调 tap，返回值仅决定
+        # ladder 的 dwell_cb 传参；None（replay/无 backend/白名单外）→ 不传
+        # （现状调用不变）。块缓冲挂 ctx['tx_window_blocks']（run_demo 采集阶段
+        # record_run_streams 前置消费——录音窗覆盖发射窗）。B44 对抗 I-2：装配缝
+        # 与 start_tx 同口径保护——发射已起，装配若抛（如 capabilities 涉 IO 抛错）
+        # 先停发射再透传，不留发射登记态残留。
+        try:
+            tap_kit = tap_tx_window_blocks(ctx)
+        except BaseException as exc:  # noqa: BLE001 - 先停发射再透传（含信号族）
+            stop_transmit_safely(
+                backend,
+                context={
+                    "origin": "execute_gb42590_protocol",
+                    "reason": "tap_assembly_error",
+                    "error": f"{type(exc).__name__}: {exc}",
+                },
+                run_token=ctx.get("run_token"),
+            )
+            raise
 
     state = {
         "dut_iter": dut_iter,
