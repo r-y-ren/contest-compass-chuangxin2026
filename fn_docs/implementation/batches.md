@@ -3,7 +3,6 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B44 | normalize_monitor_block→_pull_tick→_make_tick_dwell_cb→tap_tx_window_blocks + 改造点×4（record_run_streams 薄壳+前置消费/run_power_ladder dwell_cb/_execute_stage stop 贯通/execute_gb42590_protocol 装配）+ sim_delivery 族扩展 + user-guide 两句改写 + 手册 6 处点位清单  | tap_tx_window_blocks wired；-k sim_delivery 交窗/样式可分/急停先行绿；全套件相对基线（3552P+4F 归因在案）无新失败 | R88 子树；批号协调——并行 R90 已并单批 B43（原子切换）并指示缺陷批自 B44 起（其批表 B43 注记在册）；红#1 audit 元测试重校准已由 R90 B43 认领（动态化），本周期不重复触碰其文件面 |
 | B45 | _emc_conduction_md→_emc_radiation_md→_emc_sweep_md→render_emc_flow_section + 改造点×2（build_report 入口切换/_report_payload 三形状映射）+ report_builder 族扩展 + run_demo 端到端两流程 | render_emc_flow_section wired；-k report_builder 绿；conduction/radiation 端到端 report.md 含对应节与流程正确标题；全套件无新失败 | R89 子树 |
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）

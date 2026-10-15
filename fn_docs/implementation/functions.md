@@ -166,6 +166,8 @@
 | counter_report_task | B34 | wired 10-14 | pio run -e reporter → SUCCESS；ARC 按包直读/PLOS 差分累计口径 README 声明 | ea14f48(实现随批)+d430d65(进位) |
 | nrf24_link_firmware | B34 | wired 10-14 | pio run → reporter/peer 2 succeeded（RF24 1.6.2）；test_nrf24_firmware_layout → 3 passed；README 引脚表/构建烧录在册 | ea14f48(实现随批)+d430d65(进位) |
 | normalize_monitor_block | B44 | wired 10-15 | pytest tests/shared/test_normalize_monitor_block.py → 7 passed；tests/record_run_streams → 47 passed（薄壳调用点 record_run_streams.py:174+prewindow 4 用例） | dff5cfc+12de3be |
-| _pull_tick | B44 | wired 10-15 | pytest tests/tap_tx_window_blocks → 20 passed（归一盖戳/空读/异常透传/max_blocks 透传/非list容错 5 例）；调用点 _make_tick_dwell_cb 闭包内 | 同文件随批收编 |
+| _pull_tick | B44 | wired 10-15 | pytest tests/tap_tx_window_blocks → 20 passed（归一盖戳/空读/异常透传/max_blocks 透传/非list容错 5 例）；调用点 _make_tick_dwell_cb 闭包内 | 25e3388 收编 |
 | check_demo_manual | B43 | wired 10-15（改造点 R90 契约 v2） | 契约 v2 24 用例（三件套/防回潮/总章完整性/围栏注释防误报迁移）；真实手册八键全绿 | d7b8d6f |
 | prepare_demo_assets | B43 | wired 10-15（改造点 R90 单列化） | 19 passed；报告 checklist=18 项单列（序同手册 0.1）；全套件 3591 零失败时点实证 | d7b8d6f |
+| _make_tick_dwell_cb | B44 | wired 10-15 | pytest tests/tap_tx_window_blocks → 25 passed（分片/停检/保底/域拒绝 15 例）；产出=tap 装配、消费=run_power_ladder dwell_cb | 25e3388 收编 |
+| tap_tx_window_blocks | B44 | wired 10-15 | pytest tests/tap_tx_window_blocks → 25 passed（白名单/装配 6 例）+sim_delivery 交窗 3 例；调用点 execute_gb42590_protocol.py:741 | 25e3388 |

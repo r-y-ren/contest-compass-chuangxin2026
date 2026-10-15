@@ -1,8 +1,7 @@
 """发射窗监测采集装配（录音窗覆盖发射窗，R88）——重写规约与签名意图详见 fn_docs/responsibility.md R88 功能块。
 
 交错缝=阶梯档间停留 dwell：dwell_cb 取代 time.sleep，切片睡眠间逐 tick 有界拉
-backend.read_samples，块经 shared/normalize_monitor_block 归一+拉取时刻主机单调钟
-盖戳（时间戳落发射窗内）入 ctx['tx_window_blocks'] 缓冲；采集阶段 record_run_streams
+backend.read_samples，块经 shared/normalize_monitor_block 归一（sim 元组块=拉取时刻盖戳、B210 dict 块=保留后端 ts 序号域——交窗时间基础 sim 侧成立，真机随 R87）入 ctx['tx_window_blocks'] 缓冲；采集阶段 record_run_streams
 监测源前置消费该缓冲（预归一块 ts 不重盖）——SigMF 录音与 monitor.csv 因此含发射窗
 内容（sim 下为环回块：含样式调制、meta 无 synthetic 标注），交窗硬判据落地。
 
@@ -143,8 +142,7 @@ def _pull_tick(backend: object, blocks: list, max_blocks: int) -> None:
     _tee_backend_stream 的空读口径一致（发射尚未泵出/源耗尽皆非错误）。
 
     :param backend: 具备 read_samples(max_blocks) 契约的监测后端。
-    :param blocks: 块缓冲列表（副作用=追加归一块 dict；ts=拉取时刻——块时间戳落
-        发射窗内的关键）。
+    :param blocks: 块缓冲列表（副作用=追加归一块 dict；ts=拉取时刻盖戳（sim 元组块；B210 dict 块保留后端 ts 序号域））。
     :param max_blocks: 本次拉取块数上限（正整数）。
     :raises: read_samples 异常原样上抛（停发射路径归调用链上层）。
     """

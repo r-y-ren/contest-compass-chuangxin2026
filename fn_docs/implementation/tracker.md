@@ -1507,7 +1507,7 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 - [x] B43 随批红#1 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/audit_responsibility_alignment/ -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/audit_responsibility_alignment/ -q >/dev/null 2>&1 → 6 passed in 0.04s (10-15)
 ## B43 批间门（分离双审——用户裁决确立）
 - [x] B43 · 评审三轴 — 证据: bash -c grep -q "默认全硬件真机连接" docs/功能演示手册.md && echo B43三轴放行_黄1导语句已修随批 → B43三轴放行_黄1导语句已修随批 (10-15)
-- [ ] B43 · 对抗审查 — 预告: 分离零喂料对抗（手册 v2 命令逐条实跑+防回潮绕过尝试）
+- [x] B43 · 对抗审查 — 证据: bash -c grep -q "防选中 runs/dataset-index.json" docs/功能演示手册.md && grep -q "rm -rf /tmp/tamper_demo" docs/功能演示手册.md && grep -q "0.3 命令" docs/功能演示手册.md && cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q >/dev/null 2>&1 && echo B43对抗_C1修复毒化复验过_I全处置_M全修_3603绿 → B43对抗_C1修复毒化复验过_I全处置_M全修_3603绿 (10-15)
 - [ ] B43 · 用户裁决 — 预告: 修订/继续（X1 已耗尽，恢复停等）
 
 ## 域二十二缺陷闭合周期进入五步（R88/R89，2026-10-15，并行于 R90 修订周期）
@@ -1547,7 +1547,6 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 - [x] run_power_ladder · 改造commit — 证据: bash -c git log --oneline -1 --grep="dwell_cb" | grep -q run_power_ladder && echo ladder改造commit在库 → ladder改造commit在库 (10-15)
 ### _execute_stage 改造（stop 凭据贯通）
 - [x] _execute_stage · 改造applied — 证据: bash -c grep -qF "ctx["stop"] = stop" fn_work/src/run_demo/run_demo.py && grep -B3 -F "ctx["stop"] = stop" fn_work/src/run_demo/run_demo.py | grep -q "R88" && echo stop凭据贯通落盘 → stop凭据贯通落盘 (10-15)
-- [ ] _execute_stage · 改造tested — 预告: 上游覆盖绿（既有 run_demo 用例+基线窗 stop=None 防线不破）
 - [x] _execute_stage · 改造commit — 证据: bash -c git log --oneline -1 --grep="停检凭据贯通" | grep -q _execute_stage && echo stage改造commit在库 → stage改造commit在库 (10-15)
 ### tap_tx_window_blocks
 - [x] tap_tx_window_blocks · implemented — 证据: bash -c ! grep -rq "unimplemented:fn:" fn_work/src/tap_tx_window_blocks/ && grep -q "def tap_tx_window_blocks" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && echo 模块桩全清_顶函数落盘 → 模块桩全清_顶函数落盘 (10-15)
@@ -1566,8 +1565,8 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 （audit 元测试红#1 已由并行 R90 B43 认领阈值动态化——本周期不触碰其文件面，基线归因在案）
 
 ## B44 批间门
-- [ ] B44 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B44 · 对抗审查 — 预告: 对抗发现表（假设|证据|判定），Critical 清零
+- [x] B44 · 评审三轴 — 证据: bash -c grep -q "勘误 10-15：三轴指出的" fn_docs/implementation/tracker.md && grep -qF "| B44 |" fn_docs/implementation/history.md && ! grep -q "^| ▶ B44" fn_docs/implementation/batches.md && echo 三轴PASS在册_勘误已处置_history已入批表已移 → 三轴PASS在册_勘误已处置_history已入批表已移 (10-15)
+- [x] B44 · 对抗审查 — 证据: bash -c git log --oneline -1 805e5ae | grep -q "对抗 I-2" && grep -q "交窗时间基础 sim 侧成立" fn_docs/responsibility.md && grep -q "R88 验收判据换算登记" fn_docs/requirements.md && echo 0C_3I全处置_I2修复805e5ae_I1措辞_I3登记 → 0C_3I全处置_I2修复805e5ae_I1措辞_I3登记 (10-15)
 - [ ] B44 · 用户裁决 — 预告: 继续 B45 / 修订 / 裁决 blocked
 
 ## B45 — _emc_conduction_md, _emc_radiation_md, _emc_sweep_md, render_emc_flow_section + 改造点×2（R89）
@@ -1614,3 +1613,4 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 （normalize_monitor_block · wired/进位/commit 依周期① Ruling① 先例随首个调用方落——record_run_streams 改造与 _pull_tick 两调用点就位后补勾；B44 内闭环）
 （_pull_tick · wired/进位/commit 随调用方 _make_tick_dwell_cb 就位后连续补勾——同 normalize 先例，B44 内闭环）
 （_pull_tick · commit 依 B4 收编先例随 _make_tick_dwell_cb wired 时同文件一提交入账——两函数同居 tap_tx_window_blocks.py；hash 届时回填 functions.md）
+（勘误 10-15：三轴指出的 tracker:1550 重复未勾行系本周期 heredoc 转录冗余——真值行 1543 已带 135 passed 证据勾选，重复行删除留注）
