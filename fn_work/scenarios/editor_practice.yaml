@@ -1,0 +1,16 @@
+# 场景编辑器练手（中性场景）：带限噪声 + 常规判据——页面演示改参数
+# （功率/带宽/判据阈值等）后保存重跑，无失效戏剧性，适合练手。
+# 带宽 ≤fs/2（gen_bandlimited_noise 物理域：fs 2M → 带宽上限 1M，取 500k）。
+style: bandlimited_noise
+fs: 2000000
+bandwidth_hz: 500000
+freq_hz: 2450000000
+power_dbm: -15
+duration_s: 0.005
+judge_per_threshold: 0.10
+dwell_s: 0.5
+baseline_samples: 10
+backend: sim
+bands: [[2400, 2483.5]]
+shielded_box: true
+dut_scope: self_built

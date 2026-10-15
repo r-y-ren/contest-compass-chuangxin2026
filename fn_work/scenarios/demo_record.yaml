@@ -1,0 +1,14 @@
+# 带录音攒数据（供录音库/AI 页演示）：扫频 + record: true——每轮落带标注
+# SigMF 录音，攒够样本后可发起 AI 训练/当场识别。
+style: sweep
+fs: 1000000
+freq_hz: 2450000000
+power_dbm: -15
+duration_s: 0.01
+record: true
+dwell_s: 0.5
+baseline_samples: 10
+backend: sim
+bands: [[2400, 2483.5]]
+shielded_box: true
+dut_scope: self_built

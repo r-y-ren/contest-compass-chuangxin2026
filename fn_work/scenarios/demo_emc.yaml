@@ -1,0 +1,18 @@
+# EMC 摸底演示（模拟口径）：带限噪声载波 + CISPR B 频段步进扫频。
+# 注：emc_flow 等流程键走操控台 dict 通道（文件路线 schema 不在册），
+# 此处不写——execute_scenario 分派缺省 sweep。
+style: bandlimited_noise
+fs: 10000000
+bandwidth_hz: 2000000
+freq_hz: 2450000000
+power_dbm: -20
+duration_s: 0.01
+scenario_type: emc
+band: cispr_b
+step_hz: 5000000
+dwell_s: 0.5
+baseline_samples: 10
+backend: sim
+bands: [[2400, 2483.5]]
+shielded_box: true
+dut_scope: self_built

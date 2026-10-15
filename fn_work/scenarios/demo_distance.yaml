@@ -1,0 +1,16 @@
+# 距离演变演示：干扰随 1/3/7 米三档路损加重（l0 取 30 时三档全部可达），
+# 逐档看 PER 爬升与失效电平表。
+style: tone
+fs: 1000000
+freq_hz: 2450000000
+power_dbm: -15
+duration_s: 0.005
+scenario_type: distance
+distances: [1, 3, 7]
+model_params: {d0_m: 1, l0_db: 30, n: 2}
+dwell_s: 0.5
+baseline_samples: 10
+backend: sim
+bands: [[2400, 2483.5]]
+shielded_box: true
+dut_scope: self_built

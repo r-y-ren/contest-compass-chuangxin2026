@@ -1,0 +1,28 @@
+# 失效演示（核心产出口径）：单音 + 判据 0.10——中段功率档测到失效，
+# run_demo 退出码 1 = 测到失效属预期产出（--demo 口径），不是故障。
+# sim 事件按 GB 阶梯档位携带绝对干扰电平（与内置 --demo 场景同配方：
+# 判据于第 3 档 -15dBm（jsr=+5）触发，窗 per=0.10 恰达阈值）。
+style: tone
+fs: 1000000
+freq_hz: 2450000000
+power_dbm: -15
+duration_s: 0.005
+judge_per_threshold: 0.10
+scenario_type: gb42590
+judge_min_samples: 2
+dwell_s: 0.002
+baseline_samples: 10
+signal_power_db: -20
+link_power_db: -20
+dut: {source: sim, samples_per_event: 2}
+sim_events:
+  - {type: power_step, achieved_db: -25, ts: 0}
+  - {type: power_step, achieved_db: -20, ts: 1}
+  - {type: power_step, achieved_db: -15, ts: 2}
+  - {type: power_step, achieved_db: -10, ts: 3}
+  - {type: power_step, achieved_db: -5, ts: 4}
+  - {type: power_step, achieved_db: 0, ts: 5}
+backend: sim
+bands: [[2400, 2483.5]]
+shielded_box: true
+dut_scope: self_built

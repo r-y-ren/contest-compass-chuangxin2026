@@ -1,0 +1,17 @@
+# 多音复合演示（国标多音口径）：composite 分量清单叠三支单音
+# （-200k/0/+200k 三点频），components 逐分量按场景校验同口径递归把关。
+style: composite
+fs: 1000000
+freq_hz: 2450000000
+power_dbm: -15
+duration_s: 0.005
+components:
+  - {style: tone, fs: 1000000, freq_offset_hz: -200000}
+  - {style: tone, fs: 1000000, freq_offset_hz: 0}
+  - {style: tone, fs: 1000000, freq_offset_hz: 200000}
+dwell_s: 0.5
+baseline_samples: 10
+backend: sim
+bands: [[2400, 2483.5]]
+shielded_box: true
+dut_scope: self_built

@@ -1,0 +1,14 @@
+# 演示冒烟（零失效口径）：单音 + 宽判据 0.999——整轮预期零失效，
+# run_demo 退出码 0（演示开场「平台活着」的第一跑）。
+style: tone
+fs: 1000000
+freq_hz: 2450000000
+power_dbm: -15
+duration_s: 0.005
+judge_per_threshold: 0.999
+dwell_s: 0.5
+baseline_samples: 10
+backend: sim
+bands: [[2400, 2483.5]]
+shielded_box: true
+dut_scope: self_built
