@@ -1615,3 +1615,8 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 （_pull_tick · commit 依 B4 收编先例随 _make_tick_dwell_cb wired 时同文件一提交入账——两函数同居 tap_tx_window_blocks.py；hash 届时回填 functions.md）
 （勘误 10-15：三轴指出的 tracker:1550 重复未勾行系本周期 heredoc 转录冗余——真值行 1543 已带 135 passed 证据勾选，重复行删除留注）
 （三叶子 wired/进位/commit 随分发器 render_emc_flow_section 接线后同文件一提交收编——B4 先例）
+
+### B43 门随批·R88 手册真值同步（并行会话终审移交 4 处）
+- [x] R88 手册同步 · 改写 — 证据: grep 四锚（发射窗内=注入谱本体/同口径/自 R88 修复起/窗外为标注底噪段）均在 docs/功能演示手册.md；旧限界句（样式无关/识别恒定/同源合成底噪）零残留
+- [x] R88 手册同步 · 走查 — 证据: cd fn_work && .venv/bin/python -m pytest -k sim_delivery -q → 8 passed（交窗/样式可分判据族）+ -k demo_manual_check → 1 passed + 八键直跑 ok=True passed=26 全空
+- [x] R88 手册同步 · commit — 预告兑现: 见下方提交
