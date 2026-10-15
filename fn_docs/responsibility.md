@@ -1728,10 +1728,10 @@
   - 签名意图：输入: iq_source（单源三形态/批量）+model+nfft / 输出: 单源 dict/批量 list[dict]（label/confidence/model_version/features[扩键]/iq_source）/ 错误: 不抛口径不变（nfft 非法 ValueError 透传除外）。
   - 调用方：build_report；infer_style_entry；serve_console（在线识别）
   - tested 策略：自有单测（predict_style/infer_style 族——R91/R92 验收继承）
-  - 核验命令：测试: predict_style or infer_style（R91 验收②；R92 全链另由 train_classifier 联合用例承载）
+  - 核验命令：测试: predict_style or infer_style（R91 验收②；R92 全链由 tests/predict_style 真链用例 test_r92_real_chain_train_classifier_to_predict_style 承载——真 index_dataset rebuild→真 train_classifier(local)→模型文件→识别 6/6）
   - **_predict_one** [L1|改造]
     - 职责：单源推理编排：模型①②→IQ 取数③→谱图④→分类⑤⑥。⑤⑥ 改为分流：loaded 含 weights['class_mean_spectra'] → 模板路——门控感知（复用段提取）后段内时间平均谱向量 → _template_classify；weights 无该键（含裸 labels 模型）→ _classify_dummy 规则路；weights 有键但形状非法（非 label→向量 dict/维度不一致）→ 回退规则路+note 标注（不新增错误类型）。model_version 语义不变（kind-sha256(weights)）。
-    - 签名意图：输入: 单源+loaded 模型 dict+nfft / 输出: 结果行 dict / 错误: 沿既有 status 行（no_model/unsupported_model/no_iq/bad_iq/short_iq）。
+    - 签名意图：输入: 单源+loaded 模型 dict+nfft / 输出: 结果行 dict / 错误: 沿既有 status 行（no_model/unsupported_model/no_iq/bad_iq/short_iq）；边界：weights 为 dict 且顶层另有 class_mean_spectra 时显式 weights 优先（顶层模板不并入——_load_model 规整语义，双审 M-5 在册 2026-10-15）。
     - 调用方：predict_style
     - tested 策略：上游覆盖: predict_style
     - 核验命令：上游覆盖: predict_style
@@ -1748,7 +1748,7 @@
       - tested 策略：上游覆盖: predict_style（R91 sim_delivery 六样式识别器级用例+防退化用例）
       - 核验命令：上游覆盖: predict_style
       - **_signal_features** [L3|新增（自现体内提出·快速通道）]
-        - 职责：特征计算纯函数（现 _classify_dummy 前半计算段提出）：IQ+谱→特征 dict——centroid/bw3db/occ20/ripple20/env_cv/duty_on/duty_gated/gate_periodic（含 _gate_autocorr_peak 调用）/peak_bins 轨迹 sweep_range/reversals。全段/段内两处同源复用。
+        - 职责：特征计算纯函数（现 _classify_dummy 前半计算段提出）：IQ+谱→特征 dict——centroid/bw3db/occ20/ripple20/env_cv/duty_on/duty_gated/gate_periodic（含 _gate_autocorr_peak 调用）/peak_bins 轨迹 sweep_range/reversals。全段/段内两处同源复用（调用方含 _predict_one 模板路门控感知骨架——双审 M-4 补列 2026-10-15）。
         - 签名意图：输入: iq 数组 + spec 谱矩阵 / 输出: 特征 dict / 错误: 不抛（空/退化由数值口径自兜）。
         - 调用方：_classify_dummy
         - tested 策略：上游覆盖: predict_style

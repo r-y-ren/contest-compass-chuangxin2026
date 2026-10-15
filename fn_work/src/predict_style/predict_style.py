@@ -345,8 +345,11 @@ def _predict_one(
     bandwidth_3db（scope 特征，外发口径与规则路一致）+ confidence_note/
     template_path，门控切换时另扩 gated/on_ratio/on_segments 三键；零能量退化钳
     同规则路。模板形状非法（维度不一致等 ValueError）→ 回退规则路 _classify_dummy
-    且 features 附 'note': '模板路形状异常回退规则路: …'（不新增错误类型）。
-    无模板（weights 缺/非 dict/键空）→ 规则路 _classify_dummy（现状不变）。
+    且 features 附 'note': '模板路形状异常回退规则路: …'（不新增错误类型）；
+    weights 为非空 dict 但 class_mean_spectra 不合规（缺键/非 dict/空 dict）
+    → 同口径回退规则路+note '模板路缺合规 class_mean_spectra，回退规则路'
+    （B47 双审 I-2：原静默走规则路，现如实标注）。裸模型（weights 缺/None/
+    非 dict/空 dict——无模板承诺）→ 规则路 _classify_dummy 无 note（现状不变）。
     model_version 恒 kind-sha256(weights)（有模板自然带指纹）；结果行结构不变。
     """
     if model_err is not None:  # ①② 模型缺失/不可读/缺 kind —— 最高优先级不阻塞
@@ -378,7 +381,10 @@ def _predict_one(
         )
 
     # ⑤⑥ 分类分流（R92）+ 结果行：weights 含非空 dict 'class_mean_spectra' →
-    # 模板路（门控感知骨架与 _classify_dummy 规则路同型）；否则规则路现状不变。
+    # 模板路（门控感知骨架与 _classify_dummy 规则路同型）；weights 为非空 dict
+    # 但 class_mean_spectra 不合规（缺键/非 dict/空 dict——B47 双审 I-2：原静默
+    # 走规则路，现归回退路径带 note，与 ValueError 回退同口径）；裸模型
+    # （weights 缺/None/非 dict/空 dict——无模板承诺）规则路无 note 现状不变。
     weights = loaded.get("weights")
     templates = weights.get("class_mean_spectra") if isinstance(weights, dict) else None
     if isinstance(templates, dict) and templates:
@@ -431,6 +437,12 @@ def _predict_one(
                 confidence = min(confidence, 0.1)
                 features["degenerate"] = "zero_energy"
             confidence = float(min(max(confidence, 0.0), 1.0))
+    elif isinstance(weights, dict) and weights:
+        # B47 双审 I-2：非空 dict weights 但 class_mean_spectra 不合规（缺键/
+        # 非 dict/空 dict）→ 回退规则路+note（原静默走规则路，现如实标注——
+        # 与上方 ValueError 回退同口径）。
+        label, confidence, features = _classify_dummy(iq, spec_res)
+        features["note"] = "模板路缺合规 class_mean_spectra，回退规则路"
     else:
         label, confidence, features = _classify_dummy(iq, spec_res)  # 规则路（现状不变）
     return {
@@ -506,10 +518,14 @@ def predict_style(iq_source, model=None, nfft: int = 256) -> dict | list[dict]:
           spectral_template_match 最近质心出标签；confidence 为 softmax over
           negative distances 的**未校准**分数（校准需独立校准集，留远期）——
           features 扩 'confidence_note'（未校准标注）与 'template_path': True
-          两键，门控切换 scope 时另扩 gated/on_ratio/on_segments 三键（口径同
-          规则路）；模板形状非法（维度不一致等 ValueError）→ 回退规则路判定
-          且 features 附 'note': '模板路形状异常回退规则路: …'（不新增错误
-          类型）。
+          两键；门控三键（gated/on_ratio/on_segments）两路口径**有意不同**——
+          模板路仅 scope 实际切换（gated）时扩三键，规则路 duty_on<0.9 恒扩
+          三键（模板路 note 键承载回退信息）；模板形状非法（维度不一致等
+          ValueError）→ 回退规则路判定且 features 附 'note':
+          '模板路形状异常回退规则路: …'（不新增错误类型）；weights 为非空
+          dict 但 class_mean_spectra 不合规（缺键/非 dict/空 dict）→ 同口径
+          回退规则路+note '模板路缺合规 class_mean_spectra，回退规则路'
+          （B47 双审 I-2）。
         · 零能量退化段（谱全平坦且总能量<1e-12，如全零 IQ，双路同钳）：
           confidence 钳 ≤0.1 且 features 追加 'degenerate': 'zero_energy'
           （B14 低#4，不冒充高置信分类）。
@@ -525,9 +541,8 @@ def predict_style(iq_source, model=None, nfft: int = 256) -> dict | list[dict]:
     return _predict_one(iq_source, loaded, model_err, nfft)
 
 
-# ── 演进轮④（R91/R92）新叶骨架——重写规约与签名意图详见 fn_docs/responsibility.md
-#    域二十三功能块；宿主函数体（_classify_dummy/_predict_one/predict_style 的
-#    门控感知改造与模板路分流）由 fn-implement 按 [改造] 目标态实施。
+# ── 演进轮④（R91/R92）新叶——重写规约与签名意图详见 fn_docs/responsibility.md
+#    域二十三功能块；宿主 _classify_dummy/_predict_one 改造体已落地（B47）。
 
 
 def _signal_features(iq: np.ndarray, spec: np.ndarray) -> dict:
@@ -539,6 +554,10 @@ def _signal_features(iq: np.ndarray, spec: np.ndarray) -> dict:
     'env_cv'/'duty_on'/'duty_off'/'duty_gated'/'gate_periodic'/'gate'（bool ndarray，
     供 on 段提取）/'sweep_range'/'reversals'（int）/'spec_span'（prof.max−prof.min，
     零能量退化判据用）/'pwr_sum'（包络平方和）。spec 为 dB 谱矩阵（行=频率 bin）。
+
+    错误：空输入由上游 short_iq 先拒（_predict_one ④——frames==0 即返回不进
+    本层）；本层空数组 ValueError（zero-size reduction——空谱 prof.max() 抛）
+    ——主链不可达，如实注明（本层对空输入形态不承诺，直测须自担）。
     """
     spec = spec.astype(np.float64)
     freq_bins = int(spec.shape[0])

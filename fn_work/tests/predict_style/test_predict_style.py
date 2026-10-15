@@ -1084,3 +1084,176 @@ def test_r92_end_to_end_train_then_recognize():
         )
         assert result["features"]["template_path"] is True  # 模板路标识在位
         assert "未校准" in result["features"]["confidence_note"]
+
+
+# --- B47 双审发现处置（2026-10-15）：I-1 真链用例 / I-2 不合规模板回退 note / I-3 NaN-inf 拒收 ---
+
+from src.train_classifier.train_classifier import train_classifier  # noqa: E402
+
+
+def test_r92_real_chain_train_classifier_to_predict_style(tmp_path):
+    """I-1 真链路端到端（与上例手工聚合替身互为镜像——本用例训练侧为真实现链）：
+    真 index_dataset('rebuild') 建 runs/recordings 数据面（六样式×3 变体合成
+    SigMF 录音对+result.json 标注 style）→ 真 train_classifier(where='local',
+    min_samples=2, nfft=64, out_path=tmp) 训模板模型 → 读 out_path 模型 json
+    （train_classifier 产物形态：顶层 class_mean_spectra、无 weights 键）→
+    predict_style(model=模型文件路径, nfft=64) 识别六样式**新合成**测试段 →
+    六样式标签全对（6/6）+conf=1.0（模板分好 softmax 饱和）+template_path+
+    model_version 指纹（非 '-dummy'，六样式同一模型同一指纹）。"""
+    runs_root = tmp_path / "runs_root"
+    index_path = str(tmp_path / "index.json")
+    train_rng = np.random.RandomState(42)
+    for style in _R92_LABELS:
+        for variant in range(3):
+            run_dir = runs_root / f"run_{style}_{variant}"
+            rec_dir = run_dir / "recordings"
+            rec_dir.mkdir(parents=True)
+            iq = _r92_synth(style, train_rng, variant).astype(np.complex64)
+            iq.tofile(str(rec_dir / "rec.sigmf-data"))
+            meta = {
+                "global": {
+                    "core:sample_rate": 1e6,
+                    "core:datatype": "cf32_le",
+                    "core:num_samples": int(iq.size),
+                },
+                "captures": [{"core:sample_start": 0}],
+                "annotations": [],
+            }
+            (rec_dir / "rec.sigmf-meta").write_text(json.dumps(meta), encoding="utf-8")
+            (run_dir / "result.json").write_text(
+                json.dumps(
+                    {
+                        "status": "done",
+                        "style": style,
+                        "freq_mhz": 100.0,
+                        "backend": "sim",
+                        "date": "20260101",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+    rebuilt = index_dataset("rebuild", index_path=index_path, runs_root=str(runs_root))
+    assert rebuilt == {"rebuilt": 18, "skipped": 0}
+
+    out_path = str(tmp_path / "model.json")
+    trained = train_classifier(
+        {"style": list(_R92_LABELS)},
+        hyperparams={
+            "index_path": index_path,
+            "runs_root": str(runs_root),
+            "nfft": _R92_NFFT,
+            "min_samples": 2,
+            "out_path": out_path,
+        },
+        where="local",
+    )
+    assert trained["where"] == "local"
+    assert trained["n_samples"] == 18  # 六样式×3 段全有效（2048 ≥ nfft=64）
+    assert set(trained["labels"]) == set(_R92_LABELS)
+    with open(out_path, encoding="utf-8") as fh:
+        model_raw = json.load(fh)  # 产物形态锚：顶层 class_mean_spectra、无 weights
+    assert "class_mean_spectra" in model_raw
+    assert set(model_raw["class_mean_spectra"]) == set(_R92_LABELS)
+
+    test_rng = np.random.RandomState(7)  # 新合成测试段（不同种子+变体取训练中位）
+    versions = set()
+    for style in _R92_LABELS:
+        result = predict_style(
+            _r92_synth(style, test_rng, 1), model=out_path, nfft=_R92_NFFT
+        )
+        assert result["status"] == "ok", (style, result)
+        assert result["recognized"] is True, (style, result)
+        assert result["label"] == style, (
+            f"真链测试段 {style} 识别为 {result['label']!r}"
+            f"（conf={result['confidence']:.3f}）"
+        )
+        assert result["confidence"] == pytest.approx(1.0, abs=1e-9)
+        assert result["features"]["template_path"] is True
+        assert "未校准" in result["features"]["confidence_note"]
+        assert re.fullmatch(r"cnn_dummy-[0-9a-f]{8}", result["model_version"])
+        versions.add(result["model_version"])
+    assert len(versions) == 1  # 同一模型文件 → 六次识别同一指纹
+
+
+def test_predict_one_weights_dict_missing_class_mean_spectra_note_fallback():
+    """I-2 形态一（缺键）：weights 为非空 dict 但缺 class_mean_spectra 键 →
+    回退规则路+features 附 note（'模板路缺合规 class_mean_spectra，回退规则路'
+    ——原静默走规则路，双审处置后与 ValueError 回退同口径）；label 与裸模型
+    规则路判定一致；对照锚：裸模型（无 weights）规则路**无** note（无模板
+    承诺——现状语义不变）。"""
+    model = {
+        "kind": "cnn_dummy",
+        "labels": list(_LABELS),
+        "weights": {"dense": [[0.1, 0.2]]},  # 非空 dict 但无 class_mean_spectra 键
+    }
+    result = predict_style(_tone_iq(), model=model)
+    rule = predict_style(_tone_iq(), model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["label"] == "tone"
+    assert result["label"] == rule["label"]  # 回退=规则路判定一致
+    assert "模板路缺合规 class_mean_spectra" in result["features"]["note"]
+    assert "回退规则路" in result["features"]["note"]
+    assert "template_path" not in result["features"]
+    assert "note" not in rule["features"]  # 裸模型无 note（现状语义锚）
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [
+        pytest.param({}, id="empty_dict"),
+        pytest.param([1.0, 2.0, 3.0], id="non_dict_value"),
+    ],
+)
+def test_predict_one_class_mean_spectra_empty_or_non_dict_note_fallback(malformed):
+    """I-2 形态二/三（空 dict / 键值非 dict）：weights['class_mean_spectra'] 为
+    空 dict 或非 dict（list）→ 同口径回退规则路+note（三类不合规形态全归
+    回退路径如实标注，不再静默）。"""
+    model = {
+        "kind": "cnn_dummy",
+        "labels": list(_LABELS),
+        "weights": {"class_mean_spectra": malformed},
+    }
+    result = predict_style(_tone_iq(), model=model)
+    assert result["status"] == "ok"
+    assert result["label"] == "tone"  # 规则路判定（tone IQ 规则路即 tone）
+    assert "模板路缺合规 class_mean_spectra" in result["features"]["note"]
+    assert "template_path" not in result["features"]
+
+
+def test_spectral_template_match_nan_inf_rejected_value_error():
+    """I-3 NaN/inf 拒收：features 或模板任一侧含 NaN/±inf → ValueError 含
+    '须为有限实数'（对齐 gen_pulse._finite_real 风格）——不再走 nan 距离→
+    nan 置信度的静默路径。"""
+    with pytest.raises(ValueError, match="须为有限实数"):
+        spectral_template_match([1.0, float("nan")], {"A": [0.0, 0.0]})
+    with pytest.raises(ValueError, match="须为有限实数"):
+        spectral_template_match([1.0, float("inf")], {"A": [0.0, 0.0]})
+    with pytest.raises(ValueError, match="须为有限实数"):
+        spectral_template_match([1.0, 2.0], {"A": [0.0, float("nan")]})
+    with pytest.raises(ValueError, match="须为有限实数"):
+        spectral_template_match([1.0, 2.0], {"A": [0.0, float("inf")]})
+    with pytest.raises(ValueError, match="须为有限实数"):  # ndarray 侧同拒
+        spectral_template_match(np.array([1.0, np.nan]), {"A": np.zeros(2)})
+    with pytest.raises(ValueError, match="须为有限实数"):
+        spectral_template_match(np.array([1.0, 2.0]), {"A": np.array([0.0, -np.inf])})
+
+
+def test_predict_one_nan_template_falls_back_not_nan_confidence():
+    """I-3 端到端锚：合规 dict 形态模板但向量含 NaN（走模板路）→
+    spectral_template_match ValueError → 既有回退口径生效：label=规则路判定
+    （与裸模型同输入同 nfft 完全一致）、confidence 为有限值（**不再 nan
+    置信度**）、note 含回退标注。"""
+    templates = _seven_class_templates(_TEMPLATE_NBINS)
+    templates["tone"] = templates["tone"].copy()
+    templates["tone"][3] = float("nan")
+    ladder = _ladder_tone_iq()  # 规则路判定=tones（nfft=64 下稳定 tone）
+    result = predict_style(
+        ladder, model=_template_model(templates), nfft=_TEMPLATE_NFFT
+    )
+    rule = predict_style(ladder, model=_dummy_model(), nfft=_TEMPLATE_NFFT)
+    assert result["status"] == "ok"
+    assert result["label"] == rule["label"]  # 回退=规则路判定一致
+    assert np.isfinite(result["confidence"])  # 核心：不冒出 nan 置信度
+    assert "模板路形状异常回退规则路" in result["features"]["note"]
+    assert "须为有限实数" in result["features"]["note"]
