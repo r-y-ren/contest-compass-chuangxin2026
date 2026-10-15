@@ -7,6 +7,7 @@
 | B48 | make_predict_style_callbacks, grouped_cv_evaluate[改造], view_cv_evaluation[改造] | grouped_cv 对齐口径用例（矩阵字段+eval_protocol 标注）绿；ai_eval_view 回归绿；全套件回归绿 | R93 子树（域二十三）；对齐=模板路同源（spectral_template_match）；内置 dummy 保留缺省 |
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
+
 | 日期 | 事件 | 说明 |
 |---|---|---|
 | 10-11 | 初建 22 批 | 119 函数全排入；依赖序=红线→标定→运行骨架→后端→样式→功率→监测→链路→采集→测评→AI→模拟仪表→EMC→台账场景→报告→Web→二期→总装 |
@@ -109,3 +110,4 @@
 | 10-15 | c4 走查环处置（C2/I1/M2——F1 修复+F2 移交+F3 分治） | F1(C) 手册 7/11 章"取最新运行"命令被我 C1 修复嵌坏（注释吞括号+runs/ 前缀翻倍，照抄必败）→修为实测可达形 "$(ls -dt runs/*/ | head -1)report.md"，scoped 复走查两命令实跑 OK+语法核 OK；F2(C) 并行会话在途 README（演进轮④ R91/R92）以现在时宣称识别器已修（21/21 实验证伪、predict_style 未改）——**移交并行会话**：落码前 README 23/29 条改限界口径或标"随 R91/R92 交付"（其 requirements 已如实登记断点）；F3(I) 手册 0.4 卡片措辞→启动扫描口径（已修）；README L55 同句随 F2 移交；F4(M) 功率绝对数随场景漂移=在册限界维持；F5(M) 空录音卡片=登记后续 UI 项 |
 | 10-15 | 演进轮④批次计划（B47/B48）+批号协调 | 并行 R94 手册批已占 B46（其行注明本周期续 B47 起，采纳）；文件面声明：本周期=predict_style 子树（predict_style.py 含 4 新叶+2 改造体）+grouped_cv_evaluate（make_predict_style_callbacks+改造）+view_cv_evaluation 改造+src/shared/spectral_template_match.py+测试族（tests/predict_style 扩展、tests/shared/test_spectral_template_match、tests/grouped_cv_evaluate 扩展、tests/run_demo sim_delivery 识别器级新用例）——不碰 prepare_demo_assets/功能演示手册/check_demo_manual（并行 R90/R94 会话面）；共享面仅 implementation 四文档各节独立追加（先例 B42 M9） |
 | 10-15 | B46 对抗处置（Critical 1/Important 4/Minor 5——全处置） | F1(C) R94·4 记账证据 ERE ^ 分支恒非零不可复现（四犯）→注记勘误+Ruling 真命令重验；F2(I) c7e4369 混入轮④档案 96 行未声明=三轴 I-2 同源已在注记补声明（不回滚，其代码在途未入库）；F3(I) 端口名桥接注（丝印 TRX1/RX2↔UHD 逻辑名 TX/RX·RX2 白名单）已加 0.2；F4(I) "校验步"措辞回调"使用面说明（知识性注记非自动校验）"如实；F5(I) DEMO_CHECKLIST↔0.1 表逐行机器锚落地（⑦ 用例，"后续加固项"兑现）+F6 两处 18 残留清；F7=9a 线已修（三轴 M-1 同源）；F8 Windows 笔记本/NRF24 数量差=R90 口径遗留登记（待借 NRF24 到位后核数）；F9 70MHz–6GHz=代码域保守口径（真机 42M–6.008G）注记不改；F10 弱锚/无空格变体盲区=登记 |
+| 10-15 | 快速通道（B47 伴生）：_load_model 规整补一行 | train_classifier(local) 产物 class_mean_spectra 在模型顶层，_load_model 只透传 weights 键→模板路不可达（R92 断点）；规整=weights 非 dict 且顶层 class_mean_spectra 非空 dict 时 weights={"class_mean_spectra":...}（train_meta 不入哈希）；R92 需求字面要求「消费 train_classifier 产物」的适配，predict_style 模块内资产件级私有函数（域二十三块归属），非树外 |

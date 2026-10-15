@@ -78,7 +78,10 @@ def _normalize_labels(labels: Any) -> list[str]:
 def _load_model(model: Any) -> tuple[dict | None, dict | None]:
     """模型规整：None/路径不可读/缺 kind → (None, no_model 结果)；其余 → (规范 dict, None)。
 
-    规范 dict：{'kind': str, 'labels': list[str]（七类缺省兜底）, 'weights': 原样}。
+    规范 dict：{'kind': str, 'labels': list[str]（七类缺省兜底）, 'weights': 原样，
+    但 weights 非 dict 而 raw 顶层 'class_mean_spectra' 为非空 dict
+    （train_classifier(local) 产物形态）时顶层模板保留进 weights——train_meta
+    等其余顶层键不入 weights 不入哈希}。
     model 为 dict → 直用；为 str → json 读 {'kind','labels','weights'}；其他类型 →
     unsupported_model（模型存在但形态不受支持）。
     """
@@ -122,11 +125,21 @@ def _load_model(model: Any) -> tuple[dict | None, dict | None]:
             "recognized": False,
             "note": f"模型缺有效 'kind' 字段（须为 str，如 cnn_dummy）: {origin}",
         }
+    # weights 规整（B47 伴生修复）：weights 缺/非 dict 而 raw 顶层
+    # 'class_mean_spectra' 为非空 dict（train_classifier(local) 产物形态——顶层
+    # 模板原被丢弃致模板路不可达）→ 顶层模板保留进 weights（model_version 哈希
+    # 自然带指纹）；train_meta 等其余顶层键不入 weights 不入哈希（训练元数据
+    # 不影响识别行为）。内联 dict 与 json 文件两路径同规整（return 前一处）。
+    weights = raw.get("weights")
+    if not isinstance(weights, dict):
+        top_templates = raw.get("class_mean_spectra")
+        if isinstance(top_templates, dict) and top_templates:
+            weights = {"class_mean_spectra": top_templates}
     return (
         {
             "kind": kind,
             "labels": _normalize_labels(raw.get("labels")),
-            "weights": raw.get("weights"),
+            "weights": weights,
         },
         None,
     )
@@ -320,7 +333,22 @@ def _classify_dummy(iq: np.ndarray, spec_res: dict) -> tuple[str, float, dict]:
 def _predict_one(
     iq_source: Any, loaded: dict | None, model_err: dict | None, nfft: int
 ) -> dict:
-    """单源推理：模型①② → IQ 取数③ → 谱图④ → 分类⑤⑥（一切失败转 status 不抛）。"""
+    """单源推理：模型①② → IQ 取数③ → 谱图④ → 分类⑤⑥ 分流（一切失败转 status 不抛）。
+
+    ⑤⑥ 分类分流（R92）：模型 weights 含非空 dict 'class_mean_spectra' → 模板路
+    ——门控感知骨架与 _classify_dummy 规则路同型（docstring 互指）：全段
+    _signal_features → duty_on < _GATED_CONTINUOUS_MIN 时 _extract_gate_segments
+    取段长 ≥nfft 的 on 段、最长单段 ≥ _ON_SEGMENT_KFFT×nfft 才拼接长段重算
+    make_spectrogram 为 scope（否则全段兜底不切换），scope 谱的 dB 时间平均谱
+    profile（与 class_mean_spectra 训练口径一致）→ _template_classify（经
+    shared/spectral_template_match）出标签与置信度；features = centroid_hz/
+    bandwidth_3db（scope 特征，外发口径与规则路一致）+ confidence_note/
+    template_path，门控切换时另扩 gated/on_ratio/on_segments 三键；零能量退化钳
+    同规则路。模板形状非法（维度不一致等 ValueError）→ 回退规则路 _classify_dummy
+    且 features 附 'note': '模板路形状异常回退规则路: …'（不新增错误类型）。
+    无模板（weights 缺/非 dict/键空）→ 规则路 _classify_dummy（现状不变）。
+    model_version 恒 kind-sha256(weights)（有模板自然带指纹）；结果行结构不变。
+    """
     if model_err is not None:  # ①② 模型缺失/不可读/缺 kind —— 最高优先级不阻塞
         return dict(model_err)
     kind = loaded["kind"]
@@ -349,8 +377,62 @@ def _predict_one(
             summary,
         )
 
-    # ⑤⑥ dummy 分类 + 结果行
-    label, confidence, features = _classify_dummy(iq, spec_res)
+    # ⑤⑥ 分类分流（R92）+ 结果行：weights 含非空 dict 'class_mean_spectra' →
+    # 模板路（门控感知骨架与 _classify_dummy 规则路同型）；否则规则路现状不变。
+    weights = loaded.get("weights")
+    templates = weights.get("class_mean_spectra") if isinstance(weights, dict) else None
+    if isinstance(templates, dict) and templates:
+        spec = spec_res["spec"].astype(np.float64)
+        nfft_seg = int(spec_res["params"]["nfft"])
+        feats = _signal_features(iq, spec)
+        iq_scope, spec_scope, gated = iq, spec, False
+        segments = []
+        if feats["duty_on"] < _GATED_CONTINUOUS_MIN:  # 显著通断 → 门控感知
+            segments = [
+                (start, end)
+                for start, end in _extract_gate_segments(feats["gate"])
+                if end - start >= nfft_seg
+            ]
+            # 段内判据=最长单段（非拼接累计），与规则路同口径：两层门控的脉内
+            # 碎片累计可超 3×nfft 而拼接谱=连续载波会误判 tone——最长单段不足则
+            # 维持全段 scope 兜底（模板匹配脉冲串全段谱形）。
+            longest = max((end - start for start, end in segments), default=0)
+            if longest >= _ON_SEGMENT_KFFT * nfft_seg:  # 最长单段可谱分析
+                iq_on = iq[np.r_[tuple(slice(start, end) for start, end in segments)]]
+                spec_on = make_spectrogram(iq_on, nfft=nfft_seg)
+                if int(spec_on["frames"]) > 0:  # 理论不达（≥3×nfft ⟹ ≥5 帧）兜底
+                    spec_scope = spec_on["spec"].astype(np.float64)
+                    gated = True
+        feats_scope = _signal_features(iq_scope, spec_scope)  # scope 特征
+        profile = spec_scope.mean(axis=1)  # dB 时间平均谱（训练口径一致）
+        try:
+            label, confidence, extras = _template_classify(
+                profile, weights, loaded["labels"]
+            )
+        except ValueError as exc:
+            # 形状非法（维度不一致等）→ 回退规则路+note（R92 口径：不新增错误类型）
+            label, confidence, features = _classify_dummy(iq, spec_res)
+            features["note"] = f"模板路形状异常回退规则路: {exc}"
+        else:
+            features = {
+                "centroid_hz": feats_scope["centroid"],
+                "bandwidth_3db": min(feats_scope["bandwidth_3db"], 1.0),
+                **extras,
+            }
+            if gated:  # 门控披露三键（on_ratio/on_segments 与规则路同口径）
+                features["gated"] = True
+                features["on_ratio"] = float(feats["duty_on"])
+                features["on_segments"] = len(segments)
+            # 零能量退化钳（同规则路：scope 谱全平坦+总能量双低不冒充高置信）。
+            if (
+                feats_scope["spec_span"] < _DEGENERATE_SPEC_SPAN
+                and feats_scope["pwr_sum"] < _DEGENERATE_ENERGY
+            ):
+                confidence = min(confidence, 0.1)
+                features["degenerate"] = "zero_energy"
+            confidence = float(min(max(confidence, 0.0), 1.0))
+    else:
+        label, confidence, features = _classify_dummy(iq, spec_res)  # 规则路（现状不变）
     return {
         "status": "ok",
         "recognized": True,

@@ -823,3 +823,150 @@ def test_classify_dummy_nested_pulse_fragment_accumulation_still_pulse():
         # (a) 碎片<nfft 不入段表；(b) 碎片≥nfft 入段表（如实计数）但判据取
         # 最长单段（300<768）——段表非空也正确兜底。
         assert feats["on_segments"] == expect_segs, (inner_on, inner_period)
+
+
+# --- B47 _predict_one 模板路分流（R92）：模板命中/门控 scope/形状回退/规则路回归/两层门控兜底 ---
+
+#: 模板路用例小 nfft：谱向量 nfft//2+1=33 维，模板构造更简洁（①②⑤）
+_TEMPLATE_NFFT = 64
+_TEMPLATE_NBINS = _TEMPLATE_NFFT // 2 + 1
+
+
+def _template_model(templates):
+    """含模板的 cnn_dummy 模型：weights.class_mean_spectra={label: 模板向量}
+    （模板路分流形态——与规则路裸 _dummy_model 互为镜像）。"""
+    return {
+        "kind": "cnn_dummy",
+        "labels": list(_LABELS),
+        "weights": {"class_mean_spectra": templates},
+    }
+
+
+def _seven_class_templates(n_bins, pulse=None, flat_db=-90.0):
+    """七类模板库缺省形：tone=单峰向量（bin6≈0.1fs 折合峰 0dB、裙底 -60dB——
+    nfft=64 时 tone 时间平均谱为 hann 裙形，裙底均值实测≈-64dB），其余类平铺
+    flat_db；pulse 可传入覆写（⑤ 用平铺+单峰近似脉冲串全段谱形）。"""
+    templates = {label: np.full(n_bins, flat_db) for label in _LABELS}
+    tone = np.full(n_bins, -60.0)
+    tone[6] = 0.0
+    templates["tone"] = tone
+    if pulse is not None:
+        templates["pulse"] = pulse
+    return templates
+
+
+def test_predict_one_template_path_tone_hit_with_seven_templates():
+    """① 模板路命中：连续 tone IQ+七类模板库（tone 单峰、其余平铺）→ label='tone'、
+    features 含 confidence_note/template_path（模板路标识，键集恰四键）、
+    model_version 带 weights sha256 指纹（有模板自然非 dummy）。"""
+    result = predict_style(
+        _tone_iq(),
+        model=_template_model(_seven_class_templates(_TEMPLATE_NBINS)),
+        nfft=_TEMPLATE_NFFT,
+    )
+    assert result["status"] == "ok"
+    assert result["recognized"] is True
+    assert result["label"] == "tone"
+    assert result["confidence"] > 0.5
+    feats = result["features"]
+    assert set(feats) == {
+        "centroid_hz",
+        "bandwidth_3db",
+        "confidence_note",
+        "template_path",
+    }
+    assert feats["template_path"] is True
+    assert "未校准" in feats["confidence_note"]
+    assert re.fullmatch(r"cnn_dummy-[0-9a-f]{8}", result["model_version"])
+
+
+def test_predict_one_template_path_gated_ladder_tone_scope_switch():
+    """② 门控录音模板路：阶梯 tone 录音型 IQ（占空≈0.356 落脉冲窗，规则路曾被
+    劫持判 pulse）+tone 模板 → 模板路门控感知生效：scope=段长≥nfft 长段拼接谱、
+    label='tone'、features 含 gated/on_ratio/on_segments 三键+template_path
+    （门控披露与规则路同口径）。"""
+    result = predict_style(
+        _ladder_tone_iq(),
+        model=_template_model(_seven_class_templates(_TEMPLATE_NBINS)),
+        nfft=_TEMPLATE_NFFT,
+    )
+    assert result["status"] == "ok"
+    assert result["label"] == "tone"
+    feats = result["features"]
+    assert feats["template_path"] is True
+    assert feats["gated"] is True
+    assert feats["on_segments"] == 4  # 四段 770 样本全 ≥nfft 入段表
+    assert feats["on_ratio"] == pytest.approx(0.356, abs=0.05)
+
+
+def test_predict_one_template_dimension_mismatch_falls_back_to_rule_path():
+    """③ 形状回退：模板维度与谱不一致（128 维模板 vs 缺省 nfft=256 谱 129 维）→
+    回退规则路：label 与规则路判定一致（阶梯构造→tone）、features 附回退标注
+    note、无 template_path 键（R92 口径：不新增错误类型）。"""
+    mismatched = _template_model(_seven_class_templates(256 // 2))
+    ladder = _ladder_tone_iq()
+    result = predict_style(ladder, model=mismatched)  # 缺省 nfft=256 → 谱 129 维
+    rule = predict_style(ladder, model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["label"] == "tone"
+    assert result["label"] == rule["label"]  # 回退=规则路判定一致
+    assert "模板路形状异常回退规则路" in result["features"]["note"]
+    assert "维度不一致" in result["features"]["note"]
+    assert "template_path" not in result["features"]
+
+
+def test_predict_one_bare_model_rule_path_regression_no_template_keys():
+    """④ 无 weights 模型走规则路回归锚：裸 cnn_dummy → 结果与改造前一致（连续
+    tone→tone、model_version 'cnn_dummy-dummy'、features 无模板路键——分流
+    不污染规则路）。"""
+    result = predict_style(_tone_iq(), model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["label"] == "tone"
+    assert result["model_version"] == "cnn_dummy-dummy"
+    assert "template_path" not in result["features"]
+    assert "confidence_note" not in result["features"]
+
+
+def test_predict_one_two_layer_gating_template_scope_full_segment_not_tone():
+    """⑤ 两层门控模板路：阶梯×短脉冲 IQ（脉内碎片 50<nfft，最长单段判据不切换
+    scope）+七类模板库（pulse 模板=平铺+单峰近似脉冲串全段谱形）→ 兜底 scope=
+    全段模板匹配：label∈七类且不误判 tone（碎片拼接谱=连续载波的误判路径封
+    死）；无门控扩键（gated 三键只在 scope 实际切换时披露——如实口径）。"""
+    pulse_template = np.full(_TEMPLATE_NBINS, -114.0)
+    pulse_template[6] = -109.0  # 全段谱实测：基座≈-114dB+bin6 单峰≈-110dB
+    model = _template_model(
+        _seven_class_templates(_TEMPLATE_NBINS, pulse=pulse_template)
+    )
+    result = predict_style(
+        _ladder_nested_pulse_iq(), model=model, nfft=_TEMPLATE_NFFT
+    )
+    assert result["status"] == "ok"
+    assert result["label"] in _LABELS
+    assert result["label"] != "tone"
+    assert result["features"]["template_path"] is True
+    assert "gated" not in result["features"]
+
+
+def test_predict_one_train_classifier_product_model_template_path():
+    """⑥ train_classifier(local) 产物形态模型（顶层 class_mean_spectra、无
+    weights 键）经 _load_model 规整进 weights → 模板路：label='tone'、features
+    含 template_path、model_version 带指纹（非 '-dummy'——模型内容变指纹就该
+    变；train_meta 顶层键不入 weights 不入哈希——有无 train_meta 指纹不变）。"""
+    product = {
+        "kind": "cnn_dummy",
+        "labels": list(_LABELS),
+        "class_mean_spectra": _seven_class_templates(_TEMPLATE_NBINS),
+        "train_meta": {"n_samples": 12, "nfft": _TEMPLATE_NFFT, "per_class": {}},
+    }
+    result = predict_style(_tone_iq(), model=product, nfft=_TEMPLATE_NFFT)
+    assert result["status"] == "ok"
+    assert result["label"] == "tone"
+    assert result["features"]["template_path"] is True
+    assert re.fullmatch(r"cnn_dummy-[0-9a-f]{8}", result["model_version"])
+    assert result["model_version"] != "cnn_dummy-dummy"
+    no_meta = predict_style(
+        _tone_iq(),
+        model={k: v for k, v in product.items() if k != "train_meta"},
+        nfft=_TEMPLATE_NFFT,
+    )
+    assert no_meta["model_version"] == result["model_version"]  # train_meta 不入哈希

@@ -1698,7 +1698,7 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 ### _template_classify
 - [x] _template_classify · implemented — 证据: bash -c cd fn_work && ! grep -qF 'unimplemented:fn:_template_classify' src/predict_style/predict_style.py && grep -qF 'from src.shared.spectral_template_match import spectral_template_match' src/predict_style/predict_style.py && echo TC桩消_import在 → TC桩消_import在 (10-15)
 - [x] _template_classify · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/predict_style/test_predict_style.py -q && echo TC_54绿含5新例含等价锚 → TC_54绿含5新例含等价锚 (10-15)
-- [ ] _template_classify · wired — 预告: 调用点=改造后 _predict_one（批内补证），预期 grep 命中
+- [x] _template_classify · wired — 证据: bash -c grep -cF '_template_classify(' fn_work/src/predict_style/predict_style.py && echo TC_wired_predict_one分流调用在 → TC_wired_predict_one分流调用在 (10-15)
   — 批内时序注记: Ruling⑪同款——wired 待 _predict_one 改造落地后补证
 - [x] _template_classify · 清单进位 — 证据: bash -c grep -qF '_template_classify | B47 | tested 10-15' fn_docs/implementation/functions.md && grep -qF 'spectral_template_match | B47 | wired 10-15' fn_docs/implementation/functions.md && echo TC进位OK_STM_wired回补在 → TC进位OK_STM_wired回补在 (10-15)
 - [x] _template_classify · commit — 证据: bash -c git cat-file -e 1bb61cd && git show --stat --format= 1bb61cd | grep -cE 'predict_style|functions.md|tracker.md' && echo TC_commit_1bb61cd在 → TC_commit_1bb61cd在 (10-15)
@@ -1707,12 +1707,12 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [x] _classify_dummy · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/predict_style/test_predict_style.py tests/run_demo/test_sim_delivery_record_true.py tests/infer_style_entry -q && echo CD_61加8加13全绿含判别负例锚 → CD_61加8加13全绿含判别负例锚 (10-15)
 - [x] _classify_dummy · wired — 证据: bash -c grep -qF '_classify_dummy(iq, spec_res)' fn_work/src/predict_style/predict_style.py && echo CD_wired_predict_one存量调用在 → CD_wired_predict_one存量调用在 (10-15)
 - [x] _classify_dummy · 清单进位 — 证据: bash -c grep -qF '_classify_dummy | B47 | wired 10-15（改造承载 R91）' fn_docs/implementation/functions.md && grep -qF '最长单段' fn_docs/requirements.md && grep -qF '最长单段' fn_docs/responsibility.md && echo CD进位OK_两文档机制句对齐在 → CD进位OK_两文档机制句对齐在 (10-15)
-- [ ] _classify_dummy · commit — 预告: fn(_classify_dummy): wired 含四文档变更
+- [x] _classify_dummy · commit — 证据: bash -c git cat-file -e 8013afd && git show --stat --format= HEAD | grep -cE 'predict_style|functions|tracker|requirements|responsibility' && echo CD_commit在 → CD_commit在 (10-15)
 ### _predict_one（改造）
-- [ ] _predict_one · implemented — 预告: 改造体落地（模板/规则分流：weights 含 class_mean_spectra→门控感知+段内谱→_template_classify；缺键→规则路；形状非法→回退+note），预期分流用例绿
-- [ ] _predict_one · tested — 预告: 分流/回退/model_version 带指纹用例，预期 pytest → passed
-- [ ] _predict_one · wired — 预告: 调用点 predict_style 存量接线复证，预期 grep 命中
-- [ ] _predict_one · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] _predict_one · implemented — 证据: bash -c grep -qF '模板路形状异常回退规则路' fn_work/src/predict_style/predict_style.py && grep -qF 'class_mean_spectra' fn_work/src/predict_style/predict_style.py && echo PO改造落地_分流与回退与_load_model规整在 → PO改造落地_分流与回退与_load_model规整在 (10-15)
+- [x] _predict_one · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/predict_style/test_predict_style.py tests/train_classifier tests/infer_style_entry tests/run_demo/test_sim_delivery_record_true.py -q && echo PO_67加64全绿含train产物模板路锚 → PO_67加64全绿含train产物模板路锚 (10-15)
+- [x] _predict_one · wired — 证据: bash -c grep -qF 'return [_predict_one(item, loaded, model_err, nfft) for item in iq_source]' fn_work/src/predict_style/predict_style.py && grep -cF '_predict_one(' fn_work/src/predict_style/predict_style.py && echo PO_wired_predict_style两处调用在 → PO_wired_predict_style两处调用在 (10-15)
+- [x] _predict_one · 清单进位 — 证据: bash -c grep -qF '_predict_one | B47 | wired 10-15（改造承载 R92' fn_docs/implementation/functions.md && grep -qF '_load_model 顶层模板规整快速通道' fn_docs/implementation/functions.md && grep -qF '快速通道（B47 伴生）：_load_model' fn_docs/implementation/batches.md && echo PO进位OK_快速通道登记在 → PO进位OK_快速通道登记在 (10-15)
 - [ ] _predict_one · commit — 预告: fn(_predict_one): wired 含四文档变更
 ### predict_style（改造）
 - [ ] predict_style · implemented — 预告: 顶层 docstring 输出口径随真值改写（签名/批量行为不变）

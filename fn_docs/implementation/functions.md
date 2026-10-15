@@ -179,9 +179,9 @@
 | _signal_features | B47 | wired 10-15 | pytest tests/predict_style → 61 passed（13 键契约/特征值/gate 自洽/等价锚）；调用点=_classify_dummy 改造体全段+段内两处 | 77afff5+回补 |
 | _extract_gate_segments | B47 | wired 10-15 | pytest tests/predict_style → 61 passed（连通段 9 例）；调用点=_classify_dummy 改造体 | 447ed3a+回补 |
 | _rule_decision | B47 | wired 10-15 | pytest tests/predict_style → 61 passed（六规则+等价锚）；调用点=_classify_dummy 改造体全段+段内两处 | b048e56+回补 |
-| _template_classify | B47 | tested 10-15 | pytest tests/predict_style → 54 passed（模板命中/labels 锚域/未校准标注两键/ValueError 透传/与 shared 匹配器值等价锚 5 例）；wired 随 _predict_one 改造补证 | — |
-| _classify_dummy | B47 | wired 10-15（改造承载 R91） | pytest tests/predict_style → 61 passed（阶梯 tone→tone@0.943 旧实现 pulse@0.79 R91 核心断言/段内噪声/两层门控兜底/连续零扩键/短脉冲维持/判别负例锚⑦ 两档几何）+sim_delivery 8+infer_style 13；调用点 _predict_one 存量 | 待commit |
-| _predict_one | B47 | stub 10-15 | —（改造承载 R92；同上） | — |
+| _template_classify | B47 | wired 10-15 | pytest tests/predict_style → 67 passed（模板命中/未校准标注/透传/值等价锚 5 例）；调用点 _predict_one 模板路分流 | 1bb61cd+回补 |
+| _classify_dummy | B47 | wired 10-15（改造承载 R91） | pytest tests/predict_style → 61 passed（阶梯 tone→tone@0.943 旧实现 pulse@0.79 R91 核心断言/段内噪声/两层门控兜底/连续零扩键/短脉冲维持/判别负例锚⑦ 两档几何）+sim_delivery 8+infer_style 13；调用点 _predict_one 存量 | 8013afd |
+| _predict_one | B47 | wired 10-15（改造承载 R92；含 _load_model 顶层模板规整快速通道） | pytest tests/predict_style → 67 passed（模板/规则分流/形状回退+note/门控录音 gated 三键/train_classifier 产物形态模板路+指纹/train_meta 不入哈希 6 例）+train_classifier+infer_style_entry+sim_delivery 四族 64 绿；调用点 predict_style 两处（单源+批量） | 待commit |
 | predict_style | B47 | stub 10-15 | —（改造承载 R91/R92 顶层 docstring；签名不变） | — |
 | make_predict_style_callbacks | B48 | stub 10-15 | —（桩在位 make_predict_style_callbacks.py:31） | — |
 | grouped_cv_evaluate | B48 | stub 10-15 | —（改造承载 R93；同上） | — |
