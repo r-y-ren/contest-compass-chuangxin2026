@@ -24,31 +24,31 @@ PREWARM_SCENARIOS: "list[str]" = [
     "demo_failure.yaml",
 ]
 
-#: 出发前检查单·便携档清单（权威，手册总章按名 DEMO_CHECKLIST 引用）：
-#: 一台笔记本 + B210 套件 + 各频段天线 + 衰减/负载小件 + 两块链路演示
-#: 开发板 + 屏蔽盒与备件——便携档=可随身携带的全部演示装备。
-_CHECKLIST_PORTABLE: "list[str]" = [
+#: 出发前检查单（权威，手册总章按名 DEMO_CHECKLIST 引用——v2 口径：与手册
+#: 0.1「演示设备全集清单」表/0.4「出发前检查单」同源**单列**）：单一清单
+#: 18 项，序=手册 0.1 表行序（主机→B210+USB3 数据线→天线三组→衰减器/负载/
+#: 转接线→ESP32×2+NRF24×2+USB 线→屏蔽盒→示波器/万用表/LattePanda/PIC→
+#: 备件包）——单一真机方案不分档，两档词（便携档/全量档）不再出现。
+DEMO_CHECKLIST: "list[str]" = [
     "笔记本（Arch Linux，fn_work/.venv 已建）",
-    "USRP B210×1+USB3 数据线",
-    "2.4G/5.8G 双频胶棒天线×2",
-    "SRH789 拉杆天线×2",
+    "USRP B210（K7 优化版）×1",
+    "USB3 数据线（Type-C）×1",
+    "2.4G/5.8G 双频胶棒天线（SMA）×2",
+    "SRH789 拉杆天线（SMA）×2",
     "GPS/BD 有源天线×1",
     "30dB SMA 衰减器×1",
-    "SMA 负载×2",
+    "SMA 同轴负载（50Ω）×2",
     "MMCX 转 SMA 转接线×2",
-    "ESP32 开发板×2（含 USB 串口线）",
-    "NRF24L01 模块×2",
+    "ESP32 开发板（含 CH340/CP2102）×2",
+    "NRF24L01 模块（含 PA 型）×2",
+    "USB 数据线（ESP32 供电+串口）×2",
     "便携金属屏蔽盒（含吸波材料）",
-    "备件包（杜邦线/SMA 扳手/标签/USB 集线器）",
+    "示波器×1",
+    "万用表×1",
+    "LattePanda 3 Delta 单板机×1",
+    "PIC18F4520 开发套件×1",
+    "备件包（杜邦线×7 组/SMA 扳手/标签/USB 集线器）",
 ]
-
-#: 出发前检查单（权威常量）：全量档=便携档全部 + 台式仪器与单板机/单片机
-#: 套件（示波器/万用表/LattePanda/PIC18F4520）——全量演示现场的基础设施档。
-DEMO_CHECKLIST: "dict[str, list[str]]" = {
-    "便携档": list(_CHECKLIST_PORTABLE),
-    "全量档": _CHECKLIST_PORTABLE
-    + ["示波器", "万用表", "LattePanda 3 Delta 单板机", "PIC18F4520 开发套件"],
-}
 
 #: uhd 探测预算（秒）——检查单 env 自检的轻量口径（探测缺工具时毫秒即返）。
 _UHD_PROBE_TIMEOUT_S = 5.0
@@ -77,8 +77,9 @@ def prepare_demo_assets(
       - "prewarm_error": 预跑意外失败（PrewarmDemoRunError）的如实呈现
         （message/scenario/round_index/exit_code/detail/runs 已跑清单），
         正常时 None——不吞错不重抛，报告可直接查阅；
-      - "checklist": {"便携档": [...], "全量档": [...]} 两档设备勾选表
-        （DEMO_CHECKLIST 快照，手册总章同清单）；
+      - "checklist": [设备条目, ...] 出发检查单·单一清单 18 项
+        （DEMO_CHECKLIST 快照，序=手册 0.1 设备全集表行序，手册 0.4 同清单
+        ——单列口径，无两档词）；
       - "env": 出发环境自检 {"python", "venv_ok", "platformio", "uhd_probe"}。
     错误: 目录冲突未授权覆盖→拒绝预跑并列冲突项（refused_conflicts，不抛
       异常——部分新场景照写并计入 written）；PrewarmDemoRunError 捕获后
@@ -92,8 +93,8 @@ def prepare_demo_assets(
         "refused_conflicts": [],
         "prewarm_runs": [],
         "prewarm_error": None,
-        # 检查单给快照（逐档拷贝）：调用方改报告不得倒灌权威常量。
-        "checklist": {tier: list(items) for tier, items in DEMO_CHECKLIST.items()},
+        # 检查单给快照（整列拷贝）：调用方改报告不得倒灌权威常量。
+        "checklist": list(DEMO_CHECKLIST),
         "env": _probe_env(),
     }
     # 幂等拒绝口径：已有冲突且未授权覆盖 → 不预跑（避免在"场景归属不明"的

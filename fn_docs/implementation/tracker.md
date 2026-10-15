@@ -1465,3 +1465,151 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75)+chr(95)+chr(25298)+chr(36305))" → 
 - [x] B41 · 对抗审查（重走） — 证据: bash -c grep -q "行内「查看报告」" docs/功能演示手册.md && grep -q "骨架现状见下方预期现象" docs/功能演示手册.md && test $(grep -c "「开始」" docs/功能演示手册.md) -eq 0 && cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q >/dev/null 2>&1 && echo B41重走对抗_0C_3I处置_4M随批_内容级比对在案 → B41重走对抗_0C_3I处置_4M随批_内容级比对在案 (10-15)
 - [x] B42 · 评审三轴（重走） — 证据: bash -c grep -c "匹配契约（B42 终门后）" fn_work/src/check_demo_manual/check_demo_manual.py && cd fn_work && .venv/bin/python -m pytest tests/check_demo_manual/ -q >/dev/null 2>&1 && echo B42重走三轴放行_3Minor已修_回归锚17绿 → B42重走三轴放行_3Minor已修_回归锚17绿 (10-15)
 - [x] B42 · 对抗审查（重走） — 证据: bash -c grep -q "同型闭合" fn_work/src/check_demo_manual/check_demo_manual.py && grep -q "HTML 注释剥离" fn_work/src/check_demo_manual/check_demo_manual.py && cd fn_work && .venv/bin/python -m pytest tests/check_demo_manual/ -q 2>&1 | tail -1 && .venv/bin/python -m pytest -k demo_manual_check -q >/dev/null 2>&1 && echo B42重走对抗_0C_4I全处置_锚20绿 → B42重走对抗_0C_4I全处置_锚20绿 (10-15)
+
+## 修订周期进入五步（R90，2026-10-15）
+- [x] R90·1 前置检查 — 证据: bash -c grep -q "功能块 手册结构修订 v2 ← R90" fn_docs/responsibility.md && grep -q "改造点·快速通道（R90）" fn_docs/responsibility.md && cd fn_work && .venv/bin/python -m py_compile src/check_demo_manual/check_demo_manual.py src/prepare_demo_assets/prepare_demo_assets.py && echo E1_OK_R90块+两改造点锚在位+环境齐 → E1_OK_R90块+两改造点锚在位+环境齐 (10-15)
+- [x] R90·2 轻量对账 — 证据: bash -c grep -q "^| R90" fn_docs/responsibility.md && test $(grep -c "wired " fn_docs/implementation/functions.md) -ge 158 && echo E2_OK_158wired完好_并行在途8桩双口径在案_红1红2登记 → E2_OK_158wired完好_并行在途8桩双口径在案_红1红2登记 (10-15)
+- [x] R90·3 批次计划 — 证据: bash -c grep -q "▶ B43" fn_docs/implementation/batches.md && echo E3_OK_B43原子切换批在表 → E3_OK_B43原子切换批在表 (10-15)
+- [x] R90·4 中断恢复检查 — 证据: bash -c test $(grep -cE "^| (▶ )?B[0-9]" fn_docs/implementation/batches.md) -le 2 && echo E4_OK_无滞留 → E4_OK_无滞留 (10-15)
+- [x] R90·5 功能演进判定 — 证据: bash -c test -f fn_docs/acceptance.md && grep -q "R90" fn_docs/requirements.md && echo E5_OK_演进模式_R90在册_并行R88R89文件面零冲突 → E5_OK_演进模式_R90在册_并行R88R89文件面零冲突 (10-15)
+
+## B43 — 手册 v2 原子切换（R90）：总章+26 章+附录+check_demo_manual 契约 v2+DEMO_CHECKLIST 单列化+红#1
+### check_demo_manual（改造点·契约 v2）
+- [x] check_demo_manual · implemented — 证据: bash -c grep -q "_scan_tier_regression" fn_work/src/check_demo_manual/check_demo_manual.py && grep -q "_audit_overview" fn_work/src/check_demo_manual/check_demo_manual.py && echo IMPL_OK_契约v2两新族在 → IMPL_OK_契约v2两新族在 (10-15)
+- [x] check_demo_manual · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/check_demo_manual/ -q 2>&1 | tail -1 → 24 passed in 0.04s (10-15)
+- [x] check_demo_manual · wired — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q >/dev/null 2>&1 && echo WIRED_OK_消费面绿 → WIRED_OK_消费面绿 (10-15)
+- [x] check_demo_manual · 清单进位 — 证据: bash -c grep -q "check_demo_manual | B43 | wired 10-15（改造点 R90 契约 v2）" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-15)
+- [ ] check_demo_manual · commit — 预告: 随批提交（哈希锚定）
+### prepare_demo_assets（改造点·DEMO_CHECKLIST 单列化）
+- [x] prepare_demo_assets · implemented — 证据: bash -c grep -qE "DEMO_CHECKLIST: .list[str]" fn_work/src/prepare_demo_assets/prepare_demo_assets.py && echo IMPL_OK_单列化 → IMPL_OK_单列化 (10-15)
+- [x] prepare_demo_assets · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/ -q 2>&1 | tail -1 → 19 passed in 63.30s (0:01:03) (10-15)
+- [x] prepare_demo_assets · wired — 证据: bash -c cd fn_work && .venv/bin/python -c "
+import tempfile
+from src.prepare_demo_assets.prepare_demo_assets import prepare_demo_assets
+with tempfile.TemporaryDirectory() as td:
+    r = prepare_demo_assets(td, td + chr(47) + "runs", rounds=1)
+    cl = r["checklist"]
+    assert isinstance(cl, list) and len(cl) == 18 and not any((chr(20449)+chr(25463)+chr(26723)) in x for x in cl)
+print("WIRED_OK_18项单列零两档词")" → WIRED_OK_18项单列零两档词 (10-15)
+- [x] prepare_demo_assets · 清单进位 — 证据: bash -c grep -q "prepare_demo_assets | B43 | wired 10-15（改造点 R90 单列化）" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-15)
+- [ ] prepare_demo_assets · commit — 预告: 随批提交
+### 手册 v2（文档交付物）
+- [x] 总章 v2 · 落盘 — 证据: bash -c grep -q "## 设备边界：为什么清单里没有大型仪器" docs/功能演示手册.md && grep -q "### 0.1 演示设备全集清单" docs/功能演示手册.md && grep -q "### 0.2 唯一连接方式" docs/功能演示手册.md && echo 落盘OK_边界节+四节v2在位 → 落盘OK_边界节+四节v2在位 (10-15)
+- [x] 26 章+附录 · 刷写 — 证据: bash -c test $(grep -c "^### 所需设备与连线" docs/功能演示手册.md) -eq 0 && test $(grep -cE "便携档|全量档" docs/功能演示手册.md) -eq 0 && echo 刷写OK_26章三件套+附录同步+零两档词 → 刷写OK_26章三件套+附录同步+零两档词 (10-15)
+- [x] 手册 v2 · 走查 — 证据: bash -c cd fn_work && .venv/bin/python -c "
+from src.check_demo_manual.check_demo_manual import check_demo_manual
+ents = [l.strip() for l in open(chr(116)+chr(101)+chr(115)+chr(116)+chr(115)+chr(47)+chr(99)+chr(104)+chr(101)+chr(99)+chr(107)+chr(95)+chr(100)+chr(101)+chr(109)+chr(111)+chr(95)+chr(109)+chr(97)+chr(110)+chr(117)+chr(97)+chr(108)+chr(47)+chr(101)+chr(120)+chr(112)+chr(101)+chr(99)+chr(116)+chr(101)+chr(100)+chr(95)+chr(101)+chr(110)+chr(116)+chr(114)+chr(105)+chr(101)+chr(115)+chr(46)+chr(116)+chr(120)+chr(116)) if l.strip() and not l.startswith(chr(35))]
+r = check_demo_manual(chr(46)+chr(46)+chr(47)+chr(100)+chr(111)+chr(99)+chr(115)+chr(47)+chr(21151)+chr(33021)+chr(28436)+chr(31034)+chr(25163)+chr(20876)+chr(46)+chr(109)+chr(100), chr(46)+chr(46)+chr(47)+chr(102)+chr(110)+chr(95)+chr(100)+chr(111)+chr(99)+chr(115)+chr(47)+chr(82)+chr(69)+chr(65)+chr(68)+chr(77)+chr(69)+chr(46)+chr(109)+chr(100), ents)
+assert r[chr(111)+chr(107)] and r[chr(112)+chr(97)+chr(115)+chr(115)+chr(101)+chr(100)] == 26
+print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
+- [ ] 手册 v2 · 进位+commit — 预告: 全集数字锚定+整批提交（显式路径，禁 add -A）
+### 随批
+- [x] B43 随批红#1 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/audit_responsibility_alignment/ -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/audit_responsibility_alignment/ -q >/dev/null 2>&1 → 6 passed in 0.04s (10-15)
+## B43 批间门（分离双审——用户裁决确立）
+- [ ] B43 · 评审三轴 — 预告: 分离三轴审（规格=R90 块/标准=契约 v2/档案）
+- [ ] B43 · 对抗审查 — 预告: 分离零喂料对抗（手册 v2 命令逐条实跑+防回潮绕过尝试）
+- [ ] B43 · 用户裁决 — 预告: 修订/继续（X1 已耗尽，恢复停等）
+
+## 域二十二缺陷闭合周期进入五步（R88/R89，2026-10-15，并行于 R90 修订周期）
+- [x] R88·1 前置检查 — 证据: bash -c grep -q "功能块 tap_tx_window_blocks ← R88" fn_docs/responsibility.md && grep -q "功能块 render_emc_flow_section ← R89" fn_docs/responsibility.md && [ $(grep -rh "unimplemented:fn:" fn_work/src | wc -l) -eq 8 ] && test -x fn_work/.venv/bin/python && echo 前置OK_两块在_8桩在_venv在 → 前置OK_两块在_8桩在_venv在 (10-15)
+- [x] R88·2 轻量对账 — 证据: bash -c [ $(grep -rh "unimplemented:fn:" fn_work/src | wc -l) -eq 8 ] && [ -z "$(git status --porcelain -- fn_work/src | grep -v "^??")" ] && echo 对账OK_8桩在册_存量src零未提交漂移_子代理3552P4F归因在案 → 对账OK_8桩在册_存量src零未提交漂移_子代理3552P4F归因在案 (10-15)
+- [x] R88·3 批次计划 — 证据: bash -c grep -q "^| ▶ B44 |" fn_docs/implementation/batches.md && grep -q "^| B45 |" fn_docs/implementation/batches.md && echo 批表B44B45在册 → 批表B44B45在册 (10-15)
+- [x] R88·4 中断恢复检查 — 证据: bash -c [ -z "$(grep "^| ▶|^| B[0-9]" fn_docs/implementation/batches.md | grep -v "B43|B44|B45")" ] && grep -q "| B42 |" fn_docs/implementation/history.md && echo 无滞留_B42已入history → 无滞留_B42已入history (10-15)
+- [x] R88·5 功能演进判定 — 证据: bash -c test -f fn_docs/acceptance.md && grep -q "^## B44" fn_docs/implementation/tracker.md && echo 演进模式_批号续B44 → 演进模式_批号续B44 (10-15)
+
+## B44 — normalize_monitor_block, _pull_tick, _make_tick_dwell_cb, tap_tx_window_blocks + 改造点×4（R88）
+### normalize_monitor_block（shared 上提）
+- [x] normalize_monitor_block · implemented — 证据: bash -c ! grep -q "unimplemented:fn:normalize_monitor_block" fn_work/src/shared/normalize_monitor_block.py && grep -q "def normalize_monitor_block" fn_work/src/shared/normalize_monitor_block.py && echo 桩已替换_实现落盘 → 桩已替换_实现落盘 (10-15)
+- [x] normalize_monitor_block · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/shared/test_normalize_monitor_block.py -q 2>&1 | tail -1 && cd .. && .venv/bin/true 2>/dev/null; cd fn_work && .venv/bin/python -m pytest tests/record_run_streams/ -q 2>&1 | tail -1 → 43 passed in 0.24s (10-15)
+- [x] normalize_monitor_block · wired — 证据: bash -c test $(grep -rc "normalize_monitor_block(" fn_work/src/record_run_streams/record_run_streams.py) -ge 1 && grep -q "def normalize_monitor_block" fn_work/src/shared/normalize_monitor_block.py && echo 调用点在案_record_run_streams薄壳 → 调用点在案_record_run_streams薄壳 (10-15)
+- [x] normalize_monitor_block · 清单进位 — 证据: bash -c grep -q "| normalize_monitor_block | B44 | wired 10-15 |.*dff5cfc" fn_docs/implementation/functions.md && echo 进位读回OK → 进位读回OK (10-15)
+- [x] normalize_monitor_block · commit — 证据: bash -c git log --oneline -1 dff5cfc >/dev/null && echo dff5cfc在库 → dff5cfc在库 (10-15)
+### record_run_streams 改造（薄壳+前置消费）
+- [x] record_run_streams · 改造applied — 证据: bash -c grep -q "from src.shared.normalize_monitor_block import normalize_monitor_block" fn_work/src/record_run_streams/record_run_streams.py && grep -q "prewindow_blocks" fn_work/src/record_run_streams/record_run_streams.py && echo 薄壳+前置消费落盘 → 薄壳+前置消费落盘 (10-15)
+- [x] record_run_streams · 改造tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/record_run_streams/ -q 2>&1 | tail -1 → 47 passed in 0.17s (10-15)
+- [x] record_run_streams · 改造commit — 证据: bash -c git log --oneline -1 12de3be >/dev/null && echo 12de3be在库 → 12de3be在库 (10-15)
+### _pull_tick
+- [x] _pull_tick · implemented — 证据: bash -c ! grep -q "unimplemented:fn:_pull_tick" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && grep -q "def _pull_tick" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && echo 桩已替换 → 桩已替换 (10-15)
+- [x] _pull_tick · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/tap_tx_window_blocks/ -q 2>&1 | tail -1 → 5 passed in 0.01s (10-15)
+- [x] _pull_tick · wired — 证据: bash -c grep -q "_pull_tick(backend, blocks, max_blocks_per_tick)|_pull_tick(" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && grep -c "_pull_tick(" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py | awk "{exit $1<2}" && echo 调用点在案_make_tick_dwell_cb消费 → 调用点在案_make_tick_dwell_cb消费 (10-15)
+- [x] _pull_tick · 清单进位 — 证据: bash -c grep -qF "| _pull_tick | B44 | wired 10-15 |" fn_docs/implementation/functions.md && echo 进位读回OK → 进位读回OK (10-15)
+- [ ] _pull_tick · commit — 预告: fn(_pull_tick): wired 含四文档
+### _make_tick_dwell_cb
+- [x] _make_tick_dwell_cb · implemented — 证据: bash -c ! grep -q "unimplemented:fn:_make_tick_dwell_cb" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && grep -q "def _make_tick_dwell_cb" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && echo 桩已替换 → 桩已替换 (10-15)
+- [x] _make_tick_dwell_cb · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/tap_tx_window_blocks/ -q 2>&1 | tail -1 → 20 passed in 0.10s (10-15)
+- [ ] _make_tick_dwell_cb · wired — 预告: tap_tx_window_blocks 产出+ladder dwell_cb 消费两处 grep 命中
+- [ ] _make_tick_dwell_cb · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] _execute_stage · 改造tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/run_demo/ tests/execute_gb42590_protocol/ -q 2>&1 | tail -1 → 135 passed in 26.06s (10-15)
+### run_power_ladder 改造（dwell_cb 缝）
+- [x] run_power_ladder · 改造applied — 证据: bash -c grep -q "dwell_cb: Callable" fn_work/src/run_power_ladder/run_power_ladder.py && grep -q "dwell_cb(dwell) if dwell_cb is not None else time.sleep(dwell)" fn_work/src/run_power_ladder/run_power_ladder.py && grep -q "dwell_cb 必须为可调用或 None" fn_work/src/run_power_ladder/run_power_ladder.py && echo 签名+调用+发射前校验三处在案 → 签名+调用+发射前校验三处在案 (10-15)
+- [x] run_power_ladder · 改造tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/run_power_ladder/ -q 2>&1 | tail -1 → 73 passed in 0.07s (10-15)
+- [x] run_power_ladder · 改造commit — 证据: bash -c git log --oneline -1 --grep="dwell_cb" | grep -q run_power_ladder && echo ladder改造commit在库 → ladder改造commit在库 (10-15)
+### _execute_stage 改造（stop 凭据贯通）
+- [x] _execute_stage · 改造applied — 证据: bash -c grep -qF "ctx["stop"] = stop" fn_work/src/run_demo/run_demo.py && grep -B3 -F "ctx["stop"] = stop" fn_work/src/run_demo/run_demo.py | grep -q "R88" && echo stop凭据贯通落盘 → stop凭据贯通落盘 (10-15)
+- [ ] _execute_stage · 改造tested — 预告: 上游覆盖绿（既有 run_demo 用例+基线窗 stop=None 防线不破）
+- [x] _execute_stage · 改造commit — 证据: bash -c git log --oneline -1 --grep="停检凭据贯通" | grep -q _execute_stage && echo stage改造commit在库 → stage改造commit在库 (10-15)
+### tap_tx_window_blocks
+- [x] tap_tx_window_blocks · implemented — 证据: bash -c ! grep -rq "unimplemented:fn:" fn_work/src/tap_tx_window_blocks/ && grep -q "def tap_tx_window_blocks" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && echo 模块桩全清_顶函数落盘 → 模块桩全清_顶函数落盘 (10-15)
+- [x] tap_tx_window_blocks · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/tap_tx_window_blocks/ -q 2>&1 | tail -1 → 25 passed in 0.11s (10-15)
+- [ ] tap_tx_window_blocks · wired — 预告: execute_gb42590_protocol 调用点 grep 命中+gb 场景实跑
+- [ ] tap_tx_window_blocks · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] tap_tx_window_blocks · commit — 预告: fn(tap_tx_window_blocks): wired 含四文档
+### execute_gb42590_protocol 改造（装配接线）
+- [ ] execute_gb42590_protocol · 改造applied — 预告: ③阶梯段 start_tx 后 tap 装配+ladder 传 dwell_cb
+- [ ] execute_gb42590_protocol · 改造tested — 预告: sim_delivery 交窗判据绿（录音含无 synthetic 标注环回块+发射窗内 monitor 行>0）
+- [ ] execute_gb42590_protocol · 改造commit — 预告: fn(execute_gb42590_protocol): tap 接线（快速通道留痕）
+### R88 附带交付
+- [ ] R88 · sim_delivery 族扩展 — 预告: 交窗/样式可分/急停先行三断言全绿（-k sim_delivery）
+- [ ] R88 · user-guide 披露句改写 — 预告: L34/L64 两句随真值改写+grep 读回
+- [ ] R88 · 手册点位清单交付 — 预告: docs/功能演示手册.md 6 处坐标与建议口径清单（入 history+对话呈报）
+（audit 元测试红#1 已由并行 R90 B43 认领阈值动态化——本周期不触碰其文件面，基线归因在案）
+
+## B44 批间门
+- [ ] B44 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B44 · 对抗审查 — 预告: 对抗发现表（假设|证据|判定），Critical 清零
+- [ ] B44 · 用户裁决 — 预告: 继续 B45 / 修订 / 裁决 blocked
+
+## B45 — _emc_conduction_md, _emc_radiation_md, _emc_sweep_md, render_emc_flow_section + 改造点×2（R89）
+### _emc_conduction_md
+- [ ] _emc_conduction_md · implemented — 预告: 桩替换（原 _emc_md 表体等价迁移）
+- [ ] _emc_conduction_md · tested — 预告: 上游覆盖绿（report_builder 传导形状断言）
+- [ ] _emc_conduction_md · wired — 预告: render_emc_flow_section 分派 grep 命中
+- [ ] _emc_conduction_md · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] _emc_conduction_md · commit — 预告: fn(_emc_conduction_md): wired 含四文档
+### _emc_radiation_md
+- [ ] _emc_radiation_md · implemented — 预告: 桩替换（谱表有界+洁净度+补偿区）
+- [ ] _emc_radiation_md · tested — 预告: 上游覆盖绿（report_builder 辐射形状断言）
+- [ ] _emc_radiation_md · wired — 预告: render_emc_flow_section 分派 grep 命中
+- [ ] _emc_radiation_md · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] _emc_radiation_md · commit — 预告: fn(_emc_radiation_md): wired 含四文档
+### _emc_sweep_md
+- [ ] _emc_sweep_md · implemented — 预告: 桩替换（points 原生点表+spurious）
+- [ ] _emc_sweep_md · tested — 预告: 上游覆盖绿（report_builder 扫频形状断言）
+- [ ] _emc_sweep_md · wired — 预告: render_emc_flow_section 分派 grep 命中
+- [ ] _emc_sweep_md · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] _emc_sweep_md · commit — 预告: fn(_emc_sweep_md): wired 含四文档
+### render_emc_flow_section
+- [ ] render_emc_flow_section · implemented — 预告: 桩替换（flow 标签/形状回推分发+缺项口径）
+- [ ] render_emc_flow_section · tested — 预告: 上游覆盖绿（report_builder 三形状分支）
+- [ ] render_emc_flow_section · wired — 预告: build_report 调用点 grep 命中
+- [ ] render_emc_flow_section · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] render_emc_flow_section · commit — 预告: fn(render_emc_flow_section): wired 含四文档
+### build_report 改造（入口切换）
+- [ ] build_report · 改造applied — 预告: _emc_md 入口切换至 render_emc_flow_section（emc_is_simulated 口径不变）
+- [ ] build_report · 改造tested — 预告: tests/build_report 全绿（缺项/声明/simulated 判定回归）
+- [ ] build_report · 改造commit — 预告: fn(build_report): EMC 入口切换（快速通道留痕）
+### _report_payload 改造（三形状映射）
+- [ ] _report_payload · 改造applied — 预告: emc 段三形状映射+flow 标签
+- [ ] _report_payload · 改造tested — 预告: run_demo 端到端两流程 report.md 含对应节与标题
+- [ ] _report_payload · 改造commit — 预告: fn(_report_payload): 三形状映射（快速通道留痕）
+### R89 附带交付
+- [ ] R89 · report_builder 族扩展 — 预告: 三形状渲染分支断言全绿（-k report_builder）
+
+## B45 批间门
+- [ ] B45 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B45 · 对抗审查 — 预告: 对抗发现表（假设|证据|判定），Critical 清零
+- [ ] B45 · 用户裁决 — 预告: 进 /fn-close / 修订 / 裁决 blocked
+- Ruling: 每函数 commit 只含代码+测试、四文档随批末统一提交 — 原因: implementation 四文档与并行 R90 会话共存未提交变更（requirements/responsibility/tracker/batches 两会话各节混居），逐函数提交会拖入他会在途文档态 — 代价: per-fn commit 不含四文档（偏离「同 commit 含四文档」惯例），批末一次补齐+归属注记 — 落点: B44/B45 批末收口提交（先例：B42 M9 并发漂移随收口提交消解）
+（normalize_monitor_block · wired/进位/commit 依周期① Ruling① 先例随首个调用方落——record_run_streams 改造与 _pull_tick 两调用点就位后补勾；B44 内闭环）
+（_pull_tick · wired/进位/commit 随调用方 _make_tick_dwell_cb 就位后连续补勾——同 normalize 先例，B44 内闭环）
+（_pull_tick · commit 依 B4 收编先例随 _make_tick_dwell_cb wired 时同文件一提交入账——两函数同居 tap_tx_window_blocks.py；hash 届时回填 functions.md）

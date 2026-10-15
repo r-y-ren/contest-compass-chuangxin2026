@@ -5,6 +5,7 @@
 > **实现期发现结构性变化（函数增/删/拆/并/职责或调用关系变化）必须回到 fn-divide 改本文档**（快速确认通道），不得只在代码里改。
 > 需求依据：`fn_docs/requirements.md`（55 条 R，2026-10-11 细化版）；全部函数 `[新增]`（旧实现已删，无存量改造）。
 > **演进轮（2026-10-13）**：域二十 R56–R75 新增块见文末（P1 块随 R 号标注）；旧块不动。涉及旧函数的接线改造以各块引言内「改造点·快速通道」变更说明登记（R56/R58/R59/R64/R68/R75 共 6 处），均在用户裁决"管线允许顺手改但逐条登记"授权内。
+> **修订轮（2026-10-15）**：R90 手册结构 v2（单一真机方案+章级三件套；编号让号——并行缺陷修复会话先占 R88/R89）——文档交付物+两处既有函数改造点（check_demo_manual 契约 v2、prepare_demo_assets DEMO_CHECKLIST 单列化），改造点以各既有块引言内「改造点·快速通道（R90）」登记；旧块其余不动。
 > **演进轮②（2026-10-14）**：域二十一 R76–R87 新增块见文末（R82 演示批、R87 延后为 P1）；旧块不动、无旧函数改造。**承载方式例外**：R77–R83 为手册章节文档交付物、R87 为真机复查过程交付物——矩阵注明"无代码单元"（规格=需求条目，结构自检经 check_demo_manual 承载、命令走查按批执行）；代码单元=prepare_demo_assets / check_demo_manual / 固件两工程（esp32_wifi_firmware、nrf24_link_firmware）及 Python 帧参考实现两叶。
 
 ## 结构概览（纯结构，不带职责）
@@ -163,7 +164,18 @@
   - esb_traffic_task
   - counter_report_task
   - compose_nrf24_frame
-（域二十一另含无代码单元的交付物：手册各批章节文档 ← R76–R84、真机复查记录 ← R87——承载方式见矩阵）
+- tap_tx_window_blocks ← R88
+  - _make_tick_dwell_cb
+    - _pull_tick
+- render_emc_flow_section ← R89
+  - _emc_conduction_md
+  - _emc_radiation_md
+  - _emc_sweep_md
+- 手册结构修订 v2（文档交付物） ← R90
+  （改造点·快速通道：check_demo_manual 契约 v2 ／ prepare_demo_assets DEMO_CHECKLIST 单列化——见各自块引言）
+（域二十一另含无代码单元的交付物：手册各批章节文档 ← R76–R84、真机复查记录 ← R87——承载方式见矩阵；
+  R90 修订交付物=总章 v2+26 章三件套化+附录同步——承载方式见矩阵）
+（域二十二=R88/R89 登记缺陷闭合：涉及既有 wired 函数的改造点（run_power_ladder/execute_gb42590_protocol/run_demo._execute_stage/record_run_streams/run_demo._report_payload/build_report）均走快速通道，变更说明见各功能块引言；shared 新上提 normalize_monitor_block 见共享函数节）
 
 ## 需求覆盖矩阵（P1 在 R 号后标注；非功能约束不进矩阵，fn-close 终检对照 requirements 非功能节）
 
@@ -256,6 +268,9 @@
 | R85 | esp32_wifi_firmware（+Python 叶 compose_esp32_frame） |
 | R86 | nrf24_link_firmware（+Python 叶 compose_nrf24_frame） |
 | R87 [P1·延后] | （过程交付物：真机复查记录——设备在位后按用户命令触发；无代码单元） |
+| R90 | 手册结构修订 v2（文档交付物：总章/26 章/附录重写，无新代码单元）+ 改造点：check_demo_manual、prepare_demo_assets |
+| R88 | tap_tx_window_blocks（+四处快速通道改造点：run_power_ladder 增 dwell_cb 缝、execute_gb42590_protocol 装配接线、run_demo._execute_stage 停检凭据贯通、record_run_streams 监测源前置消费——详见功能块引言） |
+| R89 | render_emc_flow_section（+两处快速通道改造点：run_demo._report_payload 三形状映射、build_report EMC 段入口切换——详见功能块引言） |
 
 ## 共享函数（shared/：多顶层共用；矩阵挂全部受益需求）
 
@@ -279,6 +294,11 @@
   - 签名意图：输入: 声明场景枚举（emc/报告全局/急停页）/ 输出: 声明文本块 / 错误: 未知枚举→抛出。
   - tested 策略：上游覆盖: build_report（口径声明字段断言）
   - 核验命令：上游覆盖: build_report
+- **normalize_monitor_block**（调用方：record_run_streams, tap_tx_window_blocks）〔新上提·快速通道 2026-10-15：自 record_run_streams._as_monitor_block 上提为共享实现（原私有函数改薄壳调用）——R88 发射窗内拉取与采集期拉取两处同源归一+盖戳，防两套口径漂移〕
+  - 职责：后端块形状归一+主机单调钟毫秒盖戳：dict 直通；(samples, meta) 二元组（sim 契约）转块 dict（ts=time.monotonic()*1000.0 盖戳时刻、meta['rx_ts'] 块号降级 'block_index' 附注、overflow 透传）；其余形状原样透传（由 capture 的块形状校验拒）。盖戳语义=调用时刻——发射窗内拉取即窗内时间戳（R88 交窗判据的时间基础）。
+  - 签名意图：输入: 后端原始块（dict/二元组/其他）/ 输出: 归一块 dict（或原样透传形状）/ 错误: 不抛（形状拒归 capture 侧）。
+  - tested 策略：上游覆盖: record_run_streams + tap_tx_window_blocks（sim_delivery 族）
+  - 核验命令：上游覆盖: record_run_streams
 
 ## 功能块 load_scenario ← R1
 
@@ -1513,7 +1533,8 @@
 
 ## 功能块 prepare_demo_assets ← R76
 
-（R76：手册总章——两档设备清单与连接（便携/全量各自全量清单，补充小件直接并入不单列）+ASCII 连接图与接线表+主机环境启动+演示前准备。**文档交付物**：docs/功能演示手册.md 总章由实现批撰写（规格=需求 R76）；本函数承载总章中**可执行**的演示前准备物料——预置场景、预跑历史（操控台报告中心/录音库/AI 页有数据可翻）、出发检查单。批序首位：R76 → R85/R86 → R77…R84。）
+（R76：手册总章——两档设备清单与连接（便携/全量各自全量清单，补充小件直接并入不单列）
+（**改造点·快速通道（R90，门口确认项）**：DEMO_CHECKLIST 由两档 dict（"便携档"/"全量档"两键）**单列化**为单一清单列表（现有可用全集序）——演示输出与手册 v2 单一方案口径一致（两档词不再出现在一键物料报告）；测试形状断言同步。备选=不动代码、手册措辞解耦并注明报告键为平台内部数据——默认取单列化，门口可否决。）+ASCII 连接图与接线表+主机环境启动+演示前准备。**文档交付物**：docs/功能演示手册.md 总章由实现批撰写（规格=需求 R76）；本函数承载总章中**可执行**的演示前准备物料——预置场景、预跑历史（操控台报告中心/录音库/AI 页有数据可翻）、出发检查单。批序首位：R76 → R85/R86 → R77…R84。）
 
 - **prepare_demo_assets** [L0|新增]
   - 职责：演示物料准备编排：seed_preset_scenarios 把内置演示场景模板集写入 scenarios/（清单与手册总章一一对应：冒烟零失效/失效演示/距离演变/带录音攒数据/EMC/编辑器练手等）→ prewarm_demo_runs 预跑若干轮 sim 运行落 runs/（走 run_demo 既有入口；含 record:true 轮次以产出带标注 SigMF 录音供 AI 页与录音库演示）→ 汇总物料报告与出发前检查单数据（两档设备勾选表+环境自检命令结果）。幂等：目标已存在不覆盖，显式 overwrite 才覆盖。
@@ -1537,6 +1558,7 @@
 ## 功能块 check_demo_manual ← R84（承载 R76–R84 结构自检）
 
 （R84：手册附录+总装——现场应急速查表（症状→处置，覆盖 README FAQ 全部条目）+总目录+出发前检查单；**全手册结构自检**是本块可执行核心，R77–R83 各批验收命令即本函数按批登记的期望章节集执行（期望集随批增长）。）
+（**改造点·快速通道（R90）**：断言族契约 v2——②四件套断言改**三件套**（功能说明/操作步骤/预期现象，"所需设备与连线"不再为章级必备小节）；③两档标注断言**删除**，新增**防回潮断言**（章内出现"便携档/全量档"字样即报）与**总章设备清单完整性断言**（总章含单一清单必需设备项与"大型仪器替代说明"节锚）；期望集契约不变（26 条全等/括注）。测试用例随契约同步（既有两档/四件套 fixture 改造+新断言族用例）。）
 
 - **check_demo_manual** [L0|新增]
   - 职责：手册结构体检：解析 docs/功能演示手册.md——①断言期望功能条目集齐（期望集按已交付批登记，缺条目点名）；②每条目四件套小节齐（功能说明/两档所需设备及连线/操作步骤/预期现象）且两档（便携/全量）标注齐；③全文无"待定/TODO/占位"残留标记；④附录应急速查表覆盖 fn_docs/README.md「常见问题」全部条目（标题关键词映射，未覆盖点名）。汇总输出体检报告。
@@ -1610,7 +1632,70 @@
     - 核验命令：上游覆盖: firmware_nrf24
   - **compose_nrf24_frame** [L1|新增]（Python——帧协议参考实现，落 drive_nrf24_link 包）
     - 职责：Python 侧帧生成（与固件 encode_nrf24_frame 同规格）：五计数值→合法帧文本，供固件往返用例与解析器测试复用——协议漂移单点防线。
-    - 签名意图：输入: 五计数值 / 输出: 帧文本 / 错误: 非法值域（含 rpd∉{0,1}）→ValueError。
+    - 签名意图：输入: 五计数值（+checksum 开关可选路径同 R85 口径）/ 输出: 帧文本 / 错误: 非法值域（含 rpd∉{0,1}）→ValueError。
     - 调用方：pytest 往返用例（test+entry 类）
     - tested 策略：自有单测（compose→parse 往返全字段一致；非法值拒）
     - 核验命令：测试: dut_nrf24（往返用例族）
+
+## 功能块 tap_tx_window_blocks ← R88
+
+（R88：sim 录音窗覆盖发射窗——样式承载闭合。**发射窗唯一存在于 gb 协议路径**：`start_tx([iq])` 起发射→run_power_ladder 逐档（下发→power_step 事件→dwell→判据）→收尾停发射；distance/custom/emc 类型无 start_tx、无发射窗，监测后置语义不变。**交错缝=阶梯档间停留 dwell**：以可注入的 dwell_cb 取代 time.sleep，切片睡眠间逐 tick 有界拉 backend.read_samples，块经 shared/normalize_monitor_block 归一+拉取时刻主机单调钟盖戳（时间戳落发射窗内）入 ctx['tx_window_blocks'] 缓冲；采集阶段 record_run_streams 监测源**前置消费**该缓冲（预归一块 ts 不重盖，record=True 同步入录制 tee——SigMF 录音含发射窗 IQ），后随残余/底噪照旧（sim 停发射后残余环回块仍先于底噪产出，溯源不混）。sim 下发射窗内块=环回块（含样式调制、meta 无 synthetic 标注）——「录音含 ≥1 环回块+发射窗时间戳内 monitor.csv 有行」交窗硬判据由此落地。启用白名单=backend capabilities kind ∈ {sim, b210}（统一编排用户裁决：真机侧=采集窗提前打开，行为不劣化，实证随 R87）；replay 回放时间线自洽不启用（后置采集即其语义）。急停/异常：dwell_cb 分片停检置位→EmergencyStopRequested（run_demo 定义，延迟导入防环导），沿 ladder「先停发射再透传」既有路径——铁律不放松反收紧（dwell 内不可中断窗消除）。**改造点·快速通道（结构性变更留痕）**：①`run_power_ladder` [改造] 新增可选参 `dwell_cb: Callable[[float], None] | None = None`（缺省 None→time.sleep(dwell) 原语义不变；dwell_cb 异常沿既有先停发射再透传）；②`execute_gb42590_protocol` [改造] ③阶梯段 start_tx 成功后调 tap 装配并向 ladder 传 dwell_cb（②基线窗在装配前不受影响）；③`run_demo._execute_stage` [改造] execute 前写 ctx['stop']=stop（tap 分片停检凭据贯通；既有三阶段边界检查与 gb 基线窗 baseline_ctx['stop']=None 防线均不变）；④`record_run_streams` [改造] _tee_backend_stream 前置消费 ctx['tx_window_blocks']（块经 _process_monitor_block 同管道：monitor.csv/统计行/录制 tee 同源；前置块计数计入 max_monitor_blocks 总预算——防失控上限不放大）。）
+
+- **tap_tx_window_blocks** [L0|新增]
+  - 职责：发射窗监测采集装配器：能力探测（backend 在位+capabilities()['kind'] ∈ {sim, b210}+read_samples 可调用）→创建块缓冲列表挂 ctx['tx_window_blocks']，返回 {'dwell_cb': _make_tick_dwell_cb 产出, 'blocks': 缓冲引用}；不满足白名单（replay/无 backend/无 read_samples）→返回 None 且不写 ctx 键（调用方不接线，后置采集语义保持）。只装配不拉取（发射窗内拉取全部经 dwell_cb 承载）。
+  - 签名意图：输入: 运行上下文 ctx（backend/stop 凭据可选；stop 取 ctx.get('stop')）/ 输出: 装配配件 dict {'dwell_cb','blocks'} 或 None / 错误: 装配期不捕获（能力探测只读不试拉）。
+  - 调用方：execute_gb42590_protocol（③阶梯段，start_tx 成功后）
+  - tested 策略：上游覆盖: run_demo（sim_delivery 族——R88 验收指定扩展点 tests/run_demo/test_sim_delivery_record_true.py：交窗判据/样式可分/急停停发射先行；单元粒度用例同文件追加）
+  - 核验命令：上游覆盖: run_demo（-k sim_delivery）
+  - **_make_tick_dwell_cb** [L1|新增]
+    - 职责：dwell 分片停留回调工厂：闭包持有 backend/缓冲/停检凭据/切片参数；每次调用(dwell_s) 执行「dwell 切片（片长 ≤ min(dwell, 切片上限)，缺省数十毫秒量级定桩时定）逐片：停检→tick→sleep」；dwell_s=0 保底一次 tick（发射窗极短也须采到窗内容——交窗硬判据兜底）；停旗置位→抛 EmergencyStopRequested；read_samples 异常原样上抛（由 ladder 停发射后透传）。纯编排（睡眠/停检/拉取三步均已下探或定桩，无内联不相干转变）。
+    - 签名意图：输入: dwell_s 秒（非负，域校验归 run_power_ladder 发射前拒绝）/ 输出: None / 错误: 停旗置位→EmergencyStopRequested；后端读异常原样上抛。
+    - 调用方：tap_tx_window_blocks（产出）；run_power_ladder（dwell_cb 参数消费）
+    - tested 策略：上游覆盖: run_demo（sim_delivery 族急停先行断言+dwell=0 保底 tick 断言）
+    - 核验命令：上游覆盖: run_demo（-k sim_delivery）
+    - **_pull_tick** [L2|新增]
+      - 职责：单次有界拉取：backend.read_samples(每 tick 块数上限) 返回块列表逐块经 shared/normalize_monitor_block 归一（ts=拉取时刻——块时间戳落发射窗内的关键）append 入缓冲；空读静默返回（发射尚未泵出/源耗尽皆非错误）。
+      - 签名意图：输入: backend+缓冲列表+每 tick 块数上限（正整数定桩时定）/ 输出: None（副作用=缓冲追加）/ 错误: read_samples 异常原样上抛。
+      - 调用方：_make_tick_dwell_cb
+      - tested 策略：上游覆盖: run_demo（sim_delivery 族交窗判据——SigMF 录音含无 synthetic 标注的环回块）
+      - 核验命令：上游覆盖: run_demo（-k sim_delivery）
+
+## 功能块 render_emc_flow_section ← R89
+
+（R89：EMC 三流程报告节——传导/辐射映射与分节渲染。现状缺口：run_demo._report_payload 只映射 scenario_type=='emc' 且 inner 含 points 的扫频形状，传导（readings 列表+margin_db/passed+口径注记）与辐射（spectrum+cleanliness+补偿注记）无映射分支——数字只落 result.json；build_report._emc_md 单形状渲染且标题写死「EMC 传导摸底」（扫频数据也误挂传导标题）。闭合：**映射层**按结果形状三分支+段内 'flow' 标签（形状回推口径与 execute_scenario._streams_note 一致：readings 列表→conduction、spectrum dict→radiation、其余含 points→sweep）；**渲染层**按 flow 分节——传导=读数/裕量表+检波器+passed+口径注记、辐射=谱图表（有界行渲染，全谱溯源归 result.json）+洁净度+补偿注记、扫频=频点/读数(+spurious) 点表；标题随流程（EMC 传导摸底/EMC 辐射摸底/EMC 步进扫频）。**改造点·快速通道（结构性变更留痕）**：①`run_demo._report_payload` [改造] emc 段三形状映射分支+段内 'flow' 标签（readings←inner 原生、spectrum/cleanliness 直传、points→readings 适配口径保留在扫频分支内）；②`build_report` [改造] EMC 段入口由 _emc_md 切换至 render_emc_flow_section（分发职责并入，传导表体演化自原 _emc_md 正文；emc_is_simulated 判定口径与 B18 低#15 缺项段语义不变；_sanitize_cell/_quoted_text_lines 等私有文本助手同模块就近复用不跨模块上提）。）
+
+- **render_emc_flow_section** [L0|新增]
+  - 职责：EMC 报告节分发渲染：result 无 'emc' 键→None（不嵌段）；'emc' 非 dict→缺项段（B18 低#15 既有口径，不据此附 simulated_parts）；dict→按 'flow' 标签分派（缺省形状回推：readings 列表→conduction / spectrum dict→radiation / 其余→sweep）三子渲染器之一。纯分发（形状判定+委派，无内联渲染）。
+  - 签名意图：输入: 报告结果对象 result+缺失清单 missing / 输出: EMC 段 markdown 文本或 None / 错误: 不抛（形状异常落缺项段如实标注）。
+  - 调用方：build_report
+  - tested 策略：上游覆盖: build_report（report_builder 三形状分支断言——R89 验收指定口径）
+  - 核验命令：上游覆盖: build_report（-k report_builder）
+  - **_emc_conduction_md** [L1|新增]
+    - 职责：传导摸底段渲染：标题「EMC 传导摸底（模拟）」+模拟读数口径引言行；读数/裕量表（频点 Hz/读数 dBm/换算 dBµV/裕量 dB——margin None→「未判定（未提供限值线）」）；检波器行；passed 判定行（None→未判定；True→合规（演示口径，非认证）/False→不合规（演示口径，非认证））；compliance_note/limit_note/reading_note/conversion_note 注记行；warnings 逐条；disclaimer 声明；simulated=True 行。动态文本单元格消毒（换行折叠 ' / '、'|' 转义——B18 中#8/#9 口径沿用）。〔表体演化自原 _emc_md 正文——传导形状即其原生形状，行为等价迁移〕
+    - 签名意图：输入: emc 段 dict（readings/detector/passed/notes/warnings/disclaimer）/ 输出: 段 markdown / 错误: 不抛（readings 空→缺项行「无读数——不虚构」）。
+    - 调用方：render_emc_flow_section
+    - tested 策略：上游覆盖: build_report（report_builder 传导形状断言：表行/裕量未判定分支/标题）
+    - 核验命令：上游覆盖: build_report（-k report_builder）
+  - **_emc_radiation_md** [L1|新增]
+    - 职责：辐射摸底段渲染：标题「EMC 辐射摸底（模拟）」+模拟读数口径引言行；谱图表（频点 Hz/功率 dB——全谱 bin 有界渲染：行数上限+超限注明「全谱见 result.json」，不静默截断）；洁净度结论区（in_band_peaks/out_of_band_ratio_db/peak_threshold_db+criterion 判据文字）；补偿区（compensated 布尔+compensation_note+uncertainty_db+compensation_confidence 汇总（如有））；warnings 逐条；disclaimer 声明；simulated=True 行。消毒同传导。
+    - 签名意图：输入: emc 段 dict（spectrum/cleanliness/compensated/补偿注记/warnings/disclaimer）/ 输出: 段 markdown / 错误: 不抛（spectrum 空/缺键→缺项行如实标注）。
+    - 调用方：render_emc_flow_section
+    - tested 策略：上游覆盖: build_report（report_builder 辐射形状断言：谱表行/洁净度结论/补偿注记行）
+    - 核验命令：上游覆盖: build_report（-k report_builder）
+  - **_emc_sweep_md** [L1|新增]
+    - 职责：步进扫频段渲染：标题「EMC 步进扫频（模拟）」+模拟读数口径引言行；扫频点表（频点 Hz/读数 dBm+spurious 标记（如有））——points 形状（freq_hz/power_dbm/spurious?）原生渲染，不再借用传导的 dBµV/裕量列（修正既有「扫频误挂传导标题+空裕量列」瑕疵）；n_points 总数行；warnings 逐条；disclaimer 声明；simulated=True 行。消毒同传导。
+    - 签名意图：输入: emc 段 dict（points/n_points/warnings/disclaimer）/ 输出: 段 markdown / 错误: 不抛（points 空→缺项行如实标注）。
+    - 调用方：render_emc_flow_section
+    - tested 策略：上游覆盖: build_report（report_builder 扫频形状断言：点表/标题/spurious 分支）
+    - 核验命令：上游覆盖: build_report（-k report_builder）
+
+## 功能块 手册结构修订 v2 ← R90（文档交付物）
+
+（R88：docs/功能演示手册.md 结构性修订——**总章 v2**：①单一设备清单（现有可用设备全集一表：B210 套件/四类天线/衰减器/负载/线材/ESP32×2/NRF24×2/屏蔽盒/示波器/万用表/LattePanda/PIC18F4520/备件，补充小件直接并入；机器人套件其余件不入册）；②**大型仪器替代说明前置节**（导语后：清单即全集/B210+软件顶替大仪器对照表[信号源↔B210 CH1、频谱仪↔B210 CH2、EMI 接收机/13GHz 混频/程控衰减器↔模拟后端+插槽即插即换]/远期口径）；③**唯一连接方案**（一张总连接图+一张接线总表：B210 CH1→30dB 衰减→发射天线/负载、CH2 监测、GPS 可选、被测链路区标"WiFi/NRF24 二选一（换固件切换，同一时刻一种，不增设备）"、USB 口分配）；④环境启动与物料准备保留（0.5 检查单单列化、两档词清除、索引重建步骤保留）。**26 章**：删除各章"所需设备与连线"小节→三件套（功能说明/操作步骤/预期现象）；sim 表述按 R88④ 重述（第 13 章平台能力口径、其余章真机默认）。**附录**：应急表保留 sim 降级兜底行、方案 A 引用清除；总目录/检查单同步。**README（fn_docs）入口段已随 grill 同步**。无新代码单元；两处既有函数改造点见各自块。）
+
+- **手册结构修订 v2** [L0|文档交付物]
+  - 职责：按上述规格重写手册总章/26 章/附录为 v2 结构；配合 check_demo_manual 契约 v2 与 DEMO_CHECKLIST 单列化落地；全集复验（三件套 passed=26+零占位+FAQ 零遗漏+防回潮零命中）。
+  - 签名意图：输入: 现行手册+R88 规格 / 输出: 手册 v2 全文 / 错误: N/A（文档）。
+  - 调用方：文档批（B43 总章+契约 / B44 刷章）。
+  - tested 策略：check_demo_manual 契约 v2 断言（smoke 全集）
+  - 核验命令：测试: demo_manual_check（R88 验收继承）

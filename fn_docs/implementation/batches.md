@@ -3,6 +3,9 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
+| ▶ B44 | normalize_monitor_block→_pull_tick→_make_tick_dwell_cb→tap_tx_window_blocks + 改造点×4（record_run_streams 薄壳+前置消费/run_power_ladder dwell_cb/_execute_stage stop 贯通/execute_gb42590_protocol 装配）+ sim_delivery 族扩展 + user-guide 两句改写 + 手册 6 处点位清单  | tap_tx_window_blocks wired；-k sim_delivery 交窗/样式可分/急停先行绿；全套件相对基线（3552P+4F 归因在案）无新失败 | R88 子树；批号协调——并行 R90 已并单批 B43（原子切换）并指示缺陷批自 B44 起（其批表 B43 注记在册）；红#1 audit 元测试重校准已由 R90 B43 认领（动态化），本周期不重复触碰其文件面 |
+| B45 | _emc_conduction_md→_emc_radiation_md→_emc_sweep_md→render_emc_flow_section + 改造点×2（build_report 入口切换/_report_payload 三形状映射）+ report_builder 族扩展 + run_demo 端到端两流程 | render_emc_flow_section wired；-k report_builder 绿；conduction/radiation 端到端 report.md 含对应节与流程正确标题；全套件无新失败 | R89 子树 |
+| ▶ B43 | 手册 v2 原子切换：总章重写（单一清单+大仪器替代节前置+唯一连接方案+0.4/0.5 修订）+26 章刷三件套+附录同步（应急表兜底/检查单单列）+改造点 check_demo_manual 契约 v2（三件套/删两档断言/防回潮/总章清单完整性+测试同步）+改造点 DEMO_CHECKLIST 单列化（+测试）+随批红#1（audit 快速通道阈值动态化） | 契约 v2 全集绿（passed=26 三件套+零占位+FAQ 零遗漏+防回潮零命中）；DEMO_CHECKLIST 单列报告实证；audit 红点清零；分离双审门 | R90 单批原子切换（契约与手册互斥，分批必红）；批号协调——本批为本会话占用，并行缺陷批请续号 B44 起；红#2=B210 探测/打开不一致环境波动注记在案 |
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
 | 日期 | 事件 | 说明 |
@@ -98,3 +101,5 @@
 | 10-15 | B38 重走对抗处置（0C/2I/3M） | I1 ch13 命令注释残留旧句（与 A1 修复后预期矛盾）→三处标注口径对齐；I2 ch11 限值数字句不可兑现→限界披露（sweep 文件路线不消费 limit_line_dbmv；margin/passed 仅 dict 通道 result.json；dict 通道报告无 EMC 节；换算列 None）；M2 ch11/13 补 0.5 前置指引；M3 stderr 流标注；M1 期望集自声明盲区=B40 B4 同源已登记 |
 | 10-15 | B42 重走对抗处置（0C/4I/5M） | I1 混合围栏走私→_strip_fenced 同型闭合（```/~~~ 各闭各型）；I2 HTML 注释档词走私→注释块剥离（与围栏同法）；I3 M3 锚回退盲→补 B7 形态锚（标题含档词+空体检出）；I4 docstring=飞行修复确认；M5 行 5 补「No module 'src'」变体/M7 第二部分标签辖 6–10 章/M6 共缩+M8 键承载=口径固有限界登记/M9 并发漂移随收口提交消解——加固锚后 check 套件 20 绿、全集 ok=True passed=26 |
 | 10-15 | B41 重走对抗处置（0C/3I/4M） | I1 ch20 两处「开始」残句=三轴（重走）同源已修（随收口提交入账）；I2 原门证据（console_pages_e2e 结构级）不构成"预期现象一致"内容级证据=作废重走同源教训归档，本轮内容级比对（八章 10 个 UI 名逐一命中+全流程 API 实走）补上；I3 门证据时间敏感→条款：门行证据一律附 commit 锚；M1 ch21"点一行"→行内「查看报告」/M2 ch19 功能说明加骨架限定=已修；M3 matched 字段语义（索引侧命中数）=登记；M4 结构门不管页面元素名=登记+建议 UI 名比对脚本化（后续项） |
+| 10-15 | 演进轮③批次计划（B44/B45）+批号协调 | 并行 R90 修订周期（手册 v2）并单批 B43（原子切换）并指示缺陷批自 B44 起；两周期文件面互不触碰（R90=手册+check_demo_manual+prepare_demo_assets；本批=run_demo/build_report/record_run_streams/run_power_ladder/新两模块+sim_delivery/report_builder 测试族；共享面仅 implementation 四文档，各节独立追加） |
+| 10-15 | 基线 4 失败归因在案（对账子代理实证） | 全量 3552P+4F：①audit_responsibility_alignment 元测试 _FAST_TRACK_MIN=6 与 R90 未提交文档（第 7 处快速通道标记）阈值耦合→已由并行 R90 B43 认领（阈值动态化），本周期不触碰其文件面；②③④B210 真机不在位（探测缓存与运行时探测两路径不一致已知缝）→环境限界标注，实证归 R87，非回归 |

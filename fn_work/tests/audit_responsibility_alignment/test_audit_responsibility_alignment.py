@@ -120,16 +120,22 @@ def test_responsibility_alignment_domain_gap_and_assets_detected(tmp_path):
 
 
 def test_responsibility_alignment_fast_track_note_shortfall_detected(tmp_path):
-    """⑤ 快速通道缺一处：副本把一处「改造点·快速通道：」降格为无冒号引用
-    （6→5 处）→ fast_track_change_notes 检出（变更说明在册数下限）。"""
+    """⑤ 快速通道短缺检出：把足量「改造点·快速通道：」降格为无冒号引用，
+    使计数降到 _FAST_TRACK_MIN 之下 → fast_track_change_notes 检出。
+    降格数按真文档实况动态计算（文档合法增长后 6→5 硬编码会失效——R90 B43 红#1 修复）。"""
+    from src.audit_responsibility_alignment.audit_responsibility_alignment import _FAST_TRACK_MIN
     doc_text = _REAL_DOC.read_text(encoding="utf-8")
+    total = doc_text.count("改造点·快速通道：")
+    assert total >= _FAST_TRACK_MIN, "真文档快速通道说明数应不低于下限"
+    to_drop = total - _FAST_TRACK_MIN + 1  # 降到 下限-1，恰好触发短缺
+    mutated = doc_text
+    for _ in range(to_drop):
+        mutated = mutated.replace("改造点·快速通道：", "改造点·快速通道", 1)
     doc_path = tmp_path / "responsibility.md"
-    doc_path.write_text(
-        doc_text.replace("改造点·快速通道：", "改造点·快速通道", 1), encoding="utf-8"
-    )
+    doc_path.write_text(mutated, encoding="utf-8")
     result = audit_responsibility_alignment(str(doc_path), str(_REAL_CODE_ROOT))
     assert result["ok"] is False
-    assert result["code_anchors"]["fast_track_notes"] == 5
+    assert result["code_anchors"]["fast_track_notes"] == _FAST_TRACK_MIN - 1
     assert any("fast_track_change_notes" in item for item in result["missing"])
 
 

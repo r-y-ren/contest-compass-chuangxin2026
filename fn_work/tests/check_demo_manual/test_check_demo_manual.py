@@ -1,11 +1,13 @@
-"""check_demo_manual 结构体检测试：完备通过/缺条目/缺四件套/缺两档/占位检出/FAQ 缺覆盖/围栏内两档词不算数/FAQ 散文单行不算覆盖/同名多章残章不掩盖/文件缺失+真实手册冒烟（B32 M3 三洞加固回归锚：⑧⑨⑩）；围栏内示例表格不算 FAQ 覆盖/缩进围栏内两档词不算数（B33 对抗 F2/F3 回归锚：⑪⑫）。"""
+"""check_demo_manual 结构体检测试（R90 契约 v2）：完备通过/缺条目/缺三件套/两档词防回潮（正文检出·围栏/缩进围栏/HTML 注释/混合围栏内不算·编号章外不算）/总章清单完整性（设备边界节·唯一连接节·0.1 表核心设备项）/占位检出/FAQ 缺覆盖/围栏内示例表格不算 FAQ 覆盖/同名多章残章不掩盖/文件缺失+真实手册冒烟。
+B32 M3 三洞加固回归锚（⑧⑨⑩）与 B33 对抗 F2/F3 回归锚（⑪⑫）随契约 v2 迁移（围栏/注释剥离语义保留——词级判定仍不可见围栏内容）；B42 重走 I1–I3 锚同批迁移（拼接章检出/混合围栏伪章/注释与标题档词）。"""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
 
-from src.check_demo_manual.check_demo_manual import check_demo_manual
+from src.check_demo_manual.check_demo_manual import _OVERVIEW_DEVICE_ITEMS, check_demo_manual
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 REAL_MANUAL = REPO_ROOT / "docs" / "功能演示手册.md"
@@ -32,19 +34,48 @@ _FAQ_KEY_2 = "报远程算力不可达训练默认"
 
 _HEADER = "# 功能演示手册（fixture）\n\n"
 
-# —— 条目章 fixture：四件套齐+两档齐；操作步骤内含代码围栏（# 注释行不应被当成
-#    手册标题——围栏感知解析的回归锚：若误判会截断本章导致「预期现象」漏检）。
+# —— 总章 fixture（R90 v2）：设备边界节+0. 总章（0.1 设备全集清单单表含核心
+#    设备项+0.2 唯一连接）——分节常量便于总章完整性用例按节手术。
+_BOUNDARY_SECTION = (
+    "## 设备边界：为什么清单里没有大型仪器\n\n"
+    "大仪器由 B210 和软件顶替（对照表从略）。\n\n"
+)
+
+_CLIST_SECTION = (
+    "### 0.1 演示设备全集清单（一张表，不分档）\n\n"
+    "| # | 设备 | 数量 |\n|---|---|---|\n"
+    "| 1 | 笔记本 | 1 |\n"
+    "| 2 | USRP B210 | 1 |\n"
+    "| 3 | 30dB SMA 衰减器 | 1 |\n"
+    "| 4 | 双频胶棒天线 | 2 |\n"
+    "| 5 | GPS/BD 有源天线 | 1 |\n"
+    "| 6 | SMA 同轴负载 | 2 |\n"
+    "| 7 | ESP32 开发板 | 2 |\n"
+    "| 8 | NRF24L01 模块 | 2 |\n"
+    "| 9 | 便携金属屏蔽盒 | 1 |\n"
+    "| 10 | 示波器 | 1 |\n"
+    "| 11 | 万用表 | 1 |\n"
+    "| 12 | LattePanda 3 Delta | 1 |\n"
+    "| 13 | PIC18F4520 开发套件 | 1 |\n\n"
+)
+
+_CONNECT_SECTION = (
+    "### 0.2 唯一连接方式（一张总图+一张总表）\n\n"
+    "接线总表从略。\n\n"
+)
+
+_OVERVIEW = "## 0. 总章：带什么、怎么连、怎么开机\n\n" + _CLIST_SECTION + _CONNECT_SECTION
+
+# —— 条目章 fixture（R90 v2 三件套：功能说明/操作步骤/预期现象——无"所需设备
+#    与连线"节、零两档词）；操作步骤内含代码围栏（# 注释行不应被当成手册标题
+#    ——围栏感知解析的回归锚：若误判会截断本章导致「预期现象」漏检）。
 _CHAPTER_ONE = """\
 ## 1. 一键测评
 
 ### 功能说明
 一条命令跑完干扰测评全流程。
 
-### 所需设备与连线
-- 便携档：主机一台（sim 后端，无需射频硬件）。
-- 全量档：主机+B210 射频设备+天线。
-
-### 操作步骤
+### 操作步骤（命令与参数）
 命令：
 
 ```bash
@@ -62,11 +93,7 @@ _CHAPTER_TWO = """\
 ### 功能说明
 用录音库训练七分类识别模型。
 
-### 所需设备与连线
-- 便携档：本机轻量训练。
-- 全量档：远程显卡机。
-
-### 操作步骤
+### 操作步骤（命令与参数）
 1. 网页 AI 页发起训练。
 
 ### 预期现象
@@ -89,8 +116,17 @@ def _appendix_with_rows(*rows: str) -> str:
 
 
 def _manual_with_emergency_rows(*rows: str) -> str:
-    """组装 fixture 手册：2 条目章+附录（应急速查表行数可变——FAQ 覆盖用例的手术位）。"""
-    return _HEADER + _CHAPTER_ONE + "\n" + _CHAPTER_TWO + "\n" + _appendix_with_rows(*rows)
+    """组装 fixture 手册：设备边界+总章+2 条目章+附录（应急速查表行数可变——FAQ 覆盖用例的手术位）。"""
+    return (
+        _HEADER
+        + _BOUNDARY_SECTION
+        + _OVERVIEW
+        + _CHAPTER_ONE
+        + "\n"
+        + _CHAPTER_TWO
+        + "\n"
+        + _appendix_with_rows(*rows)
+    )
 
 
 _COMPLETE_MANUAL = _manual_with_emergency_rows(_ROW_FAQ1, _ROW_FAQ2)
@@ -107,8 +143,16 @@ def _write_pair(tmp_path: Path, manual_text: str, readme_text: str = _README_FIX
     return manual, readme
 
 
+def _tier_hit_lines(manual_text: str) -> list[int]:
+    """手术后手册中含两档词的**全部**行号（1 基）——用例手算预期值的复用件。"""
+    return [
+        i for i, raw in enumerate(manual_text.splitlines(), 1)
+        if "便携档" in raw or "全量档" in raw
+    ]
+
+
 def test_complete_manual_passes(tmp_path):
-    """①完备手册（2 条目+附录含 2 条 FAQ 键）→ ok=True、四清单全空、passed≥2。"""
+    """①完备手册（总章 v2+2 三件套条目+附录含 2 条 FAQ 键）→ ok=True、六清单全空、passed=2。"""
     manual, readme = _write_pair(tmp_path, _COMPLETE_MANUAL)
     report = check_demo_manual(manual, readme, _EXPECTED)
     assert report["ok"] is True
@@ -116,6 +160,8 @@ def test_complete_manual_passes(tmp_path):
     assert report["missing_sections"] == []
     assert report["placeholders"] == []
     assert report["faq_uncovered"] == []
+    assert report["tier_regression"] == []
+    assert report["overview_missing"] == []
     assert report["passed"] == 2
 
 
@@ -129,7 +175,7 @@ def test_missing_entry_named(tmp_path):
 
 
 def test_missing_expected_section_detected(tmp_path):
-    """③「一键测评」章缺「预期现象」小节 → missing_sections 检出点名。"""
+    """③「一键测评」章缺「预期现象」小节 → missing_sections 检出点名（三件套口径）。"""
     broken = _COMPLETE_MANUAL.replace("### 预期现象\n退出码 0", "### 预期结果\n退出码 0")
     manual, readme = _write_pair(tmp_path, broken)
     report = check_demo_manual(manual, readme, _EXPECTED)
@@ -137,13 +183,55 @@ def test_missing_expected_section_detected(tmp_path):
     assert report["ok"] is False
 
 
-def test_missing_full_tier_mark_detected(tmp_path):
-    """④「一键测评」的设备小节缺「全量档」标注 → missing_sections 以缺件形态检出。"""
-    broken = _COMPLETE_MANUAL.replace("- 全量档：主机+B210 射频设备+天线。\n", "")
+def test_tier_words_in_chapter_body_regressed(tmp_path):
+    """④（v2 防回潮）「一键测评」章正文混入两档词 → tier_regression 以行号点名。
+
+    R90 v2：旧"两档标注齐"合规断言删除后，档词在功能章内出现即回潮；同行
+    两词只记一个行号（行级点名）。
+    """
+    broken = _COMPLETE_MANUAL.replace(
+        "一条命令跑完干扰测评全流程。",
+        "一条命令跑完干扰测评全流程。\n\n> 便携档无需射频硬件；全量档接 B210。",
+    )
+    hits = _tier_hit_lines(broken)
+    assert hits, "fixture 手术失败（两档词未注入）"
     manual, readme = _write_pair(tmp_path, broken)
     report = check_demo_manual(manual, readme, _EXPECTED)
-    assert report["missing_sections"] == [{"entry": "一键测评", "missing": ["所需设备与连线:全量档"]}]
+    assert report["tier_regression"] == hits
+    assert len(report["tier_regression"]) == 1  # 同行两词一个行号
+    assert report["missing_sections"] == []  # 档词不影响三件套口径
     assert report["ok"] is False
+
+
+def test_tier_words_on_chapter_heading_lines_regressed(tmp_path):
+    """④b（v2 防回潮）残留小节标题自含档词（体空）也算回潮——标题行即可见文本。
+
+    B42 重走 I3 的 v2 迁移：旧口径"标题自含档词+空体检出缺件"，v2 改为标题行
+    本身入 tier_regression。
+    """
+    broken = _COMPLETE_MANUAL.replace(
+        "### 预期现象\n退出码 0，runs/ 下生成运行目录与报告。\n",
+        "### 预期现象\n退出码 0，runs/ 下生成运行目录与报告。\n\n### 所需设备与连线（便携档、全量档）\n",
+    )
+    hits = _tier_hit_lines(broken)
+    assert hits, "fixture 手术失败（档词标题未注入）"
+    manual, readme = _write_pair(tmp_path, broken)
+    report = check_demo_manual(manual, readme, _EXPECTED)
+    assert report["tier_regression"] == hits
+    assert report["ok"] is False
+
+
+def test_tier_words_outside_numbered_chapters_not_regressed(tmp_path):
+    """④c（v2 口径界）附录（非编号章）内的两档词不在防回潮范围 → tier_regression 空。"""
+    broken = _COMPLETE_MANUAL.replace(
+        "- 主机、充电器、U 盘。",
+        "- 主机、充电器、U 盘（便携档/全量档旧讲稿备注）。",
+    )
+    assert _tier_hit_lines(broken), "fixture 手术失败（附录档词未注入）"
+    manual, readme = _write_pair(tmp_path, broken)
+    report = check_demo_manual(manual, readme, _EXPECTED)
+    assert report["tier_regression"] == []
+    assert report["ok"] is True
 
 
 def test_placeholder_detected_and_legal_word_not_flagged(tmp_path):
@@ -168,32 +256,21 @@ def test_faq_uncovered_named(tmp_path):
     assert report["ok"] is False
 
 
-def test_tier_marks_only_inside_fence_detected_missing(tmp_path):
-    """⑧「一键测评」设备小节两档词仅现于代码围栏内（小节正文无）→ 检出两档缺件。
+def test_tier_words_only_inside_fence_not_regressed(tmp_path):
+    """⑧（v2 迁移）「一键测评」章两档词仅现于代码围栏内的命令注释 → 不触发防回潮。
 
-    M3 围栏洞回归锚：旧口径小节体含围栏内文本，命令注释里的「便携档/全量档」
-    会伪达标——修复后小节体查两档词前剥离围栏块。
+    M3 围栏洞回归锚的 v2 形态：词级判定仍剥离围栏内容（旧为防命令注释伪达标，
+    v2 为防围栏示例误报）；正文出现才点名（对照④）。
     """
-    fenced_dev = (
-        "### 所需设备与连线\n"
-        "档位配置看命令注释：\n\n"
-        "```bash\n"
-        "# 便携档：sim 后端，无需射频硬件\n"
-        "# 全量档：主机接 B210 射频设备\n"
-        "```\n"
-    )
     broken = _COMPLETE_MANUAL.replace(
-        "### 所需设备与连线\n"
-        "- 便携档：主机一台（sim 后端，无需射频硬件）。\n"
-        "- 全量档：主机+B210 射频设备+天线。\n",
-        fenced_dev,
+        "# 井号开头的命令注释不应被当成手册标题",
+        "# 便携档：sim 后端，无需射频硬件；全量档：主机接 B210 射频设备",
     )
+    assert _tier_hit_lines(broken), "fixture 手术失败（围栏内档词未注入）"
     manual, readme = _write_pair(tmp_path, broken)
     report = check_demo_manual(manual, readme, _EXPECTED)
-    assert report["missing_sections"] == [
-        {"entry": "一键测评", "missing": ["所需设备与连线:便携档", "所需设备与连线:全量档"]}
-    ]
-    assert report["ok"] is False
+    assert report["tier_regression"] == []
+    assert report["ok"] is True
 
 
 def test_faq_keys_in_prose_not_table_row_all_uncovered(tmp_path):
@@ -208,7 +285,8 @@ def test_faq_keys_in_prose_not_table_row_all_uncovered(tmp_path):
         "报\"远程算力不可达\"：训练默认走远程显卡机；没有就加 `where='local'` 参数本地轻量训练（散文备注）。\n"
     )
     manual, readme = _write_pair(
-        tmp_path, _HEADER + _CHAPTER_ONE + "\n" + _CHAPTER_TWO + "\n" + prose_appendix
+        tmp_path,
+        _HEADER + _BOUNDARY_SECTION + _OVERVIEW + _CHAPTER_ONE + "\n" + _CHAPTER_TWO + "\n" + prose_appendix,
     )
     report = check_demo_manual(manual, readme, _EXPECTED)
     assert report["faq_uncovered"] == [_FAQ_KEY_1, _FAQ_KEY_2]
@@ -231,40 +309,40 @@ def test_faq_keys_in_fenced_table_rows_not_coverage(tmp_path):
         "```\n"
     )
     manual, readme = _write_pair(
-        tmp_path, _HEADER + _CHAPTER_ONE + "\n" + _CHAPTER_TWO + "\n" + fenced_appendix
+        tmp_path,
+        _HEADER + _BOUNDARY_SECTION + _OVERVIEW + _CHAPTER_ONE + "\n" + _CHAPTER_TWO + "\n" + fenced_appendix,
     )
     report = check_demo_manual(manual, readme, _EXPECTED)
     assert report["faq_uncovered"] == [_FAQ_KEY_1, _FAQ_KEY_2]
     assert report["ok"] is False
 
 
-def test_tier_marks_only_inside_indented_fence_detected_missing(tmp_path):
-    """⑫「一键测评」设备小节两档词仅现于 1–3 空格缩进围栏内 → 检出两档缺件。
+def test_tier_words_only_inside_indented_fence_not_regressed(tmp_path):
+    """⑫（v2 迁移）「一键测评」章两档词仅现于 1–3 空格缩进围栏内 → 不触发防回潮。
 
-    B33 对抗 F3 回归锚：旧口径 _FENCE_RE 只认顶格围栏，缩进围栏绕过剥离——
-    缩进命令注释里的「便携档/全量档」按围栏外正文伪达标；修复后围栏识别允许
-    0–3 空格缩进。4 空格缩进代码块非围栏、本库手册写法不使用（限界，不处理）。
+    B33 对抗 F3 回归锚的 v2 形态：围栏识别允许 0–3 空格缩进——缩进命令注释里
+    的「便携档/全量档」按围栏内文本剥离；4 空格缩进代码块非围栏、本库手册
+    写法不使用（限界，不处理）。
     """
-    indented_fence_dev = (
-        "### 所需设备与连线\n"
-        "档位配置看缩进命令注释：\n\n"
+    indented_fence = (
         "   ```bash\n"
         "   # 便携档：sim 后端，无需射频硬件\n"
         "   # 全量档：主机接 B210 射频设备\n"
+        "   .venv/bin/python -m src.run_demo --scenario tone_demo.yaml\n"
         "   ```\n"
     )
     broken = _COMPLETE_MANUAL.replace(
-        "### 所需设备与连线\n"
-        "- 便携档：主机一台（sim 后端，无需射频硬件）。\n"
-        "- 全量档：主机+B210 射频设备+天线。\n",
-        indented_fence_dev,
+        "```bash\n"
+        "# 井号开头的命令注释不应被当成手册标题\n"
+        ".venv/bin/python -m src.run_demo --scenario tone_demo.yaml\n"
+        "```\n",
+        indented_fence,
     )
+    assert _tier_hit_lines(broken), "fixture 手术失败（缩进围栏内档词未注入）"
     manual, readme = _write_pair(tmp_path, broken)
     report = check_demo_manual(manual, readme, _EXPECTED)
-    assert report["missing_sections"] == [
-        {"entry": "一键测评", "missing": ["所需设备与连线:便携档", "所需设备与连线:全量档"]}
-    ]
-    assert report["ok"] is False
+    assert report["tier_regression"] == []
+    assert report["ok"] is True
 
 
 def test_duplicate_named_chapters_residual_not_masked(tmp_path):
@@ -277,6 +355,8 @@ def test_duplicate_named_chapters_residual_not_masked(tmp_path):
     manual, readme = _write_pair(
         tmp_path,
         _HEADER
+        + _BOUNDARY_SECTION
+        + _OVERVIEW
         + _CHAPTER_ONE
         + "\n"
         + residual
@@ -303,6 +383,46 @@ def test_missing_files_raise_file_not_found(tmp_path):
         check_demo_manual(manual, tmp_path / "不存在的README.md", ["一键测评"])
 
 
+# —— 总章清单完整性（断言族六，R90 v2 新增）——
+def test_overview_boundary_anchor_removal_named(tmp_path):
+    """删「## 设备边界」节（标题+体）→ overview_missing 点名「设备边界节」。"""
+    broken = _COMPLETE_MANUAL.replace(_BOUNDARY_SECTION, "")
+    manual, readme = _write_pair(tmp_path, broken)
+    report = check_demo_manual(manual, readme, _EXPECTED)
+    assert report["overview_missing"] == ["设备边界节"]
+    assert report["passed"] == 2  # 总章族不计数——条目口径不受影响
+    assert report["ok"] is False
+
+
+def test_overview_connection_anchor_removal_named(tmp_path):
+    """「唯一连接」节锚词丢失（0.2 改名）→ overview_missing 点名「唯一连接节」。"""
+    broken = _COMPLETE_MANUAL.replace(
+        "### 0.2 唯一连接方式（一张总图+一张总表）", "### 0.2 连接方式（总图+总表）"
+    )
+    manual, readme = _write_pair(tmp_path, broken)
+    report = check_demo_manual(manual, readme, _EXPECTED)
+    assert report["overview_missing"] == ["唯一连接节"]
+    assert report["ok"] is False
+
+
+def test_overview_core_device_item_removal_named(tmp_path):
+    """0.1 表删「示波器」行（关键设备项缺失）→ overview_missing 点名「示波器」。"""
+    broken = _COMPLETE_MANUAL.replace("| 10 | 示波器 | 1 |\n", "")
+    manual, readme = _write_pair(tmp_path, broken)
+    report = check_demo_manual(manual, readme, _EXPECTED)
+    assert report["overview_missing"] == ["示波器"]
+    assert report["ok"] is False
+
+
+def test_overview_clist_section_removal_names_all_core_items(tmp_path):
+    """0.1 设备全集清单节整体缺失 → 全部核心设备项点名（核心项清单全列）。"""
+    broken = _COMPLETE_MANUAL.replace(_CLIST_SECTION, "")
+    manual, readme = _write_pair(tmp_path, broken)
+    report = check_demo_manual(manual, readme, _EXPECTED)
+    assert report["overview_missing"] == list(_OVERVIEW_DEVICE_ITEMS)
+    assert report["ok"] is False
+
+
 #: 期望集登记文件（随批增长）：一行一条目名，# 注释行与空行忽略；B32 为空
 #: （仅总章交付），B35 起每批在此追加一行条目名——smoke 硬门随之加压。
 _EXPECTED_ENTRIES_FILE = Path(__file__).resolve().parent / "expected_entries.txt"
@@ -315,29 +435,35 @@ def _load_expected_entries() -> list[str]:
 
 
 def test_demo_manual_check_real_manual_smoke():
-    """最外层集成锚（R77–R83 各批验收命令同源）：对真实 docs/功能演示手册.md 冒烟。
+    """最外层集成锚（R77–R83 各批验收命令同源；R90 契约 v2）：对真实 docs/功能演示手册.md 冒烟。
 
-    期望集自 expected_entries.txt 读取（随批增长，B32 为空）：①三硬门随批
-    生效——missing_entries/missing_sections/placeholders 必空；②总章锚在位
-    ——0.1 便携档设备清单与 0.5 演示前准备两节标题必在；③FAQ 覆盖两态——
-    附录应急速查表（存在含「应急」的标题）交付后 faq_uncovered 必空，
-    B42 附录落地前不硬卡（跳过该断言）。
+    期望集自 expected_entries.txt 读取（随批增长）：①随批硬门——missing_entries/
+    missing_sections/placeholders 必空且 passed==期望数（三件套契约 v2）；②v2
+    防回潮与总章硬门——tier_regression/overview_missing 必空；③总章锚在位
+    ——设备边界节与 0.1 设备全集清单/0.4 演示前准备节标题必在；④FAQ 覆盖
+    ——附录应急速查表（含「应急」的标题）交付后 faq_uncovered 必空。
     """
     if not REAL_MANUAL.is_file():
         pytest.skip("docs/功能演示手册.md 尚未交付（真实手册逐步成型后本用例自动生效）")
     if not REAL_README.is_file():
         pytest.skip("fn_docs/README.md 不在预期位置，无法做真实手册冒烟")
-    report = check_demo_manual(REAL_MANUAL, REAL_README, _load_expected_entries())
-    # ① 随批硬门：期望集条目全在册且四件套/两档齐、零占位残留。
+    expected = _load_expected_entries()
+    report = check_demo_manual(REAL_MANUAL, REAL_README, expected)
+    # ① 随批硬门：期望集条目全在册且三件套齐、零占位残留。
     assert report["missing_entries"] == []
     assert report["missing_sections"] == []
     assert report["placeholders"] == []
-    # ② 总章锚：0.1 便携档设备清单与 0.5 演示前准备两节标题在位。
+    assert report["passed"] == len(expected)
+    # ② v2 硬门：两档词零回潮+总章清单完整（设备边界/唯一连接/0.1 核心设备项）。
+    assert report["tier_regression"] == []
+    assert report["overview_missing"] == []
+    assert report["ok"] is True
+    # ③ 总章锚：设备边界节与 0.1 设备全集清单/0.4 演示前准备节标题在位（v2 锚）。
     manual_text = REAL_MANUAL.read_text(encoding="utf-8")
-    assert "0.1 便携演示档设备清单" in manual_text
-    assert "0.5 演示前准备" in manual_text
-    # ③ FAQ 覆盖两态：附录已交付（含「应急」的标题在册）→ 须全覆盖；
-    #    未交付（B42 前）→ 跳过该断言不硬卡。
+    assert "## 设备边界" in manual_text
+    assert "### 0.1 演示设备全集清单" in manual_text
+    assert "### 0.4 演示前准备" in manual_text
+    # ④ FAQ 覆盖：附录已交付（含「应急」的标题在册）→ 须全覆盖。
     has_emergency_heading = any(
         raw.lstrip().startswith("#") and "应急" in raw
         for raw in manual_text.splitlines()
@@ -346,35 +472,22 @@ def test_demo_manual_check_real_manual_smoke():
         assert report["faq_uncovered"] == []
 
 
-# B42 重走变异回归锚（batches 终门处置行"拼接章检出/两档小节体删空检出"落测试化）
+# B42 重走变异回归锚（batches 终门处置行"拼接章检出"落测试化；v2 迁移：拼接
+# 章顶替 fixture 改三件套形态，档词相关锚并入防回潮族）
 def _spoof_manual(spoof_title: str) -> str:
-    """删 fixture 的两个期望章，塞一个四件套齐备的拼接章顶替两名。"""
-    import re as _re
-
+    """删 fixture 的两个期望章，塞一个三件套齐备的拼接章顶替两名。"""
     t = _COMPLETE_MANUAL
     for ch in ("## 1. 一键测评", "## 2. AI 认干扰"):
-        t = _re.sub(r"\n" + _re.escape(ch) + r"[^\n]*\n(?:(?!\n## ).)*", "\n", t, flags=_re.S)
-    merged = [
+        t = re.sub(r"\n" + re.escape(ch) + r"[^\n]*\n(?:(?!\n## ).)*", "\n", t, flags=re.S)
+    merged = "\n".join([
         f"## {spoof_title}",
         "",
         "### 功能说明", "x",
-        "### 所需设备与连线（便携档、全量档）", "便携档：a 全量档：b",
         "### 操作步骤（命令与参数）", "x",
         "### 预期现象", "x",
-    ]
-    return t.replace("## 1. 一键测评", "\n".join(merged) + "\n## 已删", 0) if "一键测评" in t else _insert_after_readme(t, merged)
-
-
-def _insert_after_readme(text: str, block: list) -> str:
-    lines = text.splitlines()
-    out = []
-    inserted = False
-    for l in lines:
-        out.append(l)
-        if not inserted and l.startswith("## "):
-            out.extend(block)
-            inserted = True
-    return "\n".join(out)
+        "",
+    ])
+    return t.replace("\n## 0. 总章", "\n" + merged + "\n## 0. 总章", 1)
 
 
 @pytest.mark.parametrize("spoof_title", ["一键测评与AI 认干扰", "3.一键测评与AI 认干扰", "3. 一键测评与AI 认干扰"])
@@ -382,21 +495,16 @@ def test_b42_redo_merged_chapter_spoof_detected(tmp_path, spoof_title):
     manual_p, readme_p = _write_pair(tmp_path, _spoof_manual(spoof_title))
     r = check_demo_manual(manual_p, readme_p, _EXPECTED)
     assert "一键测评" in r["missing_entries"] and "AI 认干扰" in r["missing_entries"]
+    assert r["tier_regression"] == []  # 三件套拼接章无档词——防回潮族不误报
 
 
-def test_b42_redo_tier_body_stripped_detected(tmp_path):
-    manual = _COMPLETE_MANUAL
-    import re as _re
-
-    t = _re.sub(r"(### 所需设备与连线[^\n]*\n)(?:(?!\n###|\n## ).)*", r"\1", manual, count=1, flags=_re.S)
-    manual_p, readme_p = _write_pair(tmp_path, t)
-    r = check_demo_manual(manual_p, readme_p, _EXPECTED)
-    assert r["missing_sections"], "两档小节体删空必须检出（终门 M3）"
-
-
-# B42 重走 I1/I2/I3 加固锚
+# B42 重走 I1/I2 加固锚（v2 迁移）
 def test_b42_redo_mixed_fence_spoof_detected(tmp_path):
-    """混合围栏（``` 开 ~~~ 关）内的伪章必须算未交付（重走 I1）。"""
+    """混合围栏（``` 开 ~~~ 关）内的伪章必须算未交付（重走 I1）。
+
+    v2 迁移：混合围栏内的档词同时不触发防回潮——围栏态全文件连续+同型闭合，
+    按章切片重置态会把跨章围栏体误判为可见（本用例即该形态的回归锚）。
+    """
     t = _COMPLETE_MANUAL.replace(
         "## 1. 一键测评",
         "```\n## 1. 一键测评\n~~~\n## 99. 一键测评占位章\n\n### 功能说明\nx\n"
@@ -407,38 +515,17 @@ def test_b42_redo_mixed_fence_spoof_detected(tmp_path):
     manual_p, readme_p = _write_pair(tmp_path, t)
     r = check_demo_manual(manual_p, readme_p, _EXPECTED)
     assert "一键测评" in r["missing_entries"], "混合围栏内的伪章必须检出"
+    assert r["tier_regression"] == [], "混合围栏内的档词不算回潮命中（同型闭合）"
 
 
-def test_b42_redo_html_comment_tier_spoof_detected(tmp_path):
-    """HTML 注释里的档词不算两档达标（重走 I2）。"""
-    import re as _re
-
-    t = _re.sub(
-        r"(### 所需设备与连线[^\n]*\n)(?:(?!\n###|\n## ).)*",
-        r"\1<!-- 便携档 全量档 -->\n",
-        _COMPLETE_MANUAL,
-        count=1,
-        flags=_re.S,
+def test_b42_redo_html_comment_tier_spoof_ignored(tmp_path):
+    """HTML 注释里的档词不算回潮命中（重走 I2 的 v2 迁移——不可见内容不参与判定）。"""
+    broken = _COMPLETE_MANUAL.replace(
+        "一条命令跑完干扰测评全流程。",
+        "一条命令跑完干扰测评全流程。\n\n<!-- 便携档 全量档 -->",
     )
-    manual_p, readme_p = _write_pair(tmp_path, t)
+    assert _tier_hit_lines(broken), "fixture 手术失败（注释档词未注入）"
+    manual_p, readme_p = _write_pair(tmp_path, broken)
     r = check_demo_manual(manual_p, readme_p, _EXPECTED)
-    assert r["missing_sections"], "HTML 注释档词必须检出"
-
-
-def test_b42_redo_tier_in_title_only_detected(tmp_path):
-    """M3 回退盲锚：小节标题含档词+小节体无档词必须检出（重走 I3/B7 形态）。"""
-    import re as _re
-
-    t = _COMPLETE_MANUAL.replace(
-        "### 所需设备与连线", "### 所需设备与连线（便携档、全量档）", 1
-    )
-    t = _re.sub(
-        r"(### 所需设备与连线（便携档、全量档）\n)(?!便携档)(?:(?!\n###|\n## ).)*",
-        r"\1",
-        t,
-        count=1,
-        flags=_re.S,
-    )
-    manual_p, readme_p = _write_pair(tmp_path, t)
-    r = check_demo_manual(manual_p, readme_p, _EXPECTED)
-    assert r["missing_sections"], "标题自含档词+空体必须检出"
+    assert r["tier_regression"] == [], "HTML 注释档词必须剥离（不触发防回潮）"
+    assert r["ok"] is True

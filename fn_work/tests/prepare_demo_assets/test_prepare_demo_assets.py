@@ -1,14 +1,15 @@
 """prepare_demo_assets 对抗用例：R76 L0 演示物料准备编排（slug=demo_assets）。
 
 ① 端到端（临时目录，rounds=1，预跑场景集=权威三场景不收缩）：报告八键齐、
-7 场景全写、prewarm_runs 3 条（exit∈{0,1} 且含 1=失效核心产出）、两档检查单
-齐、env 四键；② 幂等拒绝：重跑→refused_conflicts=7、不预跑、文件未被改写；
-②b 部分冲突：新场景照写 6、冲突 1 拒绝预跑；③ overwrite=True 重跑授权覆盖
-（预跑收缩为 demo_smoke 单场景+rounds=1 控时，断言契约不变——收缩仅减运行
-条数，不改动任何断言口径）；④ 预跑意外失败：monkeypatch 同包
-prewarm_demo_runs 抛 PrewarmDemoRunError→并入报告不抛（含已跑清单）；
-⑤ env 探测容错（uhd 缺工具/探测器崩溃/platformio 子进程异常均不抛、如实
-记录）；⑥ 检查单与预跑集权威常量形状（手册总章按名 DEMO_CHECKLIST 引用）。
+7 场景全写、prewarm_runs 3 条（exit∈{0,1} 且含 1=失效核心产出）、单列检查单
+（18 项，R90 口径）齐、env 四键；② 幂等拒绝：重跑→refused_conflicts=7、
+不预跑、文件未被改写；②b 部分冲突：新场景照写 6、冲突 1 拒绝预跑；③
+overwrite=True 重跑授权覆盖（预跑收缩为 demo_smoke 单场景+rounds=1 控时，断言
+契约不变——收缩仅减运行条数，不改动任何断言口径）；④ 预跑意外失败：
+monkeypatch 同包 prewarm_demo_runs 抛 PrewarmDemoRunError→并入报告不抛（含
+已跑清单）；⑤ env 探测容错（uhd 缺工具/探测器崩溃/platformio 子进程异常均
+不抛、如实记录）；⑥ 检查单与预跑集权威常量形状（手册总章按名
+DEMO_CHECKLIST 引用——R90 单列化：list[str] 18 项保序，序=手册 0.1 表行序）。
 """
 from __future__ import annotations
 
@@ -33,8 +34,8 @@ _REPORT_KEYS = {
     "checklist",
     "env",
 }
-#: 检查单两档键。
-_CHECKLIST_TIERS = {"便携档", "全量档"}
+#: 检查单条目数（R90 单列口径：手册 0.1 设备全集表全行数）。
+_CHECKLIST_LEN = 18
 #: env 自检四键。
 _ENV_KEYS = {"python", "venv_ok", "platformio", "uhd_probe"}
 
@@ -51,7 +52,7 @@ def _assert_env_shape(env: dict) -> None:
 def test_end_to_end_full_report(tmp_path: Path):
     # ① 端到端（真实 sim 全流程，预跑集不收缩=权威三场景，rounds=1 控时）：
     # 报告完整、7 场景全写、3 条预跑（exit 语义如实：含 1=测到失效核心产出）、
-    # 两档检查单齐、env 四键。
+    # 单列检查单（18 项）齐、env 四键。
     scenario_dir = tmp_path / "scenarios"
     runs_root = tmp_path / "runs"
     report = prepare_demo_assets(scenario_dir, runs_root, rounds=1)
@@ -75,9 +76,9 @@ def test_end_to_end_full_report(tmp_path: Path):
         assert (path / "result.json").is_file()  # 操控台/录音库可翻阅的留痕
     assert len([p for p in runs_root.iterdir() if p.is_dir()]) == 3
 
-    assert set(report["checklist"]) == _CHECKLIST_TIERS  # 两档检查单齐
-    assert report["checklist"]["便携档"] == DEMO_CHECKLIST["便携档"]
-    assert report["checklist"]["全量档"] == DEMO_CHECKLIST["全量档"]
+    assert isinstance(report["checklist"], list)  # 单列检查单（非两档 dict）
+    assert len(report["checklist"]) == _CHECKLIST_LEN  # 18 项
+    assert report["checklist"] == DEMO_CHECKLIST  # 快照=权威常量（保序）
     _assert_env_shape(report["env"])
 
 
@@ -216,18 +217,35 @@ def test_env_probe_fault_tolerant(monkeypatch, tmp_path: Path):
 
 
 def test_authoritative_constants_shape():
-    # ⑥ 权威常量形状（手册总章按名引用，漂移即此处点名）：
-    # 便携档恰 12 项；全量档=便携档全部+4 项台式补充且保序；预跑集三场景
-    # 均出自预置模板集（冒烟/录音/失效三口径）。
-    portable, full = DEMO_CHECKLIST["便携档"], DEMO_CHECKLIST["全量档"]
-    assert len(portable) == 12
-    assert full[: len(portable)] == portable  # 全量档=便携档全部（保序）+补充
-    assert full[len(portable) :] == [
-        "示波器",
-        "万用表",
-        "LattePanda 3 Delta 单板机",
-        "PIC18F4520 开发套件",
+    # ⑥ 权威常量形状（手册总章按名引用，漂移即此处点名）：检查单单列
+    # list[str] 恰 18 项且序=手册 0.1 设备全集表行序（逐位关键词锚+台式四件
+    # 全文锚），条目无两档词（R90 防回潮）；预跑集三场景均出自预置模板集
+    # （冒烟/录音/失效三口径）。
+    assert isinstance(DEMO_CHECKLIST, list)
+    assert len(DEMO_CHECKLIST) == _CHECKLIST_LEN  # 单列恰 18 项（0.1 表全行数）
+    assert len(set(DEMO_CHECKLIST)) == 18  # 无重复条目
+    assert all("便携档" not in item and "全量档" not in item for item in DEMO_CHECKLIST)
+    # 保序锚：序=手册 0.1 表行序（0 起下标=表行号-1）。
+    assert DEMO_CHECKLIST[0].startswith("笔记本")  # 1 演示主机
+    assert "USRP B210" in DEMO_CHECKLIST[1]  # 2 B210 套件（拆出独立条目）
+    assert "USB3 数据线" in DEMO_CHECKLIST[2]  # 3 B210↔主机
+    assert "双频胶棒天线" in DEMO_CHECKLIST[3]  # 4 天线组一
+    assert "SRH789" in DEMO_CHECKLIST[4]  # 5 天线组二
+    assert "GPS" in DEMO_CHECKLIST[5]  # 6 天线组三（时钟演示可选）
+    assert "衰减器" in DEMO_CHECKLIST[6]  # 7 发射链必串
+    assert "负载" in DEMO_CHECKLIST[7]  # 8 传导闭合
+    assert "MMCX" in DEMO_CHECKLIST[8]  # 9 B210 口转接
+    assert "ESP32" in DEMO_CHECKLIST[9]  # 10 链路开发板
+    assert "NRF24L01" in DEMO_CHECKLIST[10]  # 11 射频前端模块
+    assert "USB 数据线" in DEMO_CHECKLIST[11]  # 12 供电+串口
+    assert DEMO_CHECKLIST[12].startswith("便携金属屏蔽盒")  # 13 合规红线
+    assert DEMO_CHECKLIST[13:17] == [  # 14–17 台式仪器与单板机/MCU 套件
+        "示波器×1",
+        "万用表×1",
+        "LattePanda 3 Delta 单板机×1",
+        "PIC18F4520 开发套件×1",
     ]
+    assert DEMO_CHECKLIST[17].startswith("备件包")  # 18 殿后
     assert pda.PREWARM_SCENARIOS == [
         "demo_smoke.yaml",
         "demo_record.yaml",
