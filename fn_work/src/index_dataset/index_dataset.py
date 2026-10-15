@@ -37,6 +37,12 @@ _ACTIONS = ("register", "query", "rebuild", "list")
 #: 运行目录名前缀日期：runs/<YYYYMMDD-HHMMSS>/ → date='YYYYMMDD'
 _DIR_DATE_RE = re.compile(r"^(\d{8})")
 
+#: 运行目录内场景副本文件名（manage_run.create_run_workspace 落盘名；finalize 的
+#: 八件套检查兼容 scenario.yml 拼写——读取同款兼容）。真跑运行的 result.json 常缺
+#: style/freq_mhz（finalize 固定键集不含），副本是这两个字段的真值来源——与
+#: browse_dataset_library 的卡片真值双源同源（走查 C1 修复）。
+_SCENARIO_FILENAMES = ("scenario.yaml", "scenario.yml")
+
 
 class IndexEntryError(ValueError):
     """登记条目非法：record 非 dict/必填缺失/类型错；或 action 未知（消息附支持清单）。"""
@@ -57,6 +63,47 @@ class IndexWriteError(OSError):
 def _is_number(value) -> bool:
     """数值口径：int/float 且非 bool（与 query_dataset 的频段判定一致）。"""
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _lenient_number(value):
+    """宽容数值化（browse_dataset_library 同口径）：int/float（拒 bool）或可解析
+    有限数字 str（PyYAML 1.1 把 '2.4e9' 这类无点科学计数解析为 str）→ float；
+    其余 None。
+
+    场景副本直读（yaml.safe_load）不走 load_scenario 的 normalize_scenario
+    数值化——rebuild 补缺字段在此就地宽容，保持与装载/浏览路径同结果。
+    """
+    if _is_number(value):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            parsed = float(value.strip())
+        except ValueError:
+            return None
+        return parsed if math.isfinite(parsed) else None
+    return None
+
+
+def _read_scenario_copy(run_dir: str) -> dict:
+    """读运行目录的场景副本（scenario.yaml，兼容 scenario.yml）→ dict。
+
+    缺失/损坏/非 dict/yaml 库不可用 → {}（降级口径——副本只是 rebuild 补缺的
+    真值来源，绝不反杀重建；与 browse_dataset_library._read_scenario_copy 同款）。
+    """
+    for name in _SCENARIO_FILENAMES:
+        path = os.path.join(run_dir, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            import yaml
+
+            with open(path, encoding="utf-8") as handle:
+                payload = yaml.safe_load(handle)
+        except Exception:  # noqa: BLE001 - 副本不可读→补缺来源失效，保持缺省
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return {}
 
 
 def _validate_record(record: object) -> dict:
@@ -86,12 +133,16 @@ def _validate_record(record: object) -> dict:
 
 
 def _entry_from_run(run_id: str, run_dir: str, result: dict) -> dict:
-    """从 runs/<id>/result.json 提取可得字段；date 缺失补运行目录名前缀日期（YYYYMMDD）。
+    """从 runs/<id>/result.json 提取可得字段；date 缺失补运行目录名前缀日期（YYYYMMDD）；
+    style/freq_mhz 缺失时从该 run 的场景副本（scenario.yaml/yml，manage_run 落盘的
+    规范化场景）补全——副本缺失/不可读/字段无效则保持缺省（不虚构，走查 C1 修复）。
 
     字段校验与 _validate_record 同口径（B6 中#4）：freq_mhz 在且非 None 须为有限
     数值（int/float 非 bool）；backend/style/jsr_db/batch_key/date 在且非 None 须为
     非空 str。脏 run 抛 IndexEntryError，由 _scan_runs 记 skipped（不短路 rebuild，
     读路径自愈重建同样逐条校验）；None 视同未提供（rebuild 的可得字段缺省口径）。
+    副本补全只填缺失（result.json 已有的有效值不覆盖）且只经副本的有效值入口
+    （style 非空白 str、freq_hz 宽容数值化后换算 MHz）。
     """
     entry: dict = {
         "run_id": run_id,
@@ -120,6 +171,17 @@ def _entry_from_run(run_id: str, run_dir: str, result: dict) -> dict:
                 f"须为有限数值（int/float 非 bool），得到 {freq!r}"
             )
         entry["freq_mhz"] = freq
+    # 场景副本补缺（真值来源与 browse_dataset_library 同款）：finalize 的固定
+    # 键集不含 style/freq_mhz，真跑运行全靠副本补——副本不可得则保持缺省。
+    scenario = _read_scenario_copy(run_dir)
+    if "style" not in entry:
+        style = scenario.get("style")
+        if isinstance(style, str) and style.strip():
+            entry["style"] = style.strip()
+    if "freq_mhz" not in entry:
+        freq_hz = _lenient_number(scenario.get("freq_hz"))
+        if freq_hz is not None:
+            entry["freq_mhz"] = freq_hz / 1.0e6
     if "date" not in entry:  # result 无有效 date → 补运行目录名前缀日期
         matched = _DIR_DATE_RE.match(run_id)
         if matched:
@@ -134,6 +196,7 @@ def _scan_runs(runs_root: str) -> tuple[list, int]:
     result.json 缺失/损坏/非 dict、recordings 目录缺、或字段脏
     （_entry_from_run 校验不过，如 freq_mhz=NaN/backend 非 str）→ skipped
     计数后跳过（B6 中#4：逐条跳过，不短路整个 rebuild）。
+    条目 style/freq_mhz 缺失时自该 run 的场景副本补全（见 _entry_from_run）。
     runs_root 不存在/不是目录 → 空索引 (0, 0)；runs 根下的杂项文件不算 run 也不计 skipped。
     """
     if not os.path.isdir(runs_root):

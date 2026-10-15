@@ -7,8 +7,11 @@
   （含原文），query 本身非 dict → ValueError（形状错先拒）；
 - 谱特征：逐条目解析 SigMF cf32 数据（path 为目录→最早 .sigmf-meta 配对
   data；*.sigmf-meta→同名 data；其余按数据文件直读）→ make_spectrogram，
-  nfft 透传 hyperparams['nfft']（缺省 256，域错上抛 ValueError）；段长不足/
-  数据不可读/脏 IQ 计入跳段；全跳与有效数不足同走 TrainError；
+  nfft 透传 hyperparams['nfft']（缺省 256，域错上抛 ValueError）；跳段归因
+  分列两类（走查 I4 修复）：「style 缺失」（条目无有效样式标签——标签不
+  可考，与数据面无关）与「IQ 段长不足窗长或数据不可读」（含脏 IQ）；
+  全跳与有效数不足同走 TrainError，消息如实分列计数，不把 style 缺失
+  误报成段长/数据问题；
 - 校验：有效谱样本 < min_samples（缺省 20）→ TrainError 附数与阈值；
   唯一标签 < 2 类 → TrainError（七分类至少要两类可分）；
 - remote：组装 task_package（code_root 缺省本包目录、entrypoint 缺省
@@ -104,6 +107,24 @@ def _hyper_int(hp: dict, key: str, default: int) -> int:
         raise ValueError(f"hyperparams[{key!r}] 必须为可转 int 的数值，得到 {raw!r}") from None
 
 
+def _skip_reasons_note(skipped: int, skipped_no_style: int) -> str:
+    """跳段归因分列注记（走查 I4 修复）：跳段 > 0 时返回「（跳段归因: …）」，
+    style 缺失与段长/数据两类各附计数；无跳段返回空串。
+
+    归因口径：条目无有效 style（含非 dict 条目——标签不可考）计 style 缺失；
+    其余（数据文件不可解析/不可读/脏 IQ/段长不足窗长）计段长/数据侧。
+    """
+    if skipped <= 0:
+        return ""
+    parts: list[str] = []
+    if skipped_no_style:
+        parts.append(f"style 缺失 {skipped_no_style} 条")
+    data_side = skipped - skipped_no_style
+    if data_side:
+        parts.append(f"IQ 段长不足窗长或数据不可读 {data_side} 条")
+    return f"（跳段归因: {'；'.join(parts)}）"
+
+
 def train_classifier(
     query: dict,
     hyperparams: dict | None = None,
@@ -165,17 +186,24 @@ def train_classifier(
     if matched == 0:
         raise TrainError(f"样本不足拒训：查询匹配 0 条（query={query!r}）")
 
-    # ② 谱特征：逐条目 make_spectrogram；跳段计数（段长不足/数据不可读/脏 IQ）。
+    # ② 谱特征：逐条目 make_spectrogram；跳段计数分列归因（style 缺失 vs
+    # 段长不足/数据不可读/脏 IQ——走查 I4：style 缺失不得误报为段长问题）。
     samples: list[tuple[str, np.ndarray]] = []  # (style, 时间平均谱向量)
     data_paths: list[str] = []
     skipped = 0
+    skipped_no_style = 0
     for entry in entries:
         if not isinstance(entry, dict):
-            skipped += 1
+            skipped += 1  # 非 dict 条目连 style 都不可考 → 归 style 缺失
+            skipped_no_style += 1
             continue
         style = entry.get("style")
+        if not isinstance(style, str) or not style:
+            skipped += 1
+            skipped_no_style += 1
+            continue
         data = _resolve_data_file(entry.get("path"))
-        if data is None or not isinstance(style, str) or not style:
+        if data is None:
             skipped += 1
             continue
         iq = _read_cf32(data)
@@ -194,16 +222,12 @@ def train_classifier(
         samples.append((style, spec.mean(axis=1)))  # 时间平均谱 → 均值谱聚合基元
         data_paths.append(data)
 
-    # ③ 样本量与类别覆盖校验（不足拒训，附数与阈值）。
+    # ③ 样本量与类别覆盖校验（不足拒训，附数与阈值；跳段归因分列计数）。
     if len(samples) < min_samples:
-        hint = (
-            "（全部条目被跳过：IQ 段长不足窗长或数据不可读）"
-            if not samples and skipped
-            else ""
-        )
         raise TrainError(
             f"样本不足拒训：有效谱样本 {len(samples)} < min_samples={min_samples}"
-            f"（matched {matched} 条，跳段 {skipped} 条）{hint}"
+            f"（matched {matched} 条，跳段 {skipped} 条）"
+            f"{_skip_reasons_note(skipped, skipped_no_style)}"
         )
     labels: list[str] = []
     for style, _prof in samples:
@@ -213,6 +237,7 @@ def train_classifier(
         raise TrainError(
             f"类别覆盖不足拒训：有效样本仅覆盖 {len(labels)} 类 {labels!r}"
             f"（七分类训练至少需 2 类可分；matched {matched} 条，跳段 {skipped} 条）"
+            f"{_skip_reasons_note(skipped, skipped_no_style)}"
         )
     per_class = {label: sum(1 for style, _ in samples if style == label) for label in labels}
     train_meta = {"n_samples": len(samples), "nfft": nfft, "per_class": per_class}

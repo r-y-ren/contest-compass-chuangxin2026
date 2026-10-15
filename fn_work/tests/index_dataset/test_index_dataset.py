@@ -265,3 +265,85 @@ def test_defect_b6_7_read_path_rebuild_warns_and_persists(tmp_path, caplog):
         again = index_dataset("list", index_path=str(index_path), runs_root=str(runs_root))
     assert again["total"] == 2
     assert not [r for r in caplog.records if "自动重建" in r.getMessage()]  # 二次读直接命中落盘索引
+
+
+# ---- C1 修复回归：rebuild 条目 style/freq_mhz 自场景副本补全 ----
+# 真跑运行的 result.json 由 finalize_run 落盘（固定键集不含 style/freq_mhz），
+# 场景副本 scenario.yaml（manage_run.create_run_workspace 落盘）是这两个字段的
+# 真值来源——与 browse_dataset_library 卡片真值双源同款口径。
+
+
+def _write_copy(run_dir, filename, body):
+    with open(os.path.join(run_dir, filename), "w", encoding="utf-8") as fh:
+        fh.write(body)
+
+
+def test_dataset_index_rebuild_fills_style_freq_from_scenario_copy(tmp_path):
+    """C1：result.json 无 style/freq_mhz + 场景副本在位 → rebuild 条目自副本
+    补全（freq_hz→MHz；'5.8e9' 无符号指数被 PyYAML 1.1 解析为 str——宽容数值化
+    口径覆盖），style/频段检索可命中。"""
+    runs_root = tmp_path / "runs"
+    run_dir = _make_run(runs_root, "20260107-090000")  # result 仅 status/backend
+    _write_copy(run_dir, "scenario.yaml", "style: chirp\nfs: 1.0e6\nfreq_hz: 5.8e9\nbackend: sim\n")
+    index_path = str(tmp_path / "index.json")
+    out = index_dataset("rebuild", index_path=index_path, runs_root=str(runs_root))
+    assert out == {"rebuilt": 1, "skipped": 0}
+    entry = index_dataset("list", index_path=index_path)["entries"][0]
+    assert entry["style"] == "chirp"  # 副本补全非 None
+    assert entry["freq_mhz"] == 5800.0  # 副本 freq_hz→MHz（str 科学计数宽容）
+    assert (
+        index_dataset("query", query={"style": "chirp"}, index_path=index_path)["matched"] == 1
+    )
+    assert (
+        index_dataset("query", query={"freq_range": (5000.0, 6000.0)}, index_path=index_path)[
+            "matched"
+        ]
+        == 1
+    )
+
+
+def test_dataset_index_rebuild_without_or_corrupt_copy_keeps_defaults(tmp_path):
+    """C1：副本缺失/损坏/字段无效（空 style）→ 对应字段保持缺省（不虚构），
+    style 检索不误命中；字段独立补全——无效 style 不拖累有效 freq_hz。"""
+    runs_root = tmp_path / "runs"
+    _make_run(runs_root, "20260108-090000")  # 无副本
+    corrupt_dir = _make_run(runs_root, "20260109-090000")
+    _write_copy(corrupt_dir, "scenario.yaml", "{not-yaml: [")  # 损坏副本
+    blank_dir = _make_run(runs_root, "20260112-090000")
+    _write_copy(blank_dir, "scenario.yaml", "style: '  '\nfreq_hz: 5.8e9\n")  # 空 style 无效
+    index_path = str(tmp_path / "index.json")
+    out = index_dataset("rebuild", index_path=index_path, runs_root=str(runs_root))
+    assert out == {"rebuilt": 3, "skipped": 0}
+    entries = {
+        e["run_id"]: e for e in index_dataset("list", index_path=index_path)["entries"]
+    }
+    assert entries["20260108-090000"].get("style") is None  # 无副本→保持缺省
+    assert entries["20260108-090000"].get("freq_mhz") is None
+    assert entries["20260109-090000"].get("style") is None  # 副本损坏→保持缺省
+    assert entries["20260109-090000"].get("freq_mhz") is None
+    assert entries["20260112-090000"].get("style") is None  # 空 style 无效→不虚构
+    assert entries["20260112-090000"]["freq_mhz"] == 5800.0  # 有效 freq_hz 独立补全
+    assert (
+        index_dataset("query", query={"style": "chirp"}, index_path=index_path)["matched"] == 0
+    )
+
+
+def test_dataset_index_rebuild_scenario_yml_alias_and_result_priority(tmp_path):
+    """C1：scenario.yml 别名同款补全；result.json 已有有效 style/freq_mhz 时
+    副本不覆盖（只填缺失）。"""
+    runs_root = tmp_path / "runs"
+    alias_dir = _make_run(runs_root, "20260110-090000")
+    _write_copy(alias_dir, "scenario.yml", "style: pulse\nfreq_hz: 900000000.0\n")
+    explicit_dir = _make_run(
+        runs_root, "20260111-090000", result={"style": "tone", "freq_mhz": 123.0}
+    )
+    _write_copy(explicit_dir, "scenario.yaml", "style: chirp\nfreq_hz: 5.8e9\n")
+    index_path = str(tmp_path / "index.json")
+    index_dataset("rebuild", index_path=index_path, runs_root=str(runs_root))
+    entries = {
+        e["run_id"]: e for e in index_dataset("list", index_path=index_path)["entries"]
+    }
+    assert entries["20260110-090000"]["style"] == "pulse"  # 别名副本补全
+    assert entries["20260110-090000"]["freq_mhz"] == 900.0
+    assert entries["20260111-090000"]["style"] == "tone"  # result 有效值优先
+    assert entries["20260111-090000"]["freq_mhz"] == 123.0

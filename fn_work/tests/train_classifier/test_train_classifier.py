@@ -1,7 +1,13 @@
-"""train_classifier 对抗单测：tmp_path+合成谱特征数据集（index_dataset register 造条目+临时 SigMF cf32 单音/噪声对）——slug=train_classifier；远程路径全 mock 不触真 subprocess。"""
+"""train_classifier 对抗单测：tmp_path+合成谱特征数据集（index_dataset register 造条目+临时 SigMF cf32 单音/噪声对）——slug=train_classifier；远程路径全 mock 不触真 subprocess。
+
+走查 C1+I4 追加（2026-10-15）：跳段归因分列（style 缺失 vs 段长/数据不可读）
+单测 + record:true 真产物（manage_run 全生命周期落盘）→rebuild→train 用户路径
+端到端封堵用例。
+"""
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +15,7 @@ import pytest
 
 import src.train_classifier.train_classifier as mod
 from src.index_dataset.index_dataset import index_dataset
+from src.manage_run.manage_run import manage_run
 from src.train_classifier.dispatch_remote_training import RemoteError
 from src.train_classifier.train_classifier import TrainError, train_classifier
 
@@ -321,3 +328,165 @@ def test_train_classifier_unknown_query_field_wrapped_as_train_error(tmp_path):
             {"style": "tone", "foo": 1}, hyperparams=_hp(tmp_path, index_path), where="local"
         )
     assert "foo" in str(excinfo.value)
+
+
+# --- 走查 I4 修复：跳段归因分列（style 缺失 vs 段长/数据不可读） ---
+
+
+def _write_sigmf_pair(rec_dir, iq):
+    """往 recordings 目录写 SigMF cf32 对（rec.sigmf-{data,meta}，与 _register 同形状）。"""
+    rec_dir.mkdir(parents=True, exist_ok=True)
+    np.asarray(iq, dtype=np.complex64).tofile(str(rec_dir / "rec.sigmf-data"))
+    meta = {
+        "global": {
+            "core:sample_rate": 1e6,
+            "core:datatype": "cf32_le",
+            "core:num_samples": int(np.asarray(iq).size),
+        },
+        "captures": [{"core:sample_start": 0}],
+        "annotations": [],
+    }
+    (rec_dir / "rec.sigmf-meta").write_text(json.dumps(meta), encoding="utf-8")
+
+
+def test_train_classifier_skip_attribution_separates_missing_style_from_data(tmp_path):
+    """I4：数据面完好（IQ 段充足可读）仅条目缺 style（rebuild 条目真跑口径：
+    result.json 无 style 且无场景副本）→ 拒训消息归因「style 缺失 N 条」，
+    不再误报「IQ 段长不足窗长或数据不可读」。"""
+    runs_root = tmp_path / "runs_root"
+    for i in range(2):
+        run_dir = runs_root / f"20260101-00000{i}"
+        _write_sigmf_pair(run_dir / "recordings", _tone_iq())  # 512 点段充足
+        (run_dir / "result.json").write_text(
+            json.dumps({"status": "done", "backend": "sim"}), encoding="utf-8"
+        )  # 真跑 finalize 键集：无 style
+    index_path = tmp_path / "index.json"
+    index_dataset("rebuild", index_path=str(index_path), runs_root=str(runs_root))
+    with pytest.raises(TrainError) as excinfo:
+        train_classifier(
+            {},
+            hyperparams={
+                "index_path": str(index_path),
+                "runs_root": str(runs_root),
+                "nfft": 64,
+                "min_samples": 2,
+            },
+            where="local",
+        )
+    message = str(excinfo.value)
+    assert "style 缺失 2 条" in message  # 归因如实分列
+    assert "段长不足" not in message  # 数据面无恙：不得误报段长/不可读
+
+
+def test_train_classifier_skip_attribution_lists_both_categories(tmp_path):
+    """I4：混合跳段（1 条缺 style + 1 条段长 32 < nfft 64）→ 拒训消息两类
+    分列各附计数。"""
+    runs_root = tmp_path / "runs_root"
+    rec_a = runs_root / "a" / "recordings"
+    _write_sigmf_pair(rec_a, _tone_iq())  # 段充足但条目 style=None
+    rec_b = runs_root / "b" / "recordings"
+    _write_sigmf_pair(rec_b, _tone_iq(n=32))  # style 在但短段
+    entries = [
+        {
+            "run_id": "a",
+            "path": str(rec_a),
+            "style": None,  # 缺失口径（list 读路径不做必填校验）
+            "freq_mhz": 100.0,
+            "date": "20260101",
+            "backend": "sim",
+        },
+        {
+            "run_id": "b",
+            "path": str(rec_b),
+            "style": "tone",
+            "freq_mhz": 100.0,
+            "date": "20260101",
+            "backend": "sim",
+        },
+    ]
+    index_path = tmp_path / "index.json"
+    index_path.write_text(
+        json.dumps({"version": 1, "entries": entries}, ensure_ascii=False), encoding="utf-8"
+    )
+    with pytest.raises(TrainError) as excinfo:
+        train_classifier(
+            {},
+            hyperparams={
+                "index_path": str(index_path),
+                "runs_root": str(runs_root),
+                "nfft": 64,
+                "min_samples": 2,
+            },
+            where="local",
+        )
+    message = str(excinfo.value)
+    assert "style 缺失 1 条" in message
+    assert "IQ 段长不足窗长或数据不可读 1 条" in message
+
+
+# --- 走查 C1+I4 用户路径端到端封堵：record:true 真产物 → rebuild → train ---
+
+
+def _manage_record_true_run(runs_root, style, iq):
+    """manage_run 真落一个 record:true 形状运行目录（不走手写 result.json 捷径）：
+
+    八件套骨架+场景副本由 create_run_workspace 落盘，result.json 由 finalize_run
+    落盘——其固定键集不含 style/freq_mhz（C1 断链现场）；execute 回调把 SigMF
+    cf32 对写进 recordings/（record_run_streams record=true 的落盘形状）。
+    返回 run_dir。
+    """
+    scenario = {
+        "style": style,
+        "fs": 1.0e6,
+        "freq_hz": 2.4e9,
+        "power_dbm": -10.0,
+        "duration_s": 0.005,
+        "backend": "sim",
+        "bands": [[2400.0, 2483.5]],
+        "shielded_box": True,
+        "dut_scope": "self_built",
+    }
+
+    def execute(ctx):
+        _write_sigmf_pair(
+            Path(ctx["run_dir"]) / "recordings", iq
+        )
+
+    record = manage_run(dict(scenario), execute, runs_root=str(runs_root))
+    assert record["status"] == "done"
+    assert record["result"]["finalized"] is True
+    return record["run_dir"]
+
+
+def test_defect_c1_i4_record_true_run_rebuild_then_train(tmp_path):
+    """C1+I4 端到端：record:true 真产物（manage_run 全生命周期，finalize_run 落盘
+    的 result.json 无 style/freq_mhz）→ index_dataset('rebuild') → 条目自场景副本
+    补全 style 非 None → train_classifier（/api/ai/train 同款底层入口）演练有效
+    样本 > 0——「样本不足拒训：有效谱样本 0」的用户断链不再复现。"""
+    runs_root = tmp_path / "runs_root"
+    _manage_record_true_run(runs_root, "tone", _tone_iq())
+    _manage_record_true_run(runs_root, "bandlimited_noise", _noise_iq())
+    index_path = str(tmp_path / "index.json")
+
+    rebuilt = index_dataset("rebuild", index_path=index_path, runs_root=str(runs_root))
+    assert rebuilt == {"rebuilt": 2, "skipped": 0}
+    entries = index_dataset("list", index_path=index_path)["entries"]
+    assert len(entries) == 2
+    for entry in entries:
+        assert entry["style"] in ("tone", "bandlimited_noise")  # 副本补全非 None
+        assert entry["freq_mhz"] == 2400.0  # 副本 freq_hz→MHz
+
+    result = train_classifier(
+        {"style": ["tone", "bandlimited_noise"]},
+        hyperparams={
+            "index_path": index_path,
+            "runs_root": str(runs_root),
+            "nfft": 64,
+            "min_samples": 2,
+        },
+        where="local",
+        dry_run=True,
+    )
+    assert result["n_samples"] == 2  # 用户路径终点：可训（此前恒 0）
+    assert result["skipped"] == 0
+    assert set(result["labels"]) == {"tone", "bandlimited_noise"}
