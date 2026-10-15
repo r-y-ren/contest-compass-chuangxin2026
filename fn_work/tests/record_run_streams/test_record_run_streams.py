@@ -166,6 +166,7 @@ def make_ctx(
     reference=None,
     events_sink=None,
     facts=None,
+    tx_window_blocks=None,
 ):
     ctx = {
         "run_dir": str(run_dir),
@@ -187,6 +188,8 @@ def make_ctx(
         ctx["events_sink"] = events_sink
     if facts is not None:
         ctx["facts"] = facts
+    if tx_window_blocks is not None:
+        ctx["tx_window_blocks"] = tx_window_blocks
     return ctx
 
 
@@ -688,3 +691,160 @@ def test_align_streams_real_sim_backend_end_to_end_two_blocks(tmp_path):
             assert pair[leg] is not None
             assert pair[leg] >= 0
             assert math.isfinite(pair[leg])
+
+
+# ---------------------------------------------------------------------------
+# ⑯ R88 发射窗前置块：前置块先行且顺序保持——monitor.csv 首批行 ts=前置块 ts
+# 原值（断言不重盖：前置 ts 取小值哨兵，重盖为主机单调毫秒必 ≥ host_base）
+# ---------------------------------------------------------------------------
+def test_align_streams_prewindow_blocks_first_order_kept_ts_not_restamped(tmp_path):
+    host_base = time.monotonic() * 1000.0
+    pre_ts = [123.5, 234.5, 345.5]  # 哨兵小值：任何主机单调盖戳都 ≥ host_base
+    backend = FakeMonitorBackend([iq_block(1000.0), iq_block(1100.0, seed=9)])
+    ctx = make_ctx(
+        tmp_path,
+        backend,
+        sim_events_src=sim_events(5),
+        dut={"source": "sim", "samples_per_event": 1},
+        tx_window_blocks=[iq_block(ts, seed=20 + i) for i, ts in enumerate(pre_ts)],
+    )
+    result = record_run_streams(ctx)
+
+    # 3 前置块 + 2 后端块全收，顺序保持：统计行时间戳 = 前置 ts 原值在前、
+    # 后端块 ts 在后（ts→timestamp_ms 由 capture 透传，逐值精确可断言）
+    assert result["monitor_blocks"] == 5
+    assert result["stats_rows"] == 5
+    stats_rows = [
+        json.loads(line)
+        for line in read_lines(os.path.join(str(tmp_path), "monitor_stats.jsonl"))
+    ]
+    assert [row["timestamp_ms"] for row in stats_rows] == pre_ts + [1000.0, 1100.0]
+    # 不重盖铁证：前置块 ts 原值（哨兵小值）远小于采集期主机单调毫秒
+    assert all(ts < host_base for ts in pre_ts)
+
+    # monitor.csv 首批行（第一前置块 × max_bins=4）ts=前置块 ts 原值
+    import csv as _csv
+
+    with open(os.path.join(str(tmp_path), "monitor.csv"), newline="", encoding="utf-8") as fh:
+        rows = list(_csv.reader(fh))
+    assert len(rows) == 1 + 5 * 4
+    assert rows[0] == MONITOR_HEADER_LINE.split(",")
+    for row in rows[1:5]:
+        assert float(row[0]) == 123.5
+        assert row[3] == "ok"
+    # 末批行 = 后端块
+    for row in rows[-4:]:
+        assert float(row[0]) == 1100.0
+
+
+# ---------------------------------------------------------------------------
+# ⑰ R88 计数贯通：前置块计入 max_monitor_blocks 总预算——小上限+多前置块，
+# 采集在后端读之前停（read_calls==0）且总块数恰为上限不超
+# ---------------------------------------------------------------------------
+def test_align_streams_prewindow_blocks_count_into_max_monitor_blocks_cap(tmp_path):
+    pre_ts = [111.5, 222.5, 333.5, 444.5, 555.5]  # 5 前置块 > 上限 3
+    backend = FakeMonitorBackend([iq_block(999.0), iq_block(998.0, seed=7)])
+    ctx = make_ctx(
+        tmp_path,
+        backend,
+        sim_events_src=sim_events(3),
+        dut={"source": "sim", "samples_per_event": 1},
+        tx_window_blocks=[iq_block(ts, seed=30 + i) for i, ts in enumerate(pre_ts)],
+    )
+    result = record_run_streams(ctx, max_monitor_blocks=3)
+
+    # 防失控上限不放大：恰收 3 块（前置前 3），注在位
+    assert result["monitor_blocks"] == 3
+    assert result["stats_rows"] == 3
+    assert "monitor_blocks_capped" in result["streams_note"]
+    # 采集在后端读之前停：后端块存在但一次都未读（前置块耗尽预算）
+    assert backend.read_calls == 0
+    stats_rows = [
+        json.loads(line)
+        for line in read_lines(os.path.join(str(tmp_path), "monitor_stats.jsonl"))
+    ]
+    assert [row["timestamp_ms"] for row in stats_rows] == pre_ts[:3]
+
+
+# ---------------------------------------------------------------------------
+# ⑱ R88 缺省口径：无 'tx_window_blocks' 键 / 非 list → 空前置，行为与今日
+# 完全一致（对照 ② 用例口径：2 后端块、kpi 4 行、统计 ts=后端 ts）
+# ---------------------------------------------------------------------------
+def test_align_streams_no_tx_window_blocks_key_behavior_unchanged(tmp_path):
+    no_key_dir = tmp_path / "nokey"
+    no_key_dir.mkdir()
+    backend = FakeMonitorBackend([iq_block(60), iq_block(160, seed=1)])
+    ctx = make_ctx(
+        no_key_dir,
+        backend,
+        sim_events_src=sim_events(2),
+        dut={"source": "sim", "samples_per_event": 2},
+    )  # make_ctx 缺省不设 tx_window_blocks 键
+    assert "tx_window_blocks" not in ctx
+    result = record_run_streams(ctx)
+    assert result["monitor_blocks"] == 2
+    assert result["kpi_rows"] == 4
+    assert len(read_lines(os.path.join(str(no_key_dir), "monitor.csv"))) == 1 + 2 * 4
+    stats_rows = [
+        json.loads(line)
+        for line in read_lines(os.path.join(str(no_key_dir), "monitor_stats.jsonl"))
+    ]
+    assert [row["timestamp_ms"] for row in stats_rows] == [60.0, 160.0]
+    assert backend.read_calls > 0  # 数据仍来自后端读路径
+
+    # 非 list 值（str）同样按空前置忽略，不抛
+    bad_type_dir = tmp_path / "badtype"
+    bad_type_dir.mkdir()
+    backend2 = FakeMonitorBackend([iq_block(60)])
+    ctx2 = make_ctx(
+        bad_type_dir,
+        backend2,
+        sim_events_src=sim_events(1),
+        dut={"source": "sim"},
+        tx_window_blocks="not-a-list",
+    )
+    result2 = record_run_streams(ctx2)
+    assert result2["monitor_blocks"] == 1
+    stats_rows2 = [
+        json.loads(line)
+        for line in read_lines(os.path.join(str(bad_type_dir), "monitor_stats.jsonl"))
+    ]
+    assert [row["timestamp_ms"] for row in stats_rows2] == [60.0]
+
+
+# ---------------------------------------------------------------------------
+# ⑲ R88 record=True tee：前置块与后端块同走录制 tee 路径——SigMF 录音含
+# 发射窗 IQ（前置块样本在前），监测照出（同流分叉双消费）
+# ---------------------------------------------------------------------------
+def test_align_streams_prewindow_blocks_tee_into_sigmf_recording(tmp_path):
+    facts = {
+        "style": "noise",
+        "backend": "simu",
+        "freq_hz": 2.42e9,
+        "sample_rate": 1e6,
+        "run_id": "prewindow-rec",
+    }
+    backend = FakeMonitorBackend([iq_block(2000.0, seed=9)])
+    ctx = make_ctx(
+        tmp_path,
+        backend,
+        sim_events_src=sim_events(3),
+        dut={"source": "sim", "samples_per_event": 1},
+        record=True,
+        facts=facts,
+        tx_window_blocks=[iq_block(101.5, seed=40), iq_block(102.5, seed=41)],
+    )
+    result = record_run_streams(ctx)
+
+    # 2 前置块 + 1 后端块全部进录制 tee（3 块 × 8 样本），监测照常产出
+    recording = result["recording"]
+    assert recording is not None
+    assert recording["num_samples"] == 3 * 8
+    assert result["monitor_blocks"] == 3
+    assert result["stats_rows"] == 3
+    stats_rows = [
+        json.loads(line)
+        for line in read_lines(os.path.join(str(tmp_path), "monitor_stats.jsonl"))
+    ]
+    assert [row["timestamp_ms"] for row in stats_rows] == [101.5, 102.5, 2000.0]
+    assert os.path.getsize(recording["data_path"]) == recording["num_samples"] * 8

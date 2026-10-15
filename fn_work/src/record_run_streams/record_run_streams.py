@@ -68,6 +68,7 @@ from src.simulate_link_degradation.simulate_link_degradation import (
 )
 from src.normalize_kpi.normalize_kpi import normalize_kpi
 from src.shared.append_event import append_event
+from src.shared.normalize_monitor_block import normalize_monitor_block
 from src.shared.stop_transmit_safely import stop_transmit_safely
 from src.write_sigmf_recording.write_sigmf_recording import write_sigmf_recording
 
@@ -155,33 +156,37 @@ _MONITOR_EMPTY_READ_LIMIT = 50
 
 
 def _as_monitor_block(block: object) -> object:
-    """后端块形状归一：dict 直通；(samples, meta) 元组（sim 契约）转块 dict。
+    """后端块形状归一（薄壳）：转发共享实现 normalize_monitor_block。
+
+    〔薄壳化·快速通道 2026-10-15（R88）：实现上提为共享
+    src.shared.normalize_monitor_block.normalize_monitor_block——发射窗内拉取
+    （tap_tx_window_blocks）与采集期拉取（本函数）两处同源归一+盖戳，防两套
+    口径漂移；对外行为逐字不变。〕
 
     SimBackend.read_samples 的元素是 (rx_block, meta) 二元组（meta 含 'rx_ts'
     单调**块号**，非毫秒域），而 capture_monitor_spectrum / write_sigmf_recording
-    只认块 dict（samples/ts/overflow）——在此归一。归一时 ts 以**主机单调钟
-    盖戳**（time.monotonic()*1000，与 kpi 样本（drive_*）及 append_event 事件
-    同一毫秒域：rx_ts 块号直接当 ts 用会让 monitor.csv/统计行/对齐配对错单位，
+    只认块 dict（samples/ts/overflow）——在共享实现中归一。归一时 ts 以**主机
+    单调钟盖戳**（time.monotonic()*1000，与 kpi 样本（drive_*）及 append_event
+    事件同一毫秒域：rx_ts 块号直接当 ts 用会让 monitor.csv/统计行/对齐配对错单位，
     块号降级为 'block_index' 附注保留溯源）；其余形状原样透传（由 capture 的
     块形状校验拒，走停发射路径）。
     """
-    if isinstance(block, dict):
-        return block
-    if isinstance(block, tuple) and len(block) == 2 and isinstance(block[1], dict):
-        samples, meta = block
-        return {
-            "samples": samples,
-            # 主机单调钟毫秒盖戳（B12 中#1）：块号非毫秒域，不得充当 ts；
-            # 浮点毫秒保逐块严格递增（同毫秒内两块 int 会并列）。
-            "ts": time.monotonic() * 1000.0,
-            "block_index": meta.get("rx_ts"),  # sim 块号附注（溯源用，非时间戳）
-            "overflow": bool(meta.get("overflow", False)),
-        }
-    return block
+    return normalize_monitor_block(block)
 
 
 def _tee_backend_stream(state: dict) -> Iterator[dict]:
-    """监测原始 IQ 块源（生成器）：read_samples 返回值按真实后端契约逐块拆包。
+    """监测原始 IQ 块源（生成器）：发射窗前置块先行，read_samples 按真实契约逐块拆包。
+
+    R88 发射窗采集缓冲（2026-10-15）：record_run_streams 入口把
+    ctx['tx_window_blocks']（list，元素为**已归一**块 dict——ts=拉取时刻主机
+    单调毫秒）取入 state['prewindow_blocks']；本生成器在进入后端读循环**之前**
+    逐块 yield 前置块（弹出式消费 state.pop——生成器重入不重复消费）——每块
+    与后端块同走 record=True 时 state['tee_queue'].append(block) 的录制 tee
+    路径与完全相同的下游处理管道（_advance/_process_monitor_block：
+    monitor.csv 行/统计行/计数），因此 max_monitor_blocks 总预算自然贯通
+    （前置块计入同一计数——防失控上限不放大）；ts 不重盖（块已归一直接用）；
+    空读熔断计数不受前置块影响（从后端读才开始计）。ctx 无
+    'tx_window_blocks' 键或非 list → 空前置，行为与既往完全一致。
 
     真实契约（sim/B210）：read_samples() → list[块]（无数据 []）——逐块经
     _as_monitor_block 归一（B210 块即 dict；sim 块为 (samples, meta) 元组转
@@ -192,6 +197,12 @@ def _tee_backend_stream(state: dict) -> Iterator[dict]:
     的 StopIteration 路径记 'monitor_source_exhausted'）。record=True 时每块
     同步入 tee_queue 供录制路消费（流式 tee：块到达即喂 capture 又可落录制）。
     """
+    for block in state.pop("prewindow_blocks", None) or ():
+        # 前置块已归一：ts 原值直用（不重盖），录制 tee 路径与后端块一致。
+        if state["record"]:
+            state["tee_queue"].append(block)
+        yield block
+
     read = state["read_samples"]
     empty_reads = 0
     while True:
@@ -479,7 +490,9 @@ def record_run_streams(
           {'flag': bool} 协作停（可缺）, 'sim_events': sim 注入事件源,
           'jam_events': 对齐共享事件 list（缺省回落 events_sink/events.jsonl）,
           'events_sink': 事件镜像 list, 'facts': 录制标注素材（可缺）,
-          'run_token': 停发射运行级幂等 token（可缺）}；
+          'run_token': 停发射运行级幂等 token（可缺）,
+          'tx_window_blocks': R88 发射窗前置已归一监测块 list（可缺——
+          _tee_backend_stream 前置消费，ts 不重盖）}；
           max_kpi_rows / max_monitor_blocks：防失控上限（到顶停采不抛）。
     输出: {'kpi_rows': int, 'monitor_blocks': int, 'stats_rows': int,
           'alignment': compute_alignment_error 结果, 'recording':
@@ -544,6 +557,9 @@ def record_run_streams(
     if stop_holder is not None and not isinstance(stop_holder, dict):
         stop_holder = None  # 非 dict 形状忽略（协作停凭据缺省不生效，不抛）
 
+    # R88 发射窗采集缓冲：已归一监测块 list（可缺——缺省/非 list 均为空前置）。
+    tx_window_blocks = ctx.get("tx_window_blocks")
+
     # DUT 路生成器（drive_*/simulate 均在调用点急切校验，坏参数此刻 ValueError）。
     if dut_source == "sim":
         sim_events = ctx.get("sim_events")
@@ -590,6 +606,12 @@ def record_run_streams(
         "notes": [],
         "noted": set(),
         "tee_queue": [],
+        # R88 发射窗前置块（tap_tx_window_blocks 缓冲）：已归一块 dict list
+        # （ts=拉取时刻主机单调毫秒——_tee_backend_stream 前置消费不重盖）；
+        # 浅拷贝取入 state（弹出式消费不动调用方 ctx 列表）；非 list/缺键 → 空。
+        "prewindow_blocks": (
+            list(tx_window_blocks) if isinstance(tx_window_blocks, list) else []
+        ),
         "kpi_rows": 0,
         "kpi_rows_list": [],
         "monitor_blocks": 0,
