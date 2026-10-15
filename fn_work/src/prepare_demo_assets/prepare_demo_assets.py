@@ -78,7 +78,7 @@ def prepare_demo_assets(
       - "prewarm_error": 预跑意外失败（PrewarmDemoRunError）的如实呈现
         （message/scenario/round_index/exit_code/detail/runs 已跑清单），
         正常时 None——不吞错不重抛，报告可直接查阅；
-      - "checklist": [设备条目, ...] 出发检查单·单一清单 18 项
+      - "checklist": [设备条目, ...] 出发检查单·单一清单 19 项（R94 转接线细分后）
         （DEMO_CHECKLIST 快照，序=手册 0.1 设备全集表行序，手册 0.4 同清单
         ——单列口径，无两档词）；
       - "env": 出发环境自检 {"python", "venv_ok", "platformio", "uhd_probe"}。

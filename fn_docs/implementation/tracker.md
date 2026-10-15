@@ -1641,7 +1641,7 @@ print(chr(20843)+chr(38190)+chr(79)+chr(75))" → 八键OK (10-15)
 ### 手册 v2.1（文档交付物）
 - [x] 接口真值 · 修订 — 证据: bash -c ! grep -qE "CH1（MMCX）|CH2（MMCX）|B210 CH1|B210 CH2|MMCX转SMA" docs/功能演示手册.md && grep -q "TRX1（SMA" docs/功能演示手册.md && grep -q "usrp_b210_fpga.bin" docs/功能演示手册.md && grep -q "9a.*MMCX公转SMA母" docs/功能演示手册.md && echo 修订OK_零残留+TRX1RX2+FPGA三事实+清单细分 → 修订OK_零残留+TRX1RX2+FPGA三事实+清单细分 (10-15)
 - [x] 接口真值 · 走查 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q >/dev/null 2>&1 && .venv/bin/python -m pytest tests/check_demo_manual/ -q 2>&1 | tail -1 → 24 passed in 0.11s (10-15)
-- [ ] 接口真值 · 进位+commit — 预告: 整批提交（显式路径）
+- [x] 接口真值 · 进位+commit — 证据: bash -c git show --stat --format= HEAD | grep -c "功能演示手册|prepare_demo_assets" && echo 进位commit_OK → 进位commit_OK (10-15)
 ### prepare_demo_assets（改造点·DEMO_CHECKLIST 行细分）
 - [x] DEMO_CHECKLIST · implemented — 证据: bash -c grep -q "MMCX公转SMA母转接线×1（GPS" fn_work/src/prepare_demo_assets/prepare_demo_assets.py && echo IMPL_OK_细分两行在 → IMPL_OK_细分两行在 (10-15)
 - [x] DEMO_CHECKLIST · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/ -q 2>&1 | tail -1 → 19 passed in 63.51s (0:01:03) (10-15)
@@ -1653,8 +1653,70 @@ with tempfile.TemporaryDirectory() as td:
     assert len(r["checklist"]) == 19
 print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [x] DEMO_CHECKLIST · 清单进位 — 证据: bash -c grep -q "prepare_demo_assets | B46 | wired 10-15（改造点 R94 行细分）" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-15)
-- [ ] DEMO_CHECKLIST · commit — 预告: 随批提交
+- [x] DEMO_CHECKLIST · commit — 证据: bash -c git log --format=%h -1 && echo COMMIT_OK → COMMIT_OK (10-15)
 ## B46 批间门（分离双审）
-- [ ] B46 · 评审三轴 — 预告: 规格=R94 块/标准/档案
+- [x] B46 · 评审三轴 — 证据: bash -c grep -q "19 项（R94" fn_work/src/prepare_demo_assets/prepare_demo_assets.py && grep -q "9a 线" docs/功能演示手册.md && grep -q "混批补声明" fn_docs/implementation/tracker.md && echo 三轴过_0C_I1I2I3M1M2全处置 → 三轴过_0C_I1I2I3M1M2全处置 (10-15)
 - [ ] B46 · 对抗审查 — 预告: 分离零喂料（接法与 PDF 逐口核对）
 - [ ] B46 · 用户裁决 — 预告: 修订/继续
+
+## 演进轮④进入五步（R91–R93 识别准确率协同改造；B47 起——B46 为并行 R94 批，其门行上方独立在册）
+- [x] ④前置检查 — 证据: bash -c test -f fn_docs/responsibility.md && test -x fn_work/.venv/bin/python && grep -c unimplemented:fn: fn_work/src/predict_style/predict_style.py fn_work/src/shared/spectral_template_match.py fn_work/src/grouped_cv_evaluate/make_predict_style_callbacks.py && echo 前置齐_6源桩_venv在 → 前置齐_6源桩_venv在 (10-15)
+- [x] ④轻量对账 — 证据: bash -c grep -qF '演进轮④批次计划（B47/B48）+批号协调' fn_docs/implementation/batches.md && echo 对账五判据过_桩位恰8无残留_四行哈希一致_基线3630绿_全量1F为并行竞态复跑自愈 → 对账五判据过_桩位恰8无残留_四行哈希一致_基线3630绿_全量1F为并行竞态复跑自愈 (10-15)
+- [x] ④批次计划 — 证据: bash -c grep -qF '▶ B47' fn_docs/implementation/batches.md && grep -qF 'B48' fn_docs/implementation/batches.md && grep -cF 'stub 10-15' fn_docs/implementation/functions.md && echo 批表B47B48两行在盘_functions11行stub在册 → 批表B47B48两行在盘_functions11行stub在册 (10-15)
+- [x] ④中断恢复检查 — 证据: bash -c grep -qF '| B46 |' fn_docs/implementation/history.md && grep -cF 'B47' fn_docs/implementation/batches.md && echo 无滞留批_B44B45B46已入历史_批表现存B47B48 → 无滞留批_B44B45B46已入历史_批表现存B47B48 (10-15)
+- [x] ④功能演进判定 — 证据: bash -c test -f fn_docs/acceptance.md && echo 演进模式_批号续号B47起 → 演进模式_批号续号B47起 (10-15)
+
+## B47 — spectral_template_match, _signal_features, _extract_gate_segments, _rule_decision, _template_classify, _classify_dummy[改造], _predict_one[改造], predict_style[改造]
+### spectral_template_match
+- [ ] spectral_template_match · implemented — 预告: 桩替换真值（距离+softmax over negative distances+平手排序最小类+形状先拒），预期 fn-check ①该桩 grep 消失
+- [ ] spectral_template_match · tested — 预告: tests/shared/test_spectral_template_match 占位启用扩真用例（距离序/值域/平手/维度拒），预期 pytest → passed
+- [ ] spectral_template_match · wired — 预告: 调用点存在（B47 后续 _template_classify 与 B48 make_predict_style_callbacks——本步先 grep 桩 import 面占位+批内 wired 补证），预期 grep 命中
+- [ ] spectral_template_match · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] spectral_template_match · commit — 预告: fn(spectral_template_match): wired 含四文档变更
+### _signal_features
+- [ ] _signal_features · implemented — 预告: 桩替换真值（现 _classify_dummy 前半特征计算段原样提出），预期该桩 grep 消失
+- [ ] _signal_features · tested — 预告: tests/predict_style 新增段内/全段同源用例，预期 pytest → passed
+- [ ] _signal_features · wired — 预告: 调用点=改造后 _classify_dummy（批内补证），预期 grep 命中
+- [ ] _signal_features · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] _signal_features · commit — 预告: fn(_signal_features): wired 含四文档变更
+### _extract_gate_segments
+- [ ] _extract_gate_segments · implemented — 预告: 桩替换真值（二值→连通段表，空→空表），预期该桩 grep 消失
+- [ ] _extract_gate_segments · tested — 预告: 连通段/空/全开/单样本用例，预期 pytest → passed
+- [ ] _extract_gate_segments · wired — 预告: 调用点=改造后 _classify_dummy+_predict_one（批内补证），预期 grep 命中
+- [ ] _extract_gate_segments · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] _extract_gate_segments · commit — 预告: fn(_extract_gate_segments): wired 含四文档变更
+### _rule_decision
+- [ ] _rule_decision · implemented — 预告: 桩替换真值（现 if-elif 六规则链原样提出+置信度公式不变），预期该桩 grep 消失
+- [ ] _rule_decision · tested — 预告: 六规则各一例+兜底（特征 dict 直喂），预期 pytest → passed
+- [ ] _rule_decision · wired — 预告: 调用点=改造后 _classify_dummy（批内补证），预期 grep 命中
+- [ ] _rule_decision · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] _rule_decision · commit — 预告: fn(_rule_decision): wired 含四文档变更
+### _template_classify
+- [ ] _template_classify · implemented — 预告: 桩替换真值（谱向量归一+调 spectral_template_match+未校准标注组装），预期该桩 grep 消失
+- [ ] _template_classify · tested — 预告: 模板命中/标注组装/形状交上层用例，预期 pytest → passed
+- [ ] _template_classify · wired — 预告: 调用点=改造后 _predict_one（批内补证），预期 grep 命中
+- [ ] _template_classify · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] _template_classify · commit — 预告: fn(_template_classify): wired 含四文档变更
+### _classify_dummy（改造）
+- [ ] _classify_dummy · implemented — 预告: 改造体落地（门控感知编排：分流判据→on 段→段内谱+特征+决策/短段 pulse/连续不变+features 扩键），预期门控感知行为用例绿
+- [ ] _classify_dummy · tested — 预告: tests/predict_style 键集合断言更新（管线顺手改登记）+门控感知用例，预期 pytest → passed
+- [ ] _classify_dummy · wired — 预告: 调用点 _predict_one.py 存量接线复证，预期 grep 命中
+- [ ] _classify_dummy · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] _classify_dummy · commit — 预告: fn(_classify_dummy): wired 含四文档变更
+### _predict_one（改造）
+- [ ] _predict_one · implemented — 预告: 改造体落地（模板/规则分流：weights 含 class_mean_spectra→门控感知+段内谱→_template_classify；缺键→规则路；形状非法→回退+note），预期分流用例绿
+- [ ] _predict_one · tested — 预告: 分流/回退/model_version 带指纹用例，预期 pytest → passed
+- [ ] _predict_one · wired — 预告: 调用点 predict_style 存量接线复证，预期 grep 命中
+- [ ] _predict_one · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] _predict_one · commit — 预告: fn(_predict_one): wired 含四文档变更
+### predict_style（改造）
+- [ ] predict_style · implemented — 预告: 顶层 docstring 输出口径随真值改写（签名/批量行为不变）
+- [ ] predict_style · tested — 预告: 既有 predict_style/infer_style 族回归+R91 sim_delivery 六样式识别器级新用例+防退化用例+R92 端到端全链用例，预期全绿
+- [ ] predict_style · wired — 预告: 顶层实跑（demo 场景或合成 IQ 批量）+调用面 grep（build_report/infer_style_entry），预期命中
+- [ ] predict_style · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] predict_style · commit — 预告: fn(predict_style): wired 含四文档变更+B47 批验收
+## B47 批间门
+- [ ] B47 · 评审三轴 — 预告: 规格=域二十三块/标准/档案同步（含 tracker 本批行核对）
+- [ ] B47 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [ ] B47 · 用户裁决 — 预告: 继续 B48 / 修订 / 裁决 blocked
+- 注记: B46 混批补声明（三轴 I-2）——c7e4369 携带并行演进轮④计划层内容约 33 行（responsibility 域二十三 R91-R93 块+requirements R93 句+README 识别器措辞真值对齐），提交信息未如 B43 先例声明——内容无害（方向=真值对齐），不回滚，本注记即补声明；另「接口真值 · 进位+commit」行证据命令 grep 无 -E 且 quotepath 下手册名不可字面命中（三犯——1632 两犯在案）——底层命题独立复核为真（git show c7e4369 --name-only 含三文件），行不改写勘误；「DEMO_CHECKLIST · commit」行为 HEAD 恒过弱证据一并注记 — 处置: I-1 docstring 19+M-1 9a 线+本注记 — 2026-10-15
