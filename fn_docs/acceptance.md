@@ -1,70 +1,55 @@
-# 验收报告：无人机链路抗干扰测试平台（缺陷闭合轮③——R88 录音窗覆盖发射窗 + R89 EMC 三流程报告节）
+# 验收报告：无人机链路抗干扰测试平台·R90 手册结构 v2 修订周期（c4）
 > fn-close 独占产出（2026-10-15）。核验输出原样粘贴，禁止转述、禁止"概括为通过"。
-> 本报告不宣布"验收通过"——终审归用户。上周期报告归档于 acceptance-c2.md。
+> 本报告不宣布"验收通过"——终审归用户。上周期报告（R88/R89 缺陷闭合轮③）归档于 acceptance-c3.md。
+> 终检时点：R90 B43 全链（d7b8d6f→b8d0ddf→48477f7→74bf486→349cfb6→bced71c）+ 重走补审闭环后。
 
 ## 终检一览
+
 | 终检 | 命令 | 结果 | 证据 |
 |---|---|---|---|
-| ① 桩+全量测试+镜像 | scripts/fn-check.sh | 三项全过（桩 0/3631 绿/镜像警告级） | §1/§2 |
-| ② 接线与实跑 | — | 过（8 新函数+6 改造点锚在案；顶层实跑 2 式） | §3 |
-| ③ 矩阵双向 | scripts/fn-doc-lint.py | 机械输出在案+全量分诊证伪（c2 先例族）+独立核对替代 | §4 |
-| ④ 非功能对照 | — | 16 条逐条（新增 3 条用例级实证） | §5 |
+| ① 桩+全量测试+镜像 | scripts/fn-check.sh <repo> | ①PASS 桩 0 ②PASS 3631+2warn ③WARN（检查器命名/pycache 噪声，c1 裁定沿用） | §1/§2 |
+| ② 接线与实跑 | — | R90 两改造函数调用点+实跑在；手册入口可跑 | §3 |
+| ③ 矩阵双向 | fn-doc-lint.py+独立核对 | lint 380 错=四族假阳（c1/c2/c3 既档同源）+X1 模板行解析；独立双向 90 R 行/168 wired 全覆盖 | §4 |
+| ④ 非功能对照 | — | 11 条逐条过（231 约束族测试绿+八键+登记在册） | §5 |
 | ⑤ 报告完整性 | — | 无自封结论、末行固定句在 | — |
-| ⑥ 目录清点 | — | 无 scratch/vendor 残留、依赖清单入库、venv 在位 | §6 |
-| ⑦ 外发终检 | — | 不适用（非交付型外发任务） | — |
+| ⑥ 目录清点 | — | .scratch 无/vendor 无/runs 演示态/依赖 16 包+venv 在位可复建 | §6 |
 
-## 1 桩检查（fn-check §① 原文）
+## 1 桩检查（fn-check.sh ①段原文）
 ```
 == ① 残留桩 ==
 PASS 残留桩 0 处
 ```
 
-## 2 全量测试（fn-check §② 原文，修复后六道重跑）
+## 2 全量测试（fn-check.sh ②段原文）
 ```
 == ② 全量测试 ==
-================= 3631 passed, 2 warnings in 163.48s (0:02:43) =================
+================= 3631 passed, 2 warnings in 170.02s (0:02:50) =================
 PASS 全量测试
 ```
-（3631 = c2 基线 3551 → 演进轮③净增 74 用例：R88 族+R89 族+走查修复；B210 真机在位，3 例实机用例本轮实测通过。）
+（3631=c3 基线 3631；R90 周期净改动为契约/物料/audit 测试的等量替换与新增已含于内；2 warnings 为三方库弃用告警，c2 既档。走查环独立复跑 3631 passed 0 skip（B210 在位，真机用例含内）。）
 
-## 3 接线与实跑（本周期新增/改造面）
-**8 新函数静态调用点**（grep 锚）：
-- `tap_tx_window_blocks(ctx)` ← execute_gb42590_protocol.py:745（装配缝受停发射保护 try 内，tap_assembly_error 分支）
-- `render_emc_flow_section(result, missing)` ← build_report.py:486
-- `normalize_monitor_block(block)` ← record_run_streams.py:174（薄壳）+ tap _pull_tick
-- `_make_tick_dwell_cb`/`_pull_tick` ← tap_tx_window_blocks.py 闭包消费；`_emc_conduction/radiation/sweep_md` ← render_emc_flow_section.py 分派
+## 3 接线与实跑
+- **check_demo_manual（R90 契约 v2 改造）**：调用点 tests/check_demo_manual/test_check_demo_manual.py:157/171（smoke 消费面）；实跑 `pytest -k demo_manual_check -q` → `1 passed`；真实手册八键 `ok=True passed=26 missing_sections=[] tier_regression=[] overview_missing=[]`。
+- **prepare_demo_assets（R90 单列化改造）**：DEMO_CHECKLIST list[str] 18 项（与手册 0.1 同序）；实跑（临时目录 rounds=1）`written=7 checklist=18 项`。
+- **手册 v2 交付物**：结构走查 26 章三件套齐/零两档词/零方案 A/零占位（B43 记账在案）；0.3/0.4 命令经走查环逐字实跑（N13/N14）。
 
-**6 改造点锚**：run_power_ladder dwell_cb（签名/发射前校验/调用三处）；_execute_stage `ctx["stop"] = stop`；record_run_streams prewindow_blocks；execute_gb42590_protocol tap_kit 装配；_report_payload flow 标签三分支；build_report `_emc_simulated_part_label` 脚注回退随流程。
-
-**顶层实跑**：
-```
-run_demo --demo → status=failed failure_levels=1（中段失效演示口径）report 生成 traceability=passed
-dict 通道 conduction → COND_EXIT=0 status=completed；report.md 含「## EMC 传导摸底（模拟）」「> passed：合规（演示口径，非认证）」
-```
-
-## 4 需求→函数对照（R88/R89；R1–R87 沿 c2 在册）
-| 需求 | 函数 | 核验命令 | 结果 |
+## 4 需求→函数对照（R90；R1–R89 沿 c2/c3 报告不变）
+| R | 函数/单元 | 核验命令 | 结果 |
 |---|---|---|---|
-| R88 交窗硬判据 | tap_tx_window_blocks 子树+4 改造点 | pytest tests/run_demo/test_sim_delivery_record_true.py -q | 8 passed（窗内行 57344/环回块 +27.7dB/PAPR 差 12.17dB） |
-| R88 急停先行 | _make_tick_dwell_cb | pytest tests/tap_tx_window_blocks -q | 25 passed（端到端 0.60s 截断在 B44 对抗报告） |
-| R88 上限贯通 | record_run_streams prewindow | pytest tests/record_run_streams -q | 47 passed |
-| R89 三形状分支 | render_emc_flow_section+3 叶 | pytest tests/render_emc_flow_section tests/build_report -q | 74 passed（-k report_builder 25） |
-| R89 端到端三流程 | _report_payload 映射 | pytest tests/run_demo/test_emc_scenario_envelope.py -q | 8 passed（sweep 误挂传导标题闭合） |
-| 走查 C1 修复 | index_dataset/train_classifier | pytest tests/index_dataset tests/train_classifier -q | 79 passed（含端到端封堵 n_samples==2） |
+| R90 | 手册结构修订 v2（文档交付物）+改造点 check_demo_manual/prepare_demo_assets | pytest tests/check_demo_manual/ -q；pytest tests/prepare_demo_assets/ -q；八键直跑 | 24 passed；19 passed；ok=True passed=26 |
+- 独立双向核对：responsibility 矩阵 90 R 行（R1–R90）各有承载单元（函数或注明承载方式的文档/过程交付物）；functions.md 168 行全 wired、桩 0、无孤儿（fn-check ①+既有 c2/c3 §4 核对沿承+本轮 R88/R89 新增函数已由 c3 报告覆盖）。
+- fn-doc-lint 380 错：四族假阳（解析器与 test_* 命名/演进文档格式/pycache/X1 豁免模板行解析）——c1 逐族证伪、c2/c3 同源沿用；独立双向核对替代（同 c1 先例）。
 
-**fn-doc-lint 机械输出**：全量 380 ERR/47 WARN 逐类分诊证伪——167 死代码=动态装配/括注调用方切分假阳（c2 先例族，本周期 tap/render 等 8 函数同族）；89+14=演进格式矩阵解析脱节（R1–R90 全挂=全局假阳）；Ruling 文本行/X1 模板行/R90 状态词装饰=格式误读。独立核对替代：矩阵正向 R88/R89 有 wired 函数；反向无孤儿（调用链 §3）；functions.md 8 行 hash 与 git 对账一致；桩标记交叉零错。
-
-## 5 非功能约束逐条（16 条）
-既有 13 条（合规红线/实时性/样式切换/插槽/先停发射/可溯源/平台/数字纪律/离线/顺手改登记/演示零出错/手册单文件）全套件用例承载绿；**演进轮③新增 3 条**：采集提前不扰发射（dwell_cb 缺省纯睡眠 4 用例+分片开销 +1.6% 实测）、录音可复现（同 seed 两轮 sha 相同，B44 对抗复算）、防失控上限沿用（prewindow 计数 3 用例）。
+## 5 非功能约束逐条（11/11）
+合规红线/实时<500ms/样式切换<2s/插槽可扩展/先停发射/可溯源/平台/数字纪律/离线可用/顺手改登记/**演示零出错**——约束族测试聚合 `-k "compliance_guard or realtime_console or styles_switch or emergency_stop or report_traceability or console_offline"` → **231 passed**；演示零出错=手册八键全绿+走查环清零（§走查环）；登记项=变更记录全程在册。
 
 ## 6 目录清点
-`.scratch/`/`fn_work/.scratch/`/`fn_docs/vendor/` 均不存在；`fn_work/requirements.txt` 入库（16 包）、`fn_work/.venv` 在位（走查子代理 /tmp 全新复建 PIP_EXIT=0 实证可复建）；外部依赖与参考资料登记节在册。
+.scratch/ 不存在｜fn_docs/vendor/ 不存在｜runs/=演示走查产物（gitignored，交付语义沿 c2/c3：运行态目录）｜fn_work/scenarios/=预置场景（运行态生成，gitignored）｜requirements.txt 16 包在库、.venv 在位（pyvenv.cfg --system-site-packages；走查环 N1 四重旁证可复建）｜外部依赖表齐（vue vendor/markdown/playwright/platformio）｜参考资料四份登记在册。
 
-## 用户走查环记录
-首轮（全文走查子代理）：**C1**（索引链 style 断链——「攒样可训」在网页主路径拒训+错误消息误导）+**I1**（noise_floor 元数据标注不落盘）+**I2**（卡片需重启）+**I3**（急停报告占位未披露）+**I4**（训练/索引测试 fixture 假绿）+5M。处置：C1/I4 派 /fn-implement 修复子代理（f44b6e9：index_dataset 自场景副本补全 style/freq_mhz+train 跳段归因分列+端到端封堵用例）；I1/I2/I3/M1/M2 手册直改（内容级可辨口径/重启提示/已知限制 9/16 包/658M）。复走查（scoped 修复面）：**Critical 0 / Important 0 清零**。Minor 留档：「环回约 -10dB 级」数字随场景功率漂移（实测分离 140+dB 实质成立）；发射窗缓冲无上界与 B210 序号域 ts 随 R87。
+## 走查环留痕
+单环闭环：走查子代理（零喂料模板原文）→ C2/I1/M2 → F1 手册命令修复（实测可达形+scoped 复走查 OK）+F3 手册卡片措辞（已修）+F2 移交并行会话（其未提交 README 23/29 条现在时宣称识别器已修，21/21 实验证伪；其 requirements 已登记 R91/R92 计划——**落码前须改回限界口径**）+F4 在册维持+F5 登记。Critical 本侧清零（F2 为并行在途文档，指回 owning 会话）。
 
-## 未完成项
-无（R87 真机复查为独立延后条目，非本轮未完成）。
+## 已知限制（如实，终审参考）
+识别器轻量替身：sim/平台录音识别恒 pulse（阶梯通断包络命中规则首条；语义演示需显式合成 IQ 或真机录音随 R87 验）｜检查器总章完整性族弱契约（13 项子串锚，DEMO_CHECKLIST 联动=登记加固项）｜标定表【待实测】占位｜R87 真机复查延后（B210 序号域 ts 口径+发射窗缓冲上界+固件烧录联调）｜空录音卡片 UI（登记）｜并行演进轮④（R91/R92）在途：README 措辞超前已移交。
 
----
 以上为终检事实，验收与否由用户判定。
