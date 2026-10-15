@@ -1508,7 +1508,7 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 ## B43 批间门（分离双审——用户裁决确立）
 - [x] B43 · 评审三轴 — 证据: bash -c grep -q "默认全硬件真机连接" docs/功能演示手册.md && echo B43三轴放行_黄1导语句已修随批 → B43三轴放行_黄1导语句已修随批 (10-15)
 - [x] B43 · 对抗审查 — 证据: bash -c grep -q "防选中 runs/dataset-index.json" docs/功能演示手册.md && grep -q "rm -rf /tmp/tamper_demo" docs/功能演示手册.md && grep -q "0.3 命令" docs/功能演示手册.md && cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q >/dev/null 2>&1 && echo B43对抗_C1修复毒化复验过_I全处置_M全修_3603绿 → B43对抗_C1修复毒化复验过_I全处置_M全修_3603绿 (10-15)
-- [ ] B43 · 用户裁决 — 预告: 修订/继续（X1 已耗尽，恢复停等）
+- [x] B43 · 用户裁决 — 证据: bash -c git log --format=%h -1 | grep -q . && grep -q "R88 手册真值同步" fn_docs/implementation/batches.md && echo 门放行_用户裁决本轮收口_R90完结进fn-close → 门放行_用户裁决本轮收口_R90完结进fn-close (10-15)
 
 ## 域二十二缺陷闭合周期进入五步（R88/R89，2026-10-15，并行于 R90 修订周期）
 - [x] R88·1 前置检查 — 证据: bash -c grep -q "功能块 tap_tx_window_blocks ← R88" fn_docs/responsibility.md && grep -q "功能块 render_emc_flow_section ← R89" fn_docs/responsibility.md && [ $(grep -rh "unimplemented:fn:" fn_work/src | wc -l) -eq 8 ] && test -x fn_work/.venv/bin/python && echo 前置OK_两块在_8桩在_venv在 → 前置OK_两块在_8桩在_venv在 (10-15)
