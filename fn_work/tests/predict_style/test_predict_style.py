@@ -970,3 +970,117 @@ def test_predict_one_train_classifier_product_model_template_path():
         nfft=_TEMPLATE_NFFT,
     )
     assert no_meta["model_version"] == result["model_version"]  # train_meta 不入哈希
+
+
+# --- B47 R92 端到端全链验收（追加于文件尾）：合成数据训练→模板路识别 ---
+
+#: R92 用例参数：nfft=64（谱 33 维）与段长 2048（frames=63，短段跳过不触发）。
+_R92_NFFT = 64
+_R92_SEGMENT_N = 2048
+
+#: 六类训练标签序（固定序——train_classifier 的 labels 为样本首现序，等价口径
+#: 下取固定清单）。
+_R92_LABELS = ["tone", "bandlimited_noise", "sweep", "chirp", "partial_band", "pulse"]
+
+
+def _r92_synth(style, rng, variant):
+    """R92 六样式合成段（n=2048 连续 IQ；variant∈{0,1,2} 为段内参数变体——
+    训练三段与测试段同式，仅 rng 种子/变体取值不同）。
+
+    频带布置（cycles/sample，正频率半轴 bin=f×64，33 维谱上六类两两不重叠——
+    模板路最近质心可分的构造前提）：
+    - tone：单频复指数 f∈{0.07,0.08,0.09}（bin≈4.5–5.8 单峰）；
+    - bandlimited_noise：randn 直用（宽带——能量铺满全轴）；
+    - sweep：线性调频 0.27→f1∈{0.38,0.40,0.42}（时间平均谱=平坦台面 bin 17–27）；
+    - chirp：三角调频 0.42↔hi∈{0.47,0.48,0.49}（台面 bin 27–31，与 sweep 台面
+      不相接）；
+    - partial_band：randn 经 FFT 矩形窗截 [0.15,0.20) 窄带（bin 9.6–12.8，带通
+      置放——避开 pulse 的 DC 线与 tone 峰，gen_partial_band 同款频域法）；
+    - pulse：周期门控 tone 载波取 DC（门控包络本身即 tone：on≈1/off=0，谱=
+      DC 线+sinc 衰减裙，period∈{180,200,220} 样本、duty=0.25——确定性波形，
+      rng 不参与，段间差异由 period 变体承载）。
+    """
+    n = _R92_SEGMENT_N
+    t = np.arange(n)
+    if style == "tone":
+        freq = (0.07, 0.08, 0.09)[variant]
+        return np.exp(2j * np.pi * freq * t)
+    if style == "bandlimited_noise":
+        return rng.standard_normal(n) + 1j * rng.standard_normal(n)
+    if style == "sweep":
+        f0, f1 = 0.27, (0.38, 0.40, 0.42)[variant]
+        rate = (f1 - f0) / n  # 瞬时频率 f0→f1 线性过渡（相位=cumsum 积分口径）
+        return np.exp(2j * np.pi * np.cumsum(f0 + rate * t))
+    if style == "chirp":
+        lo, hi = 0.42, (0.47, 0.48, 0.49)[variant]
+        period = 1024  # 半周期 512：2048 点恰两个三角扫（升/降各两次）
+        pos = t % period
+        half = period // 2
+        freq = np.where(
+            pos < half,
+            lo + (hi - lo) * pos / half,
+            hi - (hi - lo) * (pos - half) / half,
+        )
+        return np.exp(2j * np.pi * np.cumsum(freq))
+    if style == "partial_band":
+        white = rng.standard_normal(n) + 1j * rng.standard_normal(n)
+        freqs = np.fft.fftfreq(n)  # cycles/sample [-0.5, 0.5)
+        return np.fft.ifft(np.fft.fft(white) * ((freqs >= 0.15) & (freqs < 0.20)))
+    if style == "pulse":
+        period = (180, 200, 220)[variant]
+        on = int(round(0.25 * period))  # duty=0.25（on 段 45–55<nfft 不入段表）
+        return ((t % period) < on).astype(np.complex128)
+    raise ValueError(f"未知样式: {style!r}")
+
+
+def test_r92_end_to_end_train_then_recognize():
+    """R92 端到端全链（合成数据版）：RandomState(42) 每样式合成 3 段连续 IQ
+    （六样式×3=18 段）→ 逐段 make_spectrogram(nfft=64) 的 dB 时间平均谱为样本
+    特征 → 手工聚合为 train_classifier 产物形态模型（顶层 class_mean_spectra）
+    → predict_style(各样式**新合成**测试段（RandomState(7) 不同种子、变体取
+    训练中位）, model=该模型, nfft=64) → 六样式标签全对（模板路端到端——
+    训练产物被推理消费的验收语义）。
+
+    等价口径注记：train_classifier(where='local') 的特征/聚合正是「逐条目
+    make_spectrogram(nfft)→spec.mean(axis=1)→类均值」（train_classifier.py
+    local 分支），其 query 面需 index_dataset 数据集树/索引检索轮转；本用例以
+    合成数据手工聚合等价承载（产物形态同构：顶层 class_mean_spectra+train_meta，
+    经 _load_model 规整入 weights 走模板路——与 ⑥ 产物形态用例互为印证），
+    不跑 sim 场景（训练需多样本，合成更快且验收语义不变）。
+    """
+    train_rng = np.random.RandomState(42)
+    class_mean = {}
+    for style in _R92_LABELS:
+        profiles = [
+            make_spectrogram(
+                _r92_synth(style, train_rng, variant), nfft=_R92_NFFT
+            )["spec"]
+            .astype(np.float64)
+            .mean(axis=1)
+            for variant in range(3)
+        ]
+        class_mean[style] = [float(v) for v in np.mean(np.stack(profiles), axis=0)]
+    model = {
+        "kind": "cnn_dummy",
+        "labels": list(_R92_LABELS),
+        "class_mean_spectra": class_mean,
+        "train_meta": {
+            "n_samples": 18,
+            "nfft": _R92_NFFT,
+            "per_class": {style: 3 for style in _R92_LABELS},
+        },
+    }
+
+    test_rng = np.random.RandomState(7)  # 不同种子（确定性样式靠变体参数差异）
+    for style in _R92_LABELS:
+        result = predict_style(
+            _r92_synth(style, test_rng, 1), model=model, nfft=_R92_NFFT
+        )
+        assert result["status"] == "ok", (style, result)
+        assert result["recognized"] is True, (style, result)
+        assert result["label"] == style, (
+            f"测试段 {style} 识别为 {result['label']!r}"
+            f"（conf={result['confidence']:.3f}）"
+        )
+        assert result["features"]["template_path"] is True  # 模板路标识在位
+        assert "未校准" in result["features"]["confidence_note"]

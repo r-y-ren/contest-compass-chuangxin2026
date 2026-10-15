@@ -458,7 +458,8 @@ def _is_batch(iq_source: Any) -> bool:
 
 
 def predict_style(iq_source, model=None, nfft: int = 256) -> dict | list[dict]:
-    """识别推理入口（B14 顶层/R32）：IQ 段 → 样式标签+置信度+模型版本结果行。
+    """识别推理入口（B14 顶层/R32；B47 R91 门控感知/R92 模板路）：IQ 段 →
+    样式标签+置信度+模型版本结果行。
 
     输入:
         iq_source: 单源三形态——SigMF meta 路径 str（复用 read_sigmf_timeline 解析，
@@ -471,19 +472,47 @@ def predict_style(iq_source, model=None, nfft: int = 256) -> dict | list[dict]:
             ——不阻塞主流程'}（R32 规约，不抛）；dict {'kind':'cnn_dummy'|'cnn',
             'labels':[...七类名], 'weights':...}；或模型 json 文件路径 str（读失败
             → no_model 同语义+note '模型文件不可读'）。本批实现 kind='cnn_dummy'
-            规则分类器（谱质心/带宽特征与七类标签阈值匹配）；kind='cnn' 真网络
-            归远期 → {'status':'unsupported_model'}（not_implemented_yet 如实返回）。
+            双路分类（R92 分流）：weights 含非空 dict 'class_mean_spectra'
+            （train_classifier(local) 产物的顶层 class_mean_spectra 形态经
+            _load_model 规整入 weights 同达）→ 模板路；否则规则路（谱质心/带宽
+            特征与七类标签阈值匹配）。kind='cnn' 真网络归远期 →
+            {'status':'unsupported_model'}（not_implemented_yet 如实返回）。
         nfft: make_spectrogram 窗长（参数化，缺省 256）。
 
     输出:
         单源 dict / 批量 list[dict]。成功行：{'status':'ok', 'recognized':True,
         'label': 七类名 str, 'confidence': 0–1 float, 'model_version':
         kind+'-'+sha256(weights)[:8]（无 weights → kind+'-dummy'）, 'features':
-        {'centroid_hz': 质心（相对量纲，0=DC/1=Nyquist）, 'bandwidth_3db': -3dB
-        带宽（正频率轴份额 0–1）}, 'iq_source': 来源摘要}——零能量退化段（谱全平坦
-        且总能量<1e-12，如全零 IQ）confidence 钳 ≤0.1 且 features 追加
-        'degenerate': 'zero_energy'（B14 低#4）。失败行：no_model/
+        dict（键集随分类路扩键，见下）, 'iq_source': 来源摘要}。失败行：no_model/
         unsupported_model/no_iq/bad_iq/short_iq + recognized=False + note。
+
+        features 基础两键恒在：'centroid_hz'（谱质心，相对量纲 0=DC/1=Nyquist）/
+        'bandwidth_3db'（-3dB 带宽，正频率轴份额 0–1）；按分类路扩键——
+
+        · 规则路（模型无模板；R91 门控感知两级防劫持/防退化）：全段占空
+          duty_on ≥0.9（无显著通断——连续合成信号）→ 全段规则决策直出，
+          features 恰基础两键（连续路零扩键）；duty_on <0.9（显著通断，如平台
+          阶梯驻留录音）→ 提取段长 ≥nfft 的 on 段、最长单段 ≥3×nfft 才拼接
+          长段做段内谱重判（防驻留录音被门控占空+驻留周期峰劫持恒判 pulse——
+          样式信息在 on 段谱形，外发 centroid/bandwidth 取段内值）；最长单段
+          不足（真脉冲串/脉内碎片/两层门控阶梯×pulse）→ 维持全段规则一判定
+          不重判（防退化：短 on 段不可谱分析不冒充连续载波，两层门控的
+          pulse 由该兜底如实承载）。门控路（无论段内重判与否）features 恒扩
+          三键：'gated': True / 'on_ratio': 全段占空 / 'on_segments': 段长
+          ≥nfft 的段数——如实披露看到了门控。
+        · 模板路（R92；模型含非空 class_mean_spectra）：门控感知骨架与规则路
+          同型（scope=全段谱或长 on 段拼接谱，切换判据同为最长单段 ≥3×nfft），
+          scope 的 dB 时间平均谱（与 class_mean_spectra 训练口径一致）→
+          spectral_template_match 最近质心出标签；confidence 为 softmax over
+          negative distances 的**未校准**分数（校准需独立校准集，留远期）——
+          features 扩 'confidence_note'（未校准标注）与 'template_path': True
+          两键，门控切换 scope 时另扩 gated/on_ratio/on_segments 三键（口径同
+          规则路）；模板形状非法（维度不一致等 ValueError）→ 回退规则路判定
+          且 features 附 'note': '模板路形状异常回退规则路: …'（不新增错误
+          类型）。
+        · 零能量退化段（谱全平坦且总能量<1e-12，如全零 IQ，双路同钳）：
+          confidence 钳 ≤0.1 且 features 追加 'degenerate': 'zero_energy'
+          （B14 低#4，不冒充高置信分类）。
 
     错误:
         不抛（一切失败转 status 行）；唯一例外：nfft 非法 → ValueError 由

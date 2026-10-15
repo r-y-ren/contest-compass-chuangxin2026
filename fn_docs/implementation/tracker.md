@@ -1713,12 +1713,22 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [x] _predict_one · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/predict_style/test_predict_style.py tests/train_classifier tests/infer_style_entry tests/run_demo/test_sim_delivery_record_true.py -q && echo PO_67加64全绿含train产物模板路锚 → PO_67加64全绿含train产物模板路锚 (10-15)
 - [x] _predict_one · wired — 证据: bash -c grep -qF 'return [_predict_one(item, loaded, model_err, nfft) for item in iq_source]' fn_work/src/predict_style/predict_style.py && grep -cF '_predict_one(' fn_work/src/predict_style/predict_style.py && echo PO_wired_predict_style两处调用在 → PO_wired_predict_style两处调用在 (10-15)
 - [x] _predict_one · 清单进位 — 证据: bash -c grep -qF '_predict_one | B47 | wired 10-15（改造承载 R92' fn_docs/implementation/functions.md && grep -qF '_load_model 顶层模板规整快速通道' fn_docs/implementation/functions.md && grep -qF '快速通道（B47 伴生）：_load_model' fn_docs/implementation/batches.md && echo PO进位OK_快速通道登记在 → PO进位OK_快速通道登记在 (10-15)
-- [ ] _predict_one · commit — 预告: fn(_predict_one): wired 含四文档变更
+- [x] _predict_one · commit — 证据: bash -c git cat-file -e f2b6913 && git show --stat --format= HEAD | grep -cE 'predict_style|functions|tracker|batches' && echo PO_commit在 → PO_commit在 (10-15)
 ### predict_style（改造）
-- [ ] predict_style · implemented — 预告: 顶层 docstring 输出口径随真值改写（签名/批量行为不变）
-- [ ] predict_style · tested — 预告: 既有 predict_style/infer_style 族回归+R91 sim_delivery 六样式识别器级新用例+防退化用例+R92 端到端全链用例，预期全绿
-- [ ] predict_style · wired — 预告: 顶层实跑（demo 场景或合成 IQ 批量）+调用面 grep（build_report/infer_style_entry），预期命中
-- [ ] predict_style · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] predict_style · implemented — 证据: bash -c grep -qF 'R91 门控感知两级' fn_work/src/predict_style/predict_style.py && grep -qF '未校准' fn_work/src/predict_style/predict_style.py && echo PS_docstring随真值改写 → PS_docstring随真值改写 (10-15)
+- [x] predict_style · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/run_demo/test_sim_delivery_record_true.py tests/predict_style/test_predict_style.py -q && echo PS_78绿_R91六样式硬判全对_R92全链六类全对 → PS_78绿_R91六样式硬判全对_R92全链六类全对 (10-15)
+- [x] predict_style · wired — 证据: bash -c grep -qF 'predict_style' fn_work/src/build_report/build_report.py && grep -qF 'predict_style' fn_work/src/infer_style_entry/infer_style_entry.py && cd fn_work && .venv/bin/python -c "
+from src.predict_style.predict_style import predict_style
+import numpy as np
+rng = np.random.RandomState(3)
+t = np.arange(60000) / 1e6
+tone = 0.7 * np.exp(2j * np.pi * 2e5 * t)
+off = np.zeros(60000, dtype=complex)
+iq = np.concatenate([tone[:8000], off[:4000], tone[8000:16000], off[4000:8000], tone[16000:24000], off[8000:12000], tone[24000:32000], off[12000:16000], tone[32000:40000], off[16000:20000], tone[40000:48000], off[20000:24000], tone[48000:60000]])
+r = predict_style(iq, model={'kind': 'cnn_dummy', 'labels': ['tone','sweep','chirp','bandlimited_noise','partial_band','pulse','composite']})
+assert r['label'] == 'tone' and r['features']['gated'], (r['label'], sorted(r['features']))
+print('TOP_RUN_OK_ladder_tone_to_tone_gated')" && echo PS_wired_顶层实跑过_调用面两处在 → PS_wired_顶层实跑过_调用面两处在 (10-15)
+- [x] predict_style · 清单进位 — 证据: bash -c grep -qF 'predict_style | B47 | wired 10-15（改造承载 R91/R92 顶层）' fn_docs/implementation/functions.md && echo PS进位OK → PS进位OK (10-15)
 - [ ] predict_style · commit — 预告: fn(predict_style): wired 含四文档变更+B47 批验收
 - Ruling: 段内分类判据「拼接累计≥3×nfft」→「最长单段≥3×nfft」 — 原因: 累计判据在两层门控碎片场景（脉内碎片∈[nfft,3×nfft) 且累计超阈）拼接谱为连续载波误判 tone（子代理实证 300/800 几何：旧判据 tone@0.943、新判据 pulse@0.838）——派发词判据定标缺陷（计划错），修正并补判别负例锚⑦ — 代价: 无（既有 6 用例零漂移，61 绿） — 落点: _classify_dummy 判据+常量注释+docstring 机制句（两层门控 pulse 由最长单段不足→全段规则一兜底承载；段内再判在拼接口径下数学不可达）+responsibility 域二十三块与 requirements R91 句措辞对齐·快速通道
 ## B47 批间门

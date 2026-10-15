@@ -267,3 +267,180 @@ def test_sim_delivery_style_separability_tone_vs_bandlimited_noise(
         f"tone 峰均比 {tone_papr:.1f}dB 未显著高于 bandlimited_noise "
         f"{noise_papr:.1f}dB（差 {tone_papr - noise_papr:.1f}dB ≤ 6dB）"
     )
+
+
+# ---------- R91 识别器级验收（B47 批收尾，2026-10-15 追加） ----------
+# 交付链闭环：record:true 场景 → SigMF 录音首块（发射环回块）→ predict_style
+# 规则路识别 → label 与注入样式对照（六样式硬判 + composite 弱判 + pulse 防退化）。
+
+from src.predict_style.predict_style import SEVEN_STYLE_LABELS  # noqa: E402
+from src.predict_style.predict_style import predict_style  # noqa: E402
+
+#: R91 六样式场景：style 各异，其余参数沿用既有对照场景口径（fs=1e6、
+#: record:true、backend:sim、gb 缺省阶梯——同 _SCENARIO 仅改 style 与样式参数）。
+#: 参数选取（识别器可分口径，make_spectrogram 谱取正频率半轴——fft 前
+#: nfft//2+1 bin，负频成分不入谱）：
+#: - tone：配方缺省（freq_offset 1e5=0.1fs，正半轴单峰 bin≈26，恒包络）；
+#: - sweep：f0/f1 显式全正 50k→150k（配方缺省 -10k→10k 半程在负频不可见，
+#:   单调上扫→sweep_range 大而 reversals<3）；
+#: - chirp：center 150k±100k（50k–250k 全正带）、周期 1ms×4096 点≈4 周期锯齿
+#:   （≥3 次 reversals 入 chirp 判据）；
+#: - bandlimited_noise：200kHz 宽带（正半轴可见 0–100k，-3dB 份额≈0.2>0.06 且
+#:   带内平坦），seed=7 钉死可复现；
+#: - partial_band：bandwidth_hz=20e3 仅为场景装载层带限类必填键（生成器不消费，
+#:   gen_partial_band 走配方缺省 victim_bw_hz=20e3×fraction 0.5=10k 占用带——
+#:   顶层不携 victim_bw_hz 以避开 GB 干扰带宽≥链路带宽校验：占用带 bin 量化
+#:   恒略小于标称，携必抛 ProtocolError）；零中心窄带噪声包络 Rayleigh 非恒幅
+#:   → 落 partial_band 判据窗；
+#: - pulse：100µs/1kHz（duty=0.1 周期门控）+0.1fs 载波。
+_R91_SCENARIOS = {
+    "tone": {**_SCENARIO, "style": "tone"},
+    "sweep": {**_SCENARIO, "style": "sweep", "f0": 50e3, "f1": 150e3},
+    "chirp": {
+        **_SCENARIO,
+        "style": "chirp",
+        "center_hz": 150e3,
+        "bandwidth_hz": 200e3,
+        "period_s": 1e-3,
+        "n_samples": 4096,
+    },
+    "bandlimited_noise": {
+        **_SCENARIO,
+        "style": "bandlimited_noise",
+        "bandwidth_hz": 200e3,
+        "n_samples": 8192,
+        "seed": 7,
+    },
+    "partial_band": {
+        **_SCENARIO,
+        "style": "partial_band",
+        "bandwidth_hz": 20e3,
+        "seed": 7,
+    },
+    "pulse": {
+        **_SCENARIO,
+        "style": "pulse",
+        "pulse_width_s": 1e-4,
+        "repeat_hz": 1e3,
+        "n_samples": 8192,
+        "carrier_hz": 0.1e6,
+    },
+}
+
+#: 各样式发射环回块样本数（switch_style 配方 n_samples；sweep 由 duration_s
+#: ×fs=0.005×1e6 推得）——SigMF 录音首块切片口径（先例同 _TONE_N_SAMPLES：
+#: start_tx([iq]) 单块发射，录音首个环回块长度即合成点数，其后为静默态底噪块，
+#: 切片将底噪隔离在识别输入外）。
+_R91_TX_N = {
+    "tone": 4096,
+    "sweep": 5000,
+    "chirp": 4096,
+    "bandlimited_noise": 8192,
+    "partial_band": 8192,
+    "pulse": 8192,
+}
+
+#: R91 composite 对照场景：tone+partial_band 两显式分量（等长 4096 供
+#: compose_jamming 叠加；partial_band 分量带宽落在 tone 峰（合成级频偏双重
+#: 身份净频位 200kHz）之外）。分量内 victim_bw_hz 不入顶层——GB 带宽校验仅看
+#: 场景顶层键（缺省跳过）。
+_R91_COMPOSITE_SCENARIO = {
+    **_SCENARIO,
+    "style": "composite",
+    "components": [
+        {"style": "tone", "fs": 1.0e6, "freq_offset_hz": 100e3, "n_samples": 4096},
+        {
+            "style": "partial_band",
+            "fs": 1.0e6,
+            "bandwidth_hz": 60e3,
+            "victim_bw_hz": 300e3,
+            "fraction": 0.2,
+            "center_offset_hz": 100e3,
+            "n_samples": 4096,
+            "seed": 22,
+            "rms_amplitude": 0.3,
+        },
+    ],
+}
+
+#: composite 发射环回块样本数（分量等长 4096，叠加后同长）。
+_R91_COMPOSITE_TX_N = 4096
+
+
+@pytest.fixture(scope="module")
+def r91_style_runs(tmp_path_factory):
+    """R91 六样式场景各真跑一轮 record:true（模块级缓存先例同 delivered_run），
+    返回 {style: run_dir}。"""
+    root = tmp_path_factory.mktemp("sim_delivery_r91_styles")
+    runs = {}
+    for style, scenario in _R91_SCENARIOS.items():
+        result = run_scenario(dict(scenario), out_root=str(root))
+        assert result["status"] == "completed" and result["exit_code"] == 0, (
+            style,
+            result.get("summary"),
+        )
+        runs[style] = result["run_dir"]
+    return runs
+
+
+@pytest.fixture(scope="module")
+def r91_composite_run(tmp_path_factory):
+    """R91 composite（tone+partial_band 两分量）对照运行（模块级缓存同上）。"""
+    root = tmp_path_factory.mktemp("sim_delivery_r91_composite")
+    result = run_scenario(dict(_R91_COMPOSITE_SCENARIO), out_root=str(root))
+    assert result["status"] == "completed" and result["exit_code"] == 0
+    return result["run_dir"]
+
+
+def _tx_loopback_samples(run_dir, n_tx):
+    """SigMF 录音首块（发射环回块）样本：全量读回后切前 n_tx 个（切片口径见
+    _R91_TX_N 注记——首块=发射样式 IQ，其后为 -110dBm 级静默态底噪块）。"""
+    samples = _recording_samples(run_dir)
+    assert samples.size >= n_tx, (run_dir, samples.size, n_tx)
+    return samples[:n_tx]
+
+
+def test_sim_delivery_style_recognition_six_styles(r91_style_runs):
+    """R91 硬判：六样式场景（tone/sweep/chirp/bandlimited_noise/partial_band/
+    pulse）各跑一轮 record:true → 各自 SigMF 录音首块（发射环回块）样本 →
+    predict_style 规则路（裸 cnn_dummy 模型，七类标签锚）→ label 与注入样式
+    六类全对——sim 交付链（场景合成→发射→环回录制→识别器）样式级闭环验收。"""
+    model = {"kind": "cnn_dummy", "labels": list(SEVEN_STYLE_LABELS)}
+    for style, run_dir in r91_style_runs.items():
+        result = predict_style(
+            _tx_loopback_samples(run_dir, _R91_TX_N[style]), model=model
+        )
+        assert result["status"] == "ok", (style, result)
+        assert result["recognized"] is True, (style, result)
+        assert result["label"] == style, (
+            f"注入 {style} 识别为 {result['label']!r}（conf={result['confidence']:.3f}）"
+        )
+    # 回归防退化（并入本用例）：pulse 轮 confidence>0.5 且 label='pulse'——
+    # 真脉冲场景照常识出（脉内 on 段 100 样本<nfft 不入段表，走门控路兜底=
+    # 全段规则一判定；两层门控/短脉冲不因 R91 门控感知改造漏检或误判连续载波）。
+    pulse = predict_style(
+        _tx_loopback_samples(r91_style_runs["pulse"], _R91_TX_N["pulse"]),
+        model=model,
+    )
+    assert pulse["label"] == "pulse"
+    assert pulse["confidence"] > 0.5
+    assert pulse["features"]["gated"] is True  # 门控如实披露
+    assert pulse["features"]["on_segments"] == 0  # 脉内碎片<nfft 不入段表（兜底路）
+
+
+def test_sim_delivery_composite_weak_check(r91_composite_run):
+    """R91 弱判：composite 场景（tone+partial_band 两分量）跑一轮 → 识别 label
+    断言与分量相容——label∈七类 且 label=='composite' 或 label==任一分量样式名
+    （tone/partial_band 皆可接受）：混合波形规则路本无 composite 专项判据（宽带
+    非平坦兜底），被劫持到与两分量都矛盾的单一类（如 sweep/chirp/pulse/
+    bandlimited_noise）才算失败。"""
+    model = {"kind": "cnn_dummy", "labels": list(SEVEN_STYLE_LABELS)}
+    result = predict_style(
+        _tx_loopback_samples(r91_composite_run, _R91_COMPOSITE_TX_N), model=model
+    )
+    assert result["status"] == "ok"
+    assert result["label"] in SEVEN_STYLE_LABELS  # 弱判①：标签域合法
+    assert result["label"] in {"composite", "tone", "partial_band"}, (  # 弱判②：分量相容
+        f"composite 混合识别为 {result['label']!r}——与两分量（tone/partial_band）"
+        f"都矛盾的单一类"
+    )
