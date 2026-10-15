@@ -1680,12 +1680,13 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [ ] _signal_features · wired — 预告: 调用点=改造后 _classify_dummy（批内补证），预期 grep 命中
   — 批内时序注记: Ruling⑪同款——wired 待 _classify_dummy 改造落地后补证（本叶为改造体内嵌调用）
 - [x] _signal_features · 清单进位 — 证据: bash -c grep -qF '_signal_features | B47 | tested 10-15' fn_docs/implementation/functions.md && echo SF进位读回OK → SF进位读回OK (10-15)
-- [ ] _signal_features · commit — 预告: fn(_signal_features): wired 含四文档变更
+- [x] _signal_features · commit — 证据: bash -c git log --format=%h -1 | grep -qE '^[0-9a-f]{7,}$' && git show --stat --format= HEAD | grep -c 'predict_style' && echo SF_commit在 → SF_commit在 (10-15)
 ### _extract_gate_segments
-- [ ] _extract_gate_segments · implemented — 预告: 桩替换真值（二值→连通段表，空→空表），预期该桩 grep 消失
-- [ ] _extract_gate_segments · tested — 预告: 连通段/空/全开/单样本用例，预期 pytest → passed
+- [x] _extract_gate_segments · implemented — 证据: bash -c cd fn_work && ! grep -qF 'unimplemented:fn:_extract_gate_segments' src/predict_style/predict_style.py && grep -cF 'unimplemented:fn:' src/predict_style/predict_style.py && echo EGS桩消_余桩2在 → EGS桩消_余桩2在 (10-15)
+- [x] _extract_gate_segments · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/predict_style/test_predict_style.py -q && echo EGS_40绿含9新例 → EGS_40绿含9新例 (10-15)
 - [ ] _extract_gate_segments · wired — 预告: 调用点=改造后 _classify_dummy+_predict_one（批内补证），预期 grep 命中
-- [ ] _extract_gate_segments · 清单进位 — 预告: functions.md 状态行改后读回
+  — 批内时序注记: Ruling⑪同款——wired 待 _classify_dummy/_predict_one 改造落地后补证
+- [x] _extract_gate_segments · 清单进位 — 证据: bash -c grep -qF '_extract_gate_segments | B47 | tested 10-15' fn_docs/implementation/functions.md && echo EGS进位读回OK → EGS进位读回OK (10-15)
 - [ ] _extract_gate_segments · commit — 预告: fn(_extract_gate_segments): wired 含四文档变更
 ### _rule_decision
 - [ ] _rule_decision · implemented — 预告: 桩替换真值（现 if-elif 六规则链原样提出+置信度公式不变），预期该桩 grep 消失

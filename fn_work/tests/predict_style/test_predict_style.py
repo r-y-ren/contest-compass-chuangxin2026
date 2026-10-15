@@ -434,3 +434,63 @@ def test_signal_features_pulse_equivalence_anchor_full_pipeline():
     result = predict_style(_gated_tone_iq(duty=0.25), model=_dummy_model())
     assert result["status"] == "ok"
     assert result["label"] == "pulse"
+
+
+# --- B47 _extract_gate_segments 门控 on 段提取（R91）：end_exclusive 口径+边界+联动锚 ---
+
+from src.predict_style.predict_style import _extract_gate_segments  # noqa: E402
+
+
+def test_extract_gate_segments_typical_multi_segments():
+    """① 典型多段 [1,1,0,1,0,0,1,1,1] → [(0,2),(3,4),(6,9)]（end_exclusive 口径）。"""
+    gate = np.array([1, 1, 0, 1, 0, 0, 1, 1, 1], dtype=bool)
+    assert _extract_gate_segments(gate) == [(0, 2), (3, 4), (6, 9)]
+
+
+def test_extract_gate_segments_all_on_single_segment():
+    """② 全开 → 单段 [(0, n)]。"""
+    assert _extract_gate_segments(np.ones(7, dtype=bool)) == [(0, 7)]
+
+
+def test_extract_gate_segments_all_off_empty_table():
+    """③ 全关 → 空表。"""
+    assert _extract_gate_segments(np.zeros(10, dtype=bool)) == []
+
+
+def test_extract_gate_segments_empty_input_empty_table():
+    """④ 空数组 → 空表。"""
+    assert _extract_gate_segments(np.zeros(0, dtype=bool)) == []
+
+
+def test_extract_gate_segments_single_sample():
+    """⑤ 单样本：True → [(0,1)]；False → []。"""
+    assert _extract_gate_segments(np.array([True])) == [(0, 1)]
+    assert _extract_gate_segments(np.array([False])) == []
+
+
+def test_extract_gate_segments_leading_off_trailing_on_not_swallowed():
+    """⑥ 首尾边界：首 False 尾 True 段不吞——[0,1,1,0,1] → [(1,3),(4,5)]。"""
+    gate = np.array([0, 1, 1, 0, 1], dtype=bool)
+    assert _extract_gate_segments(gate) == [(1, 3), (4, 5)]
+
+
+def test_extract_gate_segments_anchor_with_signal_features_gate():
+    """⑦ 联动锚：周期门控 tone 合成 IQ，feats=_signal_features(...) 的 feats['gate']
+    提段——段数≥3、各段长>0、段序按出现顺序递增、段长和==gate.sum()（自洽）。"""
+    period, duty = 200, 0.25
+    feats = _feats_of(_gated_tone_iq(duty=duty, period=period))
+    gate = feats["gate"]
+    segs = _extract_gate_segments(gate)
+    assert len(segs) >= 3
+    assert all(end > start for start, end in segs)  # 各段长>0
+    starts = [start for start, _end in segs]
+    assert starts == sorted(starts)  # 段序确定=按出现顺序
+    assert sum(end - start for start, end in segs) == int(gate.sum())  # 无样本丢失
+
+
+def test_extract_gate_segments_lenient_input_forms():
+    """⑧ 宽进防御（不承诺项的现行为快照）：list 输入与 0/1 数值数组与 bool ndarray
+    同结果。"""
+    expected = [(0, 2), (3, 4)]
+    assert _extract_gate_segments([True, True, False, True]) == expected
+    assert _extract_gate_segments(np.array([1, 1, 0, 1])) == expected

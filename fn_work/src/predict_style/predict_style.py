@@ -497,8 +497,21 @@ def _signal_features(iq: np.ndarray, spec: np.ndarray) -> dict:
 
 def _extract_gate_segments(gate: np.ndarray) -> list[tuple[int, int]]:
     """二值门控序列 → 连通 on 段表 [(start, end_exclusive), ...]（R91；空输入→空表，
-    段序确定）。规则路（_classify_dummy）与模板路（_predict_one）门控感知共用。"""
-    raise NotImplementedError("unimplemented:fn:_extract_gate_segments")
+    段序确定=按出现顺序）。规则路（_classify_dummy）与模板路（_predict_one）门控
+    感知共用。
+
+    向量化口径：前后各补一个 False 后差分（布尔异或）找沿——flatnonzero 出的沿
+    位置天然上升/下降交替，两两成对即 (start, end_exclusive)。输入宽进防御
+    （上游 _signal_features 恒给一维 bool，非 bool/非一维不承诺）：list 转
+    ndarray、非 bool 数组按真值性（!=0）转、多维摊平。
+    """
+    arr = np.asarray(gate)
+    if arr.dtype != np.bool_:  # 宽进：非 bool 数值数组按真值性转
+        arr = arr != 0
+    arr = arr.reshape(-1)  # 上游恒一维；多维防御性摊平
+    padded = np.concatenate((np.zeros(1, dtype=bool), arr, np.zeros(1, dtype=bool)))
+    edges = np.flatnonzero(padded[1:] != padded[:-1])  # 上升/下降沿交替位置
+    return [(int(edges[i]), int(edges[i + 1])) for i in range(0, edges.size, 2)]
 
 
 def _rule_decision(feats: dict) -> tuple[str, float]:
