@@ -171,3 +171,7 @@
 | prepare_demo_assets | B43 | wired 10-15（改造点 R90 单列化） | 19 passed；报告 checklist=18 项单列（序同手册 0.1）；全套件 3591 零失败时点实证 | d7b8d6f |
 | _make_tick_dwell_cb | B44 | wired 10-15 | pytest tests/tap_tx_window_blocks → 25 passed（分片/停检/保底/域拒绝 15 例）；产出=tap 装配、消费=run_power_ladder dwell_cb | 25e3388 收编 |
 | tap_tx_window_blocks | B44 | wired 10-15 | pytest tests/tap_tx_window_blocks → 25 passed（白名单/装配 6 例）+sim_delivery 交窗 3 例；调用点 execute_gb42590_protocol.py:741 | 25e3388 |
+| _emc_conduction_md | B45 | wired 10-15 | pytest tests/render_emc_flow_section → 11 passed（全要素/缺项/三态/消毒 4 例）；分派=render_emc_flow_section | bafa338 收编 |
+| _emc_radiation_md | B45 | wired 10-15 | 同上（谱表有界/洁净度/补偿 4 例） | bafa338 收编 |
+| _emc_sweep_md | B45 | wired 10-15 | 同上（点表/spurious/超限 3 例） | bafa338 收编 |
+| render_emc_flow_section | B45 | wired 10-15 | pytest tests/render_emc_flow_section → 11 passed+tests/build_report → 60 passed（四形状分支含缺项回归）；调用点 build_report.py:461 | bafa338 |

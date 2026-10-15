@@ -1567,50 +1567,51 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 ## B44 批间门
 - [x] B44 · 评审三轴 — 证据: bash -c grep -q "勘误 10-15：三轴指出的" fn_docs/implementation/tracker.md && grep -qF "| B44 |" fn_docs/implementation/history.md && ! grep -q "^| ▶ B44" fn_docs/implementation/batches.md && echo 三轴PASS在册_勘误已处置_history已入批表已移 → 三轴PASS在册_勘误已处置_history已入批表已移 (10-15)
 - [x] B44 · 对抗审查 — 证据: bash -c git log --oneline -1 805e5ae | grep -q "对抗 I-2" && grep -q "交窗时间基础 sim 侧成立" fn_docs/responsibility.md && grep -q "R88 验收判据换算登记" fn_docs/requirements.md && echo 0C_3I全处置_I2修复805e5ae_I1措辞_I3登记 → 0C_3I全处置_I2修复805e5ae_I1措辞_I3登记 (10-15)
-- [ ] B44 · 用户裁决 — 预告: 继续 B45 / 修订 / 裁决 blocked
+- [x] B44 · 用户裁决 — 证据: bash -c echo 用户裁决_继续B45_2026-10-15 → 用户裁决_继续B45_2026-10-15 (10-15)
 
 ## B45 — _emc_conduction_md, _emc_radiation_md, _emc_sweep_md, render_emc_flow_section + 改造点×2（R89）
 ### _emc_conduction_md
-- [ ] _emc_conduction_md · implemented — 预告: 桩替换（原 _emc_md 表体等价迁移）
-- [ ] _emc_conduction_md · tested — 预告: 上游覆盖绿（report_builder 传导形状断言）
-- [ ] _emc_conduction_md · wired — 预告: render_emc_flow_section 分派 grep 命中
-- [ ] _emc_conduction_md · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] _emc_conduction_md · commit — 预告: fn(_emc_conduction_md): wired 含四文档
+- [x] _emc_conduction_md · implemented — 证据: bash -c ! grep -q "unimplemented:fn:_emc_conduction_md" fn_work/src/render_emc_flow_section/render_emc_flow_section.py && grep -q "def _emc_conduction_md" fn_work/src/render_emc_flow_section/render_emc_flow_section.py && echo _emc_conduction_md 桩已替换 → _emc_conduction_md 桩已替换 (10-15)
+- [x] _emc_conduction_md · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/render_emc_flow_section/ -q 2>&1 | tail -1 → 11 passed in 0.07s (10-15)
+- [x] _emc_conduction_md · wired — 证据: bash -c grep -q '_emc_conduction_md(emc)' fn_work/src/render_emc_flow_section/render_emc_flow_section.py && grep -qF '| _emc_conduction_md | B45 | wired 10-15 |' fn_docs/implementation/functions.md && echo _emc_conduction_md 分派点+清单行在案 → _emc_conduction_md 分派点+清单行在案 (10-15)
+- [x] _emc_conduction_md · 清单进位 — 证据: bash -c grep -q 'bafa338' fn_docs/implementation/functions.md && echo _emc_conduction_md 进位读回OK含hash → _emc_conduction_md 进位读回OK含hash (10-15)
+- [x] _emc_conduction_md · commit — 证据: bash -c git log --oneline -1 bafa338 | grep -q 收编 && echo _emc_conduction_md 收编commit在库 → _emc_conduction_md 收编commit在库 (10-15)
 ### _emc_radiation_md
-- [ ] _emc_radiation_md · implemented — 预告: 桩替换（谱表有界+洁净度+补偿区）
-- [ ] _emc_radiation_md · tested — 预告: 上游覆盖绿（report_builder 辐射形状断言）
-- [ ] _emc_radiation_md · wired — 预告: render_emc_flow_section 分派 grep 命中
-- [ ] _emc_radiation_md · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] _emc_radiation_md · commit — 预告: fn(_emc_radiation_md): wired 含四文档
+- [x] _emc_radiation_md · implemented — 证据: bash -c ! grep -q "unimplemented:fn:_emc_radiation_md" fn_work/src/render_emc_flow_section/render_emc_flow_section.py && grep -q "def _emc_radiation_md" fn_work/src/render_emc_flow_section/render_emc_flow_section.py && echo _emc_radiation_md 桩已替换 → _emc_radiation_md 桩已替换 (10-15)
+- [x] _emc_radiation_md · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/render_emc_flow_section/ -q 2>&1 | tail -1 → 11 passed in 0.07s (10-15)
+- [x] _emc_radiation_md · wired — 证据: bash -c grep -q '_emc_radiation_md(emc)' fn_work/src/render_emc_flow_section/render_emc_flow_section.py && grep -qF '| _emc_radiation_md | B45 | wired 10-15 |' fn_docs/implementation/functions.md && echo _emc_radiation_md 分派点+清单行在案 → _emc_radiation_md 分派点+清单行在案 (10-15)
+- [x] _emc_radiation_md · 清单进位 — 证据: bash -c grep -q 'bafa338' fn_docs/implementation/functions.md && echo _emc_radiation_md 进位读回OK含hash → _emc_radiation_md 进位读回OK含hash (10-15)
+- [x] _emc_radiation_md · commit — 证据: bash -c git log --oneline -1 bafa338 | grep -q 收编 && echo _emc_radiation_md 收编commit在库 → _emc_radiation_md 收编commit在库 (10-15)
 ### _emc_sweep_md
-- [ ] _emc_sweep_md · implemented — 预告: 桩替换（points 原生点表+spurious）
-- [ ] _emc_sweep_md · tested — 预告: 上游覆盖绿（report_builder 扫频形状断言）
-- [ ] _emc_sweep_md · wired — 预告: render_emc_flow_section 分派 grep 命中
-- [ ] _emc_sweep_md · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] _emc_sweep_md · commit — 预告: fn(_emc_sweep_md): wired 含四文档
+- [x] _emc_sweep_md · implemented — 证据: bash -c ! grep -q "unimplemented:fn:_emc_sweep_md" fn_work/src/render_emc_flow_section/render_emc_flow_section.py && grep -q "def _emc_sweep_md" fn_work/src/render_emc_flow_section/render_emc_flow_section.py && echo _emc_sweep_md 桩已替换 → _emc_sweep_md 桩已替换 (10-15)
+- [x] _emc_sweep_md · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/render_emc_flow_section/ -q 2>&1 | tail -1 → 11 passed in 0.06s (10-15)
+- [x] _emc_sweep_md · wired — 证据: bash -c grep -q '_emc_sweep_md(emc)' fn_work/src/render_emc_flow_section/render_emc_flow_section.py && grep -qF '| _emc_sweep_md | B45 | wired 10-15 |' fn_docs/implementation/functions.md && echo _emc_sweep_md 分派点+清单行在案 → _emc_sweep_md 分派点+清单行在案 (10-15)
+- [x] _emc_sweep_md · 清单进位 — 证据: bash -c grep -q 'bafa338' fn_docs/implementation/functions.md && echo _emc_sweep_md 进位读回OK含hash → _emc_sweep_md 进位读回OK含hash (10-15)
+- [x] _emc_sweep_md · commit — 证据: bash -c git log --oneline -1 bafa338 | grep -q 收编 && echo _emc_sweep_md 收编commit在库 → _emc_sweep_md 收编commit在库 (10-15)
 ### render_emc_flow_section
-- [ ] render_emc_flow_section · implemented — 预告: 桩替换（flow 标签/形状回推分发+缺项口径）
-- [ ] render_emc_flow_section · tested — 预告: 上游覆盖绿（report_builder 三形状分支）
-- [ ] render_emc_flow_section · wired — 预告: build_report 调用点 grep 命中
-- [ ] render_emc_flow_section · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] render_emc_flow_section · commit — 预告: fn(render_emc_flow_section): wired 含四文档
+- [x] render_emc_flow_section · implemented — 证据: bash -c ! grep -q "unimplemented:fn:" fn_work/src/render_emc_flow_section/render_emc_flow_section.py && grep -q "def render_emc_flow_section" fn_work/src/render_emc_flow_section/render_emc_flow_section.py && echo 模块桩全清_分发器落盘 → 模块桩全清_分发器落盘 (10-15)
+- [x] render_emc_flow_section · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/render_emc_flow_section/ -q 2>&1 | tail -1 → 11 passed in 0.06s (10-15)
+- [x] render_emc_flow_section · wired — 证据: bash -c grep -q "emc_section = render_emc_flow_section(result, missing)" fn_work/src/build_report/build_report.py && echo build_report调用点在案 → build_report调用点在案 (10-15)
+- [x] render_emc_flow_section · 清单进位 — 证据: bash -c grep -qF '| render_emc_flow_section | B45 | wired 10-15 |' fn_docs/implementation/functions.md && grep -q 'bafa338' fn_docs/implementation/functions.md && echo 进位读回OK含hash → 进位读回OK含hash (10-15)
+- [x] render_emc_flow_section · commit — 证据: bash -c git log --oneline -1 bafa338 | grep -q render_emc_flow_section && echo rendercommit在库 → rendercommit在库 (10-15)
 ### build_report 改造（入口切换）
-- [ ] build_report · 改造applied — 预告: _emc_md 入口切换至 render_emc_flow_section（emc_is_simulated 口径不变）
-- [ ] build_report · 改造tested — 预告: tests/build_report 全绿（缺项/声明/simulated 判定回归）
-- [ ] build_report · 改造commit — 预告: fn(build_report): EMC 入口切换（快速通道留痕）
+- [x] build_report · 改造applied — 证据: bash -c ! grep -q "def _emc_md" fn_work/src/build_report/build_report.py && grep -q "from src.render_emc_flow_section.render_emc_flow_section import" fn_work/src/build_report/build_report.py && grep -q "emc_section = render_emc_flow_section" fn_work/src/build_report/build_report.py && echo _emc_md移除+模块级导入+入口切换三处在案 → _emc_md移除+模块级导入+入口切换三处在案 (10-15)
+- [x] build_report · 改造tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/build_report/ -q 2>&1 | tail -1 → 60 passed in 3.89s (10-15)
+- [x] build_report · 改造commit — 证据: bash -c git log --oneline -1 263f81d | grep -q 入口切换 && echo switchcommit在库 → switchcommit在库 (10-15)
 ### _report_payload 改造（三形状映射）
-- [ ] _report_payload · 改造applied — 预告: emc 段三形状映射+flow 标签
-- [ ] _report_payload · 改造tested — 预告: run_demo 端到端两流程 report.md 含对应节与标题
-- [ ] _report_payload · 改造commit — 预告: fn(_report_payload): 三形状映射（快速通道留痕）
+- [x] _report_payload · 改造applied — 证据: bash -c grep -qF "payload["emc"] = {**inner, "flow": "conduction"}" fn_work/src/run_demo/run_demo.py && grep -qF "payload["emc"] = {**inner, "flow": "radiation"}" fn_work/src/run_demo/run_demo.py && grep -qF ""readings": inner.get("points"), "flow": "sweep"" fn_work/src/run_demo/run_demo.py && echo 三形状映射分支在案 → 三形状映射分支在案 (10-15)
+- [x] _report_payload · 改造tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/run_demo/test_emc_scenario_envelope.py -q 2>&1 | tail -1 → 8 passed in 10.93s (10-15)
+- [x] _report_payload · 改造commit — 证据: bash -c git log --oneline -1 a528a9c | grep -q 三形状映射 && echo payloadcommit在库 → payloadcommit在库 (10-15)
 ### R89 附带交付
-- [ ] R89 · report_builder 族扩展 — 预告: 三形状渲染分支断言全绿（-k report_builder）
+- [x] R89 · report_builder 族扩展 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/build_report/ tests/render_emc_flow_section/ -q 2>&1 | tail -1 → 71 passed in 3.95s (10-15)
 
 ## B45 批间门
-- [ ] B45 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B45 · 对抗审查 — 预告: 对抗发现表（假设|证据|判定），Critical 清零
+- [x] B45 · 评审三轴 — 证据: bash -c grep -qF "| B45 |" fn_docs/implementation/history.md && ! grep -q "^| ▶ B45|^| B45 " fn_docs/implementation/batches.md && echo 三轴PASS_history已入批表已移 → 三轴PASS_history已入批表已移 (10-15)
+- [x] B45 · 对抗审查 — 证据: bash -c git log --oneline -1 5d08609 | grep -q "对抗处置——I-1" && grep -q "标题「EMC 摸底（模拟）」不含具体流程" fn_docs/responsibility.md && echo 0C_2I6M_2I_M1已修_M3登记 → 0C_2I6M_2I_M1已修_M3登记 (10-15)
 - [ ] B45 · 用户裁决 — 预告: 进 /fn-close / 修订 / 裁决 blocked
 - Ruling: 每函数 commit 只含代码+测试、四文档随批末统一提交 — 原因: implementation 四文档与并行 R90 会话共存未提交变更（requirements/responsibility/tracker/batches 两会话各节混居），逐函数提交会拖入他会在途文档态 — 代价: per-fn commit 不含四文档（偏离「同 commit 含四文档」惯例），批末一次补齐+归属注记 — 落点: B44/B45 批末收口提交（先例：B42 M9 并发漂移随收口提交消解）
 （normalize_monitor_block · wired/进位/commit 依周期① Ruling① 先例随首个调用方落——record_run_streams 改造与 _pull_tick 两调用点就位后补勾；B44 内闭环）
 （_pull_tick · wired/进位/commit 随调用方 _make_tick_dwell_cb 就位后连续补勾——同 normalize 先例，B44 内闭环）
 （_pull_tick · commit 依 B4 收编先例随 _make_tick_dwell_cb wired 时同文件一提交入账——两函数同居 tap_tx_window_blocks.py；hash 届时回填 functions.md）
 （勘误 10-15：三轴指出的 tracker:1550 重复未勾行系本周期 heredoc 转录冗余——真值行 1543 已带 135 passed 证据勾选，重复行删除留注）
+（三叶子 wired/进位/commit 随分发器 render_emc_flow_section 接线后同文件一提交收编——B4 先例）

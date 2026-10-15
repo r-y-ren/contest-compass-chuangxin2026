@@ -3,7 +3,6 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| B45 | _emc_conduction_md→_emc_radiation_md→_emc_sweep_md→render_emc_flow_section + 改造点×2（build_report 入口切换/_report_payload 三形状映射）+ report_builder 族扩展 + run_demo 端到端两流程 | render_emc_flow_section wired；-k report_builder 绿；conduction/radiation 端到端 report.md 含对应节与流程正确标题；全套件无新失败 | R89 子树 |
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
 | 日期 | 事件 | 说明 |

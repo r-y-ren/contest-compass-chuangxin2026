@@ -1665,7 +1665,7 @@
 （R89：EMC 三流程报告节——传导/辐射映射与分节渲染。现状缺口：run_demo._report_payload 只映射 scenario_type=='emc' 且 inner 含 points 的扫频形状，传导（readings 列表+margin_db/passed+口径注记）与辐射（spectrum+cleanliness+补偿注记）无映射分支——数字只落 result.json；build_report._emc_md 单形状渲染且标题写死「EMC 传导摸底」（扫频数据也误挂传导标题）。闭合：**映射层**按结果形状三分支+段内 'flow' 标签（形状回推口径与 execute_scenario._streams_note 一致：readings 列表→conduction、spectrum dict→radiation、其余含 points→sweep）；**渲染层**按 flow 分节——传导=读数/裕量表+检波器+passed+口径注记、辐射=谱图表（有界行渲染，全谱溯源归 result.json）+洁净度+补偿注记、扫频=频点/读数(+spurious) 点表；标题随流程（EMC 传导摸底/EMC 辐射摸底/EMC 步进扫频）。**改造点·快速通道（结构性变更留痕）**：①`run_demo._report_payload` [改造] emc 段三形状映射分支+段内 'flow' 标签（readings←inner 原生、spectrum/cleanliness 直传、points→readings 适配口径保留在扫频分支内）；②`build_report` [改造] EMC 段入口由 _emc_md 切换至 render_emc_flow_section（分发职责并入，传导表体演化自原 _emc_md 正文；emc_is_simulated 判定口径与 B18 低#15 缺项段语义不变；_sanitize_cell/_quoted_text_lines 等私有文本助手同模块就近复用不跨模块上提）。）
 
 - **render_emc_flow_section** [L0|新增]
-  - 职责：EMC 报告节分发渲染：result 无 'emc' 键→None（不嵌段）；'emc' 非 dict→缺项段（B18 低#15 既有口径，不据此附 simulated_parts）；dict→按 'flow' 标签分派（缺省形状回推：readings 列表→conduction / spectrum dict→radiation / 其余→sweep）三子渲染器之一。纯分发（形状判定+委派，无内联渲染）。
+  - 职责：EMC 报告节分发渲染：result 无 'emc' 键→None（不嵌段）；'emc' 非 dict→缺项段（B18 低#15 口径延续；标题「EMC 摸底（模拟）」不含具体流程——形状不可知，文案变化随 R89 措辞对齐·快速通道 2026-10-15 登记）；dict→按 'flow' 标签分派（缺省形状回推：readings 列表→conduction / spectrum dict→radiation / 其余→sweep）三子渲染器之一。纯分发（形状判定+委派，无内联渲染）。
   - 签名意图：输入: 报告结果对象 result+缺失清单 missing / 输出: EMC 段 markdown 文本或 None / 错误: 不抛（形状异常落缺项段如实标注）。
   - 调用方：build_report
   - tested 策略：上游覆盖: build_report（report_builder 三形状分支断言——R89 验收指定口径）
