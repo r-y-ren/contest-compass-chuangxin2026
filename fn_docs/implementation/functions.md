@@ -176,11 +176,11 @@
 | _emc_sweep_md | B45 | wired 10-15 | 同上（点表/spurious/超限 3 例） | bafa338 收编 |
 | render_emc_flow_section | B45 | wired 10-15 | pytest tests/render_emc_flow_section → 11 passed+tests/build_report → 60 passed（四形状分支含缺项回归）；调用点 build_report.py:461 | bafa338 |
 | spectral_template_match | B47 | wired 10-15 | pytest tests/shared/test_spectral_template_match.py → 8 passed；调用点 predict_style.py:577（_template_classify）+make_predict_style_callbacks.py:28（B48 桩 docstring 引用，实现在 B48） | 0d0cdfe+回补 |
-| _signal_features | B47 | tested 10-15 | pytest tests/predict_style → 32 passed（13 键契约集合断言/tone-noise-门控-恒包络特征值/gate 自洽/等价锚：门控 tone 全流程仍判 pulse）；wired 随 _classify_dummy 改造补证 | — |
-| _extract_gate_segments | B47 | tested 10-15 | pytest tests/predict_style → 40 passed（多段/全开/全关/空/单样本/首尾边界/与 _signal_features gate 联动锚/宽进快照 9 例）；wired 随改造体补证 | — |
-| _rule_decision | B47 | tested 10-15 | pytest tests/predict_style → 49 passed（六规则各例+精确置信度断言+段内两层门控锚+等价锚：提取链与全流程 label/confidence 完全相等）；wired 随改造体补证 | — |
+| _signal_features | B47 | wired 10-15 | pytest tests/predict_style → 61 passed（13 键契约/特征值/gate 自洽/等价锚）；调用点=_classify_dummy 改造体全段+段内两处 | 77afff5+回补 |
+| _extract_gate_segments | B47 | wired 10-15 | pytest tests/predict_style → 61 passed（连通段 9 例）；调用点=_classify_dummy 改造体 | 447ed3a+回补 |
+| _rule_decision | B47 | wired 10-15 | pytest tests/predict_style → 61 passed（六规则+等价锚）；调用点=_classify_dummy 改造体全段+段内两处 | b048e56+回补 |
 | _template_classify | B47 | tested 10-15 | pytest tests/predict_style → 54 passed（模板命中/labels 锚域/未校准标注两键/ValueError 透传/与 shared 匹配器值等价锚 5 例）；wired 随 _predict_one 改造补证 | — |
-| _classify_dummy | B47 | stub 10-15 | —（改造承载 R91；改造体留 implement，既有体在跑） | — |
+| _classify_dummy | B47 | wired 10-15（改造承载 R91） | pytest tests/predict_style → 61 passed（阶梯 tone→tone@0.943 旧实现 pulse@0.79 R91 核心断言/段内噪声/两层门控兜底/连续零扩键/短脉冲维持/判别负例锚⑦ 两档几何）+sim_delivery 8+infer_style 13；调用点 _predict_one 存量 | 待commit |
 | _predict_one | B47 | stub 10-15 | —（改造承载 R92；同上） | — |
 | predict_style | B47 | stub 10-15 | —（改造承载 R91/R92 顶层 docstring；签名不变） | — |
 | make_predict_style_callbacks | B48 | stub 10-15 | —（桩在位 make_predict_style_callbacks.py:31） | — |

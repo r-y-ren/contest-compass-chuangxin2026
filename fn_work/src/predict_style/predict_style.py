@@ -52,8 +52,10 @@ _PULSE_AC_PEAK = 0.3
 #: 全段决策直出——连续合成信号零漂移。底噪尾巴实测 duty_on 58.5–77.5%，故含
 #: 真实通断结构的阶梯驻留录音（duty_on≈0.23–0.42）恒入门控路。
 _GATED_CONTINUOUS_MIN = 0.9
-#: 段内谱分析所需最少窗数（R91）：拼接 on 段样本 ≥ _ON_SEGMENT_KFFT×nfft 才做
-#: 段内分类；短于此（真脉冲串/短驻留段）维持全段规则一判定不重判。
+#: 段内谱分析所需最少窗数（R91）：最长单段 ≥ _ON_SEGMENT_KFFT×nfft 才做段内
+#: 分类——判据取最长单段而非拼接累计：两层门控（阶梯×pulse）下 on 段=脉内碎片，
+#: 碎片累计可超 3×nfft 而拼接谱=连续载波会误判 tone；最长单段短于此（真脉冲串/
+#: 脉内碎片/短驻留段）维持全段规则一判定不重判。
 _ON_SEGMENT_KFFT = 3
 #: 零能量退化判定（B14 低#4）：全段总能量（包络平方和）与谱平坦度（dB 峰谷差）阈值。
 _DEGENERATE_ENERGY = 1e-12
@@ -250,21 +252,28 @@ def _classify_dummy(iq: np.ndarray, spec_res: dict) -> tuple[str, float, dict]:
       值——与门控感知改造前行为完全一致（连续合成信号零漂移）；
     - duty_on < 0.9（显著通断结构，如平台阶梯驻留录音：占空入脉冲窗+驻留周期峰
       曾劫持规则一恒判 pulse）→ 门控感知两级：_extract_gate_segments(feats["gate"])
-      取段长 ≥ nfft（spec_res["params"]["nfft"]）的 on 段拼接 iq_on（段间直连——
-      无底噪间隙故段内包络连续，两层门控语义由段内特征自然承载）——
-      · 拼接样本 ≥ _ON_SEGMENT_KFFT×nfft（3 窗，段可谱分析）→ 段内
+      取段长 ≥ nfft（spec_res["params"]["nfft"]）的 on 段（段间直连——无底噪
+      间隙故段内包络连续）——
+      · 最长单段 ≥ _ON_SEGMENT_KFFT×nfft（3 窗，段可谱分析；判据取最长单段
+        而非拼接累计——两层门控（阶梯×pulse）下全段 gate 的 on 段=脉内碎片，
+        碎片累计可超 3×nfft 而拼接谱=连续载波会误判 tone，最长单段判据下碎片
+        场景自然回兜底）→ 段长 ≥nfft 的长段集拼接 iq_on 做段内
         make_spectrogram(iq_on)+_signal_features+_rule_decision 出标签与置信度，
         外发 centroid_hz/bandwidth_3db 取段内值（样式信息在 on 段谱形——这是
         R91 的核心修正：阶梯 tone 录音不再被劫持为 pulse）；
-      · 拼接样本 < 3×nfft（真脉冲串/短驻留段）→ 维持全段规则一判定
-        （duty_gated&gate_periodic→pulse 置信公式不变，短脉冲不重判）。
+      · 最长单段 < 3×nfft（真脉冲串/脉内碎片/短驻留段）→ 维持全段规则一判定
+        （duty_gated&gate_periodic→pulse 置信公式不变，短脉冲不重判）。两层
+        门控的 pulse 即由此兜底承载：拼接谱无脉间结构，段内再判 pulse 在拼接
+        口径下不可达（iq_on 样本包络恒 > 全段阈值 ≥ 段内阈值 ⟹ 段内 gate 恒
+        全开、duty_on≡1.0）——如实描述。
       门控路 features 恒扩三键：gated=True / on_ratio=全段 duty_on / on_segments=
       段长 ≥nfft 的段数——如实披露看到了门控。
 
     ② 零能量退化钳（B14 低#4 口径不变）：全段 spec_span 与 pwr_sum 双低 →
     confidence 钳 ≤0.1 + features['degenerate']='zero_energy'；confidence 终钳
     [0,1]。nfft 已上游干跑校验（段内 make_spectrogram 无 ValueError 路径），
-    段内 frames==0 理论不达（≥3×nfft 样本 ⟹ ≥5 帧），仍按短段兜底不重判。
+    段内 frames==0 理论不达（最长单段 ≥3×nfft ⟹ 拼接样本 ≥3×nfft ⟹ ≥5 帧），
+    仍按短段兜底不重判。
     """
     feats = _signal_features(iq, spec_res["spec"].astype(np.float64))
     label, confidence = _rule_decision(feats)
@@ -283,8 +292,10 @@ def _classify_dummy(iq: np.ndarray, spec_res: dict) -> tuple[str, float, dict]:
         features["gated"] = True
         features["on_ratio"] = float(feats["duty_on"])
         features["on_segments"] = len(segments)
-        on_total = sum(end - start for start, end in segments)
-        if on_total >= _ON_SEGMENT_KFFT * nfft:  # 段可谱分析 → 段内分类
+        # 段内判据=最长单段（非拼接累计）：碎片累计可超 3×nfft 但拼接谱=连续
+        # 载波会误判 tone——最长单段不足（碎片/短脉冲/短驻留）自然回规则一兜底。
+        longest = max((end - start for start, end in segments), default=0)
+        if longest >= _ON_SEGMENT_KFFT * nfft:  # 最长单段可谱分析 → 段内分类
             iq_on = iq[np.r_[tuple(slice(start, end) for start, end in segments)]]
             spec_on = make_spectrogram(iq_on, nfft=nfft)
             if int(spec_on["frames"]) > 0:  # 理论不达（≥3×nfft ⟹ ≥5 帧）兜底

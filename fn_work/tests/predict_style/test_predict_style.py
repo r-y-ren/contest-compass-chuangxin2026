@@ -801,3 +801,25 @@ def test_classify_dummy_on_ratio_and_segment_count_values():
     assert isinstance(feats["on_ratio"], float)
     assert feats["on_ratio"] == pytest.approx(0.35, abs=0.05)
     assert feats["on_segments"] == 4
+
+
+def test_classify_dummy_nested_pulse_fragment_accumulation_still_pulse():
+    """⑦ 负例锚（段内判据=最长单段而非拼接累计）：长驻留×脉内碎片两档几何——
+    (a) 脉内 50/周期 200（碎片≪窗，段表空，累计口径也不达）；(b) 脉内 300/周期
+    800（碎片≥nfft 但<3×nfft：40 片累计 12000≥3×nfft——旧累计判据下拼接谱=
+    整数周期相位连续的连续载波，实证误判 tone@0.94）——两档均断言 pulse：最长
+    单段（50/300）<3×nfft 自然回全段规则一兜底（相乘包络 duty 入窗+周期峰），
+    长驻留×多脉冲不误判。"""
+    for inner_on, inner_period, expect_segs in ((50, 200, 0), (300, 800, 40)):
+        iq = _ladder_nested_pulse_iq(
+            on=8000, off=4000, segments=4,
+            inner_on=inner_on, inner_period=inner_period,
+        )
+        result = predict_style(iq, model=_dummy_model())
+        assert result["status"] == "ok"
+        assert result["label"] == "pulse", (inner_on, inner_period)
+        feats = result["features"]
+        assert feats["gated"] is True
+        # (a) 碎片<nfft 不入段表；(b) 碎片≥nfft 入段表（如实计数）但判据取
+        # 最长单段（300<768）——段表非空也正确兜底。
+        assert feats["on_segments"] == expect_segs, (inner_on, inner_period)

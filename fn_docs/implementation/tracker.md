@@ -1677,21 +1677,21 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 ### _signal_features
 - [x] _signal_features · implemented — 证据: bash -c cd fn_work && ! grep -qF 'unimplemented:fn:_signal_features' src/predict_style/predict_style.py && grep -cF 'unimplemented:fn:' src/predict_style/predict_style.py && echo SF桩消_余桩3在 → SF桩消_余桩3在 (10-15)
 - [x] _signal_features · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/predict_style/test_predict_style.py -q && echo SF_32绿含6新例 → SF_32绿含6新例 (10-15)
-- [ ] _signal_features · wired — 预告: 调用点=改造后 _classify_dummy（批内补证），预期 grep 命中
+- [x] _signal_features · wired — 证据: bash -c grep -cF '_signal_features(' fn_work/src/predict_style/predict_style.py && echo SF_wired_改造体内两处调用 → SF_wired_改造体内两处调用 (10-15)
   — 批内时序注记: Ruling⑪同款——wired 待 _classify_dummy 改造落地后补证（本叶为改造体内嵌调用）
 - [x] _signal_features · 清单进位 — 证据: bash -c grep -qF '_signal_features | B47 | tested 10-15' fn_docs/implementation/functions.md && echo SF进位读回OK → SF进位读回OK (10-15)
 - [x] _signal_features · commit — 证据: bash -c git log --format=%h -1 | grep -qE '^[0-9a-f]{7,}$' && git show --stat --format= HEAD | grep -c 'predict_style' && echo SF_commit在 → SF_commit在 (10-15)
 ### _extract_gate_segments
 - [x] _extract_gate_segments · implemented — 证据: bash -c cd fn_work && ! grep -qF 'unimplemented:fn:_extract_gate_segments' src/predict_style/predict_style.py && grep -cF 'unimplemented:fn:' src/predict_style/predict_style.py && echo EGS桩消_余桩2在 → EGS桩消_余桩2在 (10-15)
 - [x] _extract_gate_segments · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/predict_style/test_predict_style.py -q && echo EGS_40绿含9新例 → EGS_40绿含9新例 (10-15)
-- [ ] _extract_gate_segments · wired — 预告: 调用点=改造后 _classify_dummy+_predict_one（批内补证），预期 grep 命中
+- [x] _extract_gate_segments · wired — 证据: bash -c grep -cF '_extract_gate_segments(' fn_work/src/predict_style/predict_style.py && echo EGS_wired_改造体内调用 → EGS_wired_改造体内调用 (10-15)
   — 批内时序注记: Ruling⑪同款——wired 待 _classify_dummy/_predict_one 改造落地后补证
 - [x] _extract_gate_segments · 清单进位 — 证据: bash -c grep -qF '_extract_gate_segments | B47 | tested 10-15' fn_docs/implementation/functions.md && echo EGS进位读回OK → EGS进位读回OK (10-15)
 - [x] _extract_gate_segments · commit — 证据: bash -c git cat-file -e 447ed3a && git show --stat --format= 447ed3a | grep -c predict_style && echo EGS_commit_447ed3a在 → EGS_commit_447ed3a在 (10-15)
 ### _rule_decision
 - [x] _rule_decision · implemented — 证据: bash -c cd fn_work && ! grep -qF 'unimplemented:fn:_rule_decision' src/predict_style/predict_style.py && grep -cF 'unimplemented:fn:' src/predict_style/predict_style.py && echo RD桩消_余桩1在 → RD桩消_余桩1在 (10-15)
 - [x] _rule_decision · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/predict_style/test_predict_style.py -q && echo RD_49绿含9新例含等价锚 → RD_49绿含9新例含等价锚 (10-15)
-- [ ] _rule_decision · wired — 预告: 调用点=改造后 _classify_dummy（批内补证），预期 grep 命中
+- [x] _rule_decision · wired — 证据: bash -c grep -cF '_rule_decision(' fn_work/src/predict_style/predict_style.py && echo RD_wired_改造体内两处调用 → RD_wired_改造体内两处调用 (10-15)
   — 批内时序注记: Ruling⑪同款——wired 待 _classify_dummy 改造落地后补证
 - [x] _rule_decision · 清单进位 — 证据: bash -c grep -qF '_rule_decision | B47 | tested 10-15' fn_docs/implementation/functions.md && echo RD进位读回OK → RD进位读回OK (10-15)
 - [x] _rule_decision · commit — 证据: bash -c git cat-file -e b048e56 && git show --stat --format= b048e56 | grep -c predict_style && echo RD_commit_b048e56在 → RD_commit_b048e56在 (10-15)
@@ -1703,10 +1703,10 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [x] _template_classify · 清单进位 — 证据: bash -c grep -qF '_template_classify | B47 | tested 10-15' fn_docs/implementation/functions.md && grep -qF 'spectral_template_match | B47 | wired 10-15' fn_docs/implementation/functions.md && echo TC进位OK_STM_wired回补在 → TC进位OK_STM_wired回补在 (10-15)
 - [x] _template_classify · commit — 证据: bash -c git cat-file -e 1bb61cd && git show --stat --format= 1bb61cd | grep -cE 'predict_style|functions.md|tracker.md' && echo TC_commit_1bb61cd在 → TC_commit_1bb61cd在 (10-15)
 ### _classify_dummy（改造）
-- [ ] _classify_dummy · implemented — 预告: 改造体落地（门控感知编排：分流判据→on 段→段内谱+特征+决策/短段 pulse/连续不变+features 扩键），预期门控感知行为用例绿
-- [ ] _classify_dummy · tested — 预告: tests/predict_style 键集合断言更新（管线顺手改登记）+门控感知用例，预期 pytest → passed
-- [ ] _classify_dummy · wired — 预告: 调用点 _predict_one.py 存量接线复证，预期 grep 命中
-- [ ] _classify_dummy · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] _classify_dummy · implemented — 证据: bash -c grep -qF '_GATED_CONTINUOUS_MIN' fn_work/src/predict_style/predict_style.py && grep -qF '_signal_features(iq' fn_work/src/predict_style/predict_style.py && grep -qF '_rule_decision(feats' fn_work/src/predict_style/predict_style.py && grep -qF '_extract_gate_segments(' fn_work/src/predict_style/predict_style.py && echo CD改造体落地_三叶接线在_最长单段判据在 → CD改造体落地_三叶接线在_最长单段判据在 (10-15)
+- [x] _classify_dummy · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/predict_style/test_predict_style.py tests/run_demo/test_sim_delivery_record_true.py tests/infer_style_entry -q && echo CD_61加8加13全绿含判别负例锚 → CD_61加8加13全绿含判别负例锚 (10-15)
+- [x] _classify_dummy · wired — 证据: bash -c grep -qF '_classify_dummy(iq, spec_res)' fn_work/src/predict_style/predict_style.py && echo CD_wired_predict_one存量调用在 → CD_wired_predict_one存量调用在 (10-15)
+- [x] _classify_dummy · 清单进位 — 证据: bash -c grep -qF '_classify_dummy | B47 | wired 10-15（改造承载 R91）' fn_docs/implementation/functions.md && grep -qF '最长单段' fn_docs/requirements.md && grep -qF '最长单段' fn_docs/responsibility.md && echo CD进位OK_两文档机制句对齐在 → CD进位OK_两文档机制句对齐在 (10-15)
 - [ ] _classify_dummy · commit — 预告: fn(_classify_dummy): wired 含四文档变更
 ### _predict_one（改造）
 - [ ] _predict_one · implemented — 预告: 改造体落地（模板/规则分流：weights 含 class_mean_spectra→门控感知+段内谱→_template_classify；缺键→规则路；形状非法→回退+note），预期分流用例绿
@@ -1720,6 +1720,7 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [ ] predict_style · wired — 预告: 顶层实跑（demo 场景或合成 IQ 批量）+调用面 grep（build_report/infer_style_entry），预期命中
 - [ ] predict_style · 清单进位 — 预告: functions.md 状态行改后读回
 - [ ] predict_style · commit — 预告: fn(predict_style): wired 含四文档变更+B47 批验收
+- Ruling: 段内分类判据「拼接累计≥3×nfft」→「最长单段≥3×nfft」 — 原因: 累计判据在两层门控碎片场景（脉内碎片∈[nfft,3×nfft) 且累计超阈）拼接谱为连续载波误判 tone（子代理实证 300/800 几何：旧判据 tone@0.943、新判据 pulse@0.838）——派发词判据定标缺陷（计划错），修正并补判别负例锚⑦ — 代价: 无（既有 6 用例零漂移，61 绿） — 落点: _classify_dummy 判据+常量注释+docstring 机制句（两层门控 pulse 由最长单段不足→全段规则一兜底承载；段内再判在拼接口径下数学不可达）+responsibility 域二十三块与 requirements R91 句措辞对齐·快速通道
 ## B47 批间门
 - [ ] B47 · 评审三轴 — 预告: 规格=域二十三块/标准/档案同步（含 tracker 本批行核对）
 - [ ] B47 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
