@@ -6,7 +6,8 @@
 （换行折叠/竖线转义）、emc 非 dict 不附 simulated_parts；
 EMC 三流程分节（R89，经 render_emc_flow_section 分发）：flow 标签
 conduction/radiation/sweep 各节标题与表体、sweep 标签优先于 readings 形状
-（映射层 flow 标签依赖下一任务 _report_payload 改造补齐）。"""
+（映射层 flow 标签依赖下一任务 _report_payload 改造补齐）；simulated_parts
+防御回退随 emc.flow 出三流程段名（I-2——脚注与正文标题一致）。"""
 from __future__ import annotations
 
 import json
@@ -523,3 +524,23 @@ def test_report_builder_emc_flow_missing_section_title_generic(tmp_path):
     assert "## EMC 传导摸底（模拟）" not in text
     assert "emc（result['emc'] 非 dict——EMC 段缺项）" in text  # 进缺项汇总
     assert "CISPR 16-1-1" not in text  # 不据此附 simulated_parts/emc 级声明
+
+
+def test_report_builder_simulated_parts_fallback_follows_flow(tmp_path):
+    """㉔ I-2 回归：payload 无 simulated_parts+emc flow='radiation' → 脚注
+    防御回退随流程出「EMC 辐射摸底段」（与正文标题一致），不误称「传导摸底段」
+    （旧回退恒传导段名——radiation/sweep 场景脚注与标题自相矛盾）。"""
+    _write_full_run(tmp_path)
+    result = _full_result()
+    result["emc"] = {
+        "flow": "radiation",
+        "spectrum": {"freqs": [1.0e6, 2.0e6], "power_db": [-56.2, -70.1]},
+        "compensated": True,
+        "simulated": True,
+    }
+    text = Path(build_report(str(tmp_path), result)).read_text(encoding="utf-8")
+
+    assert "## EMC 辐射摸底（模拟）" in text  # 正文标题=辐射
+    assert "报告涉及模拟段：EMC 辐射摸底段" in text  # 脚注回退随 flow
+    assert "传导摸底段" not in text  # 不误称传导（旧回退缺陷）
+    assert "CISPR 16-1-1" in text  # dict 形状 → emc 级声明照附

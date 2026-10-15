@@ -22,7 +22,9 @@
   render_emc_flow_section 模块——R89 快速通道留痕）；
 - ⑥ 口径脚注：render_disclaimer_sections——backend/clock_ref/run_id 取自
   result，per_basis 恒 True（PER 口径平台级）；涉 EMC 段时 simulated_parts
-  附「EMC 传导摸底段」；
+  附「EMC 传导摸底段/EMC 辐射摸底段/EMC 步进扫频段」之一（payload 未给时的
+  防御回退按 emc.flow 出段名，标签缺省按形状回推——同分发器口径，脚注段名
+  与正文标题一致，I-2）；
 - ⑦ 频点图谱位：result['freq_plots'] 直传 assemble_frequency_plots；未给→
   缺省占位口径「一期频点按 2.4G/5.8G 实有频点如实标注」+ monitor.csv 实测
   频点如实计位；
@@ -393,6 +395,29 @@ def _missing_md(missing: list[str]) -> str:
     return "\n".join(lines)
 
 
+def _emc_simulated_part_label(emc: dict) -> str:
+    """EMC 模拟段脚注标签回推（I-2）：按段内 flow 标签出三流程段名。
+
+    标签缺省/未知时按形状回推（readings 列表→conduction、spectrum dict→
+    radiation、其余→sweep）——与 render_emc_flow_section 分发口径一致，
+    保证脚注段名与正文标题不矛盾（旧回退恒「EMC 传导摸底段」，radiation/
+    sweep 场景下脚注与标题自相矛盾）。
+    """
+    flow = emc.get("flow")
+    if flow not in ("conduction", "radiation", "sweep"):
+        if isinstance(emc.get("readings"), list):
+            flow = "conduction"
+        elif isinstance(emc.get("spectrum"), dict):
+            flow = "radiation"
+        else:
+            flow = "sweep"
+    if flow == "conduction":
+        return "EMC 传导摸底段"
+    if flow == "radiation":
+        return "EMC 辐射摸底段"
+    return "EMC 步进扫频段"
+
+
 def build_report(run_dir: str, result: dict) -> str:
     """报告总装（R45）：数据读回→三元曲线→失效对比→识别→EMC→频点图谱位→脚注→report.md。
 
@@ -472,7 +497,12 @@ def build_report(run_dir: str, result: dict) -> str:
     if not isinstance(simulated_parts, list) or not all(
         isinstance(part, str) for part in simulated_parts
     ):
-        simulated_parts = ["EMC 传导摸底段"] if emc_is_simulated else []
+        # 防御回退随流程（I-2）：无 simulated_parts 键时按 emc 段 flow 出段名
+        # （传导/辐射/扫频——脚注与正文标题一致，旧恒「EMC 传导摸底段」回退
+        # 在 radiation/sweep 场景与标题自相矛盾）。
+        simulated_parts = (
+            [_emc_simulated_part_label(result["emc"])] if emc_is_simulated else []
+        )
     footnote = render_disclaimer_sections(
         {
             "backend": backend,

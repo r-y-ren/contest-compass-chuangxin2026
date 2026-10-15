@@ -106,6 +106,22 @@ def test_conduction_sanitization_newline_and_pipe() -> None:
     assert "> 注记" in text and "> 第二行" in text
 
 
+def test_conduction_blank_detector_skipped_not_raised() -> None:
+    """I-1 回归：detector 空串/纯空白 → 不抛（「不抛」契约）且不输出检波器行
+    （修复前 "" 时 splitlines()[0] 抛 IndexError）。"""
+    for blank in ("", "  "):
+        emc = {
+            "readings": [
+                {"freq_hz": 150000.0, "power_dbm": -42.5, "power_dbuv": 64.5}
+            ],
+            "detector": blank,
+            "passed": None,
+        }
+        text = _emc_conduction_md(emc)
+        assert "检波器" not in text  # 跳过检波器行（不输出，不虚构）
+        assert TAIL in text
+
+
 # ---------------------------------------------------------------- 辐射 ----
 
 
@@ -176,6 +192,29 @@ def test_radiation_truncation_note() -> None:
     assert f"> {1.0e6 * _RADIATION_MAX_ROWS:.1f} Hz" in row_lines[-1]
     for i in range(_RADIATION_MAX_ROWS, total):
         assert f"{1.0e6 * (i + 1):.1f} Hz" not in text
+
+
+def test_radiation_freq_power_length_mismatch_noted() -> None:
+    """M-1 回归：freqs 4 项/power_db 2 项 → 按短者渲染两行+长度不齐注记行
+    （zip 截短不再静默；超出短者的频点不虚构行）。"""
+    emc = {
+        "spectrum": {
+            "freqs": [1.0e6, 2.0e6, 3.0e6, 4.0e6],
+            "power_db": [-56.2, -70.1],
+        },
+        "compensated": False,
+    }
+    text = _emc_radiation_md(emc)
+    assert "> 1000000.0 Hz | -56.2 dB" in text
+    assert "> 2000000.0 Hz | -70.1 dB" in text
+    assert "> 谱 freqs/power_db 长度不齐（4/2），按短者渲染" in text
+    assert "3000000.0" not in text  # 无对应功率值的频点不出行
+    row_lines = [
+        line
+        for line in text.splitlines()
+        if line.startswith("> ") and " Hz | " in line
+    ]
+    assert len(row_lines) == 2  # 恰两数据行（表头「(Hz) | 」形态不入此筛选）
 
 
 def test_radiation_missing_spectrum_and_cleanliness() -> None:

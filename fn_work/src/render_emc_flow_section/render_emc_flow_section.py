@@ -75,7 +75,8 @@ def _emc_conduction_md(emc: dict) -> str:
         limit_note|reading_note|conversion_note/warnings/disclaimer）。
     :return: 段 markdown——标题「EMC 传导摸底（模拟）」+模拟读数口径引言行+读数/
         裕量表（频点 Hz/读数 dBm/换算 dBµV/裕量 dB——margin None→「未判定（未提供
-        限值线）」）+检波器行+passed 判定行（None→未判定；True/False→合规/不合规
+        限值线）」）+检波器行（detector 空/纯空白→跳过该行不输出——I-1 不抛口径）
+        +passed 判定行（None→未判定；True/False→合规/不合规
         （演示口径，非认证））+注记行+warnings 逐条+disclaimer+simulated=True 行；
         动态文本单元格消毒（换行折叠 ' / '、'|' 转义——B18 中#8/#9）。
     :raises: 不抛（readings 空→缺项行「无读数——不虚构」）。
@@ -106,8 +107,10 @@ def _emc_conduction_md(emc: dict) -> str:
             )
     else:
         lines.append("> 缺项：无读数（readings 为空）——不虚构。")
-    if emc.get("detector") is not None:
-        detector = str(emc.get("detector"))
+    # 空/纯空白 detector → 跳过检波器行渲染（I-1："" 时 splitlines() 为空列表，
+    # 取 [0] 会 IndexError 违反「不抛」契约——不输出该行，不虚构）。
+    detector = str(emc.get("detector")) if emc.get("detector") is not None else None
+    if detector is not None and detector.strip():
         lines.append(f"> 检波器：{_sanitize_cell(detector.splitlines()[0])}")
         lines.extend(
             f"> {_sanitize_cell(part)}" for part in detector.splitlines()[1:]
@@ -141,7 +144,8 @@ def _emc_radiation_md(emc: dict) -> str:
         compensation_note/uncertainty_db/compensation_confidence?/warnings/disclaimer）。
     :return: 段 markdown——标题「EMC 辐射摸底（模拟）」+模拟读数口径引言行+谱图表
         （频点 Hz/功率 dB——全谱 bin 有界渲染：行数上限+超限注明「全谱见
-        result.json」，不静默截断）+洁净度结论区（三指标+criterion 判据文字）+补偿区
+        result.json」，不静默截断；freqs/power_db 长度不齐→按短者渲染并附
+        不齐注记行——M-1 不静默截短）+洁净度结论区（三指标+criterion 判据文字）+补偿区
         （compensated+note+不确定度+置信度汇总（如有））+warnings 逐条+disclaimer+
         simulated=True 行；消毒同传导。
     :raises: 不抛（spectrum 空/缺键→缺项行如实标注）。
@@ -168,6 +172,13 @@ def _emc_radiation_md(emc: dict) -> str:
         if isinstance(freqs, list) and isinstance(power_db, list)
         else []
     )
+    # 长度不齐注记（M-1）：zip 按短者截短不再静默——两 list 在场且长度不齐时
+    # 如实注明（真实 sim 输出恒同长，此为防御路径的如实标注）。
+    length_mismatch = (
+        isinstance(freqs, list)
+        and isinstance(power_db, list)
+        and len(freqs) != len(power_db)
+    )
     if bins:
         lines.append("> 频点 (Hz) | 功率 (dB)")
         for freq, power in bins[:_RADIATION_MAX_ROWS]:
@@ -177,8 +188,18 @@ def _emc_radiation_md(emc: dict) -> str:
                 f"> 谱 bin 共 {len(bins)} 行，此处列前 {_RADIATION_MAX_ROWS} 行"
                 "——全谱见 result.json（不静默截断）"
             )
+        if length_mismatch:
+            lines.append(
+                f"> 谱 freqs/power_db 长度不齐（{len(freqs)}/{len(power_db)}），"
+                "按短者渲染"
+            )
     else:
         lines.append("> 缺项：无谱数据（spectrum 缺失或为空）——不虚构。")
+        if length_mismatch:
+            lines.append(
+                f"> 谱 freqs/power_db 长度不齐（{len(freqs)}/{len(power_db)}），"
+                "按短者渲染"
+            )
 
     # 洁净度区：三指标各一行 + criterion 判据文字多行（缺→缺项行）。
     cleanliness = emc.get("cleanliness")
