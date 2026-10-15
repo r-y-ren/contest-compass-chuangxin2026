@@ -515,10 +515,43 @@ def _extract_gate_segments(gate: np.ndarray) -> list[tuple[int, int]]:
 
 
 def _rule_decision(feats: dict) -> tuple[str, float]:
-    """六规则决策序纯函数（R91；现 _classify_dummy 后半 if-elif 链提出，判据与置信度
-    公式原样）：门控脉冲→扫频轨迹（chirp/sweep）→tone→partial_band→
-    bandlimited_noise→composite 兜底。段内特征命中门控脉冲=两层门控判 pulse。"""
-    raise NotImplementedError("unimplemented:fn:_rule_decision")
+    """六规则决策序纯函数（R91；现 _classify_dummy 后半 if-elif 链 :294–308 原样
+    提出，判据与置信度公式逐句不变）：门控脉冲→扫频轨迹（chirp/sweep）→tone→
+    partial_band→bandlimited_noise→composite 兜底。段内特征命中门控脉冲=两层
+    门控判 pulse（判据本身不区分全段/段内，天然语义）。
+
+    键契约（与 _signal_features 13 键一致，只从 feats 取键不自算）：'centroid'/
+    'bandwidth_3db'/'ripple20'/'env_cv'/'duty_on'/'duty_off'/'duty_gated'/
+    'gate_periodic'/'gate'/'sweep_range'/'reversals'/'spec_span'/'pwr_sum'——本
+    函数消费其中八键（duty_off/duty_gated/gate_periodic/env_cv/sweep_range/
+    reversals/bandwidth_3db/ripple20）；缺键 → KeyError 自然抛（层内契约输入，
+    防御不承诺）。零能量退化钳不在本层（B14 低#4 口径留 _classify_dummy 编排层）。
+    """
+    duty_off = feats["duty_off"]
+    duty_gated = feats["duty_gated"]
+    gate_periodic = feats["gate_periodic"]
+    env_cv = feats["env_cv"]
+    sweep_range = feats["sweep_range"]
+    reversals = feats["reversals"]
+    bw3db = feats["bandwidth_3db"]
+    ripple20 = feats["ripple20"]
+
+    if duty_gated and gate_periodic:  # 门控+占空带宽+周期性 → 脉冲（全段/段内同判据）
+        label, confidence = "pulse", min(0.95, 0.5 + 0.45 * duty_off)
+    elif env_cv < 0.35 and (sweep_range > 0.02 or reversals >= 4):  # 确定性扫频轨迹
+        if reversals >= 3:
+            label, confidence = "chirp", 0.75
+        else:
+            label, confidence = "sweep", 0.70
+    elif bw3db <= 0.03 and env_cv < 0.15:  # 极窄带+恒包络 → 单音
+        label, confidence = "tone", min(0.99, 0.90 + 0.09 * (1.0 - bw3db / 0.03))
+    elif bw3db <= 0.06:  # 窄带非恒包络 → 受害带宽的部分频带占用
+        label, confidence = "partial_band", 0.55
+    elif ripple20 <= 6.0:  # 宽带+带内平坦 → 带限噪声
+        label, confidence = "bandlimited_noise", min(0.95, 0.55 + 0.06 * (6.0 - ripple20))
+    else:  # 非平坦宽带/多成分混合 → 合成样式兜底
+        label, confidence = "composite", 0.40
+    return label, float(confidence)
 
 
 def _template_classify(

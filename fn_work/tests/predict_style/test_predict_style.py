@@ -494,3 +494,122 @@ def test_extract_gate_segments_lenient_input_forms():
     expected = [(0, 2), (3, 4)]
     assert _extract_gate_segments([True, True, False, True]) == expected
     assert _extract_gate_segments(np.array([1, 1, 0, 1])) == expected
+
+
+# --- B47 _rule_decision 六规则决策序纯函数（R91）：规则直测+段内语义锚+等价锚 ---
+
+from src.predict_style.predict_style import _rule_decision  # noqa: E402
+
+
+def _rule_feats(**overrides):
+    """13 键特征 dict 直构（键契约齐全；缺省态=六规则全不命中的 composite 底态），
+    各规则用例覆写判据键——决策函数只取不自算，直接喂决策序。"""
+    feats = {
+        "centroid": 0.5,
+        "bandwidth_3db": 0.5,
+        "ripple20": 8.0,
+        "env_cv": 0.6,
+        "duty_on": 1.0,
+        "duty_off": 0.0,
+        "duty_gated": False,
+        "gate_periodic": False,
+        "gate": np.ones(16, dtype=bool),
+        "sweep_range": 0.0,
+        "reversals": 0,
+        "spec_span": 40.0,
+        "pwr_sum": 100.0,
+    }
+    feats.update(overrides)
+    return feats
+
+
+def test_rule_decision_gated_pulse_first_priority():
+    """① 门控脉冲（首序）：duty_on=0.25（duty_off=0.75）/gated/periodic → pulse，
+    conf=0.5+0.45*0.75=0.8375 精确断言——扫频判据键同时似然仍不抢道（首序优先）。"""
+    feats = _rule_feats(
+        duty_on=0.25,
+        duty_off=0.75,
+        duty_gated=True,
+        gate_periodic=True,
+        env_cv=0.1,
+        sweep_range=0.3,
+        reversals=5,
+    )
+    label, confidence = _rule_decision(feats)
+    assert label == "pulse"
+    assert confidence == pytest.approx(0.8375, abs=1e-12)
+
+
+def test_rule_decision_chirp_many_reversals():
+    """② chirp：env_cv=0.1/sweep_range=0.3/reversals=5（≥3）→ ('chirp', 0.75)。"""
+    assert _rule_decision(_rule_feats(env_cv=0.1, sweep_range=0.3, reversals=5)) == (
+        "chirp",
+        0.75,
+    )
+
+
+def test_rule_decision_sweep_monotonic_track():
+    """③ sweep：sweep_range>0.02 但 reversals<3（2 与 0 两点）→ ('sweep', 0.70)。"""
+    assert _rule_decision(_rule_feats(env_cv=0.1, sweep_range=0.3, reversals=2)) == (
+        "sweep",
+        0.70,
+    )
+    assert _rule_decision(_rule_feats(env_cv=0.1, sweep_range=0.05, reversals=0)) == (
+        "sweep",
+        0.70,
+    )
+
+
+def test_rule_decision_tone_narrow_band_constant_envelope():
+    """④ tone：bw3db=0.01/env_cv=0.1 → ('tone', 0.90+0.09*(1-0.01/0.03)=0.96)。"""
+    label, confidence = _rule_decision(_rule_feats(bandwidth_3db=0.01, env_cv=0.1))
+    assert label == "tone"
+    assert confidence == pytest.approx(0.96, abs=1e-9)
+
+
+def test_rule_decision_partial_band_moderate_bandwidth():
+    """⑤ partial_band：bw3db=0.05（0.03<·≤0.06）且 env_cv=0.6 →
+    ('partial_band', 0.55)。"""
+    assert _rule_decision(_rule_feats(bandwidth_3db=0.05, env_cv=0.6)) == (
+        "partial_band",
+        0.55,
+    )
+
+
+def test_rule_decision_bandlimited_noise_flat_ripple():
+    """⑥ bandlimited_noise：bw3db=0.5/ripple20=3.0 → ('bandlimited_noise',
+    0.55+0.06*(6.0-3.0)=0.73)。"""
+    label, confidence = _rule_decision(
+        _rule_feats(bandwidth_3db=0.5, ripple20=3.0, env_cv=0.6)
+    )
+    assert label == "bandlimited_noise"
+    assert confidence == pytest.approx(0.73, abs=1e-9)
+
+
+def test_rule_decision_composite_uneven_wideband_fallback():
+    """⑦ composite 兜底：宽带非平坦（ripple20=8.0>6.0）→ ('composite', 0.40)。"""
+    assert _rule_decision(_rule_feats(ripple20=8.0)) == ("composite", 0.40)
+
+
+def test_rule_decision_intra_segment_gate_also_pulse():
+    """⑧ 段内两层门控语义锚：段内特征（duty_on=0.3/gated/periodic）→ 同判 pulse
+    （conf=0.5+0.45*0.7=0.815）——判据本身不区分全段/段内。"""
+    label, confidence = _rule_decision(
+        _rule_feats(duty_on=0.3, duty_off=0.7, duty_gated=True, gate_periodic=True)
+    )
+    assert label == "pulse"
+    assert confidence == pytest.approx(0.815, abs=1e-12)
+
+
+def test_rule_decision_equivalence_anchor_against_full_pipeline():
+    """⑨ 等价锚（决策链提取零漂移证明）：周期门控 tone 合成 IQ，_signal_features →
+    _rule_decision 的 (label, conf) 与现 _classify_dummy 全流程 predict_style 同输入
+    的 (label, confidence) 完全相等。"""
+    iq = _gated_tone_iq(duty=0.25)
+    feats = _feats_of(iq)
+    label, confidence = _rule_decision(feats)
+    result = predict_style(iq, model=_dummy_model())
+    assert result["status"] == "ok"
+    assert label == "pulse"
+    assert result["label"] == label
+    assert result["confidence"] == confidence
