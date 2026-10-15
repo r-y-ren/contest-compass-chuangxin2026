@@ -483,6 +483,10 @@ def _execute_stage(
         ctx["link_power_db"] = scenario.get("link_power_db", _DEMO_LINK_POWER_DB)
     if ctx.get("monitor") is None:  # gb 基线窗（协议编排内部）同用监测参数
         ctx["monitor"] = _monitor_params(scenario)
+    # R88 交错缝停检凭据贯通：tap_tx_window_blocks 的 dwell 分片停检经 ctx['stop']
+    # 取凭据（gb 协议 ③ 阶梯段装配消费）；既有三阶段边界检查不变；gb 基线窗
+    # baseline_ctx['stop']=None 防线在协议侧，不受本键影响。
+    ctx["stop"] = stop
 
     # ---- 场景执行阶段（四类型分派；判据路 KPI/gb 基线窗由各编排自管） ----
     # 走查环 F2：gb 判据窗样本经 ctx['judge_kpi_sink'] 镜像（协议编排 failure_cb
