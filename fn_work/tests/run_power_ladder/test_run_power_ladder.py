@@ -526,3 +526,75 @@ def test_power_ladder_gb_no_endpoint_30_rungs_reason_max_steps(tmp_path):
     assert len(result["executed"]) == 30  # −145 起步 5dB 递增至恰 0（0dBm 恰过不截）
     assert result["plan"]["truncated_at"] is None and result["plan"]["note"] == "gb42590"
     assert result["reason"] == "max_steps"
+
+
+# ---- R88 改造回归：dwell_cb 档间停留回调（注入/缺省/异常/形态四口径） ----
+
+
+def test_power_ladder_dwell_cb_invoked_per_rung_with_dwell_seconds(tmp_path):
+    """R88① dwell_cb 注入：逐档以规整后 dwell 秒入参被调，次数==计划档数。"""
+    backend = Mock(spec=["set_attenuation"])
+    ticks: list[float] = []
+
+    def _tick(seconds: float) -> None:
+        ticks.append(seconds)
+
+    result = run_power_ladder(
+        _ctx(tmp_path, backend),
+        {"start_db": -10.0, "step_db": 5.0, "stop_db": -5.0},
+        dwell_s=0.25,
+        dwell_cb=_tick,
+    )
+    assert ticks == [0.25, 0.25]  # 入参==dwell_s 规整值，逐档各一次
+    assert len(ticks) == len(result["plan"]["steps"]) == len(result["executed"])
+    assert result["reason"] == "complete"
+
+
+def test_power_ladder_dwell_cb_default_none_still_pure_sleep(tmp_path, monkeypatch):
+    """R88② 缺省 None 原语义不变：仍走 time.sleep(dwell)，monkeypatch 计数==档数。"""
+    sleeps: list[float] = []
+    monkeypatch.setattr(pl_module.time, "sleep", lambda seconds: sleeps.append(seconds))
+    backend = Mock(spec=["set_attenuation"])
+    result = run_power_ladder(
+        _ctx(tmp_path, backend),
+        {"start_db": -15.0, "step_db": 5.0, "stop_db": -5.0},
+        dwell_s=0.5,
+    )
+    assert sleeps == [0.5, 0.5, 0.5]
+    assert len(sleeps) == len(result["plan"]["steps"]) == len(result["executed"])
+
+
+def test_power_ladder_dwell_cb_exception_stops_then_propagates(tmp_path):
+    """R88③ dwell_cb 抛 RuntimeError：与下发/落盘异常同路——先停发射再透传。"""
+    backend = Mock(spec=["set_attenuation", "stop_tx"])
+
+    def _tick(seconds: float) -> None:
+        raise RuntimeError("采集 tick 失联")
+
+    with pytest.raises(RuntimeError, match="采集 tick 失联"):
+        run_power_ladder(
+            _ctx(tmp_path, backend),
+            {"start_db": -10.0, "step_db": 5.0, "stop_db": -5.0},
+            dwell_s=0.0,
+            dwell_cb=_tick,
+        )
+    backend.stop_tx.assert_called_once()  # 异常路径先停发射（同 ⑬⑭ 口径）
+    # 首档 power_step 已落、异常路径不补 ladder_stop（终止事件仅正常收尾落盘）
+    events = _read_events(tmp_path)
+    assert [event["step"] for event in _power_steps(events)] == [0]
+    assert all(event["type"] != "ladder_stop" for event in events)
+
+
+def test_power_ladder_non_callable_dwell_cb_rejected_upfront(tmp_path):
+    """R88④ dwell_cb 非 callable 且非 None：发射前 TypeError（与 failure_cb 同风格）。"""
+    backend = Mock(spec=["set_attenuation", "stop_tx"])
+    with pytest.raises(TypeError, match="dwell_cb"):
+        run_power_ladder(
+            _ctx(tmp_path, backend),
+            {"start_db": -5.0, "stop_db": -5.0},
+            dwell_s=0.0,
+            dwell_cb=123,  # type: ignore[arg-type]
+        )
+    backend.set_attenuation.assert_not_called()  # 未发射
+    backend.stop_tx.assert_not_called()
+    assert not (tmp_path / "events.jsonl").exists()  # 未落事件

@@ -97,6 +97,7 @@ def run_power_ladder(
     ladder_params: dict | None,
     failure_cb: Callable | None = None,
     dwell_s: float = 1.0,
+    dwell_cb: Callable[[float], None] | None = None,
     link_power_db: float = 0.0,
 ) -> dict:
     """执行功率阶梯：计划展开→逐档（下发+事件+dwell+判据）→失效即停/走完收尾停发射。
@@ -112,6 +113,9 @@ def run_power_ladder(
         {'failed': bool, 'detail': …}；None=永不失效；形状错视为未失效记 warning
         （该档记录与 ladder_stop 事件 'judge_warning' 字段均留痕，B9低#4）
     :param dwell_s: 档间停留时长（秒），负/bool/非实数/NaN/±inf → ValueError（发射前拒绝）
+    :param dwell_cb: 档间停留回调（R88 交错缝：发射窗监测采集 tick 的承载位，
+        None=纯睡眠 time.sleep(dwell)）；逐档以规整后 dwell 秒入参调用，其异常与下发/
+        落盘异常同走「先停发射再透传」；非 callable 且非 None → TypeError（发射前拒绝）
     :param link_power_db: 被测链路发射功率（dBm），GB 缺省口径的阶梯基准
     :return: ``{'executed': [各档记录], 'stopped_at': 触发档索引|None,
         'reason': 'complete'|'failure'|'truncated'|'max_steps', 'plan': 计划,
@@ -123,6 +127,8 @@ def run_power_ladder(
     dwell = _dwell_seconds(dwell_s)
     if failure_cb is not None and not callable(failure_cb):
         raise TypeError(f"failure_cb 必须为可调用或 None，实际: {type(failure_cb).__name__}")
+    if dwell_cb is not None and not callable(dwell_cb):
+        raise TypeError(f"dwell_cb 必须为可调用或 None，实际: {type(dwell_cb).__name__}")
 
     # ① 计划：PlanError/ValueError 透传（尚未发射，无需停发射路径）
     plan = plan_ladder_steps(link_power_db, ladder_params)
@@ -162,7 +168,7 @@ def run_power_ladder(
             executed.append(record)
             if run_dir is not None:
                 append_event(run_dir, {"type": "power_step", **record})
-            time.sleep(dwell)
+            dwell_cb(dwell) if dwell_cb is not None else time.sleep(dwell)
             verdict = _consult_failure_cb(failure_cb, record)
             if verdict["warning"] is not None:
                 record["warning"] = verdict["warning"]
