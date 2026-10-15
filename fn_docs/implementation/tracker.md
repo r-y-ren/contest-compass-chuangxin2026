@@ -1479,7 +1479,7 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75)+chr(95)+chr(25298)+chr(36305))" → 
 - [x] check_demo_manual · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/check_demo_manual/ -q 2>&1 | tail -1 → 24 passed in 0.04s (10-15)
 - [x] check_demo_manual · wired — 证据: bash -c cd fn_work && .venv/bin/python -m pytest -k demo_manual_check -q >/dev/null 2>&1 && echo WIRED_OK_消费面绿 → WIRED_OK_消费面绿 (10-15)
 - [x] check_demo_manual · 清单进位 — 证据: bash -c grep -q "check_demo_manual | B43 | wired 10-15（改造点 R90 契约 v2）" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-15)
-- [ ] check_demo_manual · commit — 预告: 随批提交（哈希锚定）
+- [x] check_demo_manual · commit — 证据: bash -c git log --format=%h -1 | grep -q d7b8d6f && echo COMMIT_OK_d7b8d6f → COMMIT_OK_d7b8d6f (10-15)
 ### prepare_demo_assets（改造点·DEMO_CHECKLIST 单列化）
 - [x] prepare_demo_assets · implemented — 证据: bash -c grep -qE "DEMO_CHECKLIST: .list[str]" fn_work/src/prepare_demo_assets/prepare_demo_assets.py && echo IMPL_OK_单列化 → IMPL_OK_单列化 (10-15)
 - [x] prepare_demo_assets · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/ -q 2>&1 | tail -1 → 19 passed in 63.30s (0:01:03) (10-15)
@@ -1492,7 +1492,7 @@ with tempfile.TemporaryDirectory() as td:
     assert isinstance(cl, list) and len(cl) == 18 and not any((chr(20449)+chr(25463)+chr(26723)) in x for x in cl)
 print("WIRED_OK_18项单列零两档词")" → WIRED_OK_18项单列零两档词 (10-15)
 - [x] prepare_demo_assets · 清单进位 — 证据: bash -c grep -q "prepare_demo_assets | B43 | wired 10-15（改造点 R90 单列化）" fn_docs/implementation/functions.md && echo LEDGER_OK → LEDGER_OK (10-15)
-- [ ] prepare_demo_assets · commit — 预告: 随批提交
+- [x] prepare_demo_assets · commit — 证据: bash -c git log --format=%h -1 | grep -q d7b8d6f && echo COMMIT_OK_d7b8d6f → COMMIT_OK_d7b8d6f (10-15)
 ### 手册 v2（文档交付物）
 - [x] 总章 v2 · 落盘 — 证据: bash -c grep -q "## 设备边界：为什么清单里没有大型仪器" docs/功能演示手册.md && grep -q "### 0.1 演示设备全集清单" docs/功能演示手册.md && grep -q "### 0.2 唯一连接方式" docs/功能演示手册.md && echo 落盘OK_边界节+四节v2在位 → 落盘OK_边界节+四节v2在位 (10-15)
 - [x] 26 章+附录 · 刷写 — 证据: bash -c test $(grep -c "^### 所需设备与连线" docs/功能演示手册.md) -eq 0 && test $(grep -cE "便携档|全量档" docs/功能演示手册.md) -eq 0 && echo 刷写OK_26章三件套+附录同步+零两档词 → 刷写OK_26章三件套+附录同步+零两档词 (10-15)
@@ -1502,7 +1502,7 @@ ents = [l.strip() for l in open(chr(116)+chr(101)+chr(115)+chr(116)+chr(115)+chr
 r = check_demo_manual(chr(46)+chr(46)+chr(47)+chr(100)+chr(111)+chr(99)+chr(115)+chr(47)+chr(21151)+chr(33021)+chr(28436)+chr(31034)+chr(25163)+chr(20876)+chr(46)+chr(109)+chr(100), chr(46)+chr(46)+chr(47)+chr(102)+chr(110)+chr(95)+chr(100)+chr(111)+chr(99)+chr(115)+chr(47)+chr(82)+chr(69)+chr(65)+chr(68)+chr(77)+chr(69)+chr(46)+chr(109)+chr(100), ents)
 assert r[chr(111)+chr(107)] and r[chr(112)+chr(97)+chr(115)+chr(115)+chr(101)+chr(100)] == 26
 print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
-- [ ] 手册 v2 · 进位+commit — 预告: 全集数字锚定+整批提交（显式路径，禁 add -A）
+- [x] 手册 v2 · 进位+commit — 证据: bash -c git show --stat --format= d7b8d6f | head -1 | grep -q "252" && echo 进位commit_OK_手册252行diff在d7b8d6f → 进位commit_OK_手册252行diff在d7b8d6f (10-15)
 ### 随批
 - [x] B43 随批红#1 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/audit_responsibility_alignment/ -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/audit_responsibility_alignment/ -q >/dev/null 2>&1 → 6 passed in 0.04s (10-15)
 ## B43 批间门（分离双审——用户裁决确立）
