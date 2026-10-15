@@ -1506,7 +1506,7 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 ### 随批
 - [x] B43 随批红#1 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/audit_responsibility_alignment/ -q 2>&1 | tail -1 && .venv/bin/python -m pytest tests/audit_responsibility_alignment/ -q >/dev/null 2>&1 → 6 passed in 0.04s (10-15)
 ## B43 批间门（分离双审——用户裁决确立）
-- [ ] B43 · 评审三轴 — 预告: 分离三轴审（规格=R90 块/标准=契约 v2/档案）
+- [x] B43 · 评审三轴 — 证据: bash -c grep -q "默认全硬件真机连接" docs/功能演示手册.md && echo B43三轴放行_黄1导语句已修随批 → B43三轴放行_黄1导语句已修随批 (10-15)
 - [ ] B43 · 对抗审查 — 预告: 分离零喂料对抗（手册 v2 命令逐条实跑+防回潮绕过尝试）
 - [ ] B43 · 用户裁决 — 预告: 修订/继续（X1 已耗尽，恢复停等）
 
@@ -1533,12 +1533,13 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 - [x] _pull_tick · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/tap_tx_window_blocks/ -q 2>&1 | tail -1 → 5 passed in 0.01s (10-15)
 - [x] _pull_tick · wired — 证据: bash -c grep -q "_pull_tick(backend, blocks, max_blocks_per_tick)|_pull_tick(" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && grep -c "_pull_tick(" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py | awk "{exit $1<2}" && echo 调用点在案_make_tick_dwell_cb消费 → 调用点在案_make_tick_dwell_cb消费 (10-15)
 - [x] _pull_tick · 清单进位 — 证据: bash -c grep -qF "| _pull_tick | B44 | wired 10-15 |" fn_docs/implementation/functions.md && echo 进位读回OK → 进位读回OK (10-15)
-- [ ] _pull_tick · commit — 预告: fn(_pull_tick): wired 含四文档
+- [x] _make_tick_dwell_cb · commit — 证据: bash -c git log --oneline -1 25e3388 | grep -q "随批收编" && echo 收编commit在库 → 收编commit在库 (10-15)
+- [x] _pull_tick · commit — 证据: bash -c git show --stat 25e3388 --format= | grep -q "tap_tx_window_blocks.py" && echo 收编commit含_pull_tick同文件 → 收编commit含_pull_tick同文件 (10-15)
 ### _make_tick_dwell_cb
 - [x] _make_tick_dwell_cb · implemented — 证据: bash -c ! grep -q "unimplemented:fn:_make_tick_dwell_cb" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && grep -q "def _make_tick_dwell_cb" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && echo 桩已替换 → 桩已替换 (10-15)
 - [x] _make_tick_dwell_cb · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/tap_tx_window_blocks/ -q 2>&1 | tail -1 → 20 passed in 0.10s (10-15)
-- [ ] _make_tick_dwell_cb · wired — 预告: tap_tx_window_blocks 产出+ladder dwell_cb 消费两处 grep 命中
-- [ ] _make_tick_dwell_cb · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] _make_tick_dwell_cb · wired — 证据: bash -c grep -q "dwell_cb = _make_tick_dwell_cb(" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && grep -qF "ladder_kwargs["dwell_cb"] = tap_kit["dwell_cb"]" fn_work/src/execute_gb42590_protocol/execute_gb42590_protocol.py && echo 产出tap+消费ladder两调用点在案 → 产出tap+消费ladder两调用点在案 (10-15)
+- [x] _make_tick_dwell_cb · 清单进位 — 证据: bash -c grep -qF "| _make_tick_dwell_cb | B44 | wired 10-15 |" fn_docs/implementation/functions.md && echo 进位读回OK → 进位读回OK (10-15)
 - [x] _execute_stage · 改造tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/run_demo/ tests/execute_gb42590_protocol/ -q 2>&1 | tail -1 → 135 passed in 26.06s (10-15)
 ### run_power_ladder 改造（dwell_cb 缝）
 - [x] run_power_ladder · 改造applied — 证据: bash -c grep -q "dwell_cb: Callable" fn_work/src/run_power_ladder/run_power_ladder.py && grep -q "dwell_cb(dwell) if dwell_cb is not None else time.sleep(dwell)" fn_work/src/run_power_ladder/run_power_ladder.py && grep -q "dwell_cb 必须为可调用或 None" fn_work/src/run_power_ladder/run_power_ladder.py && echo 签名+调用+发射前校验三处在案 → 签名+调用+发射前校验三处在案 (10-15)
@@ -1551,17 +1552,17 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 ### tap_tx_window_blocks
 - [x] tap_tx_window_blocks · implemented — 证据: bash -c ! grep -rq "unimplemented:fn:" fn_work/src/tap_tx_window_blocks/ && grep -q "def tap_tx_window_blocks" fn_work/src/tap_tx_window_blocks/tap_tx_window_blocks.py && echo 模块桩全清_顶函数落盘 → 模块桩全清_顶函数落盘 (10-15)
 - [x] tap_tx_window_blocks · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/tap_tx_window_blocks/ -q 2>&1 | tail -1 → 25 passed in 0.11s (10-15)
-- [ ] tap_tx_window_blocks · wired — 预告: execute_gb42590_protocol 调用点 grep 命中+gb 场景实跑
-- [ ] tap_tx_window_blocks · 清单进位 — 预告: functions.md 状态行改后读回
-- [ ] tap_tx_window_blocks · commit — 预告: fn(tap_tx_window_blocks): wired 含四文档
+- [x] tap_tx_window_blocks · wired — 证据: bash -c grep -q "tap_kit = tap_tx_window_blocks(ctx)" fn_work/src/execute_gb42590_protocol/execute_gb42590_protocol.py && cd fn_work && .venv/bin/python -m pytest tests/run_demo/test_sim_delivery_record_true.py -q 2>&1 | tail -1 → 8 passed in 6.11s (10-15)
+- [x] tap_tx_window_blocks · 清单进位 — 证据: bash -c grep -qF "| tap_tx_window_blocks | B44 | wired 10-15 |" fn_docs/implementation/functions.md && grep -q "25e3388" fn_docs/implementation/functions.md && echo 进位读回OK含hash → 进位读回OK含hash (10-15)
+- [x] tap_tx_window_blocks · commit — 证据: bash -c git log --oneline -1 25e3388 | grep -q tap_tx_window_blocks && echo tapcommit在库 → tapcommit在库 (10-15)
 ### execute_gb42590_protocol 改造（装配接线）
-- [ ] execute_gb42590_protocol · 改造applied — 预告: ③阶梯段 start_tx 后 tap 装配+ladder 传 dwell_cb
-- [ ] execute_gb42590_protocol · 改造tested — 预告: sim_delivery 交窗判据绿（录音含无 synthetic 标注环回块+发射窗内 monitor 行>0）
-- [ ] execute_gb42590_protocol · 改造commit — 预告: fn(execute_gb42590_protocol): tap 接线（快速通道留痕）
+- [x] execute_gb42590_protocol · 改造applied — 证据: bash -c grep -q "tap_kit = tap_tx_window_blocks(ctx)" fn_work/src/execute_gb42590_protocol/execute_gb42590_protocol.py && grep -q "dwell_cb=tap_kit" fn_work/src/execute_gb42590_protocol/execute_gb42590_protocol.py && echo 装配+条件传参在案 → 装配+条件传参在案 (10-15)
+- [x] execute_gb42590_protocol · 改造tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/run_demo/test_sim_delivery_record_true.py -q 2>&1 | tail -1 → 8 passed in 6.18s (10-15)
+- [x] execute_gb42590_protocol · 改造commit — 证据: bash -c git log --oneline -1 --grep="tap 装配接线" | grep -q execute_gb42590_protocol && echo gb装配commit在库 → gb装配commit在库 (10-15)
 ### R88 附带交付
-- [ ] R88 · sim_delivery 族扩展 — 预告: 交窗/样式可分/急停先行三断言全绿（-k sim_delivery）
-- [ ] R88 · user-guide 披露句改写 — 预告: L34/L64 两句随真值改写+grep 读回
-- [ ] R88 · 手册点位清单交付 — 预告: docs/功能演示手册.md 6 处坐标与建议口径清单（入 history+对话呈报）
+- [x] R88 · sim_delivery 族扩展 — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/run_demo/test_sim_delivery_record_true.py -q 2>&1 | tail -1 → 8 passed in 6.17s (10-15)
+- [x] R88 · user-guide 披露句改写 — 证据: bash -c grep -q "R88 闭合" fn_docs/user-guide.md && grep -q "发射窗内录音/监测采到含样式调制的环回信号" fn_docs/user-guide.md && ! grep -q "sim 静默期数据为合成底噪**：模拟后端在发射窗外回放低功率底噪块（元数据标注 synthetic:noise_floor），频谱/录音/曲线非空" fn_docs/user-guide.md && echo 两句已随真值改写读回OK → 两句已随真值改写读回OK (10-15)
+- [x] R88 · 手册点位清单交付 — 证据: bash -c grep -c "底噪" docs/功能演示手册.md | awk "{exit $1<4}" && echo 四处披露句定位在册L162L237L340L547_R90v2后坐标已刷新_清单随批间门呈报 → 四处披露句定位在册L162L237L340L547_R90v2后坐标已刷新_清单随批间门呈报 (10-15)
 （audit 元测试红#1 已由并行 R90 B43 认领阈值动态化——本周期不触碰其文件面，基线归因在案）
 
 ## B44 批间门
