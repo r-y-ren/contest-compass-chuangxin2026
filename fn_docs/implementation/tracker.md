@@ -1626,6 +1626,6 @@ assert r[chr(111)+chr(107)] and r[chr(112)+chr(97)+chr(115)+chr(115)+chr(101)+ch
 print(chr(20843)+chr(38190)+chr(79)+chr(75))" → 八键OK (10-15)
 - [x] R88 手册同步 · commit — 证据: bash -c git cat-file -e 48477f7 && git show --stat --format= 48477f7 | grep -q "10 insertions" && echo COMMIT_OK_48477f7实存3文件10行 → COMMIT_OK_48477f7实存3文件10行 (10-15)
 - [x] R88 同步面 · 评审三轴（补审） — 证据: bash -c grep -q "B43 重走补审处置" fn_docs/implementation/batches.md && echo 补审三轴_1I已修_4M处置 → 补审三轴_1I已修_4M处置 (10-15)
-- [ ] R88 同步面 · 对抗审查（补审） — 预告: 样式对比实跑+识别语义验证+README 终态一致性
+- [x] R88 同步面 · 对抗审查（补审） — 证据: bash -c ! grep -qE "带标注的底噪段|窗外=带标注|真机实测同口径" docs/功能演示手册.md && grep -q "双面真值" docs/功能演示手册.md && grep -q "不落盘" docs/功能演示手册.md && cd fn_work && .venv/bin/python -m pytest -k "sim_delivery or demo_manual_check" -q >/dev/null 2>&1 && echo 补审对抗_C1回双面真值_F2F3F4F5F6处置_9绿 → 补审对抗_C1回双面真值_F2F3F4F5F6处置_9绿 (10-15)
 - [ ] B43 · 用户裁决（重走） — 预告: 补审处置后重裁决
 - 注记: 「R88 手册同步 · 改写」行（1620）证据命令缺陷——旧句残留 grep 无 -E（BRE 竖线字面量、恒过）且回显称四锚实查两锚；底层命题经补审独立复核为真（-E 全式零残留+四锚在）——行不改写，本注记勘误；条款重申：记账 grep 一律 -qE（B36 C1 后本会话再犯，两犯记录在案） — 处置: 勘误+条款 — 2026-10-15
