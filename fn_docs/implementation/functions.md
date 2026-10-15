@@ -175,4 +175,15 @@
 | _emc_radiation_md | B45 | wired 10-15 | 同上（谱表有界/洁净度/补偿 4 例） | bafa338 收编 |
 | _emc_sweep_md | B45 | wired 10-15 | 同上（点表/spurious/超限 3 例） | bafa338 收编 |
 | render_emc_flow_section | B45 | wired 10-15 | pytest tests/render_emc_flow_section → 11 passed+tests/build_report → 60 passed（四形状分支含缺项回归）；调用点 build_report.py:461 | bafa338 |
-| prepare_demo_assets | B46 | wired 10-15（改造点 R94 行细分） | 19 passed；报告 checklist=19 项（9a/9b 转接线细分）；下标锚位移同步 | B46H |
+| spectral_template_match | B47 | tested 10-15 | pytest tests/shared/test_spectral_template_match.py → 8 passed（距离序/softmax 值域和一/平手确定性/labels 锚域/空模板/维度拒/非数值/ndarray 同构）；wired 进位随 Ruling⑪ 批内 _template_classify 落地补证 | — |
+| _signal_features | B47 | stub 10-15 | —（桩在位 predict_style.py:429） | — |
+| _extract_gate_segments | B47 | stub 10-15 | —（桩在位 predict_style.py:435） | — |
+| _rule_decision | B47 | stub 10-15 | —（桩在位 predict_style.py:442） | — |
+| _template_classify | B47 | stub 10-15 | —（桩在位 predict_style.py:452） | — |
+| _classify_dummy | B47 | stub 10-15 | —（改造承载 R91；改造体留 implement，既有体在跑） | — |
+| _predict_one | B47 | stub 10-15 | —（改造承载 R92；同上） | — |
+| predict_style | B47 | stub 10-15 | —（改造承载 R91/R92 顶层 docstring；签名不变） | — |
+| make_predict_style_callbacks | B48 | stub 10-15 | —（桩在位 make_predict_style_callbacks.py:31） | — |
+| grouped_cv_evaluate | B48 | stub 10-15 | —（改造承载 R93；同上） | — |
+| view_cv_evaluation | B48 | stub 10-15 | —（改造承载 R93 默认注入；同上） | — |
+| prepare_demo_assets | B46 | wired 10-15（改造点 R94 行细分） | 19 passed；报告 checklist=19 项（9a/9b 转接线细分）；下标锚位移同步 | c7e4369 |

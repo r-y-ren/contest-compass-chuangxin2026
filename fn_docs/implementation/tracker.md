@@ -1668,10 +1668,11 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 
 ## B47 — spectral_template_match, _signal_features, _extract_gate_segments, _rule_decision, _template_classify, _classify_dummy[改造], _predict_one[改造], predict_style[改造]
 ### spectral_template_match
-- [ ] spectral_template_match · implemented — 预告: 桩替换真值（距离+softmax over negative distances+平手排序最小类+形状先拒），预期 fn-check ①该桩 grep 消失
-- [ ] spectral_template_match · tested — 预告: tests/shared/test_spectral_template_match 占位启用扩真用例（距离序/值域/平手/维度拒），预期 pytest → passed
+- [x] spectral_template_match · implemented — 证据: bash -c cd fn_work && ! grep -q unimplemented:fn: src/shared/spectral_template_match.py && .venv/bin/python -m py_compile src/shared/spectral_template_match.py && echo STM桩消_真值编译过 → STM桩消_真值编译过 (10-15)
+- [x] spectral_template_match · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/shared/test_spectral_template_match.py -q && echo STM_8例绿 → STM_8例绿 (10-15)
 - [ ] spectral_template_match · wired — 预告: 调用点存在（B47 后续 _template_classify 与 B48 make_predict_style_callbacks——本步先 grep 桩 import 面占位+批内 wired 补证），预期 grep 命中
-- [ ] spectral_template_match · 清单进位 — 预告: functions.md 状态行改后读回
+  — 批内时序注记: Ruling⑪——wired 待首个调用方 _template_classify 落地后合并补证勾记（B44 Ruling⑥ 先例）
+- [x] spectral_template_match · 清单进位 — 证据: bash -c grep -qF 'spectral_template_match | B47 | tested 10-15' fn_docs/implementation/functions.md && echo 进位读回OK_wired进位随Ruling11批内补 → 进位读回OK_wired进位随Ruling11批内补 (10-15)
 - [ ] spectral_template_match · commit — 预告: fn(spectral_template_match): wired 含四文档变更
 ### _signal_features
 - [ ] _signal_features · implemented — 预告: 桩替换真值（现 _classify_dummy 前半特征计算段原样提出），预期该桩 grep 消失

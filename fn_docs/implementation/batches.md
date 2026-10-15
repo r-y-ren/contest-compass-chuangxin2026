@@ -3,7 +3,8 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B46 | 手册四处修订（0.1 清单行细分/0.2 TRX1·RX2 真端口重写+MMCX 归位/0.3 FPGA 三事实步/边界表与残留清扫）+改造点 DEMO_CHECKLIST 第 9 行细分（18→19 项+测试同步） | 旧接法 grep -qE 零命中；契约 v2 八键绿；DEMO_CHECKLIST 报告 19 项实证；分离双审门 | R94 单批轻量；批号协调——并行演进轮④（R91-R93 识别器批）续 B47 起；B210 说明 PDF 已登记参考资料 |
+| ▶ B47 | spectral_template_match, _signal_features, _extract_gate_segments, _rule_decision, _template_classify, _classify_dummy[改造], _predict_one[改造], predict_style[改造] | predict_style wired；R91 sim_delivery 六样式识别器级用例+防退化用例绿；R92 端到端全链用例（攒数→local 训练→识别六样式全对）绿；全套件回归绿（3631 基线） | R91+R92 子树（域二十三）；自底向上序=shared 最深叶→predict_style 三叶→_template_classify→改造体两级→顶层；tests/predict_style 键集合断言随 features 扩键同步更新（管线顺手改登记） |
+| B48 | make_predict_style_callbacks, grouped_cv_evaluate[改造], view_cv_evaluation[改造] | grouped_cv 对齐口径用例（矩阵字段+eval_protocol 标注）绿；ai_eval_view 回归绿；全套件回归绿 | R93 子树（域二十三）；对齐=模板路同源（spectral_template_match）；内置 dummy 保留缺省 |
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
 | 日期 | 事件 | 说明 |
@@ -106,3 +107,4 @@
 | 10-15 | 裁决：B43 尾段流程重走（用户裁决"重走该批流程"） | 审计坐实两违规——①R88 手册同步三行手工预勾绕过 fn-step-done 核验门（tracker 1620-1622，证据文本自述非脚本产出）；②484777f 四处手册内容变更无分离双审覆盖（落在 B43 对抗报告后、闭门前）。处置：行重置→fn-step-done 真核验重记；48477f7+README 终态补分离双审（三轴+对抗各一）；B43 门重开停等裁决。内容面不重做（八键/sim_delivery 已验证为真） |
 | 10-15 | B43 重走补审处置（三轴 0C/1I/4M+对抗 1C/5I/1M——全处置） | F1(C) ch10"识别语义可用 sim 攒样"为假（24/24 恒判 pulse——环回段占空比劫持轻量规则判据，c2 在册限界）→回双面真值（流程可 sim 演示/语义演示需真机或显式合成）；F2 三处"带标注底噪段"→不落盘口径（synthetic 仅存后端内存，user-guide 同源）；F3 monitor.csv"窗外"句→录音域口径（实测窗外 0 行）；F4/三轴 I-1"真机实测同口径"→"真机核验随 R87"；F5/三轴 M-4 重走改写行证据假绿×2（BRE 竖线空转+回显四锚实查两锚）→注记勘误+条款再重申（grep 一律 -qE，本会话两犯）；F6 门证据不足额=登记（八键/sim_delivery 证据域边界如实：结构体检不背书句义——F1 即其盲区产物）；三轴 M-2 b8d0ddf 记账行时态限定 add后被并行终审移除=历史注记/M-3 外推观察/M-5 484777f 笔误勘误/对抗 F10"6 处"计数口径=6（4 手册+2 user-guide）注明 |
 | 10-15 | c4 走查环处置（C2/I1/M2——F1 修复+F2 移交+F3 分治） | F1(C) 手册 7/11 章"取最新运行"命令被我 C1 修复嵌坏（注释吞括号+runs/ 前缀翻倍，照抄必败）→修为实测可达形 "$(ls -dt runs/*/ | head -1)report.md"，scoped 复走查两命令实跑 OK+语法核 OK；F2(C) 并行会话在途 README（演进轮④ R91/R92）以现在时宣称识别器已修（21/21 实验证伪、predict_style 未改）——**移交并行会话**：落码前 README 23/29 条改限界口径或标"随 R91/R92 交付"（其 requirements 已如实登记断点）；F3(I) 手册 0.4 卡片措辞→启动扫描口径（已修）；README L55 同句随 F2 移交；F4(M) 功率绝对数随场景漂移=在册限界维持；F5(M) 空录音卡片=登记后续 UI 项 |
+| 10-15 | 演进轮④批次计划（B47/B48）+批号协调 | 并行 R94 手册批已占 B46（其行注明本周期续 B47 起，采纳）；文件面声明：本周期=predict_style 子树（predict_style.py 含 4 新叶+2 改造体）+grouped_cv_evaluate（make_predict_style_callbacks+改造）+view_cv_evaluation 改造+src/shared/spectral_template_match.py+测试族（tests/predict_style 扩展、tests/shared/test_spectral_template_match、tests/grouped_cv_evaluate 扩展、tests/run_demo sim_delivery 识别器级新用例）——不碰 prepare_demo_assets/功能演示手册/check_demo_manual（并行 R90/R94 会话面）；共享面仅 implementation 四文档各节独立追加（先例 B42 M9） |
