@@ -414,3 +414,105 @@ def predict_style(iq_source, model=None, nfft: int = 256) -> dict | list[dict]:
         return [_predict_one(item, loaded, model_err, nfft) for item in iq_source]
     loaded, model_err = _load_model(model)
     return _predict_one(iq_source, loaded, model_err, nfft)
+
+
+# ── 演进轮④（R91/R92）新叶骨架——重写规约与签名意图详见 fn_docs/responsibility.md
+#    域二十三功能块；宿主函数体（_classify_dummy/_predict_one/predict_style 的
+#    门控感知改造与模板路分流）由 fn-implement 按 [改造] 目标态实施。
+
+
+def _signal_features(iq: np.ndarray, spec: np.ndarray) -> dict:
+    """特征计算纯函数（R91；现 _classify_dummy 前半计算段 :249–292 原样提出，全段/
+    段内两处同源复用——提取不重写，改造接线归后续 _classify_dummy 改造步）：IQ+谱
+    → 13 键特征 dict（键名与 _rule_decision 共用契约，不得增删改）。
+
+    键：'centroid'（0–1 折合质心）/'bandwidth_3db'（-3dB bin 份额 0–1）/'ripple20'/
+    'env_cv'/'duty_on'/'duty_off'/'duty_gated'/'gate_periodic'/'gate'（bool ndarray，
+    供 on 段提取）/'sweep_range'/'reversals'（int）/'spec_span'（prof.max−prof.min，
+    零能量退化判据用）/'pwr_sum'（包络平方和）。spec 为 dB 谱矩阵（行=频率 bin）。
+    """
+    spec = spec.astype(np.float64)
+    freq_bins = int(spec.shape[0])
+    axis = max(freq_bins - 1, 1)  # bin i 折合位置 i/(freq_bins-1)：末 bin=Nyquist=1.0
+
+    prof = spec.mean(axis=1)  # 时间平均功率谱（dBFS）
+    lin = 10.0 ** (prof / 10.0)
+    total = float(lin.sum())
+    centroid = (
+        float((np.arange(freq_bins, dtype=np.float64) * lin).sum() / total) / axis
+        if total > 0.0
+        else 0.0
+    )
+    peak = float(prof.max())
+    bw3db = float((prof >= peak - 3.0).sum()) / max(freq_bins, 1)
+    occ20 = prof >= peak - 20.0
+    ripple20 = float(prof[occ20].std()) if occ20.any() else 0.0
+
+    env = np.abs(iq)
+    mean_env = float(env.mean())
+    env_cv = float(env.std() / mean_env) if mean_env > 0.0 else 0.0
+    pwr = env * env
+
+    # 脉冲门控（B14 中#3 全段口径重标定）：包络二值化（峰值 -20dB 以下为关断）→
+    # 占空 duty_on 与关断占比 duty_off；门控规律以二值序列 FFT 自相关周期峰验证。
+    peak_env = float(env.max()) if env.size else 0.0
+    if peak_env > 0.0:
+        gate = env > (peak_env / _GATE_FLOOR_RATIO)
+        duty_on = float(gate.mean())
+    else:
+        gate = np.zeros_like(env, dtype=bool)
+        duty_on = 0.0  # 全零段无门控可言（零能量退化另行标注）
+    duty_off = 1.0 - duty_on
+    duty_gated = (
+        _PULSE_DUTY_MIN - _PULSE_DUTY_EPS
+        <= duty_on
+        <= _PULSE_DUTY_MAX + _PULSE_DUTY_EPS
+    )
+    gate_periodic = duty_gated and _gate_autocorr_peak(gate)
+
+    peak_bins = np.argmax(spec, axis=0).astype(np.float64)  # 逐帧谱峰 bin
+    sweep_range = float(peak_bins.max() - peak_bins.min()) / axis
+    diffs = np.diff(peak_bins)
+    moving = diffs[np.abs(diffs) > 0.5]  # 滤除亚 bin 抖动
+    reversals = int((np.diff(np.sign(moving)) != 0).sum()) if moving.size >= 2 else 0
+
+    spec_span = float(prof.max() - prof.min())
+    pwr_sum = float(pwr.sum())
+    return {
+        "centroid": centroid,
+        "bandwidth_3db": bw3db,
+        "ripple20": ripple20,
+        "env_cv": env_cv,
+        "duty_on": duty_on,
+        "duty_off": duty_off,
+        "duty_gated": duty_gated,
+        "gate_periodic": gate_periodic,
+        "gate": gate,
+        "sweep_range": sweep_range,
+        "reversals": reversals,
+        "spec_span": spec_span,
+        "pwr_sum": pwr_sum,
+    }
+
+
+def _extract_gate_segments(gate: np.ndarray) -> list[tuple[int, int]]:
+    """二值门控序列 → 连通 on 段表 [(start, end_exclusive), ...]（R91；空输入→空表，
+    段序确定）。规则路（_classify_dummy）与模板路（_predict_one）门控感知共用。"""
+    raise NotImplementedError("unimplemented:fn:_extract_gate_segments")
+
+
+def _rule_decision(feats: dict) -> tuple[str, float]:
+    """六规则决策序纯函数（R91；现 _classify_dummy 后半 if-elif 链提出，判据与置信度
+    公式原样）：门控脉冲→扫频轨迹（chirp/sweep）→tone→partial_band→
+    bandlimited_noise→composite 兜底。段内特征命中门控脉冲=两层门控判 pulse。"""
+    raise NotImplementedError("unimplemented:fn:_rule_decision")
+
+
+def _template_classify(
+    profile: np.ndarray, weights: dict, labels: list[str]
+) -> tuple[str, float, dict]:
+    """模板路分类组装（R92）：待测时间平均谱向量（全段或 on 段，与
+    class_mean_spectra 训练口径一致）→ shared/spectral_template_match 出
+    (label, confidence)；未校准标注与模板路特征键随第三项 dict 返回（口径见
+    requirements R92）。形状非法不在本层拒（交 _predict_one 回退规则路）。"""
+    raise NotImplementedError("unimplemented:fn:_template_classify")

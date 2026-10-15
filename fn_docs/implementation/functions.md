@@ -176,7 +176,7 @@
 | _emc_sweep_md | B45 | wired 10-15 | 同上（点表/spurious/超限 3 例） | bafa338 收编 |
 | render_emc_flow_section | B45 | wired 10-15 | pytest tests/render_emc_flow_section → 11 passed+tests/build_report → 60 passed（四形状分支含缺项回归）；调用点 build_report.py:461 | bafa338 |
 | spectral_template_match | B47 | tested 10-15 | pytest tests/shared/test_spectral_template_match.py → 8 passed（距离序/softmax 值域和一/平手确定性/labels 锚域/空模板/维度拒/非数值/ndarray 同构）；wired 进位随 Ruling⑪ 批内 _template_classify 落地补证 | — |
-| _signal_features | B47 | stub 10-15 | —（桩在位 predict_style.py:429） | — |
+| _signal_features | B47 | tested 10-15 | pytest tests/predict_style → 32 passed（13 键契约集合断言/tone-noise-门控-恒包络特征值/gate 自洽/等价锚：门控 tone 全流程仍判 pulse）；wired 随 _classify_dummy 改造补证 | — |
 | _extract_gate_segments | B47 | stub 10-15 | —（桩在位 predict_style.py:435） | — |
 | _rule_decision | B47 | stub 10-15 | —（桩在位 predict_style.py:442） | — |
 | _template_classify | B47 | stub 10-15 | —（桩在位 predict_style.py:452） | — |

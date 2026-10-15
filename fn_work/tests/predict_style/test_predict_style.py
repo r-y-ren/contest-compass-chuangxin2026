@@ -346,3 +346,91 @@ def test_infer_service_tiny_but_nonzero_signal_not_flagged_degenerate():
     assert result["status"] == "ok"
     assert result["label"] == "tone"
     assert "degenerate" not in result["features"]
+
+
+# --- B47 _signal_features 特征纯函数（R91）：合成 IQ 直测特征值 + 等价性锚 ---
+
+from src.make_spectrogram.make_spectrogram import make_spectrogram  # noqa: E402
+from src.predict_style.predict_style import _signal_features  # noqa: E402
+
+#: 13 键特征契约（与后续 _rule_decision 共用——键名定死，不得增删改）
+_FEATURE_KEYS = {
+    "centroid",
+    "bandwidth_3db",
+    "ripple20",
+    "env_cv",
+    "duty_on",
+    "duty_off",
+    "duty_gated",
+    "gate_periodic",
+    "gate",
+    "sweep_range",
+    "reversals",
+    "spec_span",
+    "pwr_sum",
+}
+
+
+def _feats_of(iq, nfft=256):
+    """合成 IQ → make_spectrogram 谱 + _signal_features 特征 dict（complex128 直测口径，
+    与 predict_style 全流程的 _to_complex128 规整一致）。"""
+    x = np.asarray(iq, dtype=np.complex128)
+    return _signal_features(x, make_spectrogram(x, nfft=nfft)["spec"])
+
+
+def _gated_tone_iq(duty=0.25, period=200, n=8192, freq=0.1):
+    """numpy 直构周期门控 tone：每 period 样本开 round(duty·period) 个（载波 freq·fs）。"""
+    idx = np.arange(n)
+    on = (idx % period) < int(round(duty * period))
+    return (np.exp(1j * 2.0 * np.pi * freq * idx) * on).astype(np.complex64)
+
+
+def test_signal_features_tone_narrow_band_constant_envelope():
+    """① 单音合成 IQ（0.1fs tone）→ bandwidth_3db 极窄（≤0.03）且 env_cv 低（<0.15）。"""
+    feats = _feats_of(_tone_iq())
+    assert feats["bandwidth_3db"] <= 0.03
+    assert feats["env_cv"] < 0.15
+
+
+def test_signal_features_wideband_noise_rayleigh_env_cv():
+    """② 宽带噪声 → env_cv∈[0.3,0.8]（包络 Rayleigh≈0.52）且 bandwidth_3db 宽（>0.1）。"""
+    feats = _feats_of(_wide_noise_iq())
+    assert 0.3 <= feats["env_cv"] <= 0.8
+    assert feats["bandwidth_3db"] > 0.1
+
+
+def test_signal_features_gated_tone_duty_periodic_and_key_contract():
+    """③ 周期门控 tone（占空≈0.25）→ duty_on≈0.25、duty_gated/gate_periodic 均 True；
+    特征 dict 键集恰为 13 键契约。"""
+    feats = _feats_of(_gated_tone_iq(duty=0.25))
+    assert set(feats) == _FEATURE_KEYS
+    assert feats["duty_on"] == pytest.approx(0.25, abs=0.01)
+    assert feats["duty_gated"] is True
+    assert feats["gate_periodic"] is True
+
+
+def test_signal_features_constant_envelope_full_duty_not_gated():
+    """④ 连续恒包络 tone → duty_on≈1.0、duty_gated/gate_periodic 均 False（窗外）。"""
+    feats = _feats_of(_tone_iq())
+    assert feats["duty_on"] == pytest.approx(1.0, abs=1e-9)
+    assert feats["duty_off"] == pytest.approx(0.0, abs=1e-9)
+    assert feats["duty_gated"] is False
+    assert feats["gate_periodic"] is False
+
+
+def test_signal_features_gate_array_consistent_with_duty_on():
+    """⑤ gate 数组与 duty_on 自洽：bool ndarray、shape 随 IQ、gate.mean()==duty_on（1e-9）。"""
+    iq = _gated_tone_iq(duty=0.25)
+    feats = _feats_of(iq)
+    gate = feats["gate"]
+    assert isinstance(gate, np.ndarray) and gate.dtype == np.bool_
+    assert gate.shape == np.asarray(iq).shape
+    assert float(gate.mean()) == pytest.approx(feats["duty_on"], abs=1e-9)
+
+
+def test_signal_features_pulse_equivalence_anchor_full_pipeline():
+    """⑥ 等价性核心锚：③的合成脉冲 IQ 经现 _classify_dummy 全流程（predict_style +
+    裸 cnn_dummy 模型）仍判 pulse——特征计算段提出后口径未漂移的端到端证明。"""
+    result = predict_style(_gated_tone_iq(duty=0.25), model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["label"] == "pulse"

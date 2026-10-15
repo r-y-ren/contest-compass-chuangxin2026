@@ -1657,7 +1657,7 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 ## B46 批间门（分离双审）
 - [x] B46 · 评审三轴 — 证据: bash -c grep -q "19 项（R94" fn_work/src/prepare_demo_assets/prepare_demo_assets.py && grep -q "9a 线" docs/功能演示手册.md && grep -q "混批补声明" fn_docs/implementation/tracker.md && echo 三轴过_0C_I1I2I3M1M2全处置 → 三轴过_0C_I1I2I3M1M2全处置 (10-15)
 - [x] B46 · 对抗审查 — 证据: bash -c grep -q "R94·4 证据重验" fn_docs/implementation/tracker.md && grep -q "端口名桥接" docs/功能演示手册.md && grep -q "知识性注记非自动校验" docs/功能演示手册.md && cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/test_prepare_demo_assets.py::test_checklist_manual_sync_anchor -q >/dev/null 2>&1 && echo 对抗C1勘误真命令重验_I4全处置_M5随批_20用例含新锚 → 对抗C1勘误真命令重验_I4全处置_M5随批_20用例含新锚 (10-15)
-- [ ] B46 · 用户裁决 — 预告: 修订/继续
+- [x] B46 · 用户裁决 — 证据: bash -c grep -q "B46 对抗处置" fn_docs/implementation/batches.md && git log --format=%h -1 | grep -q e6898d7 && echo 门放行_R94完结进fn-close_c5 → 门放行_R94完结进fn-close_c5 (10-15)
 
 ## 演进轮④进入五步（R91–R93 识别准确率协同改造；B47 起——B46 为并行 R94 批，其门行上方独立在册）
 - [x] ④前置检查 — 证据: bash -c test -f fn_docs/responsibility.md && test -x fn_work/.venv/bin/python && grep -c unimplemented:fn: fn_work/src/predict_style/predict_style.py fn_work/src/shared/spectral_template_match.py fn_work/src/grouped_cv_evaluate/make_predict_style_callbacks.py && echo 前置齐_6源桩_venv在 → 前置齐_6源桩_venv在 (10-15)
@@ -1675,10 +1675,11 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [x] spectral_template_match · 清单进位 — 证据: bash -c grep -qF 'spectral_template_match | B47 | tested 10-15' fn_docs/implementation/functions.md && echo 进位读回OK_wired进位随Ruling11批内补 → 进位读回OK_wired进位随Ruling11批内补 (10-15)
 - [x] spectral_template_match · commit — 证据: bash -c git cat-file -e 0d0cdfe && git show --stat --format= 0d0cdfe | grep -cE 'spectral_template_match|batches.md|functions.md|tracker.md' && echo STM_commit_0d0cdfe_4文件在 → STM_commit_0d0cdfe_4文件在 (10-15)
 ### _signal_features
-- [ ] _signal_features · implemented — 预告: 桩替换真值（现 _classify_dummy 前半特征计算段原样提出），预期该桩 grep 消失
-- [ ] _signal_features · tested — 预告: tests/predict_style 新增段内/全段同源用例，预期 pytest → passed
+- [x] _signal_features · implemented — 证据: bash -c cd fn_work && ! grep -qF 'unimplemented:fn:_signal_features' src/predict_style/predict_style.py && grep -cF 'unimplemented:fn:' src/predict_style/predict_style.py && echo SF桩消_余桩3在 → SF桩消_余桩3在 (10-15)
+- [x] _signal_features · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/predict_style/test_predict_style.py -q && echo SF_32绿含6新例 → SF_32绿含6新例 (10-15)
 - [ ] _signal_features · wired — 预告: 调用点=改造后 _classify_dummy（批内补证），预期 grep 命中
-- [ ] _signal_features · 清单进位 — 预告: functions.md 状态行改后读回
+  — 批内时序注记: Ruling⑪同款——wired 待 _classify_dummy 改造落地后补证（本叶为改造体内嵌调用）
+- [x] _signal_features · 清单进位 — 证据: bash -c grep -qF '_signal_features | B47 | tested 10-15' fn_docs/implementation/functions.md && echo SF进位读回OK → SF进位读回OK (10-15)
 - [ ] _signal_features · commit — 预告: fn(_signal_features): wired 含四文档变更
 ### _extract_gate_segments
 - [ ] _extract_gate_segments · implemented — 预告: 桩替换真值（二值→连通段表，空→空表），预期该桩 grep 消失
