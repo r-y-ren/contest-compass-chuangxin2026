@@ -410,8 +410,12 @@ def _report_payload(
 ) -> dict:
     """报告结果对象（数字纪律：全部读回自本 run 结果对象/选择记录）：
     run_id/backend/clock_ref（脚注与概要）、failure_levels（失效对比段）、
-    emc 场景扫频结果适配 'emc' 段形状（readings←points，如实不虚构）、
-    sim 后端附 simulated_parts（脚注模拟段声明）。"""
+    emc 场景结果三形状映射 'emc' 段+flow 标签（R89：inner 含 readings→
+    conduction（原生直传，不加 readings←points 适配）；含 spectrum→radiation
+    （spectrum/cleanliness/补偿注记直传）；含 points→sweep（保留既有
+    readings←points 适配）——判定序 readings 先于 points（conduction 原生
+    readings 与 sweep points 互斥，判定序稳）；三形状皆无不设 'emc' 键（如实
+    不虚构））、sim 后端附 simulated_parts（脚注模拟段声明）。"""
     inner = run_out.get("result") if isinstance(run_out.get("result"), dict) else {}
     payload = {
         "run_id": os.path.basename(run_dir.rstrip(os.sep)) or run_dir,
@@ -424,9 +428,17 @@ def _report_payload(
         isinstance(scenario_type, str)
         and scenario_type.strip().lower() == "emc"
         and isinstance(inner, dict)
-        and "points" in inner
     ):
-        payload["emc"] = {**inner, "readings": inner.get("points")}
+        if "readings" in inner:
+            # 传导原生形状：readings 直传+flow 标签（渲染层按标签分派，不回推）。
+            payload["emc"] = {**inner, "flow": "conduction"}
+        elif "spectrum" in inner:
+            # 辐射原生形状：spectrum/cleanliness/补偿注记直传+flow 标签。
+            payload["emc"] = {**inner, "flow": "radiation"}
+        elif "points" in inner:
+            # 扫频形状：既有 points→readings 适配保留+flow 标签补上（修掉 sweep
+            # 经形状回推误挂传导标题的口径缝）。
+            payload["emc"] = {**inner, "readings": inner.get("points"), "flow": "sweep"}
     if isinstance(selection, dict) and selection.get("backend") == "sim":
         payload["simulated_parts"] = ["sim 后端全流程（模拟链路演示）"]
     return payload
