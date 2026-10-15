@@ -27,7 +27,12 @@
   事件缺省自动生成中性无干扰事件（jsr 取 scenario['baseline_jsr_db'] 缺省
   −100dB），也可经 ctx['baseline_sim_events']/ctx['dut']['baseline_events'] 直给。
 ③ 阶梯：backend.start_tx([iq]) 起发射→run_power_ladder（GB 缺省 −5dB 起 5dB 步、
-  0dBm 红线截断；failure_cb=KPI 判据；dwell 透传；ladder 收尾自停发射）。
+  0dBm 红线截断；failure_cb=KPI 判据；dwell 透传；ladder 收尾自停发射）。R88
+  交错缝口径：start_tx 成功后调 tap_tx_window_blocks(ctx) 装配发射窗监测采集
+  （能力探测只读不抛；启用白名单 capabilities kind ∈ {sim,b210}，replay/无
+  backend 返回 None）——装配非 None 则 ladder 调用传 dwell_cb=tap_kit['dwell_cb']
+  （dwell 分片停检+逐 tick 拉 read_samples 块归一盖戳入 ctx['tx_window_blocks']，
+  采集阶段 record_run_streams 前置消费），None 则不传 dwell_cb（调用保持现状）。
 ④ 失效即 record_failure_level 记 P_crit：jsr 取 ctx['jsr_est']（数值或
   {'jsr_db': …} dict）→lookup_jsr(ctx['gain_calibration']) 兜底→两路皆缺则条目
   记 unknown（record_failure_level 的 missing_fields 口径）；实达电平按
@@ -68,6 +73,7 @@ from src.shared.append_event import append_event
 from src.shared.stop_transmit_safely import stop_transmit_safely
 from src.synthesize_style.synthesize_style import synthesize_style
 from src.switch_style.lookup_style_recipe import StyleError
+from src.tap_tx_window_blocks.tap_tx_window_blocks import tap_tx_window_blocks
 
 __all__ = ["ProtocolError", "execute_gb42590_protocol"]
 
@@ -713,6 +719,7 @@ def execute_gb42590_protocol(ctx: dict, scenario: dict | None = None) -> dict:
     dut_iter, source = _open_dut_source(ctx, scenario)
 
     start_tx = getattr(backend, "start_tx", None) if backend is not None else None
+    tap_kit = None  # R88 交错缝装配结果：None=不接线（ladder 调用不传 dwell_cb）
     if callable(start_tx):
         try:
             start_tx([iq])  # 干扰波形装载发射（功率由 ladder 衰减档调制）
@@ -727,6 +734,11 @@ def execute_gb42590_protocol(ctx: dict, scenario: dict | None = None) -> dict:
                 run_token=ctx.get("run_token"),
             )
             raise
+        # R88 交错缝装配（发射窗监测采集）：start_tx 成功后调 tap——能力探测只读
+        # 不抛，返回值仅决定 ladder 的 dwell_cb 传参；None（replay/无 backend/
+        # 白名单外）→ 不传（现状调用不变）。块缓冲挂 ctx['tx_window_blocks']
+        # （run_demo 采集阶段 record_run_streams 前置消费——录音窗覆盖发射窗）。
+        tap_kit = tap_tx_window_blocks(ctx)
 
     state = {
         "dut_iter": dut_iter,
@@ -748,6 +760,11 @@ def execute_gb42590_protocol(ctx: dict, scenario: dict | None = None) -> dict:
         dwell_s = ctx.get("dwell_s")
     if dwell_s is None:
         dwell_s = _DEFAULT_DWELL_S
+    # R88 交错缝：装配非 None → ladder 传 dwell_cb（dwell 分片停检+逐 tick 拉
+    # read_samples 入 ctx['tx_window_blocks']）；None → 不传（现状调用不变）。
+    ladder_kwargs: dict = {}
+    if tap_kit is not None:
+        ladder_kwargs["dwell_cb"] = tap_kit["dwell_cb"]
     # ladder 收尾（失效/走完/异常）均自停发射；判据回调异常同走先停发射再透传。
     try:
         ladder = run_power_ladder(
@@ -756,6 +773,7 @@ def execute_gb42590_protocol(ctx: dict, scenario: dict | None = None) -> dict:
             failure_cb=_make_failure_cb(state),
             dwell_s=dwell_s,
             link_power_db=link_power_db,
+            **ladder_kwargs,
         )
     except BaseException as exc:  # noqa: BLE001 - 透传前尽力补 aborted 终止事件
         # B13 复审低#3：判据回调/阶梯异常透传路径补 protocol_stop（status=
