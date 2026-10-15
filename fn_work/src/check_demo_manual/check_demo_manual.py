@@ -1,5 +1,5 @@
 """手册结构体检（R84 L0，承载 R76–R84 各批自检）：期望条目集齐/每条目四件套与两档标注齐/零占位残留/附录应急表覆盖 README 常见问题全部条目。
-    已知限界：条目匹配为子串级——章名拼接（如「A 与 B」一章可同时顶替 A/B 两期望条目）可伪覆盖，全等匹配加固留 B42（B35 对抗 F3 登记）。
+    匹配契约（B42 终门后）：期望条目与章标题剥序号后全等或"条目名+括注后缀"；拼接章（无序号/无空格序号形态）一律检出（B42 重走回归锚在 tests ⑬–⑯）。
     重写规约与签名意图详见 fn_docs/responsibility.md。
 
 体检口径（R84；手册=docs/功能演示手册.md，FAQ 源=fn_docs/README.md「常见问题」）：
@@ -157,21 +157,39 @@ def _scan_headings(lines: list[str]) -> list[tuple[int, int, str]]:
 def _strip_fenced(lines: list[str]) -> list[str]:
     """剥离代码围栏块（```/~~~ 开合区连同围栏行本身，允许 0–3 空格缩进），返回围栏外行清单。
 
-    两档词族（族三）小节体检查与应急区表格行收集（族五，B33 对抗 F2）使用
-    ——防围栏内命令注释的档名/围栏内示例表格伪达标（B32 M3 加固）；占位族
-    （族四）全文扫描**仍含围栏内**（手册面向演示者，任何位置残留都算）——
-    各族口径独立，本函数不改动其他族行为。
+    同型闭合（B42 重走 I1）：``` 开栏仅 ``` 可闭、~~~ 开栏仅 ~~~ 可闭（CommonMark 语义）
+    ——混合围栏内文本不再被误剥。两档词族（族三）与应急区表格行收集（族五）使用
+    ——防围栏内命令注释的档名/示例表格伪达标（B32 M3/B33 F2 加固）；占位族（族四）
+    全文扫描仍含围栏内。HTML 注释块 <!-- --> 一并剥离（B42 重走 I2：不可见内容不参与
+    两档达标判定）。
     """
     out: list[str] = []
     in_fence = False
+    fence_mark = ""
+    in_comment = False
     for raw in lines:
-        if _FENCE_RE.match(raw):
-            in_fence = not in_fence
+        line = raw.rstrip("\n")
+        m = _FENCE_RE.match(line)
+        if m:
+            if not in_fence:
+                in_fence, fence_mark = True, m.group(1)
+            elif m.group(1) == fence_mark:
+                in_fence, fence_mark = False, ""
             continue
         if in_fence:
             continue
-        out.append(raw)
+        # HTML 注释剥离（单行 <!-- ... --> 直接剔；跨行 <!-- 开 -> 闭区间剔）
+        if in_comment:
+            if "-->" in line:
+                in_comment = False
+            continue
+        if "<!--" in line:
+            if "-->" not in line:
+                in_comment = True
+            continue
+        out.append(line)
     return out
+
 
 
 def _end_line(headings: list[tuple[int, int, str]], pos: int, level: int, total: int) -> int:
@@ -192,7 +210,6 @@ def _find_chapters(headings: list[tuple[int, int, str]], name: str) -> list[tupl
     missing_entry，由调用方点名。子串匹配仅在无序号形态的非常规章上作回退。
     """
     exact: list[tuple[int, int]] = []
-    substr: list[tuple[int, int]] = []
     for pos, (idx, level, title) in enumerate(headings):
         if level != 2 or name not in title:
             continue
@@ -209,7 +226,8 @@ def _find_chapters(headings: list[tuple[int, int, str]], name: str) -> list[tupl
             and len(_seqless) > len(name)
             and _seqless[len(name)] in "（(【["
         )
-        (exact if _is_exact else substr).append(span)
+        if _is_exact:
+            exact.append(span)
     if exact:
         return exact
     # 回退：无序号/无空格序号形态的章，标题剥序号后须与条目名全等才收

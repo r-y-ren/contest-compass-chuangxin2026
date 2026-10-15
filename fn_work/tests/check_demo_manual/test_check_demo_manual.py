@@ -344,3 +344,101 @@ def test_demo_manual_check_real_manual_smoke():
     )
     if has_emergency_heading:
         assert report["faq_uncovered"] == []
+
+
+# B42 重走变异回归锚（batches 终门处置行"拼接章检出/两档小节体删空检出"落测试化）
+def _spoof_manual(spoof_title: str) -> str:
+    """删 fixture 的两个期望章，塞一个四件套齐备的拼接章顶替两名。"""
+    import re as _re
+
+    t = _COMPLETE_MANUAL
+    for ch in ("## 1. 一键测评", "## 2. AI 认干扰"):
+        t = _re.sub(r"\n" + _re.escape(ch) + r"[^\n]*\n(?:(?!\n## ).)*", "\n", t, flags=_re.S)
+    merged = [
+        f"## {spoof_title}",
+        "",
+        "### 功能说明", "x",
+        "### 所需设备与连线（便携档、全量档）", "便携档：a 全量档：b",
+        "### 操作步骤（命令与参数）", "x",
+        "### 预期现象", "x",
+    ]
+    return t.replace("## 1. 一键测评", "\n".join(merged) + "\n## 已删", 0) if "一键测评" in t else _insert_after_readme(t, merged)
+
+
+def _insert_after_readme(text: str, block: list) -> str:
+    lines = text.splitlines()
+    out = []
+    inserted = False
+    for l in lines:
+        out.append(l)
+        if not inserted and l.startswith("## "):
+            out.extend(block)
+            inserted = True
+    return "\n".join(out)
+
+
+@pytest.mark.parametrize("spoof_title", ["一键测评与AI 认干扰", "3.一键测评与AI 认干扰", "3. 一键测评与AI 认干扰"])
+def test_b42_redo_merged_chapter_spoof_detected(tmp_path, spoof_title):
+    manual_p, readme_p = _write_pair(tmp_path, _spoof_manual(spoof_title))
+    r = check_demo_manual(manual_p, readme_p, _EXPECTED)
+    assert "一键测评" in r["missing_entries"] and "AI 认干扰" in r["missing_entries"]
+
+
+def test_b42_redo_tier_body_stripped_detected(tmp_path):
+    manual = _COMPLETE_MANUAL
+    import re as _re
+
+    t = _re.sub(r"(### 所需设备与连线[^\n]*\n)(?:(?!\n###|\n## ).)*", r"\1", manual, count=1, flags=_re.S)
+    manual_p, readme_p = _write_pair(tmp_path, t)
+    r = check_demo_manual(manual_p, readme_p, _EXPECTED)
+    assert r["missing_sections"], "两档小节体删空必须检出（终门 M3）"
+
+
+# B42 重走 I1/I2/I3 加固锚
+def test_b42_redo_mixed_fence_spoof_detected(tmp_path):
+    """混合围栏（``` 开 ~~~ 关）内的伪章必须算未交付（重走 I1）。"""
+    t = _COMPLETE_MANUAL.replace(
+        "## 1. 一键测评",
+        "```\n## 1. 一键测评\n~~~\n## 99. 一键测评占位章\n\n### 功能说明\nx\n"
+        "### 所需设备与连线（便携档、全量档）\n便携档：a 全量档：b\n"
+        "### 操作步骤（命令与参数）\nx\n### 预期现象\nx\n",
+        1,
+    )
+    manual_p, readme_p = _write_pair(tmp_path, t)
+    r = check_demo_manual(manual_p, readme_p, _EXPECTED)
+    assert "一键测评" in r["missing_entries"], "混合围栏内的伪章必须检出"
+
+
+def test_b42_redo_html_comment_tier_spoof_detected(tmp_path):
+    """HTML 注释里的档词不算两档达标（重走 I2）。"""
+    import re as _re
+
+    t = _re.sub(
+        r"(### 所需设备与连线[^\n]*\n)(?:(?!\n###|\n## ).)*",
+        r"\1<!-- 便携档 全量档 -->\n",
+        _COMPLETE_MANUAL,
+        count=1,
+        flags=_re.S,
+    )
+    manual_p, readme_p = _write_pair(tmp_path, t)
+    r = check_demo_manual(manual_p, readme_p, _EXPECTED)
+    assert r["missing_sections"], "HTML 注释档词必须检出"
+
+
+def test_b42_redo_tier_in_title_only_detected(tmp_path):
+    """M3 回退盲锚：小节标题含档词+小节体无档词必须检出（重走 I3/B7 形态）。"""
+    import re as _re
+
+    t = _COMPLETE_MANUAL.replace(
+        "### 所需设备与连线", "### 所需设备与连线（便携档、全量档）", 1
+    )
+    t = _re.sub(
+        r"(### 所需设备与连线（便携档、全量档）\n)(?!便携档)(?:(?!\n###|\n## ).)*",
+        r"\1",
+        t,
+        count=1,
+        flags=_re.S,
+    )
+    manual_p, readme_p = _write_pair(tmp_path, t)
+    r = check_demo_manual(manual_p, readme_p, _EXPECTED)
+    assert r["missing_sections"], "标题自含档词+空体必须检出"
