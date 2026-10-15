@@ -1701,7 +1701,7 @@ print("WIRED_OK_19项")" → WIRED_OK_19项 (10-15)
 - [ ] _template_classify · wired — 预告: 调用点=改造后 _predict_one（批内补证），预期 grep 命中
   — 批内时序注记: Ruling⑪同款——wired 待 _predict_one 改造落地后补证
 - [x] _template_classify · 清单进位 — 证据: bash -c grep -qF '_template_classify | B47 | tested 10-15' fn_docs/implementation/functions.md && grep -qF 'spectral_template_match | B47 | wired 10-15' fn_docs/implementation/functions.md && echo TC进位OK_STM_wired回补在 → TC进位OK_STM_wired回补在 (10-15)
-- [ ] _template_classify · commit — 预告: fn(_template_classify): wired 含四文档变更
+- [x] _template_classify · commit — 证据: bash -c git cat-file -e 1bb61cd && git show --stat --format= 1bb61cd | grep -cE 'predict_style|functions.md|tracker.md' && echo TC_commit_1bb61cd在 → TC_commit_1bb61cd在 (10-15)
 ### _classify_dummy（改造）
 - [ ] _classify_dummy · implemented — 预告: 改造体落地（门控感知编排：分流判据→on 段→段内谱+特征+决策/短段 pulse/连续不变+features 扩键），预期门控感知行为用例绿
 - [ ] _classify_dummy · tested — 预告: tests/predict_style 键集合断言更新（管线顺手改登记）+门控感知用例，预期 pytest → passed

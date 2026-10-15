@@ -1,0 +1,31 @@
+"""评测对齐回调工厂（R93）——重写规约与签名意图详见 fn_docs/responsibility.md 域二十三功能块。
+
+对齐口径=模板路同源：train_fn 逐折训练集 samples → 类均值模板（label→均值谱向量，
+与 train_classifier where='local' 的 class_mean_spectra 同构口径）；predict_fn 样本
+features → shared/spectral_template_match（与部署模板路同一实现）出 label。成对返回
+满足 grouped_cv_evaluate 既有自定义回调契约（train_fn/predict_fn 须成对提供）。
+
+形状边界（divide 期收敛 2026-10-15）：CV 样本契约=特征向量（时间平均谱），规则路
+与门控感知需原始 IQ 不可复现——含门控感知的完整识别行为准确度由 R91/R92 的 sim
+识别器级验收承载（pytest 六样式）。
+"""
+from __future__ import annotations
+
+from typing import Any, Callable
+
+__all__ = ["make_predict_style_callbacks"]
+
+
+def make_predict_style_callbacks(
+    labels: Any = None,
+) -> tuple[Callable[[list], dict], Callable[[dict, dict], str]]:
+    """对齐回调工厂（纯适配，无状态）：返回成对 (train_fn, predict_fn)。
+
+    - labels：类名序列作模板键域锚（缺省=训练集实际出现的标签——分组 CV 逐折
+      训练集标签域可窄于全集，模板域随折内实际标签，如实不外扩）；
+    - train_fn(train_samples: list[dict]) → {label: 均值谱向量} 模板模型；
+    - predict_fn(model: dict, test_sample: dict) → label str（经
+      spectral_template_match）；
+    - 错误：不抛（形状错由 grouped_cv_evaluate 既有校验拒）。
+    """
+    raise NotImplementedError("unimplemented:fn:make_predict_style_callbacks")

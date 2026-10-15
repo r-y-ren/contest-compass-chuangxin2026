@@ -48,6 +48,13 @@ _PULSE_DUTY_MIN = 0.05
 _PULSE_DUTY_MAX = 0.5
 _PULSE_DUTY_EPS = 0.01
 _PULSE_AC_PEAK = 0.3
+#: 门控感知两级分类连续判据（R91）：duty_on ≥ 此值视为无显著通断（连续录音），
+#: 全段决策直出——连续合成信号零漂移。底噪尾巴实测 duty_on 58.5–77.5%，故含
+#: 真实通断结构的阶梯驻留录音（duty_on≈0.23–0.42）恒入门控路。
+_GATED_CONTINUOUS_MIN = 0.9
+#: 段内谱分析所需最少窗数（R91）：拼接 on 段样本 ≥ _ON_SEGMENT_KFFT×nfft 才做
+#: 段内分类；短于此（真脉冲串/短驻留段）维持全段规则一判定不重判。
+_ON_SEGMENT_KFFT = 3
 #: 零能量退化判定（B14 低#4）：全段总能量（包络平方和）与谱平坦度（dB 峰谷差）阈值。
 _DEGENERATE_ENERGY = 1e-12
 _DEGENERATE_SPEC_SPAN = 1e-9
@@ -231,89 +238,68 @@ def _gate_autocorr_peak(gate: np.ndarray) -> bool:
 
 
 def _classify_dummy(iq: np.ndarray, spec_res: dict) -> tuple[str, float, dict]:
-    """dummy 规则分类器：谱质心/带宽特征 + 阈值匹配，在七类规范名上出标签+置信度。
+    """规则路分类编排（R91 门控感知两级）：全段特征→通断分流→全段/段内决策。
 
-    特征（相对量纲，不依赖 fs）：
-    - centroid_hz：时间平均功率谱的质心，折合正频率轴（0=DC，1=Nyquist）位置；
-    - bandwidth_3db：时间平均谱峰 -3dB 以上的 bin 占正频率轴份额（0–1）；
-    - 辅助（不外发）：包络起伏 env_cv（tone 恒包络≈0 / 噪声 Rayleigh≈0.52 /
-      脉冲门控≫1）、时域占空 duty_on/duty_off（B14 中#3 全段样本口径：包络二值
-      化后 on 段占比/关断占比，非块内量化）、门控周期性 gate_periodic（二值包络
-      自相关周期峰）、逐帧峰位轨迹 sweep_range/reversals（chirp/sweep 判据）、
-      带内平坦度 ripple20。
+    纯编排——特征计算（_signal_features）、on 段提取（_extract_gate_segments）、
+    决策序（_rule_decision）、段内谱（make_spectrogram）全部调用已落地三叶与共用
+    谱图，本函数不自算特征。决策序：
 
-    决策序（deterministic）：门控脉冲（duty∈[0.05,0.5] 且门控自相关周期峰）→
-    扫频轨迹（确定性包络才认，噪声抖动排除）→ 窄带+恒包络=tone → 窄带噪声=
-    partial_band → 宽带平坦=bandlimited_noise → 兜底 composite。阈值为经验值
-    （nfft 归一量纲，随窗宽不敏感）。
+    ① feats = _signal_features(iq, 全段谱) → 分流判据 duty_on：
+    - duty_on ≥ _GATED_CONTINUOUS_MIN（0.9，无显著通断——连续录音/合成信号）→
+      _rule_decision(feats) 全段决策直出，外发 centroid_hz/bandwidth_3db 取全段
+      值——与门控感知改造前行为完全一致（连续合成信号零漂移）；
+    - duty_on < 0.9（显著通断结构，如平台阶梯驻留录音：占空入脉冲窗+驻留周期峰
+      曾劫持规则一恒判 pulse）→ 门控感知两级：_extract_gate_segments(feats["gate"])
+      取段长 ≥ nfft（spec_res["params"]["nfft"]）的 on 段拼接 iq_on（段间直连——
+      无底噪间隙故段内包络连续，两层门控语义由段内特征自然承载）——
+      · 拼接样本 ≥ _ON_SEGMENT_KFFT×nfft（3 窗，段可谱分析）→ 段内
+        make_spectrogram(iq_on)+_signal_features+_rule_decision 出标签与置信度，
+        外发 centroid_hz/bandwidth_3db 取段内值（样式信息在 on 段谱形——这是
+        R91 的核心修正：阶梯 tone 录音不再被劫持为 pulse）；
+      · 拼接样本 < 3×nfft（真脉冲串/短驻留段）→ 维持全段规则一判定
+        （duty_gated&gate_periodic→pulse 置信公式不变，短脉冲不重判）。
+      门控路 features 恒扩三键：gated=True / on_ratio=全段 duty_on / on_segments=
+      段长 ≥nfft 的段数——如实披露看到了门控。
+
+    ② 零能量退化钳（B14 低#4 口径不变）：全段 spec_span 与 pwr_sum 双低 →
+    confidence 钳 ≤0.1 + features['degenerate']='zero_energy'；confidence 终钳
+    [0,1]。nfft 已上游干跑校验（段内 make_spectrogram 无 ValueError 路径），
+    段内 frames==0 理论不达（≥3×nfft 样本 ⟹ ≥5 帧），仍按短段兜底不重判。
     """
-    spec = spec_res["spec"].astype(np.float64)
-    freq_bins = int(spec.shape[0])
-    axis = max(freq_bins - 1, 1)  # bin i 折合位置 i/(freq_bins-1)：末 bin=Nyquist=1.0
+    feats = _signal_features(iq, spec_res["spec"].astype(np.float64))
+    label, confidence = _rule_decision(feats)
+    features = {
+        "centroid_hz": feats["centroid"],
+        "bandwidth_3db": min(feats["bandwidth_3db"], 1.0),
+    }
 
-    prof = spec.mean(axis=1)  # 时间平均功率谱（dBFS）
-    lin = 10.0 ** (prof / 10.0)
-    total = float(lin.sum())
-    centroid = (
-        float((np.arange(freq_bins, dtype=np.float64) * lin).sum() / total) / axis
-        if total > 0.0
-        else 0.0
-    )
-    peak = float(prof.max())
-    bw3db = float((prof >= peak - 3.0).sum()) / max(freq_bins, 1)
-    occ20 = prof >= peak - 20.0
-    ripple20 = float(prof[occ20].std()) if occ20.any() else 0.0
+    if feats["duty_on"] < _GATED_CONTINUOUS_MIN:  # 显著通断 → 门控感知两级
+        nfft = int(spec_res["params"]["nfft"])
+        segments = [
+            (start, end)
+            for start, end in _extract_gate_segments(feats["gate"])
+            if end - start >= nfft
+        ]
+        features["gated"] = True
+        features["on_ratio"] = float(feats["duty_on"])
+        features["on_segments"] = len(segments)
+        on_total = sum(end - start for start, end in segments)
+        if on_total >= _ON_SEGMENT_KFFT * nfft:  # 段可谱分析 → 段内分类
+            iq_on = iq[np.r_[tuple(slice(start, end) for start, end in segments)]]
+            spec_on = make_spectrogram(iq_on, nfft=nfft)
+            if int(spec_on["frames"]) > 0:  # 理论不达（≥3×nfft ⟹ ≥5 帧）兜底
+                feats_on = _signal_features(
+                    iq_on, spec_on["spec"].astype(np.float64)
+                )
+                label, confidence = _rule_decision(feats_on)
+                features["centroid_hz"] = feats_on["centroid"]
+                features["bandwidth_3db"] = min(feats_on["bandwidth_3db"], 1.0)
 
-    env = np.abs(iq)
-    mean_env = float(env.mean())
-    env_cv = float(env.std() / mean_env) if mean_env > 0.0 else 0.0
-    pwr = env * env
-
-    # 脉冲门控（B14 中#3 全段口径重标定）：包络二值化（峰值 -20dB 以下为关断）→
-    # 占空 duty_on 与关断占比 duty_off；门控规律以二值序列 FFT 自相关周期峰验证。
-    peak_env = float(env.max()) if env.size else 0.0
-    if peak_env > 0.0:
-        gate = env > (peak_env / _GATE_FLOOR_RATIO)
-        duty_on = float(gate.mean())
-    else:
-        gate = np.zeros_like(env, dtype=bool)
-        duty_on = 0.0  # 全零段无门控可言（零能量退化另行标注）
-    duty_off = 1.0 - duty_on
-    duty_gated = (
-        _PULSE_DUTY_MIN - _PULSE_DUTY_EPS
-        <= duty_on
-        <= _PULSE_DUTY_MAX + _PULSE_DUTY_EPS
-    )
-    gate_periodic = duty_gated and _gate_autocorr_peak(gate)
-
-    peak_bins = np.argmax(spec, axis=0).astype(np.float64)  # 逐帧谱峰 bin
-    sweep_range = float(peak_bins.max() - peak_bins.min()) / axis
-    diffs = np.diff(peak_bins)
-    moving = diffs[np.abs(diffs) > 0.5]  # 滤除亚 bin 抖动
-    reversals = int((np.diff(np.sign(moving)) != 0).sum()) if moving.size >= 2 else 0
-
-    if duty_gated and gate_periodic:  # 全段口径门控+占空带宽+周期性 → 脉冲
-        label, confidence = "pulse", min(0.95, 0.5 + 0.45 * duty_off)
-    elif env_cv < 0.35 and (sweep_range > 0.02 or reversals >= 4):  # 确定性扫频轨迹
-        if reversals >= 3:
-            label, confidence = "chirp", 0.75
-        else:
-            label, confidence = "sweep", 0.70
-    elif bw3db <= 0.03 and env_cv < 0.15:  # 极窄带+恒包络 → 单音
-        label, confidence = "tone", min(0.99, 0.90 + 0.09 * (1.0 - bw3db / 0.03))
-    elif bw3db <= 0.06:  # 窄带非恒包络 → 受害带宽的部分频带占用
-        label, confidence = "partial_band", 0.55
-    elif ripple20 <= 6.0:  # 宽带+带内平坦 → 带限噪声
-        label, confidence = "bandlimited_noise", min(0.95, 0.55 + 0.06 * (6.0 - ripple20))
-    else:  # 非平坦宽带/多成分混合 → 合成样式兜底
-        label, confidence = "composite", 0.40
-
-    features = {"centroid_hz": centroid, "bandwidth_3db": min(bw3db, 1.0)}
     # 零能量退化（B14 低#4）：谱全平坦且总能量<1e-12（全零 IQ）→ conf 钳 0.1+
     # features 附 'degenerate': 'zero_energy'（不冒充高置信分类）。
     if (
-        float(prof.max() - prof.min()) < _DEGENERATE_SPEC_SPAN
-        and float(pwr.sum()) < _DEGENERATE_ENERGY
+        feats["spec_span"] < _DEGENERATE_SPEC_SPAN
+        and feats["pwr_sum"] < _DEGENERATE_ENERGY
     ):
         confidence = min(confidence, 0.1)
         features["degenerate"] = "zero_energy"

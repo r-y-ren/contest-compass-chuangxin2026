@@ -685,3 +685,119 @@ def test_template_classify_equivalence_anchor_with_shared_matcher():
             profile, weights["class_mean_spectra"], list(_LABELS)
         )
         assert (label, confidence) == direct
+
+
+# --- B47 _classify_dummy 门控感知两级分类（R91）：阶梯录音识别+两级门控+防退化锚 ---
+
+
+def _ladder_tone_iq(on=770, off=1390, segments=4, freq=0.1):
+    """阶梯录音型门控 tone（R91 核心输入）：segments 段连续 tone（各 on 样本，
+    相位沿全局样本序）+ 段间 off 样本零底噪间隙——占空比 on/(on+off)（缺省
+    770/2160≈0.356，落脉冲占空窗：旧实现全段规则一恒判 pulse）。缺省周期
+    2160 使 0.1fs 载波每间隙恰整数周期（216）——段拼接（段间直连）后相位连续，
+    段内谱形纯净不冒充扫频轨迹。不复用 _gated_tone_iq（那是短周期门控，on 段
+    <nfft 恒走短段兜底路）。"""
+    idx = np.arange(segments * (on + off))
+    on_mask = (idx % (on + off)) < on
+    return (np.exp(1j * 2.0 * np.pi * freq * idx) * on_mask).astype(np.complex64)
+
+
+def _ladder_noise_iq(on=770, off=1390, segments=4, band=0.1, seed=7):
+    """阶梯录音型门控带限噪声：同 ladder 口径但段内为 |f|<band 带限白噪声；
+    包络钳 0.5×均值（Rayleigh 深衰落会打穿门控阈值 -20dB，把 on 段切碎——
+    钳衰落保段完整，段内仍是噪声包络起伏）。"""
+    rng = np.random.default_rng(seed)
+    total = segments * (on + off)
+    white = rng.standard_normal(total) + 1j * rng.standard_normal(total)
+    freqs = np.fft.fftfreq(total)
+    noise = np.fft.ifft(np.fft.fft(white) * (np.abs(freqs) < band))
+    env = np.abs(noise)
+    floored = np.maximum(env, 0.5 * env.mean())
+    idx = np.arange(total)
+    on_mask = (idx % (on + off)) < on
+    return (noise * (floored / env) * on_mask).astype(np.complex64)
+
+
+def _ladder_nested_pulse_iq(on=1024, off=1024, segments=2, freq=0.1,
+                            inner_on=50, inner_period=200):
+    """两层门控：外层阶梯驻留（on/off 段）×段内短周期门控 tone（脉内 inner_on
+    样本、周期 inner_period）——两层相乘的通断包络（R88 平台录音×注入 pulse
+    两层嵌套的最小复刻）。"""
+    idx = np.arange(segments * (on + off))
+    outer = (idx % (on + off)) < on
+    inner = (idx % inner_period) < inner_on
+    return (np.exp(1j * 2.0 * np.pi * freq * idx) * outer * inner).astype(
+        np.complex64
+    )
+
+
+def test_classify_dummy_ladder_tone_recognized_as_tone():
+    """① 阶梯录音型门控 tone（4 段×770 样本、占空≈0.356 落脉冲窗+驻留周期峰
+    ——R91 现状断点复刻，旧实现全段规则一判 pulse@0.79）→ 门控感知两级改造后
+    段内分类识别 tone；features 扩 gated/on_ratio/on_segments 三键、无
+    confidence_note（规则路）。"""
+    result = predict_style(_ladder_tone_iq(), model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["recognized"] is True
+    assert result["label"] == "tone"
+    feats = result["features"]
+    assert feats["gated"] is True
+    assert "on_ratio" in feats
+    assert "on_segments" in feats
+    assert "confidence_note" not in feats
+
+
+def test_classify_dummy_ladder_bandlimited_noise_segment_path():
+    """② 同型阶梯录音但段内为带限噪声 → 段内分类 label='bandlimited_noise'
+    （旧实现全段规则一判 pulse）；外发 centroid/bandwidth 为段内值（宽带）。"""
+    result = predict_style(_ladder_noise_iq(), model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["label"] == "bandlimited_noise"
+    feats = result["features"]
+    assert feats["gated"] is True
+    assert feats["bandwidth_3db"] > 0.06  # 段内宽带（非全段门控混叠谱）
+
+
+def test_classify_dummy_two_layer_gating_still_pulse():
+    """③ 两层门控：外层阶梯×段内短周期门控 tone（脉内 50 样本周期 200，on 段
+    <nfft）→ label='pulse'（门控路如实披露；短 on 段不可谱分析，维持全段
+    规则一判定）。"""
+    result = predict_style(_ladder_nested_pulse_iq(), model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["label"] == "pulse"
+    feats = result["features"]
+    assert feats["gated"] is True
+    assert feats["on_segments"] == 0  # 脉内 50 样本段全部 <nfft 不入段表
+
+
+def test_classify_dummy_continuous_tone_no_gated_keys_regression():
+    """④ 连续 tone 回归锚：连续 IQ（duty_on=1.0 ≥0.9 连续判据）→ tone 且
+    features 键集恰 {centroid_hz, bandwidth_3db}（连续路零扩键——门控感知
+    不污染连续合成信号，与既有键集合断言口径互为镜像）。"""
+    result = predict_style(_tone_iq(), model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["label"] == "tone"
+    assert set(result["features"]) == {"centroid_hz", "bandwidth_3db"}
+
+
+def test_classify_dummy_short_pulse_train_still_pulse_with_gated_keys():
+    """⑤ 短脉冲串回归锚：周期门控 tone（on 段 50 样本 <nfft）→ 仍判 pulse
+    （短段维持规则一，防退化边界）且 features 含门控三键（如实披露看到了
+    门控）。"""
+    result = predict_style(_gated_tone_iq(duty=0.25), model=_dummy_model())
+    assert result["status"] == "ok"
+    assert result["label"] == "pulse"
+    feats = result["features"]
+    assert feats["gated"] is True
+    assert feats["on_segments"] == 0
+    assert feats["on_ratio"] == pytest.approx(0.25, abs=0.01)
+
+
+def test_classify_dummy_on_ratio_and_segment_count_values():
+    """⑥ 门控披露数值锚：①输入 → on_ratio≈0.35±0.05、on_segments==构造段数 4
+    （段长 770≥nfft 全入段表）。"""
+    result = predict_style(_ladder_tone_iq(), model=_dummy_model())
+    feats = result["features"]
+    assert isinstance(feats["on_ratio"], float)
+    assert feats["on_ratio"] == pytest.approx(0.35, abs=0.05)
+    assert feats["on_segments"] == 4
