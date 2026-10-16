@@ -13,6 +13,12 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+import numpy as np
+
+from src.shared.spectral_template_match import spectral_template_match
+
+from .grouped_cv_evaluate import _parse_features
+
 __all__ = ["make_predict_style_callbacks"]
 
 
@@ -28,4 +34,28 @@ def make_predict_style_callbacks(
       spectral_template_match）；
     - 错误：不抛（形状错由 grouped_cv_evaluate 既有校验拒）。
     """
-    raise NotImplementedError("unimplemented:fn:make_predict_style_callbacks")
+    anchor = sorted(set(labels)) if labels is not None else None
+
+    def train_fn(train_samples: list) -> dict:
+        """逐折训练集 → 类均值模板（train_classifier local 的 class_mean_spectra 同构）。"""
+        vectors: dict[str, list] = {}
+        for sample in train_samples:
+            vectors.setdefault(sample["label"], []).append(
+                _parse_features(sample["features"], "train 样本")
+            )
+        # 模板键域：缺省=折内实际标签；labels 锚定时=锚∩折内标签（空类不产模板）。
+        domain = sorted(vectors) if anchor is None else [
+            lab for lab in anchor if lab in vectors
+        ]
+        return {
+            lab: [float(v) for v in np.mean(vectors[lab], axis=0)]
+            for lab in domain
+        }
+
+    def predict_fn(model: dict, test_sample: dict) -> str:
+        """样本 features（_parse_features 口径规整为向量）→ 部署模板路同源出 label。"""
+        vector = _parse_features(test_sample["features"], "test 样本")
+        label, _confidence = spectral_template_match(vector, model, labels=None)
+        return label
+
+    return train_fn, predict_fn

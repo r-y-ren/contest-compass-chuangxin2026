@@ -1742,10 +1742,11 @@ print('TOP_RUN_OK_ladder_tone_to_tone_gated')" && echo PS_wired_顶层实跑过_
 
 ## B48 — make_predict_style_callbacks, grouped_cv_evaluate[改造], view_cv_evaluation[改造]
 ### make_predict_style_callbacks
-- [ ] make_predict_style_callbacks · implemented — 预告: 桩替换真值（train_fn 类均值模板+predict_fn 经 spectral_template_match 同源），预期该桩 grep 消失
-- [ ] make_predict_style_callbacks · tested — 预告: 成对回调契约/折内标签域/与部署模板路同源用例，预期 pytest → passed
+- [x] make_predict_style_callbacks · implemented — 证据: bash -c cd fn_work && ! grep -qF 'unimplemented:fn:make_predict_style_callbacks' src/grouped_cv_evaluate/make_predict_style_callbacks.py && grep -qF 'from src.shared.spectral_template_match import spectral_template_match' src/grouped_cv_evaluate/make_predict_style_callbacks.py && echo MPC桩消_同源import在 → MPC桩消_同源import在 (10-16)
+- [x] make_predict_style_callbacks · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/grouped_cv_evaluate -q && echo MPC_50绿含6新例含同源与集成锚 → MPC_50绿含6新例含同源与集成锚 (10-16)
 - [ ] make_predict_style_callbacks · wired — 预告: 调用点=view_cv_evaluation 默认注入（批内后段），预期 grep 命中
-- [ ] make_predict_style_callbacks · 清单进位 — 预告: functions.md 状态行改后读回
+  — 批内时序注记: wired 待 view_cv_evaluation 改造落地后补证
+- [x] make_predict_style_callbacks · 清单进位 — 证据: bash -c grep -qF 'make_predict_style_callbacks | B48 | tested 10-16' fn_docs/implementation/functions.md && echo MPC进位OK → MPC进位OK (10-16)
 - [ ] make_predict_style_callbacks · commit — 预告: fn(make_predict_style_callbacks): wired 含四文档变更
 ### grouped_cv_evaluate（改造）
 - [ ] grouped_cv_evaluate · implemented — 预告: 改造体落地（报告增 eval_protocol 标注），预期标注用例绿
