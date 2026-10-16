@@ -1732,9 +1732,34 @@ print('TOP_RUN_OK_ladder_tone_to_tone_gated')" && echo PS_wired_顶层实跑过_
 - [x] predict_style · commit — 证据: bash -c git log --format=%h -2 | head -1 | grep -qE '^[0-9a-f]{7}$' && git show --stat --format= HEAD | grep -cE 'predict_style|sim_delivery|functions|tracker' && echo PS_commit_B47收口在 → PS_commit_B47收口在 (10-15)
 - Ruling: 段内分类判据「拼接累计≥3×nfft」→「最长单段≥3×nfft」 — 原因: 累计判据在两层门控碎片场景（脉内碎片∈[nfft,3×nfft) 且累计超阈）拼接谱为连续载波误判 tone（子代理实证 300/800 几何：旧判据 tone@0.943、新判据 pulse@0.838）——派发词判据定标缺陷（计划错），修正并补判别负例锚⑦ — 代价: 无（既有 6 用例零漂移，61 绿） — 落点: _classify_dummy 判据+常量注释+docstring 机制句（两层门控 pulse 由最长单段不足→全段规则一兜底承载；段内再判在拼接口径下数学不可达）+responsibility 域二十三块与 requirements R91 句措辞对齐·快速通道
 ## B47 批间门
-- [ ] B47 · 评审三轴 — 预告: 规格=域二十三块/标准/档案同步（含 tracker 本批行核对）
-- [ ] B47 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
-- [ ] B47 · 用户裁决 — 预告: 继续 B48 / 修订 / 裁决 blocked
+- [x] B47 · 评审三轴 — 证据: bash -c grep -qF 'R92 验收载体登记' fn_docs/requirements.md && grep -qF '双审 M-4 补列' fn_docs/responsibility.md && echo 三轴处置在盘_1I已闭合_4M全处置 → 三轴处置在盘_1I已闭合_4M全处置 (10-15)
+- [x] B47 · 对抗审查 — 证据: bash -c grep -qF 'test_r92_real_chain_train_classifier_to_predict_style' fn_work/tests/predict_style/test_predict_style.py && grep -qF '须为有限实数' fn_work/src/shared/spectral_template_match.py && grep -qF '模板路缺合规 class_mean_spectra' fn_work/src/predict_style/predict_style.py && git cat-file -e 0368f0b && echo 对抗0C_3I批内修复_5M处置_0368f0b在 → 对抗0C_3I批内修复_5M处置_0368f0b在 (10-15)
+- [x] B47 · 用户裁决 — 证据: 用户裁决「继续下一批」+history.md B47 行在册+batches ▶ 移 B48 → 门放行_B47入history (10-15)
+- 注记（勘误）: 本批五处「Ruling⑪」编号引用（1674/1681/1688/1695/1702+0d0cdfe 提交信息）所指「shared 叶 wired 批内延后」先例实为周期① Ruling① 同型（B44 注记 1613 行正确引用）；编号冲突不改写既有行，本注记即为勘误真值 — 处置: 勘误 — 2026-10-15
 - 注记: B46 混批补声明（三轴 I-2）——c7e4369 携带并行演进轮④计划层内容约 33 行（responsibility 域二十三 R91-R93 块+requirements R93 句+README 识别器措辞真值对齐），提交信息未如 B43 先例声明——内容无害（方向=真值对齐），不回滚，本注记即补声明；另「接口真值 · 进位+commit」行证据命令 grep 无 -E 且 quotepath 下手册名不可字面命中（三犯——1632 两犯在案）——底层命题独立复核为真（git show c7e4369 --name-only 含三文件），行不改写勘误；「DEMO_CHECKLIST · commit」行为 HEAD 恒过弱证据一并注记 — 处置: I-1 docstring 19+M-1 9a 线+本注记 — 2026-10-15
 - 注记: 「R94·4 中断恢复检查」行（1637）记账证据不可复现（对抗 F1 Critical）——grep -cE "^| ▶" 的 ERE ^ 分支匹配每行恒≥110，-eq 0 恒假、echo 不可能执行，而记账有输出；当时批表实况=空（B46 尚未入表）故底层命题为真，但证据链断裂——行不改写，本注记勘误并以可复现真命令重验（下条 Ruling 行附）；grep 记账条款四犯（1632 两犯+B46 进位行一犯+本犯） — 处置: 勘误+真命令重验 — 2026-10-15
 - Ruling: R94·4 证据重验（对抗 F1 处置） — 原因: 原记账命令 ERE 语法错误致不可复现 — 代价: 一行勘误 — 落点: `test $(grep -c "▶" fn_docs/implementation/batches.md) -eq 0` 当前时点 B46 已出表故为真；历史时点命题由 E3 步反证（B46 入表前批表空）
+
+## B48 — make_predict_style_callbacks, grouped_cv_evaluate[改造], view_cv_evaluation[改造]
+### make_predict_style_callbacks
+- [ ] make_predict_style_callbacks · implemented — 预告: 桩替换真值（train_fn 类均值模板+predict_fn 经 spectral_template_match 同源），预期该桩 grep 消失
+- [ ] make_predict_style_callbacks · tested — 预告: 成对回调契约/折内标签域/与部署模板路同源用例，预期 pytest → passed
+- [ ] make_predict_style_callbacks · wired — 预告: 调用点=view_cv_evaluation 默认注入（批内后段），预期 grep 命中
+- [ ] make_predict_style_callbacks · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] make_predict_style_callbacks · commit — 预告: fn(make_predict_style_callbacks): wired 含四文档变更
+### grouped_cv_evaluate（改造）
+- [ ] grouped_cv_evaluate · implemented — 预告: 改造体落地（报告增 eval_protocol 标注），预期标注用例绿
+- [ ] grouped_cv_evaluate · tested — 预告: 对齐口径用例（矩阵字段+口径标注断言）+既有回归，预期 pytest → passed
+- [ ] grouped_cv_evaluate · wired — 预告: 调用面 grep（train_classifier/view_cv_evaluation/build_report），预期命中
+- [ ] grouped_cv_evaluate · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] grouped_cv_evaluate · commit — 预告: fn(grouped_cv_evaluate): wired 含四文档变更
+### view_cv_evaluation（改造）
+- [ ] view_cv_evaluation · implemented — 预告: 改造体落地（默认注入对齐回调+口径标注上屏，可显式选内置 dummy），预期注入用例绿
+- [ ] view_cv_evaluation · tested — 预告: ai_eval_view 用例族回归+注入断言，预期 pytest → passed
+- [ ] view_cv_evaluation · wired — 预告: 调用点 mount_console_extensions grep+端点实调，预期命中
+- [ ] view_cv_evaluation · 清单进位 — 预告: functions.md 状态行改后读回
+- [ ] view_cv_evaluation · commit — 预告: fn(view_cv_evaluation): wired 含四文档变更+B48 批验收
+## B48 批间门
+- [ ] B48 · 评审三轴 — 预告: 规格=域二十三 R93 块/标准/档案同步
+- [ ] B48 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [ ] B48 · 用户裁决 — 预告: 全员 wired 后 /fn-close / 修订

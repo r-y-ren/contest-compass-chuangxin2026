@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B47 | spectral_template_match, _signal_features, _extract_gate_segments, _rule_decision, _template_classify, _classify_dummy[改造], _predict_one[改造], predict_style[改造] | predict_style wired；R91 sim_delivery 六样式识别器级用例+防退化用例绿；R92 端到端全链用例（攒数→local 训练→识别六样式全对）绿；全套件回归绿（3631 基线） | R91+R92 子树（域二十三）；自底向上序=shared 最深叶→predict_style 三叶→_template_classify→改造体两级→顶层；tests/predict_style 键集合断言随 features 扩键同步更新（管线顺手改登记） |
-| B48 | make_predict_style_callbacks, grouped_cv_evaluate[改造], view_cv_evaluation[改造] | grouped_cv 对齐口径用例（矩阵字段+eval_protocol 标注）绿；ai_eval_view 回归绿；全套件回归绿 | R93 子树（域二十三）；对齐=模板路同源（spectral_template_match）；内置 dummy 保留缺省 |
+| ▶ B48 | make_predict_style_callbacks, grouped_cv_evaluate[改造], view_cv_evaluation[改造] | grouped_cv 对齐口径用例（矩阵字段+eval_protocol 标注）绿；ai_eval_view 回归绿；全套件回归绿 | R93 子树（域二十三）；对齐=模板路同源（spectral_template_match）；内置 dummy 保留缺省 |
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
 
