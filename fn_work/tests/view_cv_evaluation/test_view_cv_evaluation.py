@@ -294,3 +294,69 @@ def test_ai_eval_view_eval_area_zero_external_links_and_wiring():
     assert "epa-matrix" in block  # 混淆矩阵表格锚点
     assert "epa-warnings" in block  # 泄漏警告回显锚点
     assert "Macro-F1" in block and "发起评测" in block  # 表单/指标要素
+
+
+# ---- R93 评测口径：默认注入对齐回调+可选内置 dummy 对照 ----
+
+
+def test_ai_eval_view_default_protocol_aligned_template(tmp_path):
+    """⑪ 默认路径注入锚：缺省调用→结果 eval_protocol=='aligned_template'
+    （make_predict_style_callbacks 对齐回调默认注入生效——评测的=部署的）。"""
+    index_path, runs_root = _dataset(tmp_path)
+    out = view_cv_evaluation(
+        {
+            "style": ["tone", "bandlimited_noise"],
+            "nfft": 64,
+            "index_path": index_path,
+            "runs_root": runs_root,
+        },
+        "models/style_classifier.json",
+    )
+    assert out["ok"] is True
+    assert out["eval_protocol"] == "aligned_template"
+
+
+def test_ai_eval_view_explicit_intrinsic_dummy_protocol(tmp_path):
+    """⑫ 显式 protocol='intrinsic_dummy'→对照路径：不注入回调（eval_protocol
+    缺省）→结果 eval_protocol=='intrinsic_dummy'。"""
+    index_path, runs_root = _dataset(tmp_path)
+    out = view_cv_evaluation(
+        {
+            "style": ["tone", "bandlimited_noise"],
+            "nfft": 64,
+            "index_path": index_path,
+            "runs_root": runs_root,
+        },
+        "models/style_classifier.json",
+        protocol="intrinsic_dummy",
+    )
+    assert out["ok"] is True
+    assert out["eval_protocol"] == "intrinsic_dummy"
+
+
+def test_ai_eval_view_invalid_protocol_value_error(tmp_path):
+    """⑬ 非法 protocol 值→ValueError（含合法取值提示——先于取数快速失败）。"""
+    index_path, runs_root = _dataset(tmp_path)
+    with pytest.raises(ValueError, match="protocol"):
+        view_cv_evaluation(
+            {"index_path": index_path, "runs_root": runs_root},
+            "m.json",
+            protocol="oracle",
+        )
+
+
+def test_ai_eval_view_aligned_callbacks_perfect_separation(tmp_path):
+    """⑭ 同源锚：默认对齐回调真跑通——可分两类（tone/bandlimited_noise）数据
+    macro_f1==1.0（类均值模板+spectral_template_match 部署同源路）。"""
+    index_path, runs_root = _dataset(tmp_path)
+    out = view_cv_evaluation(
+        {
+            "style": ["tone", "bandlimited_noise"],
+            "nfft": 64,
+            "index_path": index_path,
+            "runs_root": runs_root,
+        },
+        "models/style_classifier.json",
+    )
+    assert out["eval_protocol"] == "aligned_template"
+    assert out["macro_f1"] == 1.0

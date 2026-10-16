@@ -1744,7 +1744,7 @@ print('TOP_RUN_OK_ladder_tone_to_tone_gated')" && echo PS_wired_顶层实跑过_
 ### make_predict_style_callbacks
 - [x] make_predict_style_callbacks · implemented — 证据: bash -c cd fn_work && ! grep -qF 'unimplemented:fn:make_predict_style_callbacks' src/grouped_cv_evaluate/make_predict_style_callbacks.py && grep -qF 'from src.shared.spectral_template_match import spectral_template_match' src/grouped_cv_evaluate/make_predict_style_callbacks.py && echo MPC桩消_同源import在 → MPC桩消_同源import在 (10-16)
 - [x] make_predict_style_callbacks · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/grouped_cv_evaluate -q && echo MPC_50绿含6新例含同源与集成锚 → MPC_50绿含6新例含同源与集成锚 (10-16)
-- [ ] make_predict_style_callbacks · wired — 预告: 调用点=view_cv_evaluation 默认注入（批内后段），预期 grep 命中
+- [x] make_predict_style_callbacks · wired — 证据: bash -c grep -cF 'make_predict_style_callbacks' fn_work/src/view_cv_evaluation/view_cv_evaluation.py && echo MPC_wired_view_cv默认注入在 → MPC_wired_view_cv默认注入在 (10-16)
   — 批内时序注记: wired 待 view_cv_evaluation 改造落地后补证
 - [x] make_predict_style_callbacks · 清单进位 — 证据: bash -c grep -qF 'make_predict_style_callbacks | B48 | tested 10-16' fn_docs/implementation/functions.md && echo MPC进位OK → MPC进位OK (10-16)
 - [x] make_predict_style_callbacks · commit — 证据: bash -c git cat-file -e 3964f65 && git show --stat --format= HEAD | grep -cE 'make_predict_style_callbacks|functions|tracker' && echo MPC_commit在 → MPC_commit在 (10-16)
@@ -1753,12 +1753,12 @@ print('TOP_RUN_OK_ladder_tone_to_tone_gated')" && echo PS_wired_顶层实跑过_
 - [x] grouped_cv_evaluate · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/grouped_cv_evaluate tests/view_cv_evaluation tests/train_classifier -q && echo GCE_53加53绿_R93对齐口径用例在 → GCE_53加53绿_R93对齐口径用例在 (10-16)
 - [x] grouped_cv_evaluate · wired — 证据: bash -c grep -qF 'from src.grouped_cv_evaluate.grouped_cv_evaluate import grouped_cv_evaluate' fn_work/src/view_cv_evaluation/view_cv_evaluation.py && grep -qF 'from src.grouped_cv_evaluate.grouped_cv_evaluate import grouped_cv_evaluate' fn_work/src/run_rff_pipeline/run_rff_pipeline.py && echo GCE_wired_真实调用面view_cv与run_rff在_train_classifier不调评测为旧档失准已勘误登记 → GCE_wired_真实调用面view_cv与run_rff在_train_classifier不调评测为旧档失准已勘误 (10-16)
 - [x] grouped_cv_evaluate · 清单进位 — 证据: bash -c grep -qF 'grouped_cv_evaluate | B48 | wired 10-16' fn_docs/implementation/functions.md && grep -qF '勘误：grouped_cv_evaluate 调用方' fn_docs/implementation/batches.md && echo GCE进位OK_勘误在册 → GCE进位OK_勘误在册 (10-16)
-- [ ] grouped_cv_evaluate · commit — 预告: fn(grouped_cv_evaluate): wired 含四文档变更
+- [x] grouped_cv_evaluate · commit — 证据: bash -c git cat-file -e 5b88d6b && git show --stat --format= 5b88d6b | grep -cE 'grouped_cv|functions|tracker|batches' && echo GCE_commit_5b88d6b在 → GCE_commit_5b88d6b在 (10-16)
 ### view_cv_evaluation（改造）
-- [ ] view_cv_evaluation · implemented — 预告: 改造体落地（默认注入对齐回调+口径标注上屏，可显式选内置 dummy），预期注入用例绿
-- [ ] view_cv_evaluation · tested — 预告: ai_eval_view 用例族回归+注入断言，预期 pytest → passed
-- [ ] view_cv_evaluation · wired — 预告: 调用点 mount_console_extensions grep+端点实调，预期命中
-- [ ] view_cv_evaluation · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] view_cv_evaluation · implemented — 证据: bash -c grep -qF 'make_predict_style_callbacks()' fn_work/src/view_cv_evaluation/view_cv_evaluation.py && grep -qF '_EVAL_PROTOCOLS' fn_work/src/view_cv_evaluation/view_cv_evaluation.py && echo VCE改造落地_默认注入与协议校验在 → VCE改造落地_默认注入与协议校验在 (10-16)
+- [x] view_cv_evaluation · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/view_cv_evaluation -q 2>&1 | tail -2 | head -1 && echo VCE_14绿含4新例 → VCE_14绿含4新例 (10-16)
+- [x] view_cv_evaluation · wired — 证据: bash -c grep -qF 'view_cv_evaluation' fn_work/src/localize_console_assets/mount_console_extensions.py && echo VCE_wired_mount_console_extensions调用在 → VCE_wired_mount_console_extensions调用在 (10-16)
+- [x] view_cv_evaluation · 清单进位 — 证据: bash -c grep -qF 'view_cv_evaluation | B48 | wired 10-16' fn_docs/implementation/functions.md && grep -qF 'make_predict_style_callbacks | B48 | wired 10-16' fn_docs/implementation/functions.md && echo VCE进位OK_MPC_wired回补在 → VCE进位OK_MPC_wired回补在 (10-16)
 - [ ] view_cv_evaluation · commit — 预告: fn(view_cv_evaluation): wired 含四文档变更+B48 批验收
 ## B48 批间门
 - [ ] B48 · 评审三轴 — 预告: 规格=域二十三 R93 块/标准/档案同步
