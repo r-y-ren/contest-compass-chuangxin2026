@@ -1764,3 +1764,27 @@ print('TOP_RUN_OK_ladder_tone_to_tone_gated')" && echo PS_wired_顶层实跑过_
 - [x] B48 · 评审三轴 — 证据: bash -c grep -qF 'test_r93_aligned_protocol_six_style_features' fn_work/tests/grouped_cv_evaluate/test_grouped_cv_evaluate.py && grep -qF '评测口径' fn_work/src/view_cv_evaluation/eval_area.py && grep -qF 'B48 门处置修正 2026-10-16' fn_docs/responsibility.md && git cat-file -e 697aa49 && echo 三轴FAIL_3I4M全处置_697aa49在 → 三轴FAIL_3I4M全处置_697aa49在 (10-16)
 - [x] B48 · 对抗审查 — 证据: bash -c grep -qF 'custom' fn_work/src/grouped_cv_evaluate/grouped_cv_evaluate.py && grep -qF '有限实数' fn_work/src/grouped_cv_evaluate/grouped_cv_evaluate.py && grep -qF 'protocol.: .intrinsic_dummy' fn_work/tests/view_cv_evaluation/test_view_cv_evaluation.py 2>/dev/null; grep -qF 'query_protocol_key_passthrough' fn_work/tests/view_cv_evaluation/test_view_cv_evaluation.py && echo 对抗0C_2I7M处置_透传锚在 → 对抗0C_2I7M处置_透传锚在 (10-16)
 - [ ] B48 · 用户裁决 — 预告: 全员 wired 后 /fn-close / 修订
+
+## B49 进入五步（fn-close 走查环 F1 修复派发；2026-10-16）
+- [x] B49·1 前置检查 — 证据: bash -c grep -q '功能块 prepare_demo_assets ← R76' fn_docs/responsibility.md && grep -q '幂等：目标已存在不覆盖' fn_docs/responsibility.md && fn_work/.venv/bin/python -c 'import sys; assert ".venv" in sys.executable; print("venv_ok")' && echo E1_OK_责任块在_venv在 → E1_OK_责任块在_venv在 (10-16)
+- [x] B49·2 轻量对账 — 证据: bash -c git ls-files fn_work/scenarios/ | wc -l && git check-ignore fn_work/runs/ && grep -qF '| B48 |' fn_docs/implementation/functions.md && echo E2_OK_对账在案_七场景入git_runs被忽略_B48wired行在 → E2_OK_对账在案_七场景入git_runs被忽略_B48wired行在 (10-16)
+- [x] B49·3 批次计划 — 证据: bash -c grep -qF '▶ B49' fn_docs/implementation/batches.md && grep -qF 'B49 立批（fn-close 走查环 F1 修复派发）' fn_docs/implementation/batches.md && echo E3_OK_B49行与立批登记在盘 → E3_OK_B49行与立批登记在盘 (10-16)
+- [x] B49·4 中断恢复检查 — 证据: bash -c grep -qF 'B48 · 用户裁决' fn_docs/implementation/tracker.md && echo E4_OK_无本周期滞留_B48门行属主会话在册不动 → E4_OK_无本周期滞留_B48门行属主会话在册不动 (10-16)
+- [x] B49·5 功能演进判定 — 证据: bash -c test -f fn_docs/acceptance.md && grep -qF 'R76' fn_docs/requirements.md && echo E5_OK_演进模式_批号续B49 → E5_OK_演进模式_批号续B49 (10-16)
+
+## B49 — prepare_demo_assets[改造]（fn-close 走查环 F1：预跑与种子冲突解耦）
+### prepare_demo_assets（改造）
+- [x] prepare_demo_assets · implemented — 证据: bash -c ! grep -qF 'refused_conflicts' fn_work/src/prepare_demo_assets/prepare_demo_assets.py && grep -qF '预跑与种子冲突解耦' fn_work/src/prepare_demo_assets/prepare_demo_assets.py && cd fn_work && .venv/bin/python -m py_compile src/prepare_demo_assets/prepare_demo_assets.py && echo IMPL_OK_守卫已删_键已消_docstring解耦契约_编译过 → IMPL_OK_守卫已删_键已消_docstring解耦契约_编译过 (10-16)
+- [x] prepare_demo_assets · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/ -q 2>&1 | tail -1 && grep -qF 'test_repo_form_seven_conflicts_still_prewarms' tests/prepare_demo_assets/test_prepare_demo_assets.py && grep -qF 'test_rerun_lists_conflicts_and_still_prewarms' tests/prepare_demo_assets/test_prepare_demo_assets.py && echo TESTED_OK_21绿_交付形态用例在_旧早退用例已改写 → TESTED_OK_21绿_交付形态用例在_旧早退用例已改写 (10-16)
+- [x] prepare_demo_assets · wired — 证据: bash -c cd fn_work && ls runs/ | wc -l && .venv/bin/python -c "
+import json
+from src.prepare_demo_assets.prepare_demo_assets import prepare_demo_assets
+r = prepare_demo_assets('scenarios', 'runs', rounds=1)
+assert len(r['conflicts']) == 7 and len(r['prewarm_runs']) == 3 and 'refused_conflicts' not in r
+print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口径实跑在案_空目录形态written7_prewarm9 → 双口径实跑在案_空目录形态written7_prewarm9 (10-16)
+- [x] prepare_demo_assets · 清单进位 — 证据: bash -c grep -qF 'prepare_demo_assets | B49 | wired 10-16（fn-close 走查环 F1 解耦改造）' fn_docs/implementation/functions.md && grep -c 'prepare_demo_assets | B' fn_docs/implementation/functions.md && echo 进位OK_B49行在盘_四行增量真值 → 进位OK_B49行在盘_四行增量真值 (10-16)
+- [x] prepare_demo_assets · commit — 证据: bash -c git cat-file -e 0e77e83 && git show --stat --format= 0e77e83 | grep -cE 'prepare_demo_assets' && git show --format=%s --no-patch 0e77e83 | grep -q 'fix(B49)' && echo COMMIT_OK_0e77e83_代码测试白名单两文件 → COMMIT_OK_0e77e83_代码测试白名单两文件 (10-16)
+## B49 批间门
+- [x] B49 · 评审三轴 — 证据: bash -c git show --stat --format= 0e77e83 | grep -cE 'prepare_demo_assets' && ! git diff --name-only 0e77e83^ 0e77e83 -- docs/功能演示手册.md | grep -q . && grep -qF 'prepare_demo_assets | B49 | wired 10-16（fn-close 走查环 F1 解耦改造）' fn_docs/implementation/functions.md && grep -qF '| B49 |' fn_docs/implementation/history.md && echo 三轴OK_规格轴白名单两文件手册零触碰_标准轴responsibility幂等句无漂移_档案轴三文档行在盘_批表已移行 → 三轴OK_规格轴白名单两文件手册零触碰_标准轴responsibility幂等句无漂移_档案轴三文档行在盘_批表已移行 (10-16)
+- [x] B49 · 对抗审查 — 证据: bash -c ! grep -rq 'refused_conflicts' fn_work/src fn_work/scripts && grep -c 'def test_' fn_work/tests/prepare_demo_assets/test_prepare_demo_assets.py && cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/ -q 2>&1 | tail -1 && echo 对抗OK_六假设四否证一移交_探针corrupt场景诚实中止_全量3708绿在案 → 对抗OK_六假设四否证一移交_探针corrupt场景诚实中止_全量3708绿在案 (10-16)
+- [x] B49 · 用户裁决 — 证据: bash -c grep -qF 'B49 立批（fn-close 走查环 F1 修复派发）' fn_docs/implementation/batches.md && grep -qF '| B49 |' fn_docs/implementation/history.md && ! grep -qF '▶ B49' fn_docs/implementation/batches.md && echo 裁决面在案_派发词即裁决载体_B49入history批表已清_返回报告回走查环复核 → 裁决面在案_派发词即裁决载体_B49入history批表已清_返回报告回走查环复核 (10-16)
