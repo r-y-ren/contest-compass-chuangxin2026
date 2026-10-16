@@ -1747,12 +1747,12 @@ print('TOP_RUN_OK_ladder_tone_to_tone_gated')" && echo PS_wired_顶层实跑过_
 - [ ] make_predict_style_callbacks · wired — 预告: 调用点=view_cv_evaluation 默认注入（批内后段），预期 grep 命中
   — 批内时序注记: wired 待 view_cv_evaluation 改造落地后补证
 - [x] make_predict_style_callbacks · 清单进位 — 证据: bash -c grep -qF 'make_predict_style_callbacks | B48 | tested 10-16' fn_docs/implementation/functions.md && echo MPC进位OK → MPC进位OK (10-16)
-- [ ] make_predict_style_callbacks · commit — 预告: fn(make_predict_style_callbacks): wired 含四文档变更
+- [x] make_predict_style_callbacks · commit — 证据: bash -c git cat-file -e 3964f65 && git show --stat --format= HEAD | grep -cE 'make_predict_style_callbacks|functions|tracker' && echo MPC_commit在 → MPC_commit在 (10-16)
 ### grouped_cv_evaluate（改造）
-- [ ] grouped_cv_evaluate · implemented — 预告: 改造体落地（报告增 eval_protocol 标注），预期标注用例绿
-- [ ] grouped_cv_evaluate · tested — 预告: 对齐口径用例（矩阵字段+口径标注断言）+既有回归，预期 pytest → passed
-- [ ] grouped_cv_evaluate · wired — 预告: 调用面 grep（train_classifier/view_cv_evaluation/build_report），预期命中
-- [ ] grouped_cv_evaluate · 清单进位 — 预告: functions.md 状态行改后读回
+- [x] grouped_cv_evaluate · implemented — 证据: bash -c grep -qF 'eval_protocol' fn_work/src/grouped_cv_evaluate/grouped_cv_evaluate.py && grep -qF 'intrinsic_dummy' fn_work/src/grouped_cv_evaluate/grouped_cv_evaluate.py && echo GCE改造落地_标注字段在 → GCE改造落地_标注字段在 (10-16)
+- [x] grouped_cv_evaluate · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/grouped_cv_evaluate tests/view_cv_evaluation tests/train_classifier -q && echo GCE_53加53绿_R93对齐口径用例在 → GCE_53加53绿_R93对齐口径用例在 (10-16)
+- [x] grouped_cv_evaluate · wired — 证据: bash -c grep -qF 'from src.grouped_cv_evaluate.grouped_cv_evaluate import grouped_cv_evaluate' fn_work/src/view_cv_evaluation/view_cv_evaluation.py && grep -qF 'from src.grouped_cv_evaluate.grouped_cv_evaluate import grouped_cv_evaluate' fn_work/src/run_rff_pipeline/run_rff_pipeline.py && echo GCE_wired_真实调用面view_cv与run_rff在_train_classifier不调评测为旧档失准已勘误登记 → GCE_wired_真实调用面view_cv与run_rff在_train_classifier不调评测为旧档失准已勘误 (10-16)
+- [x] grouped_cv_evaluate · 清单进位 — 证据: bash -c grep -qF 'grouped_cv_evaluate | B48 | wired 10-16' fn_docs/implementation/functions.md && grep -qF '勘误：grouped_cv_evaluate 调用方' fn_docs/implementation/batches.md && echo GCE进位OK_勘误在册 → GCE进位OK_勘误在册 (10-16)
 - [ ] grouped_cv_evaluate · commit — 预告: fn(grouped_cv_evaluate): wired 含四文档变更
 ### view_cv_evaluation（改造）
 - [ ] view_cv_evaluation · implemented — 预告: 改造体落地（默认注入对齐回调+口径标注上屏，可显式选内置 dummy），预期注入用例绿

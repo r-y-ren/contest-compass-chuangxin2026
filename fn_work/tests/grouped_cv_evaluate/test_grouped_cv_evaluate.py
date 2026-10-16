@@ -354,8 +354,8 @@ def test_grouped_cv_feature_dict_features_supported():
 
 
 def test_grouped_cv_result_shape_and_types():
-    """返回契约：恰 8 个顶层键（含 B14 中#2 新增 fold_class_starvation）+confusion
-    两键+类型正确。"""
+    """返回契约：恰 9 个顶层键（含 B14 中#2 新增 fold_class_starvation+R93 新增
+    eval_protocol）+confusion 两键+类型正确。"""
     data = _two_class_mixed_batches(batches=("y0", "y1", "y2"), per=2, sigma=0.1)
     res = grouped_cv_evaluate(data, k=3)
     assert set(res) == {
@@ -367,6 +367,7 @@ def test_grouped_cv_result_shape_and_types():
         "fold_class_starvation",
         "below_target",
         "n_samples",
+        "eval_protocol",
     }
     assert set(res["confusion"]) == {"labels", "matrix"}
     assert isinstance(res["macro_f1"], float)
@@ -375,9 +376,57 @@ def test_grouped_cv_result_shape_and_types():
     assert isinstance(res["below_target"], bool)
     assert isinstance(res["n_samples"], int)
     assert isinstance(res["effective_k"], int)
+    assert isinstance(res["eval_protocol"], str)
     assert isinstance(res["confusion"]["labels"], list)
     assert all(
         isinstance(cell, int)
         for row in res["confusion"]["matrix"]
         for cell in row
     )
+
+
+# --- R93 口径标注（B48）：缺省 intrinsic_dummy 锚 / 对齐 aligned_template 验收 / 类型校验 ---
+
+
+def test_r93_default_eval_protocol_is_intrinsic_dummy():
+    """R93 缺省路径零语义漂移锚：不传 eval_protocol→报告 'eval_protocol'==
+    'intrinsic_dummy'（既有评测协议全不变——缺省标注即内置 dummy 口径；新增用例
+    补断言，不改既有用例）。"""
+    res = grouped_cv_evaluate(_two_class_mixed_batches(), k=5)
+    assert res["eval_protocol"] == "intrinsic_dummy"
+    assert isinstance(res["eval_protocol"], str)
+
+
+def test_r93_aligned_template_protocol_with_make_predict_style_callbacks():
+    """R93 验收核心：显式 eval_protocol='aligned_template'+注入
+    make_predict_style_callbacks() 对齐回调跑两类可分合成 → 口径标注断言+
+    矩阵字段断言（labels/对角=类计数/非对角 0）+macro_f1==1.0。"""
+    # 局部导入：R93 对齐回调工厂（同包新叶）——口径标注与回调来源一致由本调用方保证
+    from src.grouped_cv_evaluate.make_predict_style_callbacks import (
+        make_predict_style_callbacks,
+    )
+
+    train_fn, predict_fn = make_predict_style_callbacks()
+    data = _two_class_mixed_batches()  # 6 批 × (4A+4B) = 48，两类可分
+    res = grouped_cv_evaluate(
+        data,
+        k=5,
+        train_fn=train_fn,
+        predict_fn=predict_fn,
+        eval_protocol="aligned_template",
+    )
+    assert res["eval_protocol"] == "aligned_template"
+    assert res["macro_f1"] == 1.0  # 对齐口径（模板路同源）两类可分全对
+    assert res["confusion"]["labels"] == ["A", "B"]
+    matrix = res["confusion"]["matrix"]
+    assert matrix[0][0] == 24 and matrix[1][1] == 24
+    assert matrix[0][1] == 0 and matrix[1][0] == 0
+    assert res["below_target"] is False  # 满分不触目标旗标（既有协议语义不动）
+
+
+def test_r93_invalid_eval_protocol_type_rejected():
+    """eval_protocol 非 str|None（int）→ ValueError（沿参数校验族风格：类型先拒，
+    在样本校验前抛）。"""
+    data = _two_class_mixed_batches(batches=("t0", "t1"), per=2, sigma=0.1)
+    with pytest.raises(ValueError, match="eval_protocol"):
+        grouped_cv_evaluate(data, k=2, eval_protocol=7)  # type: ignore[arg-type]

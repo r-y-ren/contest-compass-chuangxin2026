@@ -26,11 +26,16 @@ R31 评测协议（简化签名：本函数收样本数据、不查库——调�
     samples: list[dict] —— 如上结构；
     k: int —— 目标折数，透传 make_group_splits 校验（>=2 的 int）；
     train_fn / predict_fn —— 自定义训练/推理回调（须成对提供）；缺省走内置 dummy。
+    eval_protocol: str|None —— 评测口径标注（R93）：None（缺省）→报告 'intrinsic_dummy'；
+        注入 make_predict_style_callbacks 对齐回调时调用方传 'aligned_template'——
+        本函数不嗅探回调身份，标注与回调来源一致性由调用方保证。
 
 输出:
     dict: {'confusion': {'labels': [...], 'matrix': [[...]]}, 'macro_f1': float,
            'per_fold': [...], 'effective_k': int, 'leak_suspect': bool,
-           'fold_class_starvation': bool, 'below_target': bool, 'n_samples': int}
+           'fold_class_starvation': bool, 'below_target': bool, 'n_samples': int,
+           'eval_protocol': str}——口径标注：缺省 'intrinsic_dummy'；泄漏自检对照
+           实验恒内置 dummy 不受 eval_protocol 影响（标注只描述主口径）。
 
 错误:
     ValueError —— samples 非 list/为空/元素非 dict/缺 'label' 或 'features'/label 非 str/
@@ -149,10 +154,16 @@ def _macro_f1(matrix: list) -> float:
     return sum(f1s) / len(f1s) if f1s else 0.0
 
 
-def grouped_cv_evaluate(samples: list, k: int = 5, train_fn=None, predict_fn=None) -> dict:
+def grouped_cv_evaluate(
+    samples: list,
+    k: int = 5,
+    train_fn=None,
+    predict_fn=None,
+    eval_protocol: str | None = None,
+) -> dict:
     """分组交叉验证评测：批次分组防泄漏+混淆矩阵+Macro-F1+泄漏自检。
 
-    输入/输出/错误契约详见模块 docstring（R31）。
+    输入/输出/错误契约详见模块 docstring（R31/R93——eval_protocol 口径标注）。
     """
     if not isinstance(samples, list):
         raise ValueError(f"samples 必须为 list，实际: {type(samples).__name__}")
@@ -161,6 +172,11 @@ def grouped_cv_evaluate(samples: list, k: int = 5, train_fn=None, predict_fn=Non
     if (train_fn is None) != (predict_fn is None):
         raise ValueError(
             "train_fn 与 predict_fn 必须成对提供（要么都缺省走内置 dummy，要么都自定义）"
+        )
+    if eval_protocol is not None and not isinstance(eval_protocol, str):
+        raise ValueError(
+            "eval_protocol 必须为 str|None（评测口径标注），"
+            f"实际: {type(eval_protocol).__name__}"
         )
 
     vectors: list[list[float]] = []
@@ -265,7 +281,8 @@ def grouped_cv_evaluate(samples: list, k: int = 5, train_fn=None, predict_fn=Non
             stacklevel=2,
         )
 
-    # ⑤ 内部目标 0.85 如实记录。
+    # ⑤ 内部目标 0.85 如实记录；口径标注（R93）：缺省 intrinsic_dummy，透传调用方
+    # 显式标注（不嗅探回调身份——一致性由调用方保证）。
     return {
         "confusion": {"labels": labels, "matrix": matrix},
         "macro_f1": macro_f1,
@@ -275,4 +292,7 @@ def grouped_cv_evaluate(samples: list, k: int = 5, train_fn=None, predict_fn=Non
         "fold_class_starvation": fold_class_starvation,
         "below_target": macro_f1 < _INTERNAL_TARGET,
         "n_samples": n,
+        "eval_protocol": (
+            eval_protocol if eval_protocol is not None else "intrinsic_dummy"
+        ),
     }
