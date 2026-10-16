@@ -1,4 +1,4 @@
-"""演示物料准备编排（R76 L0）：seed_preset_scenarios 预置场景 → prewarm_demo_runs 预跑 sim 历史（含 record:true 录音）→ 汇总物料报告与出发检查单数据；幂等不覆盖（冲突未授权→拒绝预跑不抛异常）——重写规约与签名意图详见 fn_docs/responsibility.md。"""
+"""演示物料准备编排（R76 L0）：seed_preset_scenarios 预置场景 → prewarm_demo_runs 预跑 sim 历史（含 record:true 录音）→ 汇总物料报告与出发检查单数据；幂等不覆盖（冲突未授权→seed 永不擅自覆盖、conflicts 如实列名），预跑与种子冲突解耦（prewarm 只读场景文件、从不写/覆盖场景——冲突存在与否不影响预跑，B49/fn-close 走查环 F1）——重写规约与签名意图详见 fn_docs/responsibility.md。"""
 from __future__ import annotations
 
 import platform
@@ -71,10 +71,13 @@ def prepare_demo_assets(
       幂等（目标场景已存在计冲突不覆盖）；rounds 透传 prewarm_demo_runs
       （每场景预跑轮数，缺省 3）。
     输出: 物料报告 dict（演示命令可直接看结果，不抛业务异常）——
-      - "written"/"conflicts": seed_preset_scenarios 透传（本次写入/冲突清单）；
-      - "refused_conflicts": 因冲突未授权覆盖而拒绝预跑的清单（非拒绝时 []）；
+      - "written"/"conflicts": seed_preset_scenarios 透传（本次写入/冲突
+        清单——冲突照旧如实列名；未授权覆盖时 seed 永不覆盖场景文件）；
       - "prewarm_runs": [(运行目录, 退出码), ...]——exit 0/1 均如实登记
-        （1=测到失效=核心产出）；拒绝预跑或预跑中止时 []；
+        （1=测到失效=核心产出）；预跑与种子冲突解耦（B49，fn-close 走查环
+        F1）：prewarm 只读场景文件、从不写/覆盖场景，故冲突存在且未授权
+        覆盖时照常预跑（交付仓形态 scenarios/ 已随 git 在位也不挡历史
+        攒取）；预跑中止时 []；
       - "prewarm_error": 预跑意外失败（PrewarmDemoRunError）的如实呈现
         （message/scenario/round_index/exit_code/detail/runs 已跑清单），
         正常时 None——不吞错不重抛，报告可直接查阅；
@@ -82,27 +85,25 @@ def prepare_demo_assets(
         （DEMO_CHECKLIST 快照，序=手册 0.1 设备全集表行序，手册 0.4 同清单
         ——单列口径，无两档词）；
       - "env": 出发环境自检 {"python", "venv_ok", "platformio", "uhd_probe"}。
-    错误: 目录冲突未授权覆盖→拒绝预跑并列冲突项（refused_conflicts，不抛
-      异常——部分新场景照写并计入 written）；PrewarmDemoRunError 捕获后
-      并入报告不重抛；仅目录不可写等 OSError 族沿 seed_preset_scenarios
+    错误: 目录冲突未授权覆盖→seed 不覆盖、conflicts 如实列名（部分新场景
+      照写并计入 written），预跑照常进行（只读场景文件）；PrewarmDemoRunError
+      捕获后并入报告不重抛；仅目录不可写等 OSError 族沿 seed_preset_scenarios
       原样上抛（环境性问题不是演示编排可恢复项）。
     """
     seed = seed_preset_scenarios(scenario_dir, overwrite=overwrite)
     report: dict = {
         "written": seed["written"],
         "conflicts": seed["conflicts"],
-        "refused_conflicts": [],
         "prewarm_runs": [],
         "prewarm_error": None,
         # 检查单给快照（整列拷贝）：调用方改报告不得倒灌权威常量。
         "checklist": list(DEMO_CHECKLIST),
         "env": _probe_env(),
     }
-    # 幂等拒绝口径：已有冲突且未授权覆盖 → 不预跑（避免在"场景归属不明"的
-    # 目录上攒出与新场景混跑的历史），冲突清单如实呈报，演示者看清再决定。
-    if seed["conflicts"] and not overwrite:
-        report["refused_conflicts"] = list(seed["conflicts"])
-        return report
+    # 预跑与种子冲突解耦（B49，fn-close 走查环 F1）：prewarm 只读场景文件、
+    # 从不写/覆盖场景——冲突存在且未授权覆盖时照常预跑（交付仓形态下
+    # scenarios/ 已随 git 在位，"操控台有历史可翻"不因种子冲突而不可达）；
+    # "未授权不覆盖"语义由 seed_preset_scenarios 承载（conflicts 如实列名）。
     try:
         prewarm = prewarm_demo_runs(
             PREWARM_SCENARIOS,

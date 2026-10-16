@@ -1,18 +1,24 @@
 """prepare_demo_assets 对抗用例：R76 L0 演示物料准备编排（slug=demo_assets）。
 
-① 端到端（临时目录，rounds=1，预跑场景集=权威三场景不收缩）：报告八键齐、
+① 端到端（临时目录，rounds=1，预跑场景集=权威三场景不收缩）：报告七键齐、
 7 场景全写、prewarm_runs 3 条（exit∈{0,1} 且含 1=失效核心产出）、单列检查单
-（19 项，R94 细分口径）齐、env 四键；② 幂等拒绝：重跑→refused_conflicts=7、
-不预跑、文件未被改写；②b 部分冲突：新场景照写 6、冲突 1 拒绝预跑；③
-overwrite=True 重跑授权覆盖（预跑收缩为 demo_smoke 单场景+rounds=1 控时，断言
-契约不变——收缩仅减运行条数，不改动任何断言口径）；④ 预跑意外失败：
-monkeypatch 同包 prewarm_demo_runs 抛 PrewarmDemoRunError→并入报告不抛（含
-已跑清单）；⑤ env 探测容错（uhd 缺工具/探测器崩溃/platformio 子进程异常均
-不抛、如实记录）；⑥ 检查单与预跑集权威常量形状（手册总章按名
-DEMO_CHECKLIST 引用——R90 单列化：list[str] 19 项保序（R94 转接线细分），序=手册 0.1 表行序）。
+（19 项，R94 细分口径）齐、env 四键；② 幂等重跑：重跑→conflicts=7、场景文件
+一字未改，且预跑照常进行（B49 fn-close 走查环 F1：预跑与种子冲突解耦——
+prewarm 只读场景、从不写/覆盖场景）；②b 部分冲突：新场景照写 6、冲突 1 如实
+列名、预跑照常进行；②c 交付形态：scenario_dir 预置仓内七场景（git 在位形态）
++ 空 runs_root → conflicts 列 7、prewarm_runs 非空、七场景文件字节不变
+（证未覆盖——旧"冲突即早退拒预跑"守卫在该形态下致操控台历史恒空，故按新
+契约改写，2026-10-16 B49）；③ overwrite=True 重跑授权覆盖（预跑收缩为
+demo_smoke 单场景+rounds=1 控时，断言契约不变——收缩仅减运行条数，不改动
+任何断言口径）；④ 预跑意外失败：monkeypatch 同包 prewarm_demo_runs 抛
+PrewarmDemoRunError→并入报告不抛（含已跑清单）；⑤ env 探测容错（uhd 缺工具/
+探测器崩溃/platformio 子进程异常均不抛、如实记录）；⑥ 检查单与预跑集权威常量
+形状（手册总章按名 DEMO_CHECKLIST 引用——R90 单列化：list[str] 19 项保序
+（R94 转接线细分），序=手册 0.1 表行序）。
 """
 from __future__ import annotations
 
+import hashlib
 import subprocess
 from pathlib import Path
 
@@ -24,11 +30,11 @@ from src.prepare_demo_assets.prepare_demo_assets import (
 from src.prepare_demo_assets.prewarm_demo_runs import PrewarmDemoRunError
 from src.prepare_demo_assets.seed_preset_scenarios import PRESET_SCENARIOS
 
-#: 报告顶层契约（八键）——演示命令直接消费的物料报告形状。
+#: 报告顶层契约（七键，B49 起 refused_conflicts 键作废删除）——演示命令直接
+#: 消费的物料报告形状。
 _REPORT_KEYS = {
     "written",
     "conflicts",
-    "refused_conflicts",
     "prewarm_runs",
     "prewarm_error",
     "checklist",
@@ -60,7 +66,6 @@ def test_end_to_end_full_report(tmp_path: Path):
     assert set(report) == _REPORT_KEYS
     assert report["written"] == list(PRESET_SCENARIOS)  # 7 个预置场景全写
     assert report["conflicts"] == []
-    assert report["refused_conflicts"] == []
     assert report["prewarm_error"] is None
 
     runs = report["prewarm_runs"]
@@ -82,9 +87,10 @@ def test_end_to_end_full_report(tmp_path: Path):
     _assert_env_shape(report["env"])
 
 
-def test_rerun_refuses_conflicts_and_skips_prewarm(tmp_path: Path):
-    # ② 幂等拒绝：重跑同目录（overwrite 缺省 False）→ refused_conflicts=7、
-    # 不预跑（prewarm_runs 空）、场景文件一字未改、runs_root 无新目录。
+def test_rerun_lists_conflicts_and_still_prewarms(tmp_path: Path):
+    # ② 幂等重跑：重跑同目录（overwrite 缺省 False）→ conflicts=7、场景文件
+    # 一字未改，且预跑照常进行（prewarm 只读场景——B49 走查环 F1 解耦后契约；
+    # 旧用例断言"冲突即早退拒预跑"，按新契约改写）。
     scenario_dir = tmp_path / "scenarios"
     runs_root = tmp_path / "runs"
     prepare_demo_assets(scenario_dir, runs_root, rounds=1)
@@ -97,20 +103,23 @@ def test_rerun_refuses_conflicts_and_skips_prewarm(tmp_path: Path):
     report = prepare_demo_assets(scenario_dir, runs_root, rounds=1)
 
     assert report["written"] == []
-    assert report["conflicts"] == list(PRESET_SCENARIOS)
-    assert report["refused_conflicts"] == list(PRESET_SCENARIOS)  # 拒绝清单=冲突清单
-    assert report["prewarm_runs"] == []  # 拒绝口径：不预跑
-    assert report["prewarm_error"] is None  # 未进预跑，不是预跑错误
-    assert set(report) == _REPORT_KEYS  # 拒绝报告同样完整可读（友好口径）
+    assert report["conflicts"] == list(PRESET_SCENARIOS)  # 冲突清单如实列名
+    assert report["prewarm_error"] is None
+    assert len(report["prewarm_runs"]) == 3  # 预跑照常进行（三场景 × 1 轮）
+    assert all(code in {0, 1} for _, code in report["prewarm_runs"])
+    assert set(report) == _REPORT_KEYS  # 报告完整可读（七键契约）
     _assert_env_shape(report["env"])
     for name in PRESET_SCENARIOS:
         assert (scenario_dir / name).read_text(encoding="utf-8") == before[name]
-    assert {p.name for p in runs_root.iterdir()} == run_dirs_before  # 无新运行目录
+    run_dirs_after = {p.name for p in runs_root.iterdir()}
+    assert run_dirs_before <= run_dirs_after  # 历史只增不破坏
+    assert len(run_dirs_after - run_dirs_before) == 3  # 新攒 3 轮历史
 
 
-def test_partial_conflict_still_seeds_new_and_refuses_prewarm(tmp_path: Path):
+def test_partial_conflict_still_seeds_new_and_prewarms(tmp_path: Path):
     # ②b 部分冲突：1 个已存在（内容不同）→ 其余 6 照写计入 written、
-    # refused_conflicts=[该 1 个]、不预跑（不与新场景混跑攒历史）。
+    # conflicts=[该 1 个] 如实列名、该文件未被覆盖、预跑照常进行
+    # （按 B49 解耦契约改写；旧用例断言拒绝预跑）。
     scenario_dir = tmp_path / "scenarios"
     scenario_dir.mkdir()
     (scenario_dir / "demo_emc.yaml").write_text("占位旧内容\n", encoding="utf-8")
@@ -119,15 +128,45 @@ def test_partial_conflict_still_seeds_new_and_refuses_prewarm(tmp_path: Path):
     report = prepare_demo_assets(scenario_dir, runs_root, rounds=1)
 
     assert report["conflicts"] == ["demo_emc.yaml"]
-    assert report["refused_conflicts"] == ["demo_emc.yaml"]
     assert report["written"] == [n for n in PRESET_SCENARIOS if n != "demo_emc.yaml"]
     assert (scenario_dir / "demo_emc.yaml").read_text(encoding="utf-8") == "占位旧内容\n"
-    assert report["prewarm_runs"] == []
-    assert not runs_root.exists()  # 拒绝预跑：连 runs_root 都未建
+    assert report["prewarm_error"] is None
+    assert len(report["prewarm_runs"]) == 3  # 预跑照常进行（不因冲突早退）
+    assert runs_root.is_dir()  # runs_root 已建并有历史可翻
+    assert len([p for p in runs_root.iterdir() if p.is_dir()]) == 3
+
+
+def test_repo_form_seven_conflicts_still_prewarms(tmp_path: Path):
+    # ②c 交付形态（B49 走查环 F1 的走查实证形态）：scenario_dir 预置仓内
+    # 七场景（字节同 fn_work/scenarios/——交付仓 git 在位形态）+ 空 runs_root
+    # → conflicts 列 7、prewarm_runs 非空（操控台有历史可翻可达）、七场景
+    # 文件字节不变（证 prewarm 未覆盖场景）。
+    repo_scenarios = Path(__file__).resolve().parents[2] / "scenarios"
+    assert repo_scenarios.is_dir()  # 仓内交付形态在位（git 跟踪）
+    scenario_dir = tmp_path / "scenarios"
+    scenario_dir.mkdir()
+    for name in PRESET_SCENARIOS:
+        (scenario_dir / name).write_bytes((repo_scenarios / name).read_bytes())
+    digest_before = {
+        name: hashlib.sha256((scenario_dir / name).read_bytes()).hexdigest()
+        for name in PRESET_SCENARIOS
+    }
+    runs_root = tmp_path / "runs"  # 不存在——交付机上 runs/ 被 gitignore 的空目录形态
+
+    report = prepare_demo_assets(scenario_dir, runs_root, rounds=1)
+
+    assert report["written"] == []
+    assert report["conflicts"] == list(PRESET_SCENARIOS)  # 七场景全列冲突
+    assert report["prewarm_error"] is None
+    assert len(report["prewarm_runs"]) == 3  # 预跑非空（解耦守卫后不再恒空）
+    assert all(code in {0, 1} for _, code in report["prewarm_runs"])
+    for name in PRESET_SCENARIOS:  # 字节不变——prewarm 只读、未授权不覆盖
+        digest = hashlib.sha256((scenario_dir / name).read_bytes()).hexdigest()
+        assert digest == digest_before[name], f"场景被改写: {name}"
 
 
 def test_overwrite_true_rerun_reseeds_and_prewarms(tmp_path: Path, monkeypatch):
-    # ③ overwrite=True 重跑：授权覆盖→written 7、无 refused、预跑照常进行。
+    # ③ overwrite=True 重跑：授权覆盖→written 7、预跑照常进行。
     # 控时收缩（申报）：预跑场景集收缩为 demo_smoke 单场景+rounds=1——仅减少
     # 运行条数（1 条），授权覆盖与预跑进行两条断言口径不变。
     scenario_dir = tmp_path / "scenarios"
@@ -140,7 +179,6 @@ def test_overwrite_true_rerun_reseeds_and_prewarms(tmp_path: Path, monkeypatch):
 
     assert report["written"] == list(PRESET_SCENARIOS)  # 7 个全重写
     assert report["conflicts"] == []
-    assert report["refused_conflicts"] == []  # 授权覆盖：无拒绝
     assert (
         (scenario_dir / "demo_smoke.yaml").read_text(encoding="utf-8")
         == PRESET_SCENARIOS["demo_smoke.yaml"]  # 恢复模板原文
