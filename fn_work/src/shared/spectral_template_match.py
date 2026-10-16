@@ -5,7 +5,11 @@
 **同一实现**——"评测的=部署的"由本函数级同源承载。〕
 
 置信度口径：softmax over negative distances（最近质心分类器业内标准，未经校准——
-校准需独立校准集，属远期）；确定性：平手取排序最小类（先例沿 R31 _dummy_predict）。
+校准需独立校准集，属远期）；距离按维度归一（RMS 口径，logits=-distance/sqrt(维度)）
+防 softmax 饱和——谱向量距离随维度增长，未归一时 dB 尺度距离量级数十上百、
+logit 差轻易打穿 exp 动态域使置信度恒 1.0（C1 走查实证），按 sqrt(维度) 折算为
+每维 RMS 口径后近距模板对的置信度不再恒 1.0；确定性：平手取排序最小类
+（先例沿 R31 _dummy_predict）——归一除子对所有候选项同值，argmin 序不变。
 """
 from __future__ import annotations
 
@@ -48,7 +52,9 @@ def spectral_template_match(
     - class_mean_spectra：{label: 模板向量} dict（train_classifier where='local'
       产物同构）；
     - labels：类名序列锚（缺省=模板键排序——确定性）；结果 label 限 labels 域；
-    - 置信度 = softmax over negative distances（未校准分数，0–1）；
+    - 置信度 = softmax over negative distances（未校准分数，0–1）；距离按维度
+      归一（RMS 口径：logits = -distance/sqrt(维度)——防 softmax 饱和致置信度
+      恒 1.0；除子对所有候选项同值，最近类判定 argmin 序不变）；
     - 错误：模板空/向量维度不一致/非数值/NaN/inf → ValueError（形状先拒，不静默
       兜底——NaN/inf 不再走 nan 距离→nan 置信度的静默路径）。
     """
@@ -78,9 +84,12 @@ def spectral_template_match(
             )
         means.append(template)
 
-    # 欧氏距离（R31 _dummy_predict 同构口径）→ logits=-distance → 稳定 softmax。
+    # 欧氏距离（R31 _dummy_predict 同构口径）→ 按维度归一（RMS 口径）防 softmax
+    # 饱和：logits=-distance/sqrt(维度)——谱距离量级随维度增长，未归一时 dB 尺度
+    # 的 logit 差轻易打穿 exp 动态域使 conf 恒 1.0（C1 走查实证）；除子恒正且对
+    # 所有候选项同值 → 稳定 softmax 的 argmax（等价 argmin 距离序）不变。
     distances = np.linalg.norm(np.stack(means) - vector, axis=1)
-    logits = -distances
+    logits = -distances / math.sqrt(float(vector.size))
     exp = np.exp(logits - logits.max())
     probs = exp / exp.sum()
     best = int(np.argmax(probs))

@@ -8,7 +8,10 @@
   参数键 ``nfft``/``k``（缺省 256/5）及 ``protocol``（B48/I-2 端点透传通道：
   覆盖 protocol 参数缺省——POST body 的 query dict 既有通道直进，端点零改动；
   取数前剥离不进检索条件））→ 逐条目 SigMF cf32 →
-  make_spectrogram 时间平均谱向量 → samples ``{'label': style, 'features':
+  make_spectrogram 时间平均谱向量（**门控感知 scope（C1 修复）**：显著通断
+  且最长单 on 段 ≥3×nfft 的录音条目取长 on 段拼接谱——与部署 predict_style
+  模板路/训练侧同型，评测特征=部署 scope 特征；连续/不达判据全段谱现状不变）
+  → samples ``{'label': style, 'features':
   向量, 'batch_key': run_id}``（与 run_rff_pipeline 的谱特征口径一致——
   每 run 自成一组，分组 CV 防段级泄漏的组键）；
 - 评测：grouped_cv_evaluate（R31）→ 混淆矩阵（行=真值/列=预测）/Macro-F1/
@@ -37,6 +40,16 @@ from src.index_dataset.index_dataset import (
     index_dataset,
 )
 from src.make_spectrogram.make_spectrogram import make_spectrogram
+# C1 修复：库内跨模块引用 predict_style 私有叶（_signal_features/
+# _extract_gate_segments）与门控判据常量——评测特征的门控感知 scope 与部署
+# 模板路（_predict_one 的 scope 判定）/train_classifier 训练侧同型骨架，
+# 特征与判据同源不复制魔数。
+from src.predict_style.predict_style import (
+    _GATED_CONTINUOUS_MIN,
+    _ON_SEGMENT_KFFT,
+    _extract_gate_segments,
+    _signal_features,
+)
 
 __all__ = ["EvalError", "view_cv_evaluation"]
 
@@ -107,6 +120,35 @@ def _read_cf32(path: str) -> "np.ndarray | None":
     except OSError:
         return None
     return iq if iq.size else None
+
+
+def _scoped_profile(iq: "np.ndarray", spec: "np.ndarray", nfft: int) -> "np.ndarray":
+    """门控感知 scope 的条目谱特征（C1 修复）：dB 时间平均谱向量——与
+    train_classifier._scoped_profile / 部署 predict_style 模板路 scope 判定同型
+    （特征复用 predict_style 私有叶 _signal_features/_extract_gate_segments，
+    常量同源 import 不复制魔数）：
+
+    - duty_on ≥ _GATED_CONTINUOUS_MIN（连续/不显著通断）→ 全段谱（现状不变）；
+    - 显著通断且段长 ≥nfft 的 on 段中**最长单段** ≥ _ON_SEGMENT_KFFT×nfft →
+      长段拼接 IQ 重算 make_spectrogram 时间平均谱（评测特征=部署 scope 特征，
+      阶梯驻留录音不再以全段谱错位送入分组 CV）；最长单段不足 → 全段谱兜底。
+    """
+    feats = _signal_features(iq, spec)
+    if feats["duty_on"] >= _GATED_CONTINUOUS_MIN:
+        return spec.mean(axis=1)  # 连续/不显著通断：全段谱（现状不变）
+    segments = [
+        (start, end)
+        for start, end in _extract_gate_segments(feats["gate"])
+        if end - start >= nfft
+    ]
+    longest = max((end - start for start, end in segments), default=0)
+    if longest < _ON_SEGMENT_KFFT * nfft:
+        return spec.mean(axis=1)  # 最长单段不足：全段谱兜底（部署同口径）
+    iq_on = iq[np.r_[tuple(slice(start, end) for start, end in segments)]]
+    spec_on = make_spectrogram(iq_on, nfft=nfft)
+    if int(spec_on["frames"]) <= 0:  # 理论不达（≥3×nfft ⟹ ≥5 帧）兜底同部署
+        return spec.mean(axis=1)
+    return np.asarray(spec_on["spec"], dtype=np.float64).mean(axis=1)
 
 
 def view_cv_evaluation(
@@ -218,7 +260,10 @@ def view_cv_evaluation(
         if spec_res["skipped"]:
             skipped += 1
             continue
-        profile = np.asarray(spec_res["spec"], dtype=np.float64).mean(axis=1)
+        spec = np.asarray(spec_res["spec"], dtype=np.float64)
+        # C1 修复：门控感知 scope——门控录音条目特征=长 on 段拼接谱（与部署
+        # 模板路/训练侧同型），连续条目=全段谱（现状不变）。
+        profile = _scoped_profile(iq, spec, nfft)
         run_id = entry.get("run_id")
         samples.append(
             {

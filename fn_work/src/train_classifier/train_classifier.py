@@ -7,11 +7,15 @@
   （含原文），query 本身非 dict → ValueError（形状错先拒）；
 - 谱特征：逐条目解析 SigMF cf32 数据（path 为目录→最早 .sigmf-meta 配对
   data；*.sigmf-meta→同名 data；其余按数据文件直读）→ make_spectrogram，
-  nfft 透传 hyperparams['nfft']（缺省 256，域错上抛 ValueError）；跳段归因
-  分列两类（走查 I4 修复）：「style 缺失」（条目无有效样式标签——标签不
-  可考，与数据面无关）与「IQ 段长不足窗长或数据不可读」（含脏 IQ）；
-  全跳与有效数不足同走 TrainError，消息如实分列计数，不把 style 缺失
-  误报成段长/数据问题；
+  nfft 透传 hyperparams['nfft']（缺省 256，域错上抛 ValueError）；**门控感知
+  scope（C1 修复）**：条目 IQ 显著通断（duty_on<0.9）且段长 ≥nfft 的 on 段中
+  最长单段 ≥3×nfft → 长段拼接 IQ 重算 make_spectrogram 的时间平均谱为该条目
+  特征（与部署 predict_style 模板路 scope 判定逐条同型——训练/评测/部署特征
+  口径统一，阶梯驻留录音不再训练=全段谱、部署=on 段谱错位）；连续/不达判据
+  → 全段谱（现状不变）。跳段归因分列两类（走查 I4 修复）：「style 缺失」
+  （条目无有效样式标签——标签不可考，与数据面无关）与「IQ 段长不足窗长或
+  数据不可读」（含脏 IQ）；全跳与有效数不足同走 TrainError，消息如实分列计数，
+  不把 style 缺失误报成段长/数据问题；
 - 校验：有效谱样本 < min_samples（缺省 20）→ TrainError 附数与阈值；
   唯一标签 < 2 类 → TrainError（七分类至少要两类可分）；
 - remote：组装 task_package（code_root 缺省本包目录、entrypoint 缺省
@@ -34,6 +38,15 @@ import numpy as np
 from .dispatch_remote_training import RemoteError, dispatch_remote_training
 from src.index_dataset.index_dataset import QueryError, index_dataset
 from src.make_spectrogram.make_spectrogram import make_spectrogram
+# C1 修复：库内跨模块引用 predict_style 私有叶（_signal_features/
+# _extract_gate_segments）与门控判据常量——门控感知 scope 与部署模板路
+# （_predict_one 模板路 scope 判定）同型骨架，特征与判据同源不复制魔数。
+from src.predict_style.predict_style import (
+    _GATED_CONTINUOUS_MIN,
+    _ON_SEGMENT_KFFT,
+    _extract_gate_segments,
+    _signal_features,
+)
 
 __all__ = ["TrainError", "train_classifier"]
 
@@ -123,6 +136,41 @@ def _skip_reasons_note(skipped: int, skipped_no_style: int) -> str:
     if data_side:
         parts.append(f"IQ 段长不足窗长或数据不可读 {data_side} 条")
     return f"（跳段归因: {'；'.join(parts)}）"
+
+
+def _scoped_profile(iq: np.ndarray, spec: np.ndarray, nfft: int) -> np.ndarray:
+    """门控感知 scope 的条目谱特征（C1 修复）：dB 时间平均谱向量。
+
+    与部署 predict_style 模板路（_predict_one 的 scope 判定）同型骨架——特征
+    计算复用其私有叶 _signal_features/_extract_gate_segments，判据常量
+    _GATED_CONTINUOUS_MIN/_ON_SEGMENT_KFFT 同源 import（不复制魔数）：
+
+    - 全段 _signal_features → duty_on ≥ _GATED_CONTINUOUS_MIN（无显著通断，
+      连续录音/合成信号）→ 全段谱 spec.mean(axis=1)（现状口径不变）；
+    - duty_on < 该值（显著通断，如平台阶梯驻留录音）→ _extract_gate_segments
+      取段长 ≥nfft 的 on 段（段间直连）；**最长单段** ≥ _ON_SEGMENT_KFFT×nfft
+      才拼接长段重算 make_spectrogram 取时间平均谱（判据取最长单段而非拼接
+      累计——两层门控（阶梯×pulse）下碎片累计可超阈而拼接谱=连续载波，与部署
+      同口径防错位）；最长单段不足（真脉冲串/脉内碎片）→ 全段谱兜底（部署同）。
+
+    谱维度恒 nfft//2+1（scope 切换只换样本集不换 nfft）——产物模板维度不变。
+    """
+    feats = _signal_features(iq, spec)
+    if feats["duty_on"] >= _GATED_CONTINUOUS_MIN:
+        return spec.mean(axis=1)  # 连续/不显著通断：全段谱（现状不变）
+    segments = [
+        (start, end)
+        for start, end in _extract_gate_segments(feats["gate"])
+        if end - start >= nfft
+    ]
+    longest = max((end - start for start, end in segments), default=0)
+    if longest < _ON_SEGMENT_KFFT * nfft:
+        return spec.mean(axis=1)  # 最长单段不足：全段谱兜底（部署同口径）
+    iq_on = iq[np.r_[tuple(slice(start, end) for start, end in segments)]]
+    spec_on = make_spectrogram(iq_on, nfft=nfft)
+    if int(spec_on["frames"]) <= 0:  # 理论不达（≥3×nfft ⟹ ≥5 帧）兜底同部署
+        return spec.mean(axis=1)
+    return np.asarray(spec_on["spec"], dtype=np.float64).mean(axis=1)
 
 
 def train_classifier(
@@ -219,7 +267,9 @@ def train_classifier(
             skipped += 1
             continue
         spec = np.asarray(spec_res["spec"], dtype=np.float64)
-        samples.append((style, spec.mean(axis=1)))  # 时间平均谱 → 均值谱聚合基元
+        # C1 修复：门控感知 scope——门控条目特征=长 on 段拼接谱（与部署模板路
+        # 同型），连续条目=全段谱（现状不变）。
+        samples.append((style, _scoped_profile(iq, spec, nfft)))
         data_paths.append(data)
 
     # ③ 样本量与类别覆盖校验（不足拒训，附数与阈值；跳段归因分列计数）。

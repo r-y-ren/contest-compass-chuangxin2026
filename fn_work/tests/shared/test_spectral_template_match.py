@@ -1,6 +1,7 @@
 """spectral_template_match 对抗测试：距离序/softmax 值域与和一/平手取排序最小类
 （确定性）/labels 显式锚域/形状先拒（模板空、非 dict、维度不一致、非数值）/
-ndarray 与 list 同果。责任规约见 fn_docs/responsibility.md 共享函数节。"""
+ndarray 与 list 同果/距离按维度归一防 softmax 饱和（C1）。责任规约见
+fn_docs/responsibility.md 共享函数节。"""
 from __future__ import annotations
 
 import math
@@ -24,8 +25,10 @@ def test_distance_ordering():
 
 
 def test_softmax_value_range_and_sum_one():
-    """② softmax 值域与和一：两类等距 → conf=0.5（各占一半即和一）；三类距离
-    (0,1,1) → conf=精确 softmax 归一值；conf 始终 ∈ (0,1]。"""
+    """② softmax 值域与和一：两类等距 → conf=0.5（各占一半即和一，归一除子
+    同值不破坏等距）；三类距离 (0,1,1) → conf=精确 softmax 归一值（logits=
+    -distance/sqrt(维度) 的 RMS 归一口径——C1 防饱和改造后数值更新）；conf
+    始终 ∈ (0,1]。"""
     label, conf = spectral_template_match(
         [1.0, 0.0], {"A": [0.0, 0.0], "B": [2.0, 0.0]}
     )
@@ -34,7 +37,8 @@ def test_softmax_value_range_and_sum_one():
     label3, conf3 = spectral_template_match(
         [0.0, 0.0], {"A": [0.0, 0.0], "B": [1.0, 0.0], "C": [-1.0, 0.0]}
     )
-    expected = 1.0 / (1.0 + 2.0 * math.exp(-1.0))  # exp(0)/(exp(0)+2·exp(-1))
+    # RMS 归一口径（2 维）：logits=-d/sqrt(2) → exp(0)/(exp(0)+2·exp(-1/√2))
+    expected = 1.0 / (1.0 + 2.0 * math.exp(-1.0 / math.sqrt(2.0)))
     assert label3 == "A"
     assert math.isclose(conf3, expected, rel_tol=1e-12)
     for conf_case in (conf, conf3):
@@ -100,3 +104,17 @@ def test_ndarray_list_tuple_same_result():
         (0.3, 0.1), {"A": (0.0, 0.0), "B": (2.0, 0.0)}
     )
     assert list_result == arr_result == tuple_result
+
+
+def test_near_distances_not_saturated_after_dim_normalization():
+    """⑨ 距离按维度归一防 softmax 饱和（C1）：两类近距（距离 10 与 12，16 维）→
+    logits=-distance/sqrt(16)（每维 RMS 口径）→ conf=1/(1+exp(-0.5))≈0.622，
+    介于 (0.5,0.95)——置信度不再恒 1.0；argmin 序不变（近者 A 胜出）。"""
+    features = np.zeros(16)
+    near = np.concatenate(([10.0], np.zeros(15)))  # 距离 10
+    far = np.concatenate(([0.0, 12.0], np.zeros(14)))  # 距离 12
+    label, conf = spectral_template_match(features, {"A": near, "B": far})
+    assert label == "A"  # 归一除子同值 → 最近类判定序不变
+    assert 0.5 < conf < 0.95  # 近距两类不再饱和恒 1.0
+    expected = 1.0 / (1.0 + math.exp(-(12.0 - 10.0) / math.sqrt(16.0)))
+    assert math.isclose(conf, expected, rel_tol=1e-12)  # RMS 归一精确值

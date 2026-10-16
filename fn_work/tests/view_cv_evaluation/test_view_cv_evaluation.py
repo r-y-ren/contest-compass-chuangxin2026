@@ -387,3 +387,82 @@ def test_ai_eval_view_query_protocol_key_passthrough(tmp_path):
             },
             "models/style_classifier.json",
         )
+
+
+# ---- C1 修复：profile 门控 scope——门控录音条目特征=长 on 段拼接谱 ----
+
+
+def _ladder_tone_iq(on=770, off=1390, segments=4, freq=0.1):
+    """阶梯录音型门控 tone（与 tests/predict_style 同型构造）：on 段 770 ≥
+    3×nfft（64×3=192）触发评测侧 profile scope 切换；占空≈0.356 <0.9。"""
+    idx = np.arange(segments * (on + off))
+    on_mask = (idx % (on + off)) < on
+    return (np.exp(1j * 2.0 * np.pi * freq * idx) * on_mask).astype(np.complex64)
+
+
+def test_ai_eval_view_gated_entry_profile_is_on_segment_scope(tmp_path, monkeypatch):
+    """C1：门控录音条目（阶梯 tone，最长 on 段 770≥3×nfft=192）→ 送入分组 CV 的
+    samples 特征=长 on 段拼接谱口径——monkeypatch 捕获 grouped_cv_evaluate 的
+    入参 samples，断言该条目 features 与手工 on 段拼接谱
+    （make_spectrogram(iq_on).mean(axis=1)）逐元素一致，且**非**全段谱（scope
+    真切换而非形同虚设）；评测照常跑通（on 段谱口径下 tone/noise 两类可分
+    macro_f1==1.0）。"""
+    import src.view_cv_evaluation.view_cv_evaluation as vmod
+    from src.make_spectrogram.make_spectrogram import make_spectrogram
+    from src.predict_style.predict_style import (
+        _extract_gate_segments,
+        _signal_features,
+    )
+
+    captured = {}
+    real_gce = vmod.grouped_cv_evaluate
+
+    def spy(samples, **kwargs):
+        captured["samples"] = samples
+        return real_gce(samples, **kwargs)
+
+    monkeypatch.setattr(vmod, "grouped_cv_evaluate", spy)
+
+    index_path, runs_root = _paths(tmp_path)
+    gated = _ladder_tone_iq()
+    _register(runs_root, index_path, "g0001", "tone", gated)
+    _register(runs_root, index_path, "g0002", "tone", _ladder_tone_iq(freq=0.105))
+    for i in range(3):
+        _register(
+            runs_root, index_path, f"n{i:04d}", "bandlimited_noise",
+            _noise_iq(seed=900 + i),
+        )
+
+    out = view_cv_evaluation(
+        {
+            "style": ["tone", "bandlimited_noise"],
+            "nfft": 64,
+            "index_path": index_path,
+            "runs_root": runs_root,
+        },
+        "models/style_classifier.json",
+    )
+    assert out["ok"] is True
+    assert out["macro_f1"] == 1.0  # on 段谱口径下两类仍可分（评测照常跑通）
+
+    # 手工 on 段拼接谱（部署同型骨架：包络门控二值化 → 段长 ≥nfft 段拼接）
+    spec_full = make_spectrogram(gated, nfft=64)["spec"].astype(np.float64)
+    feats = _signal_features(gated, spec_full)
+    segments = [
+        (start, end)
+        for start, end in _extract_gate_segments(feats["gate"])
+        if end - start >= 64
+    ]
+    assert max(end - start for start, end in segments) >= 3 * 64  # scope 判据达成
+    iq_on = gated[np.r_[tuple(slice(s, e) for s, e in segments)]]
+    expected = make_spectrogram(iq_on, nfft=64)["spec"].astype(np.float64).mean(
+        axis=1
+    )
+    full_profile = spec_full.mean(axis=1)
+    assert not np.allclose(expected, full_profile)  # on 段谱≠全段谱（判据自证）
+
+    tone_feats = [s["features"] for s in captured["samples"] if s["label"] == "tone"]
+    assert len(tone_feats) == 2
+    got = np.asarray(tone_feats[0], dtype=np.float64)  # g0001（构造变量 gated 本体）
+    assert np.allclose(got, expected, atol=1e-9)  # 特征=on 段谱口径（一致）
+    assert not np.allclose(got, full_profile, atol=1e-9)  # 非全段谱（scope 真切换）

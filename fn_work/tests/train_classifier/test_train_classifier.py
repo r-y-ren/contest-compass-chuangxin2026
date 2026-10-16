@@ -490,3 +490,92 @@ def test_defect_c1_i4_record_true_run_rebuild_then_train(tmp_path):
     assert result["n_samples"] == 2  # 用户路径终点：可训（此前恒 0）
     assert result["skipped"] == 0
     assert set(result["labels"]) == {"tone", "bandlimited_noise"}
+
+
+# --- 走查 C1 修复：门控感知 scope——门控条目训练特征=长 on 段拼接谱 ---
+
+
+def _ladder_tone_iq(on=770, off=1390, segments=4, freq=0.1):
+    """阶梯录音型门控 tone（与 tests/predict_style 同型构造）：on 段 770 ≥
+    3×nfft（64×3=192）触发训练侧 scope 切换；占空 770/2160≈0.356 <0.9 显著
+    通断；周期 2160×freq 为整数周期（216/226.8）——on 段拼接后相位连续，段内
+    谱形纯净。"""
+    idx = np.arange(segments * (on + off))
+    on_mask = (idx % (on + off)) < on
+    return (np.exp(1j * 2.0 * np.pi * freq * idx) * on_mask).astype(np.complex64)
+
+
+def _cos(a, b):
+    """dB 谱向量余弦相似度。"""
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+    return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b)))
+
+
+def _train_two_class_model(tmp_path, tag, tone_iqs):
+    """两类数据集（给定 tone 段 + 等量噪声段）→ local 训练，返回模型 dict。"""
+    root = tmp_path / tag
+    root.mkdir()
+    index_path = root / "index.json"
+    for i, iq in enumerate(tone_iqs):
+        _register(tmp_path, index_path, f"{tag}tone{i:03d}", "tone", iq)
+    for i in range(len(tone_iqs)):
+        _register(
+            tmp_path, index_path, f"{tag}noise{i:03d}", "bandlimited_noise",
+            _noise_iq(seed=700 + i),
+        )
+    result = train_classifier(
+        {"style": ["tone", "bandlimited_noise"]},
+        hyperparams=_hp(
+            tmp_path, index_path, min_samples=6, out_path=str(root / "model.json")
+        ),
+        where="local",
+    )
+    assert result["skipped"] == 0  # 门控条目照常有效（scope 不改变有效性）
+    return json.loads(Path(result["model_path"]).read_text(encoding="utf-8"))
+
+
+def test_train_classifier_gated_entry_scope_matches_continuous_template(tmp_path):
+    """C1：门控 IQ 条目（阶梯 tone，on 段 770≥3×nfft → 训练侧 scope 切换为长
+    on 段拼接谱）训练的 tone 模板，与「同 IQ 连续版（无底噪间隙）」训练的 tone
+    模板近似——cos>0.9 且两模型 tone 模板互为对方最近类（谱形同源证明：scope
+    统一后训练特征≈部署 scope 特征，训练=全段谱/部署=on 段谱的错位不再）；
+    对照锚：门控模板与连续模板的相似度高于与旧全段口径模板（scope 真切换）；
+    维度回归：模板长度恒 nfft//2+1=33（scope 只换样本集不换 nfft）。"""
+    from src.make_spectrogram.make_spectrogram import make_spectrogram
+    from src.shared.spectral_template_match import spectral_template_match
+
+    gated_iqs = [
+        _ladder_tone_iq(freq=freq) for freq in (0.1, 0.105) for _ in range(4)
+    ]
+    # 同 IQ 连续版=on 段样本直连（训练侧 scope 拼接的同一信号——谱形应同源）
+    continuous_iqs = [iq[iq != 0] for iq in gated_iqs]
+    model_gated = _train_two_class_model(tmp_path, "gated", gated_iqs)
+    model_cont = _train_two_class_model(tmp_path, "cont", continuous_iqs)
+
+    tmpl_gated = model_gated["class_mean_spectra"]["tone"]
+    tmpl_cont = model_cont["class_mean_spectra"]["tone"]
+    # 维度回归：模板长度恒 nfft//2+1（既有结构断言口径不变）
+    assert len(tmpl_gated) == len(tmpl_cont) == 64 // 2 + 1
+    assert all(np.isfinite(tmpl_gated)) and all(np.isfinite(tmpl_cont))
+
+    # 谱形同源：门控训练模板 ≈ 连续版训练模板
+    similarity = _cos(tmpl_gated, tmpl_cont)
+    assert similarity > 0.9, f"cos(gated, cont)={similarity}"
+    # 互为最近类：门控模型的 tone 模板在连续模型类集中最近 tone（反向同理）
+    lab_g, _ = spectral_template_match(
+        np.asarray(tmpl_gated, dtype=np.float64), model_cont["class_mean_spectra"]
+    )
+    lab_c, _ = spectral_template_match(
+        np.asarray(tmpl_cont, dtype=np.float64), model_gated["class_mean_spectra"]
+    )
+    assert lab_g == "tone" and lab_c == "tone"
+
+    # 对照锚：旧全段口径模板（修复前特征=全段谱）与连续模板的相似度更低——
+    # 门控条目训练确已切换为 on 段拼接谱口径。
+    full_profiles = [
+        make_spectrogram(iq, nfft=64)["spec"].astype(np.float64).mean(axis=1)
+        for iq in gated_iqs
+    ]
+    tmpl_full_legacy = np.mean(np.stack(full_profiles), axis=0)
+    assert similarity > _cos(tmpl_full_legacy, tmpl_cont)
