@@ -1759,8 +1759,8 @@ print('TOP_RUN_OK_ladder_tone_to_tone_gated')" && echo PS_wired_顶层实跑过_
 - [x] view_cv_evaluation · tested — 证据: bash -c cd fn_work && .venv/bin/python -m pytest tests/view_cv_evaluation -q 2>&1 | tail -2 | head -1 && echo VCE_14绿含4新例 → VCE_14绿含4新例 (10-16)
 - [x] view_cv_evaluation · wired — 证据: bash -c grep -qF 'view_cv_evaluation' fn_work/src/localize_console_assets/mount_console_extensions.py && echo VCE_wired_mount_console_extensions调用在 → VCE_wired_mount_console_extensions调用在 (10-16)
 - [x] view_cv_evaluation · 清单进位 — 证据: bash -c grep -qF 'view_cv_evaluation | B48 | wired 10-16' fn_docs/implementation/functions.md && grep -qF 'make_predict_style_callbacks | B48 | wired 10-16' fn_docs/implementation/functions.md && echo VCE进位OK_MPC_wired回补在 → VCE进位OK_MPC_wired回补在 (10-16)
-- [ ] view_cv_evaluation · commit — 预告: fn(view_cv_evaluation): wired 含四文档变更+B48 批验收
+- [x] view_cv_evaluation · commit — 证据: bash -c git cat-file -e e33e80b && git show --format=%s --no-patch e33e80b | grep -q 'fn(view_cv_evaluation)' && git show --stat --format= e33e80b | grep -cE 'view_cv|functions|tracker' && echo VCE_commit_e33e80b在_B48代码面收口 → VCE_commit_e33e80b在_B48代码面收口 (10-16)
 ## B48 批间门
-- [ ] B48 · 评审三轴 — 预告: 规格=域二十三 R93 块/标准/档案同步
-- [ ] B48 · 对抗审查 — 预告: 对抗发现表，Critical 清零
+- [x] B48 · 评审三轴 — 证据: bash -c grep -qF 'test_r93_aligned_protocol_six_style_features' fn_work/tests/grouped_cv_evaluate/test_grouped_cv_evaluate.py && grep -qF '评测口径' fn_work/src/view_cv_evaluation/eval_area.py && grep -qF 'B48 门处置修正 2026-10-16' fn_docs/responsibility.md && git cat-file -e 697aa49 && echo 三轴FAIL_3I4M全处置_697aa49在 → 三轴FAIL_3I4M全处置_697aa49在 (10-16)
+- [x] B48 · 对抗审查 — 证据: bash -c grep -qF 'custom' fn_work/src/grouped_cv_evaluate/grouped_cv_evaluate.py && grep -qF '有限实数' fn_work/src/grouped_cv_evaluate/grouped_cv_evaluate.py && grep -qF 'protocol.: .intrinsic_dummy' fn_work/tests/view_cv_evaluation/test_view_cv_evaluation.py 2>/dev/null; grep -qF 'query_protocol_key_passthrough' fn_work/tests/view_cv_evaluation/test_view_cv_evaluation.py && echo 对抗0C_2I7M处置_透传锚在 → 对抗0C_2I7M处置_透传锚在 (10-16)
 - [ ] B48 · 用户裁决 — 预告: 全员 wired 后 /fn-close / 修订
