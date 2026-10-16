@@ -32,7 +32,9 @@ def make_predict_style_callbacks(
     - train_fn(train_samples: list[dict]) → {label: 均值谱向量} 模板模型；
     - predict_fn(model: dict, test_sample: dict) → label str（经
       spectral_template_match）；
-    - 错误：不抛（形状错由 grouped_cv_evaluate 既有校验拒）。
+    - 错误：labels 锚定且锚∩折内训练标签为空 → train_fn ValueError（B48/M-1：
+      锚配置错本层显式拒——消息含锚与折内标签原文；形状错仍由
+      grouped_cv_evaluate 既有校验上游拒，不重复抛）。
     """
     anchor = sorted(set(labels)) if labels is not None else None
 
@@ -47,6 +49,12 @@ def make_predict_style_callbacks(
         domain = sorted(vectors) if anchor is None else [
             lab for lab in anchor if lab in vectors
         ]
+        if not domain:  # 锚∩折内标签为空：锚配置错本层显式拒（B48/M-1）
+            raise ValueError(
+                f"labels 锚域与折内训练标签无交集（模板键域为空）："
+                f"锚={anchor}，折内标签={sorted(vectors)}——锚配置错"
+                "（形状错由 grouped_cv_evaluate 上游拒，锚域错本层显式拒）"
+            )
         return {
             lab: [float(v) for v in np.mean(vectors[lab], axis=0)]
             for lab in domain

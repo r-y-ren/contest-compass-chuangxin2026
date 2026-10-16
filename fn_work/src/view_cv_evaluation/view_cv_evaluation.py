@@ -4,8 +4,10 @@
 
 - 取数+特征化：``query``（数据集筛选，原样透传 index_dataset('query')——支持
   style/freq_range/date_range/backend/failed/batch_key；另收两个传输键
-  ``index_path``/``runs_root``（索引落点，取数前剥离不进检索条件）与两个
-  评测参数键 ``nfft``/``k``（缺省 256/5））→ 逐条目 SigMF cf32 →
+  ``index_path``/``runs_root``（索引落点，取数前剥离不进检索条件）与评测
+  参数键 ``nfft``/``k``（缺省 256/5）及 ``protocol``（B48/I-2 端点透传通道：
+  覆盖 protocol 参数缺省——POST body 的 query dict 既有通道直进，端点零改动；
+  取数前剥离不进检索条件））→ 逐条目 SigMF cf32 →
   make_spectrogram 时间平均谱向量 → samples ``{'label': style, 'features':
   向量, 'batch_key': run_id}``（与 run_rff_pipeline 的谱特征口径一致——
   每 run 自成一组，分组 CV 防段级泄漏的组键）；
@@ -44,8 +46,9 @@ _DEFAULT_NFFT = 256
 #: 分组 CV 目标折数缺省（query['k'] 可覆盖——make_group_splits 域校验）。
 _DEFAULT_K = 5
 
-#: query 的传输/评测参数键（取数前剥离，不进 index_dataset 检索条件）。
-_QUERY_META_KEYS = ("index_path", "runs_root", "nfft", "k")
+#: query 的传输/评测参数键（取数前剥离，不进 index_dataset 检索条件）；
+#: protocol（B48/I-2）：评测口径传输键——覆盖 protocol 参数缺省（端点透传通道）。
+_QUERY_META_KEYS = ("index_path", "runs_root", "nfft", "k", "protocol")
 
 #: 评测口径合法取值（R93）：aligned_template=注入部署同源对齐回调（缺省）；
 #: intrinsic_dummy=不注入回调走内置 dummy（对照口径）。
@@ -119,7 +122,9 @@ def view_cv_evaluation(
         query: 数据集筛选 dict——检索条件原样透传 index_dataset('query')
             （style/freq_range/date_range/backend/failed/batch_key）；另收
             传输键 index_path/runs_root（索引落点，缺省 index_dataset 缺省）
-            与评测参数键 nfft（缺省 256）/k（缺省 5），取数前剥离。
+            与评测参数键 nfft（缺省 256）/k（缺省 5）/protocol（评测口径
+            传输键——存在时覆盖 protocol 参数缺省，合法取值同 protocol 参数），
+            取数前剥离不进检索条件。
         model_path: 模型标识 str（非空）——结果页回显溯源；分组 CV 逐折自训
             自评不消费模型文件本体，仅在位性如实标注 model_exists。
         protocol: 评测口径 str——取值 {'aligned_template'（缺省：注入部署
@@ -155,6 +160,12 @@ def view_cv_evaluation(
             f"model_path 必须为非空 str（模型标识），实际 {model_path!r}"
         )
     model_path = model_path.strip()
+    # protocol 传输键（B48/I-2 端点透传通道）：query['protocol'] 覆盖参数缺省——
+    # POST body 的 query dict 经端点既有通道直进（端点零改动）；缺省/显式 null
+    # 不覆盖；非法值由下方取值校验 ValueError 自然拒（端点 ValueError→400 既有路径）。
+    raw_protocol = query.get("protocol")
+    if raw_protocol is not None:
+        protocol = raw_protocol
     if protocol not in _EVAL_PROTOCOLS:
         raise ValueError(
             f"protocol 必须为 {'/'.join(_EVAL_PROTOCOLS)} 之一（评测口径），"

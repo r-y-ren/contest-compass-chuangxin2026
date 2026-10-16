@@ -26,25 +26,30 @@ R31 评测协议（简化签名：本函数收样本数据、不查库——调�
     samples: list[dict] —— 如上结构；
     k: int —— 目标折数，透传 make_group_splits 校验（>=2 的 int）；
     train_fn / predict_fn —— 自定义训练/推理回调（须成对提供）；缺省走内置 dummy。
-    eval_protocol: str|None —— 评测口径标注（R93）：None（缺省）→报告 'intrinsic_dummy'；
-        注入 make_predict_style_callbacks 对齐回调时调用方传 'aligned_template'——
-        本函数不嗅探回调身份，标注与回调来源一致性由调用方保证。
+    eval_protocol: str|None —— 评测口径标注（R93；B48/M-4 收紧为值域白名单）：
+        合法取值 {'intrinsic_dummy', 'aligned_template', 'custom'}；None（缺省）随
+        口径来源——内置 dummy→'intrinsic_dummy'、自定义回调→'custom'（消除缺省
+        失真）；注入 make_predict_style_callbacks 对齐回调时调用方传
+        'aligned_template'——本函数不嗅探回调身份，标注与回调来源一致性由调用方保证。
 
 输出:
     dict: {'confusion': {'labels': [...], 'matrix': [[...]]}, 'macro_f1': float,
            'per_fold': [...], 'effective_k': int, 'leak_suspect': bool,
            'fold_class_starvation': bool, 'below_target': bool, 'n_samples': int,
-           'eval_protocol': str}——口径标注：缺省 'intrinsic_dummy'；泄漏自检对照
-           实验恒内置 dummy 不受 eval_protocol 影响（标注只描述主口径）。
+           'eval_protocol': str}——口径标注：显式透传；缺省随口径来源（内置
+           dummy→'intrinsic_dummy'/自定义回调→'custom'）；泄漏自检对照实验恒内置
+           dummy 不受 eval_protocol 影响（标注只描述主口径）。
 
 错误:
     ValueError —— samples 非 list/为空/元素非 dict/缺 'label' 或 'features'/label 非 str/
-    features 非数值向量或特征 dict（含非数值元素/空/维度不一致）/标签少于 2 类/
+    features 非数值向量或特征 dict（含非数值/非有限 NaN/inf/空/维度不一致——M-3）/
+    eval_protocol 非 str 或取值不在白名单（M-4）/标签少于 2 类/
     全部样本同属一个批次键（每折训练集为空，分组 CV 不可行）/train_fn 与 predict_fn
     只提供其一；k 或 batch_key 非法由 make_group_splits 透传抛出。
 """
 from __future__ import annotations
 
+import math
 import random
 import warnings
 from numbers import Real
@@ -56,9 +61,17 @@ from .make_group_splits import make_group_splits
 _INTERNAL_TARGET = 0.85
 _LEAK_MARGIN = 0.15
 
+#: eval_protocol 合法取值白名单（B48/M-4）：intrinsic_dummy=内置 dummy 口径；
+#: aligned_template=make_predict_style_callbacks 对齐口径（部署同源）；
+#: custom=其他自定义回调（缺省标注如实反映回调来源——消除缺省失真）。
+_EVAL_PROTOCOLS = ("intrinsic_dummy", "aligned_template", "custom")
+
 
 def _parse_features(raw: object, where: str) -> list[float]:
-    """features → 数值向量：list/tuple 原样；特征 dict 按键排序取值（键序无关）。"""
+    """features → 数值向量：list/tuple 原样；特征 dict 按键排序取值（键序无关）。
+
+    元素须为**有限**实数：NaN/inf 是 Real 须显式拒收（B48/M-3——与
+    spectral_template_match._numeric_vector 同口径，不走 nan 距离静默路径）。"""
     if isinstance(raw, dict):
         if not raw:
             raise ValueError(f"{where}: features 特征 dict 不能为空")
@@ -75,6 +88,10 @@ def _parse_features(raw: object, where: str) -> list[float]:
     for value in values:
         if isinstance(value, bool) or not isinstance(value, Real):
             raise ValueError(f"{where}: features 含非数值元素: {value!r}")
+        if not math.isfinite(float(value)):  # NaN/inf 拒收（B48/M-3）
+            raise ValueError(
+                f"{where}: features 元素须为有限实数（拒 NaN/inf）: {value!r}"
+            )
     return [float(value) for value in values]
 
 
@@ -173,10 +190,12 @@ def grouped_cv_evaluate(
         raise ValueError(
             "train_fn 与 predict_fn 必须成对提供（要么都缺省走内置 dummy，要么都自定义）"
         )
-    if eval_protocol is not None and not isinstance(eval_protocol, str):
+    if eval_protocol is not None and (
+        not isinstance(eval_protocol, str) or eval_protocol not in _EVAL_PROTOCOLS
+    ):
         raise ValueError(
-            "eval_protocol 必须为 str|None（评测口径标注），"
-            f"实际: {type(eval_protocol).__name__}"
+            f"eval_protocol 必须为 {'/'.join(_EVAL_PROTOCOLS)} 之一或 None"
+            f"（评测口径标注），实际: {eval_protocol!r}"
         )
 
     vectors: list[list[float]] = []
@@ -281,8 +300,9 @@ def grouped_cv_evaluate(
             stacklevel=2,
         )
 
-    # ⑤ 内部目标 0.85 如实记录；口径标注（R93）：缺省 intrinsic_dummy，透传调用方
-    # 显式标注（不嗅探回调身份——一致性由调用方保证）。
+    # ⑤ 内部目标 0.85 如实记录；口径标注（R93/B48-M4）：显式标注透传；缺省随口径
+    # 来源——内置 dummy→'intrinsic_dummy'、自定义回调→'custom'（消除缺省失真；
+    # 不嗅探回调身份，一致性由调用方保证）。
     return {
         "confusion": {"labels": labels, "matrix": matrix},
         "macro_f1": macro_f1,
@@ -293,6 +313,8 @@ def grouped_cv_evaluate(
         "below_target": macro_f1 < _INTERNAL_TARGET,
         "n_samples": n,
         "eval_protocol": (
-            eval_protocol if eval_protocol is not None else "intrinsic_dummy"
+            eval_protocol
+            if eval_protocol is not None
+            else ("intrinsic_dummy" if use_default else "custom")
         ),
     }

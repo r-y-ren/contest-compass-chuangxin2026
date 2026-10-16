@@ -430,3 +430,106 @@ def test_r93_invalid_eval_protocol_type_rejected():
     data = _two_class_mixed_batches(batches=("t0", "t1"), per=2, sigma=0.1)
     with pytest.raises(ValueError, match="eval_protocol"):
         grouped_cv_evaluate(data, k=2, eval_protocol=7)  # type: ignore[arg-type]
+
+
+# --- B48 双审处置（I-1/M-1/M-3/M-4）：六样式对齐口径 / 不相交锚拒 /
+#     有限实数拒收 / eval_protocol 值域白名单+custom 缺省标注 ---
+
+
+_SIX_STYLE_CENTERS = {
+    "tone": [6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],  # 单峰
+    "sweep": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],  # 扫频斜坡
+    "chirp": [8.0, 7.0, 6.0, 5.0, 4.0, 5.0, 6.0, 7.0],  # 三角折线
+    "bandlimited_noise": [5.0] * 8,  # 平铺
+    "partial_band": [0.0, 0.0, 6.0, 6.0, 0.0, 0.0, 0.0, 0.0],  # 窄带带通
+    "pulse": [1.0, 2.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],  # 单峰低幅+DC
+}
+
+
+def test_r93_aligned_protocol_six_style_features():
+    """I-1/S-1 六样式对齐口径用例：六类两两可分谱形向量（单峰/扫频斜坡/三角
+    折线/平铺/窄带带通/单峰低幅+DC）各 9 样本、batch_key 混类分 3 批（每批每类
+    3）→ make_predict_style_callbacks() 注入+eval_protocol='aligned_template' →
+    口径标注断言+labels 含六类+矩阵全对角（六类各自 9/9）+macro_f1==1.0。"""
+    from src.grouped_cv_evaluate.make_predict_style_callbacks import (
+        make_predict_style_callbacks,
+    )
+
+    data = []
+    for si, (label, center) in enumerate(sorted(_SIX_STYLE_CENTERS.items())):
+        for j in range(9):
+            rng = random.Random(si * 100 + j)
+            feats = [v + rng.gauss(0.0, 0.05) for v in center]
+            data.append(
+                {"label": label, "features": feats, "batch_key": f"g{j % 3}"}
+            )
+    train_fn, predict_fn = make_predict_style_callbacks()
+    res = grouped_cv_evaluate(
+        data,
+        k=3,
+        train_fn=train_fn,
+        predict_fn=predict_fn,
+        eval_protocol="aligned_template",
+    )
+    assert res["eval_protocol"] == "aligned_template"
+    assert res["confusion"]["labels"] == sorted(_SIX_STYLE_CENTERS)
+    matrix = res["confusion"]["matrix"]
+    assert [matrix[i][i] for i in range(6)] == [9] * 6  # 全对角：六类各自 9/9
+    assert all(
+        matrix[i][j] == 0 for i in range(6) for j in range(6) if i != j
+    )
+    assert res["macro_f1"] == 1.0
+
+
+def test_make_predict_style_callbacks_disjoint_anchor_rejected():
+    """M-1 不相交锚拒：labels=['Z'] 锚与折内标签（A/B）无交集 → train_fn 直接
+    ValueError（消息含锚与折内标签原文）——「不抛」契约自洽：形状错上游拒，
+    锚配置错本层显式拒。"""
+    from src.grouped_cv_evaluate.make_predict_style_callbacks import (
+        make_predict_style_callbacks,
+    )
+
+    train_fn, _predict_fn = make_predict_style_callbacks(labels=["Z"])
+    fold_train = [
+        {"label": "A", "features": [1.0, 1.0]},
+        {"label": "B", "features": [9.0, 9.0]},
+    ]
+    with pytest.raises(ValueError) as excinfo:
+        train_fn(fold_train)
+    message = str(excinfo.value)
+    assert "'Z'" in message and "'A'" in message and "'B'" in message
+
+
+def test_grouped_cv_nonfinite_features_rejected():
+    """M-3 有限性：features 含 NaN/inf（是 Real，须显式拒收）→ ValueError
+    「须为有限实数」——与 spectral_template_match 同口径。"""
+    data = _two_class_mixed_batches(batches=("q0", "q1"), per=2, sigma=0.1)
+    data[0]["features"] = [1.0, float("nan"), 0.0, 0.0]
+    with pytest.raises(ValueError, match="有限实数"):
+        grouped_cv_evaluate(data, k=2)
+    data[0]["features"] = [1.0, float("inf"), 0.0, 0.0]
+    with pytest.raises(ValueError, match="有限实数"):
+        grouped_cv_evaluate(data, k=2)
+
+
+def test_eval_protocol_value_whitelist_rejected():
+    """M-4 值域白名单：eval_protocol 是 str 但取值域外（'banana'）→ ValueError
+    （校验从「仅 str」收紧为「str 且 ∈ {'intrinsic_dummy','aligned_template',
+    'custom'}」）。"""
+    data = _two_class_mixed_batches(batches=("v0", "v1"), per=2, sigma=0.1)
+    with pytest.raises(ValueError, match="eval_protocol"):
+        grouped_cv_evaluate(data, k=2, eval_protocol="banana")
+
+
+def test_custom_callbacks_default_protocol_reported_as_custom():
+    """M-4 缺省失真消除：自定义回调+未显式传 eval_protocol → 报告 'custom'
+    而非 'intrinsic_dummy'（缺省标注如实反映回调来源；内置 dummy 缺省路径
+    仍报 'intrinsic_dummy'——见 test_r93_default_eval_protocol_is_intrinsic_dummy）。"""
+    data = _two_class_mixed_batches(batches=("u0", "u1", "u2"), per=2, sigma=0.1)
+    res = grouped_cv_evaluate(
+        data,
+        k=3,
+        train_fn=lambda ts: sorted({s["label"] for s in ts})[0],
+        predict_fn=lambda model, sample: model,
+    )
+    assert res["eval_protocol"] == "custom"

@@ -1773,13 +1773,13 @@
 - **grouped_cv_evaluate** [L0|改造]
   - 职责：评测协议（分组 CV+泄漏自检+Macro-F1/0.85 如实记录）不变；增评测口径标注：报告附 'eval_protocol' 字段——内置 dummy（缺省）→'intrinsic_dummy'，注入 make_predict_style_callbacks 对齐回调→'aligned_template'（标注与回调来源一致性由调用方保证，本函数不嗅探回调身份）。
   - 签名意图：输入: samples+k+train_fn/predict_fn（既有契约不变）/ 输出: 评测报告 dict（增 'eval_protocol' 键）/ 错误: 沿既有 ValueError 族不变。
-  - 调用方：train_classifier（训练后评测）；view_cv_evaluation；build_report（识别段）
+  - 调用方：view_cv_evaluation（默认注入对齐回调）；run_rff_pipeline（既有内置 dummy 口径，本批不动）——〔B48 门处置修正 2026-10-16：原句沿 R31 旧块失准（train_classifier 只产模型不调评测、build_report 无引用），真实调用面以本行为真值〕
   - tested 策略：自有单测（grouped_cv 族——R93 验收继承：对齐口径用例矩阵字段+口径标注断言）
   - 核验命令：测试: grouped_cv（R93 验收）
   - **make_predict_style_callbacks** [L1|新增]
     - 职责：对齐回调工厂（纯适配，无状态）：返回成对 (train_fn, predict_fn)——train_fn：逐折训练集 samples→类均值模板（label→均值谱向量，与 train_classifier local 的 class_mean_spectra 同构口径）；predict_fn：样本 features→调 shared/spectral_template_match（与部署模板路同一实现）出 label。成对返回满足 grouped_cv_evaluate 既有自定义回调契约。
     - 签名意图：输入: 无（或模型 labels 序列作模板键域锚）/ 输出: (train_fn, predict_fn) 成对回调 / 错误: 不抛（形状错由 grouped_cv_evaluate 既有校验拒）。
-    - 调用方：view_cv_evaluation（默认注入）；CLI/测试显式注入
+    - 调用方：view_cv_evaluation（默认注入）；测试显式注入
     - tested 策略：上游覆盖: grouped_cv_evaluate（对齐口径用例）
     - 核验命令：上游覆盖: grouped_cv_evaluate
 

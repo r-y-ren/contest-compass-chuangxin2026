@@ -10,7 +10,9 @@ R63 build_dataset_area 的 serve_console 缺省装配注入模式）：
   {'style': …}, 'model_path': …}；
 - 结果页：混淆矩阵表格化（行=真值/列=预测，表头标签列）+Macro-F1+
   per_fold 摘要+泄漏三旗标（leak_suspect/fold_class_starvation/
-  below_target）+泄漏检测警告文案（``warnings`` 原文如实回显）；
+  below_target）+评测口径行（``eval_protocol``——B48/I-2：aligned_template
+  （评测的=部署的）/intrinsic_dummy（内置对照）如实上屏）+泄漏检测警告文案
+  （``warnings`` 原文如实回显）；
 - 错误上屏：400（EvalError——分组缺失/检索非法等）错误信息原文进状态行；
 - 零外链：仅同源相对路径 fetch（/api/ai/evaluate）。
 """
@@ -101,6 +103,13 @@ _BLOCK_TEMPLATE = r"""<section id="eval-panel-area" aria-label="AI 评测可视�
         ' fold_class_starvation=' + data.fold_class_starvation +
         ' 模型在位=' + data.model_exists;
     resultMount.appendChild(flags);
+    var proto = data.eval_protocol;
+    var protoNote = proto === 'aligned_template'
+        ? 'aligned_template（评测的=部署的）'
+        : (proto === 'intrinsic_dummy' ? 'intrinsic_dummy（内置对照）' : String(proto));
+    var protocolLine = document.createElement('p'); protocolLine.className = 'epa-flags';
+    protocolLine.textContent = '评测口径：' + protoNote;
+    resultMount.appendChild(protocolLine);
     if ((data.warnings || []).length) {
       var list = document.createElement('ul'); list.className = 'epa-warnings';
       data.warnings.forEach(function (text) { list.appendChild(cell('li', text)); });

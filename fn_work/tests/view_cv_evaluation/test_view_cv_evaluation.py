@@ -360,3 +360,30 @@ def test_ai_eval_view_aligned_callbacks_perfect_separation(tmp_path):
     )
     assert out["eval_protocol"] == "aligned_template"
     assert out["macro_f1"] == 1.0
+
+def test_ai_eval_view_query_protocol_key_passthrough(tmp_path):
+    """R93 门处置补锚：query dict 携 protocol 键（端点 body→query 通道零改动透传）——
+    'intrinsic_dummy' 切对照口径；非法值 ValueError。"""
+    index_path, runs_root = _dataset(tmp_path)
+    out_dummy = view_cv_evaluation(
+        {
+            "style": ["tone", "bandlimited_noise"],
+            "nfft": 64,
+            "index_path": index_path,
+            "runs_root": runs_root,
+            "protocol": "intrinsic_dummy",
+        },
+        "models/style_classifier.json",
+    )
+    assert out_dummy["eval_protocol"] == "intrinsic_dummy"
+    with pytest.raises(ValueError, match="protocol"):
+        view_cv_evaluation(
+            {
+                "style": ["tone"],
+                "nfft": 64,
+                "index_path": index_path,
+                "runs_root": runs_root,
+                "protocol": "banana",
+            },
+            "models/style_classifier.json",
+        )
