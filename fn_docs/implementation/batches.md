@@ -3,10 +3,10 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B50 | get_tx_gain[新]（+改造点 _METHOD_NAMES 注册） | pytest tests/open_b210_backend/ -k get_tx_gain 全绿（mock UHD 回读+注册表反射）；全套件回归绿 | R96 地基（域二十四）；落序第一 |
-| B51 | resolve_base_tx_gain[新 shared], _dispatch_backend[改造·形态②正增益], 改造点×2（validate_scenario_schema 顶层键 tx_gain_db、run_demo._backend_params 白名单+B210 基准注入） | pytest -k b210_gain_mapping 全绿（6 档增益 30/40/45/50/55/60 断言+事件 applied_via/achieved 一致+sim 旧路径逐字节）；schema 用例（顶层键过/未知键拒 exit 2）；全套件零回归 | R95 映射；落序第二 |
+| ▶ B51 | resolve_base_tx_gain[新 shared], _dispatch_backend[改造·形态②正增益], 改造点×2（validate_scenario_schema 顶层键 tx_gain_db、run_demo._backend_params 白名单+B210 基准注入）；随批收敛 M1/M2/M3 | pytest -k b210_gain_mapping 全绿（6 档增益 30/40/45/50/55/60 断言+事件 applied_via/achieved 一致+sim 旧路径逐字节）；schema 用例（顶层键过/未知键拒 exit 2）；全套件零回归 | R95 映射；落序第二；M1-M3=对抗转批收敛项 |
 | B52 | _dispatch_backend[改造·记账如实化]（tx_gain_db/coarse_semantics 双列+地板正值适配+sim 有意保留注记）, 改造点 build_report 未标定换算脚注 | pytest -k attenuation_truthful 全绿（B210 形态无 unknown_gain/深档 partial 实达改写/sim 事件字段零变化反断言）；全套件回归绿 | R97 语义；落序第三 |
 | B53 | 真机最小实证：手册第 1 章命令重跑+monitor 期望 bin 分析+overflow 计数+TX1 灯核对 | 顶档峰高出底噪 ≥15dB、首档 10dB 其余 5dB 递差可辨、事件 applied 无 unknown_gain、LED 现象记录（现场人）、overflow 计数在案 | R95 验收⑤=A/B/C 三相位复测口径；设备在位前提；合规=屏蔽实验室+30dB 衰减器恒串+总发射时长受限 |
+
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
 

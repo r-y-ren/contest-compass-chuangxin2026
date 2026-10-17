@@ -1807,7 +1807,7 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 ## B50 批间门
 - [x] B50 · 评审三轴 — 证据: bash -c grep -qF "| get_tx_gain | B50 | wired 10-17 |" fn_docs/implementation/functions.md && grep -q "3721 passed" /tmp/b50-full.out && echo 三轴12判据全过_全量3721绿_档案同步在案 → 三轴12判据全过_全量3721绿_档案同步在案 (10-17)
 - [x] B50 · 对抗审查 — 证据: bash -c grep -q "勘误注记（对抗 I1" fn_docs/implementation/tracker.md && grep -q "对抗 M 项处置登记" fn_docs/implementation/tracker.md && echo 对抗0C1I4M_I1勘误落盘_M1M2M3转B51_M4观察项在档 → 对抗0C1I4M_I1勘误落盘_M1M2M3转B51_M4观察项在档 (10-17)
-- [ ] B50 · 用户裁决 — 预告: 继续 B51 / 修订 / 裁决 blocked 项
+- [x] B50 · 用户裁决 — 证据: bash -c grep -q "B50 门双审处置" fn_docs/implementation/batches.md && echo 裁决OK_用户2026-10-17继续B51_M1M3转批在案 → 裁决OK_用户2026-10-17继续B51_M1M3转批在案 (10-17)
 
 ## B51 — resolve_base_tx_gain, _dispatch_backend[改造·正增益], 改造点×2（R95）
 ### resolve_base_tx_gain
