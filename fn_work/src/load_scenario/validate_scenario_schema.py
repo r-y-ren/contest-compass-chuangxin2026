@@ -80,6 +80,10 @@ _KNOWN_KEYS = frozenset(
         "components",
         "backend",
         "judge_per_threshold",
+        # R95 快速通道改造点①（域二十四功能块引言）：场景平铺顶层键——
+        # 后端发射增益旋钮，run_demo._backend_params 白名单透传消费；
+        # 域宽 0–89.75 归后端工厂（open_b210_backend），本层只查数值形状。
+        "tx_gain_db",
     }
     | {
         # 样式生成器参数（synthesize_style 各样式 required/defaults 键集）
@@ -310,6 +314,8 @@ def validate_scenario_schema(raw: dict) -> list:
         （bandlimited_noise/partial_band）必填，缺失即 error；
       - power_dbm: 可选数值——只判数值形状，[-100,0] 功率红线归
         guard_compliance（check_power_cap），本校验绝不重复判红线；
+      - tx_gain_db: 可选数值（R95 场景平铺顶层键）——只判数值形状（与
+        power_dbm 同款先例），域宽 0–89.75 归后端工厂（open_b210_backend）；
       - duration_s: 可选，>0；
       - duty_cycle: 可选，严格落于开区间 (0,1)（pulse 占空比）；
       - repeats: 可选，正 int（拒 bool 与 float；整数 str 如 '3' 可宽容）；
@@ -380,6 +386,11 @@ def validate_scenario_schema(raw: dict) -> list:
 
     # power_dbm 只查数值形状；[-100,0] 功率红线归 guard_compliance。
     _number_field(raw, "power_dbm", errors)
+
+    # tx_gain_db 只查数值形状（R95 改造点①，与 power_dbm 同款先例——NaN/inf/
+    # bool/非数值拒、数字 str 宽容）；域宽 0–89.75 归后端工厂（open_b210_backend，
+    # B210 缺省基准注入与专家直通同走工厂域校验），本层不拦越界值。
+    _number_field(raw, "tx_gain_db", errors)
 
     duration_s = _number_field(raw, "duration_s", errors)
     if duration_s is not None and duration_s <= 0:

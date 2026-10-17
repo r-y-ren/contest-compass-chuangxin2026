@@ -51,10 +51,11 @@ def test_responsibility_alignment_real_doc_all_registered():
     assert result["missing"] == []
     assert result["registered"] == _ALL_ITEMS
     anchors = result["code_anchors"]
-    # 键数锚=代码实测（与直接 import 同源对拍，防对账函数自带假数）
+    # 键数锚=代码实测（与直接 import 同源对拍，防对账函数自带假数）；
+    # 2026-10-17 R95：_KNOWN_KEYS 增顶层键 tx_gain_db（双白名单改造点①）→ 63→64。
     from src.load_scenario.validate_scenario_schema import _KNOWN_KEYS
 
-    assert anchors["known_keys_len"] == len(_KNOWN_KEYS) == 63
+    assert anchors["known_keys_len"] == len(_KNOWN_KEYS) == 64
     assert anchors["whitelist_keys_needle"] == f"{len(_KNOWN_KEYS)} 键"
     assert anchors["run_scenario_exported"] is True
     assert "run_scenario" in anchors["run_demo___all__"]
@@ -88,14 +89,16 @@ def test_responsibility_alignment_stripped_r75_notes_detected(tmp_path):
 
 
 def test_responsibility_alignment_whitelist_count_drift_detected(tmp_path):
-    """③ 键数漂移：副本把「63 键」改口「999 键」（模拟代码键数演进后文档
-    静态数失配）→ scenario_whitelist_keys 检出；键数锚仍报代码真值 63。"""
-    doc = _copy_doc(tmp_path, lambda lines: [line.replace("63 键", "999 键") for line in lines])
+    """③ 键数漂移：副本把「64 键」改口「999 键」（模拟代码键数演进后文档
+    静态数失配）→ scenario_whitelist_keys 检出；键数锚仍报代码真值 64。
+    （2026-10-17 R95：tx_gain_db 顶层键入册 _KNOWN_KEYS，代码真值 63→64，
+    漂移针与锚同步更新。）"""
+    doc = _copy_doc(tmp_path, lambda lines: [line.replace("64 键", "999 键") for line in lines])
     result = audit_responsibility_alignment(doc, str(_REAL_CODE_ROOT))
     assert result["ok"] is False
     assert any("scenario_whitelist_keys" in item for item in result["missing"])
-    assert result["code_anchors"]["whitelist_keys_needle"] == "63 键"
-    assert result["code_anchors"]["known_keys_len"] == 63
+    assert result["code_anchors"]["whitelist_keys_needle"] == "64 键"
+    assert result["code_anchors"]["known_keys_len"] == 64
 
 
 def test_responsibility_alignment_domain_gap_and_assets_detected(tmp_path):

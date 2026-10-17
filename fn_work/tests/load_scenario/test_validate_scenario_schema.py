@@ -174,6 +174,41 @@ def test_unknown_key_reports_error():
     assert any("未知键: foo" in err for err in errors)
 
 
+# ---- 顶层 tx_gain_db（R95 快速通道改造点①）：在册数值键，域宽归后端工厂 ----
+
+
+def test_tx_gain_db_legal_values_pass():
+    """顶层 tx_gain_db 合法数值过（int/float/数字 str 宽容，B17 中#4 同口径）；
+    越界值 95 亦过——域宽 0–89.75 归后端工厂（open_b210_backend），本层不拦。"""
+    for ok in (60, 60.0, 0.0, 89.75, 95, "60"):
+        raw = _legal_scenario("tone")
+        raw["tx_gain_db"] = ok
+        assert validate_scenario_schema(raw) == [], ok
+
+
+@pytest.mark.parametrize(
+    "bad", ["abc", float("nan"), float("inf"), float("-inf"), True, False, None, [60.0], {"db": 60}]
+)
+def test_tx_gain_db_bad_shapes_rejected(bad):
+    """非法形状拒（不可解析 str/NaN/±inf/bool/None/list/dict）——power_dbm 同款
+    _number_field 口径（bool 是 int 子类但语义是开关，显式排除）。"""
+    raw = _legal_scenario("tone")
+    raw["tx_gain_db"] = bad
+    errors = validate_scenario_schema(raw)
+    assert errors and any("tx_gain_db" in e for e in errors)
+
+
+def test_tx_gain_db_in_known_keys_while_unknown_keys_still_rejected():
+    """在册后不再报「未知键: tx_gain_db」；其余未知键（含近形键）仍拒——
+    B21 未知键全拒纪律不因白名单扩键而放松。"""
+    raw = _legal_scenario("tone")
+    raw["tx_gain_db"] = 60.0
+    assert validate_scenario_schema(raw) == []
+    raw["tx_gains_db"] = 60.0  # 近形未知键仍拒
+    errors = validate_scenario_schema(raw)
+    assert any("未知键: tx_gains_db" in e for e in errors)
+
+
 # ---- 执行信封键（B21 高#1）：在册即过形状检查，坏形状逐键指名 ----
 
 

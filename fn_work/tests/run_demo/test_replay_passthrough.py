@@ -36,12 +36,18 @@ def _replay_scenario(**overrides):
 
 
 def test_backend_params_sim_keeps_freq_only():
-    """sim/b210 口径不变：仅 freq_hz 透传（正有限实数）。"""
+    """sim 口径不变：仅 freq_hz 透传（正有限实数）。
+
+    b210 不再同锁（2026-10-17，R95 改造点②有意变更）：场景无 tx_gain_db 时
+    _backend_params 注入缺省基准 resolve_base_tx_gain()=60.0——修复 B210 打开
+    缺省 0dB 耳语；原 `== {}` 断言与注入口径互斥，随双白名单扩键更新。
+    """
     assert _backend_params({"backend": "sim", "freq_hz": 2.4e9}) == {
         "freq_hz": 2.4e9
     }
     assert _backend_params({"backend": "sim", "freq_hz": -1.0}) == {}
-    assert _backend_params({"backend": "b210"}) == {}
+    # R95（2026-10-17）：b210 无键 → 注入基准增益 60dB（显式键=专家直通覆盖）。
+    assert _backend_params({"backend": "b210"}) == {"tx_gain_db": 60.0}
 
 
 def test_backend_params_replay_passes_sigmf_path_and_speed():

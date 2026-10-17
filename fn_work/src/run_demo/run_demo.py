@@ -70,6 +70,7 @@ from src.verify_report_traceability.verify_report_traceability import (
 )
 
 from src.shared.append_event import append_event
+from src.shared.resolve_base_tx_gain import resolve_base_tx_gain
 
 from .execute_scenario import (
     append_distance_kpi_rows,
@@ -306,6 +307,9 @@ def _explicit_backend_name(name: str | None, scenario: dict) -> str | None:
 #: replay 后端专用透传键（R64 快速通道，登记于责任文档 R64 块引言）：场景携带
 #: sigmf_path/speed 时按 backend 类型透传给 replay 后端工厂（open_replay_backend）
 #: ——此前仅透传 freq_hz，replay 后端必需的录音路径无传入路径，后端实际不可用。
+#: R95 顺延（域二十四快速通道改造点②）：tx_gain_db 不走本信封口径——它是
+#: schema 在册的场景平铺顶层键（validate_scenario_schema._KNOWN_KEYS 双白名单
+#: 同步），b210 分支白名单透传/缺省基准注入见 _backend_params。
 _REPLAY_PARAM_KEYS = ("sigmf_path", "speed")
 
 #: EMC 场景专用信封键（走查环 F1 修复，2026-10-14）：scenario_type='emc' 的场景
@@ -326,13 +330,23 @@ _EMC_PARAM_KEYS = (
 
 
 def _backend_params(scenario: dict) -> dict:
-    """后端打开参数：按 backend 类型透传（R64 快速通道改造点，向后兼容）。
+    """后端打开参数：按 backend 类型透传（R64 快速通道+R95 增益白名单，向后兼容）。
 
     - freq_hz 为正有限实数时透传（sim/b210 口径不变，域校验归后端工厂）；
     - backend='replay'（strip().lower()）时另透传 replay 专用键：
       sigmf_path 须为非空 str（缺失→ValueError 早拒——replay 后端无 SigMF
       无从打开，错误消息早暴露）；speed 在场且非 None 即透传（有限实数
       ≥0.1 的域校验归 open_replay_backend，与 freq_hz 同口径）；
+    - backend='b210'（strip().lower()）时透传场景平铺顶层键 tx_gain_db
+      （R95 双白名单改造点②，schema 已在册）：显式键→**原样透传**（专家
+      直通覆盖——越界值本层不拦，域 0–89.75 归 open_b210_backend 工厂拒）；
+      场景无该键→注入 resolve_base_tx_gain()（缺省基准 60dB——B210 打开即
+      带基准增益，修复非阶梯发射路径（谱形/录音章）缺省 0dB 耳语；工厂
+      缺省 _DEFAULT_TX_GAIN_DB=0 不再被走到）；
+    - sim/replay 零扰动（演进轮⑤范围外硬约束——sim/replay 不消费该键不受
+      扰）：tx_gain_db 仅进 b210 分支，sim/replay 分支返回 dict 与改造前
+      逐字节同（sim 工厂消费 tx_gain_db 且缺省 0——注入即改 sim 行为；
+      replay 工厂不消费增益键，注入徒增口径面）。
     - 其余 backend 不透传 replay 键（非 replay 场景行为逐字不变）。
     """
     params: dict = {}
@@ -345,7 +359,8 @@ def _backend_params(scenario: dict) -> dict:
     ):
         params["freq_hz"] = float(freq)
     declared = scenario.get("backend")
-    if isinstance(declared, str) and declared.strip().lower() == "replay":
+    backend_name = declared.strip().lower() if isinstance(declared, str) else None
+    if backend_name == "replay":
         sigmf_path = scenario.get("sigmf_path")
         if not isinstance(sigmf_path, str) or not sigmf_path.strip():
             raise ValueError(
@@ -357,6 +372,13 @@ def _backend_params(scenario: dict) -> dict:
         speed = scenario.get("speed")
         if speed is not None:
             params["speed"] = speed
+    elif backend_name == "b210":
+        # R95 改造点②：显式键原样透传（专家直通，域归工厂）；无键注入基准
+        # 增益（resolve_base_tx_gain 越界 ValueError 原样上抛=基准配置拒绝）。
+        if "tx_gain_db" in scenario:
+            params["tx_gain_db"] = scenario["tx_gain_db"]
+        else:
+            params["tx_gain_db"] = resolve_base_tx_gain()
     return params
 
 
