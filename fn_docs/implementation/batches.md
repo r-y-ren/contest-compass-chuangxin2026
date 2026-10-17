@@ -3,7 +3,10 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|---|
-| ▶ B48 | make_predict_style_callbacks, grouped_cv_evaluate[改造], view_cv_evaluation[改造] | grouped_cv 对齐口径用例（矩阵字段+eval_protocol 标注）绿；ai_eval_view 回归绿；全套件回归绿 | R93 子树（域二十三）；对齐=模板路同源（spectral_template_match）；内置 dummy 保留缺省 |
+| ▶ B50 | get_tx_gain[新]（+改造点 _METHOD_NAMES 注册） | pytest tests/open_b210_backend/ -k get_tx_gain 全绿（mock UHD 回读+注册表反射）；全套件回归绿 | R96 地基（域二十四）；落序第一 |
+| B51 | resolve_base_tx_gain[新 shared], _dispatch_backend[改造·形态②正增益], 改造点×2（validate_scenario_schema 顶层键 tx_gain_db、run_demo._backend_params 白名单+B210 基准注入） | pytest -k b210_gain_mapping 全绿（6 档增益 30/40/45/50/55/60 断言+事件 applied_via/achieved 一致+sim 旧路径逐字节）；schema 用例（顶层键过/未知键拒 exit 2）；全套件零回归 | R95 映射；落序第二 |
+| B52 | _dispatch_backend[改造·记账如实化]（tx_gain_db/coarse_semantics 双列+地板正值适配+sim 有意保留注记）, 改造点 build_report 未标定换算脚注 | pytest -k attenuation_truthful 全绿（B210 形态无 unknown_gain/深档 partial 实达改写/sim 事件字段零变化反断言）；全套件回归绿 | R97 语义；落序第三 |
+| B53 | 真机最小实证：手册第 1 章命令重跑+monitor 期望 bin 分析+overflow 计数+TX1 灯核对 | 顶档峰高出底噪 ≥15dB、首档 10dB 其余 5dB 递差可辨、事件 applied 无 unknown_gain、LED 现象记录（现场人）、overflow 计数在案 | R95 验收⑤=A/B/C 三相位复测口径；设备在位前提；合规=屏蔽实验室+30dB 衰减器恒串+总发射时长受限 |
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
 
@@ -113,3 +116,4 @@
 | 10-16 | 勘误：grouped_cv_evaluate 调用方 | responsibility R31 旧块调用方「train_classifier（训练后评测）；build_report（识别段）」与代码不符——真实调用面=view_cv_evaluation.py:24+run_rff_pipeline.py:37（train_classifier 只产模型不调评测、build_report 无引用）；旧块正文不改（只增不改惯例），本行为勘误真值，域二十三 R93 块按真实调用面记载 | B48 wired 核验实证 |
 | 10-16 | B48 门双审处置登记 | 三轴 S-1/I-1=六样式对齐口径用例补齐（六类全对角 macro_f1==1.0）；S-2/I-2=eval_area 口径行渲染+view_cv query protocol 键透传（端点零改动通道）+透传锚用例；A-1=域二十三 GCE 块调用方修正（真实=view_cv+run_rff）；M-1=不相交锚本层拒/M-3=_parse_features 有限性/M-4=eval_protocol 白名单+custom 缺省标注；勘误行 :24 系 5b88d6b 时点行号、HEAD 已漂移至 :27（grep 式核对为准） | 三轴 FAIL 3I/4M+对抗 0C/2I/7M 批内处置；M-2 缺省失真已由 custom 标注消化、M-7 泄漏自检恒内置 dummy=已披露取舍维持 |
 | 10-16 | B49 立批（fn-close 走查环 F1 修复派发） | 走查实证：交付仓形态（scenarios/ 七场景已入 git、runs/ 被忽略）下现行守卫（冲突未授权→早退拒预跑）致 prewarm_runs 恒空、"操控台有历史可翻"不可达；裁决=预跑与种子冲突解耦（prewarm 只读场景、refused_conflicts 键删除）；门口批准载体=fn-close 走查环显式派发词；文件面=src/prepare_demo_assets+tests/prepare_demo_assets+implementation 四文档，不碰手册（主会话同步） |
+| 10-17 | 对账修复：B48 归档缺口补记 | 批表 ▶ B48 行滞留+history.md 缺行（B48 实已完成于 10-16：functions.md 三行 wired 3964f65/5b88d6b/e33e80b、门处置在变更记录 10-16 行）——已删滞留表行、history 尾部补 B48 行（行内"对账补记"标注）；发现载体=演进轮⑤ fn-implement 进入第④步中断恢复检查；daaf089"批表移行"申报与盘上事实不符，本行即为勘误真值 |

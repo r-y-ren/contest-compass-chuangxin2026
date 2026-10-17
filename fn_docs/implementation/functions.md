@@ -188,3 +188,6 @@
 | view_cv_evaluation | B48 | wired 10-16（改造承载 R93 默认注入） | pytest tests/view_cv_evaluation → 14 passed（默认 aligned_template 注入锚/intrinsic_dummy 对照/非法值先拒/对齐回调可分 macro_f1==1.0 4 新例+既有 10 零改动）；全套件 3703 绿；调用点 mount_console_extensions | e33e80b |
 | prepare_demo_assets | B46 | wired 10-15（改造点 R94 行细分） | 19 passed；报告 checklist=19 项（9a/9b 转接线细分）；下标锚位移同步 | c7e4369 |
 | prepare_demo_assets | B49 | wired 10-16（fn-close 走查环 F1 解耦改造） | 21 passed（交付形态新用例 conflicts=7+prewarm 非空+七场景字节不变 / ② ②b 按新契约改写：冲突照列且预跑照常 / 七键契约无 refused_conflicts）；顶层实跑双口径：仓内形态 conflicts=7+prewarm 9 轮+场景字节不变、空临时目录 written=7+prewarm 9 轮照旧 | 0e77e83 |
+| get_tx_gain | B50 | stub 10-17 | — | — |
+| resolve_base_tx_gain | B51 | stub 10-17 | — | — |
+| _dispatch_backend | B51 | 待改造 10-17（改造承载 R95 映射+R97 语义·域二十四新登记私有叶，R12 旧存量在岗） | — | — |

@@ -25,6 +25,7 @@
   - configure_b210_channels
   - write_b210_tx_stream
   - read_b210_rx_stream
+  - get_tx_gain
 - open_sim_backend ← R5
   - loopback_sim_stream
 - open_replay_backend ← R6
@@ -48,6 +49,7 @@
   - plan_ladder_steps
 - set_channel_attenuation ← R12
   - plan_attenuator_combo
+  - _dispatch_backend
 - map_distance_to_loss ← R13
   - compute_pathloss
 - lookup_jsr ← R14
@@ -180,6 +182,7 @@
   R90 修订交付物=总章 v2+26 章三件套化+附录同步——承载方式见矩阵）
 （域二十二=R88/R89 登记缺陷闭合：涉及既有 wired 函数的改造点（run_power_ladder/execute_gb42590_protocol/run_demo._execute_stage/record_run_streams/run_demo._report_payload/build_report）均走快速通道，变更说明见各功能块引言；shared 新上提 normalize_monitor_block 见共享函数节）
 （域二十三=R91/R92/R93 识别准确率协同改造：改造集中在既有顶层 predict_style（R91 规则路门控感知+R92 模板路分流——新叶 _signal_features/_extract_gate_segments/_rule_decision/_template_classify）与 grouped_cv_evaluate（R93 对齐回调 make_predict_style_callbacks+口径标注）、view_cv_evaluation（R93 默认注入）；改造点均走快速通道，变更说明见各既有块引言+域二十三功能块；shared 新上提 spectral_template_match 见共享函数节）
+（域二十四=R95/R96/R97 真机发射功率→增益映射修复：open_b210_backend 增叶 get_tx_gain（R96 地基）；set_channel_attenuation 下发路径改造承载（R95 正增益映射+R97 记账如实化——详见文末域二十四功能块）；快速通道改造点 validate_scenario_schema（顶层键 tx_gain_db）/run_demo._backend_params（白名单+B210 基准注入）/build_report（未标定换算脚注）；shared 新增 resolve_base_tx_gain 见共享函数节）
 
 ## 需求覆盖矩阵（P1 在 R 号后标注；非功能约束不进矩阵，fn-close 终检对照 requirements 非功能节）
 
@@ -279,6 +282,9 @@
 | R91 | predict_style（改造承载：_classify_dummy 门控感知两级分类——新增叶 _signal_features/_extract_gate_segments/_rule_decision；详见域二十三功能块） |
 | R92 | predict_style（改造承载：_predict_one 模板路分流+新增叶 _template_classify；shared 新上提 spectral_template_match——详见域二十三功能块） |
 | R93 | grouped_cv_evaluate（改造承载：新增叶 make_predict_style_callbacks 对齐回调+口径标注；view_cv_evaluation 默认注入——详见域二十三功能块） |
+| R96 | open_b210_backend（改造承载：新增叶 get_tx_gain+_METHOD_NAMES 注册——详见文末域二十四功能块；SimBackend 有意不补） |
+| R95 | set_channel_attenuation（改造承载：_dispatch_backend 正增益映射+事件双列；shared 新增 resolve_base_tx_gain；快速通道改造点：validate_scenario_schema 顶层键 tx_gain_db、run_demo._backend_params 白名单+基准注入——详见文末域二十四功能块） |
+| R97 | set_channel_attenuation（改造承载：记账如实化——粗档 gain_budget 标注/地板正值适配/sim 有意保留注记；快速通道改造点：build_report 未标定换算脚注——详见文末域二十四功能块） |
 
 ## 共享函数（shared/：多顶层共用；矩阵挂全部受益需求）
 
@@ -312,6 +318,12 @@
   - 签名意图：输入: features 数值向量 + class_mean_spectra（label→模板向量 dict）+ labels 序列 / 输出: (label: str, confidence: 0–1 float) / 错误: 模板空/维度不一致→ValueError（形状先拒，不静默兜底）。
   - tested 策略：自有单测（距离序+softmax 值域+平手确定性+维度拒）
   - 核验命令：测试: predict_style or grouped_cv（两上游验收面继承：R92 端到端全链+R93 对齐用例）
+
+- **resolve_base_tx_gain**（调用方：run_demo, set_channel_attenuation）〔新增·演进轮⑤ 2026-10-17；受益需求 R95〕
+  - 职责：解析 B210 正增益映射的"零衰减"基准增益（dB）——缺省保守常量 60dB（三相对照 C 相位实测锚：60dB≈-20dBm@TRX1、串 30dB 衰减器后天线口≈-50dBm）；标定钩子：标定三件实测后经钩子替换（在册 'gain' 表方向=档位→power_dbm、lookup_jsr 消费——功率→增益须反向查表或另立子表，钩子形状实现期前维持常量）；80dB 硬上限：解析结果>80dB、≤0 或非有限实数→ValueError 拒绝（越界即拒——纵深防御点：按 C 相位单点线性外推 TRX1≈0dBm，30dB 衰减器意外不在链也不破 0dBm 口径；非合规证明——合规保证=固定串接 30dB 无源衰减器+屏蔽实验室环境+R52 豁免审计）。
+  - 签名意图：输入: 无（常量+钩子占位；标定后可扩表参数）/ 输出: float（基准增益 dB，∈(0, 80]）/ 错误: 钩子/配置越界→ValueError。
+  - tested 策略：自有单测（常量锚 60+80 上限拒绝+sim/replay 不消费不受扰）
+  - 核验命令：测试: pytest -k "b210_gain_mapping"（R95 验收继承）
 
 ## 功能块 load_scenario ← R1
 
@@ -1793,3 +1805,25 @@
   - 调用方：文档批（单批轻量）。
   - tested 策略：check_demo_manual 契约 v2+prepare 形状断言
   - 核验命令：测试: demo_manual_check（R94 验收继承）
+
+## 功能块 open_b210_backend（改造承载：get_tx_gain 地基） ← R96
+
+（R96=演进轮⑤ 落序第一（地基）。旧块 open_b210_backend ← R4 不动，本块登记改造目标态：B210Backend 新增 get_tx_gain 方法+_METHOD_NAMES 注册表同步（open_b210_backend.py:641）。取舍定死：SimBackend 同款四方法**有意不补**——get_tx_gain 兼作"正增益映射能力"鸭子特征（getattr 探测），把 R95 新映射只开给 B210 形态、sim 旧路径逐字节不变（演进轮⑤范围外②的机制保障）；sim 功率本为名义模型（sim_events 绝对电平承载判据、物理增益不参与 KPI），未来统一另立 R。补齐后 set_channel_attenuation._dispatch 的 unknown_gain 分支对 B210 形态消失，applied/partial/gain_floor 语义激活。B210Backend 构造即持有已开设备、无"未开"态——不设未开态异常，读回失败照 _dispatch 契约原样透传。）
+
+- **get_tx_gain** [L1|新增]（B210Backend 方法，经 _METHOD_NAMES 注册进后端注册表）
+  - 职责：纯读回——返回 B210Backend 当前生效的 TX 增益（dB）；不修改状态、不下发指令。供 _dispatch_backend 地板判定与操控/诊断读数消费。
+  - 签名意图：输入: 无 / 输出: float（当前生效 TX 增益 dB）/ 错误: 电台读回异常→原样透传（先读后发契约：读失败时未下发、无半截状态）。
+  - 调用方：set_channel_attenuation
+  - tested 策略：自有单测（mock UHD：set_tx_gain(60) 后 get_tx_gain()==60.0）
+  - 核验命令：测试: pytest tests/open_b210_backend/ -k get_tx_gain（R96 验收继承）+注册表反射用例（方法名在 _METHOD_NAMES 在册）
+
+## 功能块 set_channel_attenuation（改造承载：正增益映射+记账如实化） ← R95+R97
+
+（R95=落序第二（映射）、R97=落序第三（语义）——两者共同改造本块下发路径与事件口径，旧块 set_channel_attenuation ← R12 不动、目标态在此登记。关联快速通道改造点三处：①validate_scenario_schema._KNOWN_KEYS 增**顶层键** tx_gain_db（B21 未知键全拒纪律——只改后端层则场景键到不了后端；验收=R95 验收③ schema 用例：顶层键通过、未知键仍拒 exit 2）；②run_demo._backend_params 白名单+tx_gain_db 透传与 B210 缺省基准注入（场景无该键且后端=B210 → 注入 resolve_base_tx_gain()，电台打开即带基准增益、不再 0dB 耳语——非阶梯发射路径（谱形/录音章）同此修复；场景显式键=专家直通覆盖，域校验归后端工厂 0–89.75 已有；sim/replay 不消费该键不受扰）；③build_report 阶梯节"未标定换算"脚注（R97 名义/物理双列的报告侧——沿用 make_disclaimer_block 统一口径块或内联脚注实现期定桩）。真机最小实证（R95 验收⑤）=A/B/C 三相位复测口径：顶档峰高出底噪 ≥15dB、档间递差可辨（首档差 10dB、其余 5dB）、事件 applied 无 unknown_gain、TX1 灯核对 0.2 桥接注现句、overflow 计数记录在案。）
+
+- **_dispatch_backend** [L1|改造]（set_channel_attenuation 私有下发叶子——R12 旧职责"下发：鸭子两方法"段的目标态）
+  - 职责：档位组合→后端下发的鸭子分发，四形态互斥择一（单一转变=下发）：①有 set_attenuation（程控衰减器后端）→set_attenuation(achieved_db) 全量实达值，applied=True、applied_via='set_attenuation'（语义不变，仪器/sim 仪表插槽不受扰）；②有 set_tx_gain+get_tx_gain（B210 形态，R96 后成立）→**正增益映射**：target=resolve_base_tx_gain()−achieved_db（基准−粗档预算−细档）；target<0 → 增益地板：下发 0、applied='partial'、applied_detail='gain_floor'、实达组合如实改写（实际衰减=基准、residual_db=target_db−基准）；target≥0 → 下发 target、applied=True、applied_via='tx_gain'——事件与返回增 **tx_gain_db**（实际下发增益=物理换算值，与名义档位 dBm 双列）与 **coarse_semantics='gain_budget'** 标注（粗档=增益预算记账分量而非执行器动作——外置 30dB 无源衰减器恒串=固定安全余量不进档位语义）；③仅有 set_tx_gain 无 get_tx_gain（SimBackend）→**旧路径逐字节保留**：set_tx_gain(−fine_step_db)、applied='unknown_gain'（有意保留=名义模型口径非缺陷，演进轮⑤登记防误判）；④backend 缺或两方法皆缺→applied=False、reason='no_backend'。后端方法异常不捕获原样透传（异常路径先停发射由调用方承载）。6 档口径：demo/真机轮档位 −25…0dBm→衰减请求 25…0→实达 30/20/15/10/5/0（step0 粗档 30 超射 residual=−5）→增益 30/40/45/50/55/60（首档差 10dB、其余 5dB 递差，顶档=C 相位实测锚）。
+  - 签名意图：输入: backend 实例+档位组合 dict（coarse/coarse_db/fine_step_db/fine_actual_db/achieved_db/residual_db）+target_db / 输出: (实达组合, applied, applied_via, applied_detail, reason)——B210 形态实达组合增 tx_gain_db+coarse_semantics / 错误: 后端方法异常透传；resolve_base_tx_gain 越界 ValueError 透传。
+  - 调用方：set_channel_attenuation
+  - tested 策略：自有单测（b210_gain_mapping+attenuation_truthful 两族；sim 旧路径逐字节反向断言）
+  - 核验命令：测试: pytest -k "b210_gain_mapping or attenuation_truthful"（R95/R97 验收继承）

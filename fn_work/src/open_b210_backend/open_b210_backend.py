@@ -345,6 +345,14 @@ class B210Backend:
         self.tx_gain_db = val
         return val
 
+    def get_tx_gain(self) -> float:
+        """读回当前生效 TX 增益（dB）——纯读回，不修改状态、不下发指令（R96）。
+
+        构造即持有已开设备、无"未开"态；读回失败照 _dispatch 契约原样透传
+        （先读后发契约：读失败时未下发、无半截状态）。
+        """
+        raise NotImplementedError("unimplemented:fn:get_tx_gain")
+
     def read_samples(self, max_blocks: int = 1) -> list[dict]:
         """CH2 监测读取（经 read_b210_rx_stream）：返回 [{'samples','ts','overflow','device_ts'}, ...]。
 

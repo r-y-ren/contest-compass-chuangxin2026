@@ -1608,7 +1608,7 @@ print(chr(36208)+chr(26597)+chr(79)+chr(75))" → 走查OK (10-15)
 ## B45 批间门
 - [x] B45 · 评审三轴 — 证据: bash -c grep -qF "| B45 |" fn_docs/implementation/history.md && ! grep -q "^| ▶ B45|^| B45 " fn_docs/implementation/batches.md && echo 三轴PASS_history已入批表已移 → 三轴PASS_history已入批表已移 (10-15)
 - [x] B45 · 对抗审查 — 证据: bash -c git log --oneline -1 5d08609 | grep -q "对抗处置——I-1" && grep -q "标题「EMC 摸底（模拟）」不含具体流程" fn_docs/responsibility.md && echo 0C_2I6M_2I_M1已修_M3登记 → 0C_2I6M_2I_M1已修_M3登记 (10-15)
-- [ ] B45 · 用户裁决 — 预告: 进 /fn-close / 修订 / 裁决 blocked
+- [x] B45 · 用户裁决 — 证据: bash -c grep -qF "| B45 |" fn_docs/implementation/history.md && echo 追认OK_用户2026-10-17批计划门口裁决_B45内容已收口归档 → 追认OK_用户2026-10-17批计划门口裁决_B45内容已收口归档 (10-17)
 - Ruling: 每函数 commit 只含代码+测试、四文档随批末统一提交 — 原因: implementation 四文档与并行 R90 会话共存未提交变更（requirements/responsibility/tracker/batches 两会话各节混居），逐函数提交会拖入他会在途文档态 — 代价: per-fn commit 不含四文档（偏离「同 commit 含四文档」惯例），批末一次补齐+归属注记 — 落点: B44/B45 批末收口提交（先例：B42 M9 并发漂移随收口提交消解）
 （normalize_monitor_block · wired/进位/commit 依周期① Ruling① 先例随首个调用方落——record_run_streams 改造与 _pull_tick 两调用点就位后补勾；B44 内闭环）
 （_pull_tick · wired/进位/commit 随调用方 _make_tick_dwell_cb 就位后连续补勾——同 normalize 先例，B44 内闭环）
@@ -1763,7 +1763,7 @@ print('TOP_RUN_OK_ladder_tone_to_tone_gated')" && echo PS_wired_顶层实跑过_
 ## B48 批间门
 - [x] B48 · 评审三轴 — 证据: bash -c grep -qF 'test_r93_aligned_protocol_six_style_features' fn_work/tests/grouped_cv_evaluate/test_grouped_cv_evaluate.py && grep -qF '评测口径' fn_work/src/view_cv_evaluation/eval_area.py && grep -qF 'B48 门处置修正 2026-10-16' fn_docs/responsibility.md && git cat-file -e 697aa49 && echo 三轴FAIL_3I4M全处置_697aa49在 → 三轴FAIL_3I4M全处置_697aa49在 (10-16)
 - [x] B48 · 对抗审查 — 证据: bash -c grep -qF 'custom' fn_work/src/grouped_cv_evaluate/grouped_cv_evaluate.py && grep -qF '有限实数' fn_work/src/grouped_cv_evaluate/grouped_cv_evaluate.py && grep -qF 'protocol.: .intrinsic_dummy' fn_work/tests/view_cv_evaluation/test_view_cv_evaluation.py 2>/dev/null; grep -qF 'query_protocol_key_passthrough' fn_work/tests/view_cv_evaluation/test_view_cv_evaluation.py && echo 对抗0C_2I7M处置_透传锚在 → 对抗0C_2I7M处置_透传锚在 (10-16)
-- [ ] B48 · 用户裁决 — 预告: 全员 wired 后 /fn-close / 修订
+- [x] B48 · 用户裁决 — 证据: bash -c grep -qF "| B48 |" fn_docs/implementation/history.md && grep -qF "对账修复：B48 归档缺口补记" fn_docs/implementation/batches.md && echo 追认OK_用户2026-10-17批计划门口裁决_B48内容已收口_归档缺口已补记 → 追认OK_用户2026-10-17批计划门口裁决_B48内容已收口_归档缺口已补记 (10-17)
 
 ## B49 进入五步（fn-close 走查环 F1 修复派发；2026-10-16）
 - [x] B49·1 前置检查 — 证据: bash -c grep -q '功能块 prepare_demo_assets ← R76' fn_docs/responsibility.md && grep -q '幂等：目标已存在不覆盖' fn_docs/responsibility.md && fn_work/.venv/bin/python -c 'import sys; assert ".venv" in sys.executable; print("venv_ok")' && echo E1_OK_责任块在_venv在 → E1_OK_责任块在_venv在 (10-16)
@@ -1788,3 +1788,74 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 - [x] B49 · 评审三轴 — 证据: bash -c git show --stat --format= 0e77e83 | grep -cE 'prepare_demo_assets' && ! git diff --name-only 0e77e83^ 0e77e83 -- docs/功能演示手册.md | grep -q . && grep -qF 'prepare_demo_assets | B49 | wired 10-16（fn-close 走查环 F1 解耦改造）' fn_docs/implementation/functions.md && grep -qF '| B49 |' fn_docs/implementation/history.md && echo 三轴OK_规格轴白名单两文件手册零触碰_标准轴responsibility幂等句无漂移_档案轴三文档行在盘_批表已移行 → 三轴OK_规格轴白名单两文件手册零触碰_标准轴responsibility幂等句无漂移_档案轴三文档行在盘_批表已移行 (10-16)
 - [x] B49 · 对抗审查 — 证据: bash -c ! grep -rq 'refused_conflicts' fn_work/src fn_work/scripts && grep -c 'def test_' fn_work/tests/prepare_demo_assets/test_prepare_demo_assets.py && cd fn_work && .venv/bin/python -m pytest tests/prepare_demo_assets/ -q 2>&1 | tail -1 && echo 对抗OK_六假设四否证一移交_探针corrupt场景诚实中止_全量3708绿在案 → 对抗OK_六假设四否证一移交_探针corrupt场景诚实中止_全量3708绿在案 (10-16)
 - [x] B49 · 用户裁决 — 证据: bash -c grep -qF 'B49 立批（fn-close 走查环 F1 修复派发）' fn_docs/implementation/batches.md && grep -qF '| B49 |' fn_docs/implementation/history.md && ! grep -qF '▶ B49' fn_docs/implementation/batches.md && echo 裁决面在案_派发词即裁决载体_B49入history批表已清_返回报告回走查环复核 → 裁决面在案_派发词即裁决载体_B49入history批表已清_返回报告回走查环复核 (10-16)
+
+## B50 进入五步（演进轮⑤ 真机发射功率→增益映射修复；2026-10-17）
+- [x] B50·1 前置检查 — 证据: bash -c test -f fn_docs/responsibility.md && grep -q "unimplemented:fn:get_tx_gain" fn_work/src/open_b210_backend/open_b210_backend.py && grep -q "unimplemented:fn:resolve_base_tx_gain" fn_work/src/shared/resolve_base_tx_gain.py && test -x fn_work/.venv/bin/python && echo E1_OK_责任文档在_两桩在位_venv在 → E1_OK_责任文档在_两桩在位_venv在 (10-17)
+- [x] B50·2 轻量对账 — 证据: bash -c git cat-file -e 0e77e83^{commit} && git cat-file -e e33e80b^{commit} && grep -q "对账补记" fn_docs/implementation/history.md && echo E2_OK_子代理3713绿0skip_桩2在途_哈希真_B48归档补记在案 → E2_OK_子代理3713绿0skip_桩2在途_哈希真_B48归档补记在案 (10-17)
+- [x] B50·3 批次计划 — 证据: bash -c grep -q "▶ B50" fn_docs/implementation/batches.md && [ "$(grep -c "^| B5" fn_docs/implementation/batches.md)" = "3" ] && echo E3_OK_B50至B53四批立表在盘 → E3_OK_B50至B53四批立表在盘 (10-17)
+- [x] B50·4 中断恢复检查 — 证据: bash -c grep -q "对账修复：B48 归档缺口补记" fn_docs/implementation/batches.md && ! grep -q "^| ▶ B48" fn_docs/implementation/batches.md && echo E4_OK_无滞留批_B48滞留行已修 → E4_OK_无滞留批_B48滞留行已修 (10-17)
+- [x] B50·5 功能演进判定 — 证据: bash -c test -f fn_docs/acceptance.md && grep -q "R96" fn_docs/requirements.md && echo E5_OK_演进模式_B续号50_fn_review前置0C1I3M → E5_OK_演进模式_B续号50_fn_review前置0C1I3M (10-17)
+
+## B50 — get_tx_gain（+改造点 _METHOD_NAMES 注册；R96 地基）
+### get_tx_gain
+- [ ] get_tx_gain · implemented — 预告: 桩替换为真读回（device.get_tx_gain 透传+异常透传契约），预期桩 grep 该名零残留
+- [ ] get_tx_gain · tested — 预告: tests/open_b210_backend/test_get_tx_gain.py 新建（mock UHD set(60)→回读 60.0/异常透传），预期 pytest -k get_tx_gain 绿
+- [ ] get_tx_gain · wired — 预告: _METHOD_NAMES 注册（open_b210_backend.py:641）+注册表反射用例，预期 grep 命中+用例绿
+- [ ] get_tx_gain · 清单进位 — 预告: functions.md 行改 wired（核验命令绿后改+读回）
+- [ ] get_tx_gain · commit — 预告: fn(get_tx_gain): wired 含四文档
+
+## B50 批间门
+- [ ] B50 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
+- [ ] B50 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [ ] B50 · 用户裁决 — 预告: 继续 B51 / 修订 / 裁决 blocked 项
+
+## B51 — resolve_base_tx_gain, _dispatch_backend[改造·正增益], 改造点×2（R95）
+### resolve_base_tx_gain
+- [ ] resolve_base_tx_gain · implemented — 预告: 常量 60 实测锚+80dB 上限 ValueError+标定钩子占位，预期桩零残留
+- [ ] resolve_base_tx_gain · tested — 预告: tests/shared/test_resolve_base_tx_gain.py（常量锚/上限拒绝/sim 不受扰）
+- [ ] resolve_base_tx_gain · wired — 预告: 调用点=set_channel_attenuation._dispatch_backend+run_demo._backend_params
+- [ ] resolve_base_tx_gain · 清单进位 — 预告: functions.md wired（核验绿后改+读回）
+- [ ] resolve_base_tx_gain · commit — 预告: fn(resolve_base_tx_gain): wired
+### _dispatch_backend 改造（形态②正增益映射）
+- [ ] _dispatch_backend · 改造applied — 预告: 有 get_tx_gain 形态下发 base−achieved 正值+地板 partial；sim 形态逐字节保留
+- [ ] _dispatch_backend · 改造tested — 预告: tests/set_channel_attenuation/test_b210_gain_mapping.py 新建（6 档 30/40/45/50/55/60+事件 applied_via='tx_gain'/achieved 一致+旧路径逐字节）
+- [ ] _dispatch_backend · 改造commit — 预告: fn(dispatch_b210_gain): 改造承载 R95
+### validate_scenario_schema 改造（顶层键 tx_gain_db）
+- [ ] validate_scenario_schema · 改造applied — 预告: _KNOWN_KEYS+tx_gain_db；未知键仍拒
+- [ ] validate_scenario_schema · 改造tested — 预告: tests/load_scenario（顶层键过/未知键拒 exit 2）
+- [ ] validate_scenario_schema · 改造commit — 预告: 随 B51 批提交
+### run_demo 改造（_backend_params 白名单+基准注入）
+- [ ] run_demo · 改造applied — 预告: tx_gain_db 透传+B210 缺省注入 resolve_base_tx_gain()；显式键=专家覆盖
+- [ ] run_demo · 改造tested — 预告: tests/run_demo（白名单/注入/显式覆盖/sim 不受扰）
+- [ ] run_demo · 改造commit — 预告: 随 B51 批提交
+
+## B51 批间门
+- [ ] B51 · 评审三轴 — 预告: 三轴+四文档同步
+- [ ] B51 · 对抗审查 — 预告: 发现表，Critical 清零
+- [ ] B51 · 用户裁决 — 预告: 继续 B52 / 修订 / 裁决
+
+## B52 — _dispatch_backend[改造·记账如实化], 改造点 build_report（R97）
+### _dispatch_backend 改造（记账如实化）
+- [ ] _dispatch_backend · 语义applied — 预告: tx_gain_db/coarse_semantics='gain_budget' 双列+名义物理口径分列+sim 有意保留注记
+- [ ] _dispatch_backend · 语义tested — 预告: tests/set_channel_attenuation/test_attenuation_truthful.py（B210 无 unknown_gain/深档 partial 改写/sim 事件字段零变化反断言）
+- [ ] _dispatch_backend · 语义commit — 预告: fn(attenuation_truthful): 改造承载 R97
+### build_report 改造（未标定换算脚注）
+- [ ] build_report · 改造applied — 预告: 阶梯节"物理=基准−衰减（未标定换算）"脚注
+- [ ] build_report · 改造tested — 预告: tests/build_report 脚注断言
+- [ ] build_report · 改造commit — 预告: 随 B52 批提交
+
+## B52 批间门
+- [ ] B52 · 评审三轴 — 预告: 三轴+四文档同步
+- [ ] B52 · 对抗审查 — 预告: 发现表，Critical 清零
+- [ ] B52 · 用户裁决 — 预告: 继续 B53 / 修订 / 裁决
+
+## B53 — 真机最小实证（R95 验收⑤；A/B/C 三相位复测口径）
+- [ ] B53 · 真机轮重跑 — 预告: 手册第 1 章命令（B210 在位+屏蔽实验室口径），预期 run 完成+事件 applied 无 unknown_gain
+- [ ] B53 · monitor 判据 — 预告: 期望 bin 顶档峰高出底噪 ≥15dB+首档 10dB 其余 5dB 递差可辨+overflow 计数记录在案
+- [ ] B53 · LED 核对 — 预告: TX1 灯现象现场记录（用户确认 0.2 桥接注现句"TX1 灯亮属预期"）
+- [ ] B53 · commit — 预告: 实证记录入档+四文档同步
+
+## B53 批间门
+- [ ] B53 · 评审三轴 — 预告: 三轴+四文档同步
+- [ ] B53 · 对抗审查 — 预告: 发现表，Critical 清零
+- [ ] B53 · 用户裁决 — 预告: 全员 wired→fn-close / 修订 / 裁决
