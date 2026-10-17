@@ -10,6 +10,8 @@
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
 
+| 10-17 | B51 申报（并行双子代理+续做两轮） | ①语义替换旧断言改写 6 处：test_set_channel_attenuation 2 例（负值路径→正增益 25.0=60−35 改名 positive_gain_dispatch/相对地板 80→65→绝对映射+地板 85→0·partial·achieved=60+无状态性改名 truthful）、test_run_power_ladder 1 例（custom cal 扩域顶 70 保地板透传本意）、test_replay_passthrough 1 例（b210→{} 改注入 {tx_gain_db:60.0} 只锁 sim）、test_audit_responsibility_alignment 2 例（键数锚 63→64+漂移针源串）——全部注明"R95 正增益映射改造…2026-10-17"；②解释性取舍：形态②绝对映射不先读 get_tx_gain（鸭子特征仅判据，测试钉住唯一后端调用即下发）；事件 applied_via 增列留 B52（事件断言按 applied/achieved 与返回 via 落）；③responsibility R1 块键数静态数 63→64 快速通道注记（audit 对账针耦合，B47 先例）；④sim 零扰动机制面：sim 工厂消费 tx_gain_db（open_sim_backend:286）故 sim 分支连显式键也不透传；形态③ md5 级逐字节保留（0c63e5f3 证） | 全量 3763 passed/0 failed（3721+42：resolve 10+mapping 10+passthrough 5+schema 3+形状参数化+M 收敛 6+audit 参数化）；三提交 be727a0/22b84f2/338a10a |
+
 | 日期 | 事件 | 说明 |
 |---|---|---|
 | 10-11 | 初建 22 批 | 119 函数全排入；依赖序=红线→标定→运行骨架→后端→样式→功率→监测→链路→采集→测评→AI→模拟仪表→EMC→台账场景→报告→Web→二期→总装 |

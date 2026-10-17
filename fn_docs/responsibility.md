@@ -329,7 +329,7 @@
 
 （R1：场景 YAML 加载与校验——字段完整性、取值域、频段白名单（经 guard_compliance）、功率上限；非法即退出码 2 并指错。）
 
-> 演进补注（2026-10-14，R75）：validate_scenario_schema 场景白名单键域实测 **63 键**（_KNOWN_KEYS——演进期净增 41 键入册放行不校验取值的口径：执行信封键与可选字段在册即放行，取值红线仍归 guard_compliance/下游）；键数以代码 _KNOWN_KEYS len 为动态锚（serve_console._MERGEABLE_KEYS 同源消费，audit_responsibility_alignment 对账校验——键数漂移即漏登）。
+> 演进补注（2026-10-14，R75）：validate_scenario_schema 场景白名单键域实测 **63 键**（_KNOWN_KEYS——演进期净增 41 键入册放行不校验取值的口径：执行信封键与可选字段在册即放行，取值红线仍归 guard_compliance/下游）；键数以代码 _KNOWN_KEYS len 为动态锚（serve_console._MERGEABLE_KEYS 同源消费，audit_responsibility_alignment 对账校验——键数漂移即漏登）。〔快速通道·R95 2026-10-17：_KNOWN_KEYS 增顶层键 tx_gain_db（双白名单改造点①，域二十四）→ **64 键**；本行静态数随代码同步，对账针以 len(_KNOWN_KEYS)==64 为准〕
 
 - **load_scenario** [L0|新增]
   - 职责：读取场景 YAML 文件并产出规范化场景对象：依次完成文件读取（YAML 解析失败→指错行）、validate_scenario_schema 字段校验、guard_compliance 红线校验（拒则退出码 2 语义异常）、normalize_scenario 规范化（默认值填充、单位统一）；是场景进入系统的唯一入口。

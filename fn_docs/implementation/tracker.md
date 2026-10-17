@@ -1811,23 +1811,23 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 
 ## B51 — resolve_base_tx_gain, _dispatch_backend[改造·正增益], 改造点×2（R95）
 ### resolve_base_tx_gain
-- [ ] resolve_base_tx_gain · implemented — 预告: 常量 60 实测锚+80dB 上限 ValueError+标定钩子占位，预期桩零残留
-- [ ] resolve_base_tx_gain · tested — 预告: tests/shared/test_resolve_base_tx_gain.py（常量锚/上限拒绝/sim 不受扰）
-- [ ] resolve_base_tx_gain · wired — 预告: 调用点=set_channel_attenuation._dispatch_backend+run_demo._backend_params
-- [ ] resolve_base_tx_gain · 清单进位 — 预告: functions.md wired（核验绿后改+读回）
-- [ ] resolve_base_tx_gain · commit — 预告: fn(resolve_base_tx_gain): wired
+- [x] resolve_base_tx_gain · implemented — 证据: bash -c ! grep -q "unimplemented:fn:resolve_base_tx_gain" fn_work/src/shared/resolve_base_tx_gain.py && grep -q "def resolve_base_tx_gain" fn_work/src/shared/resolve_base_tx_gain.py && echo 实现落盘_桩零残留 → 实现落盘_桩零残留 (10-17)
+- [x] resolve_base_tx_gain · tested — 证据: bash -o pipefail -c cd fn_work && .venv/bin/python -m pytest tests/shared/test_resolve_base_tx_gain.py -q 2>&1 | tail -2 → 10 passed in 0.02s (10-17)
+- [x] resolve_base_tx_gain · wired — 证据: bash -c grep -qF "resolve_base_tx_gain" fn_work/src/set_channel_attenuation/set_channel_attenuation.py && grep -qF "resolve_base_tx_gain" fn_work/src/run_demo/run_demo.py && echo 调用点双落在案 → 调用点双落在案 (10-17)
+- [x] resolve_base_tx_gain · 清单进位 — 证据: bash -c grep -qF "| resolve_base_tx_gain | B51 | wired 10-17 |" fn_docs/implementation/functions.md && echo 进位读回OK → 进位读回OK (10-17)
+- [x] resolve_base_tx_gain · commit — 证据: bash -c git show --format=%s --no-patch be727a0 | grep -qF "fn(resolve_base_tx_gain): wired" && git show --stat --format= be727a0 | grep -c resolve_base_tx_gain && echo COMMIT_OK_be727a0 → COMMIT_OK_be727a0 (10-17)
 ### _dispatch_backend 改造（形态②正增益映射）
-- [ ] _dispatch_backend · 改造applied — 预告: 有 get_tx_gain 形态下发 base−achieved 正值+地板 partial；sim 形态逐字节保留
-- [ ] _dispatch_backend · 改造tested — 预告: tests/set_channel_attenuation/test_b210_gain_mapping.py 新建（6 档 30/40/45/50/55/60+事件 applied_via='tx_gain'/achieved 一致+旧路径逐字节）
-- [ ] _dispatch_backend · 改造commit — 预告: fn(dispatch_b210_gain): 改造承载 R95
+- [x] _dispatch_backend · 改造applied — 证据: bash -o pipefail -c grep -qF "from src.shared.resolve_base_tx_gain import" fn_work/src/set_channel_attenuation/set_channel_attenuation.py && cd fn_work && .venv/bin/python -m pytest tests/set_channel_attenuation/ -q 2>&1 | tail -1 → 70 passed in 0.06s (10-17)
+- [x] _dispatch_backend · 改造tested — 证据: bash -o pipefail -c cd fn_work && .venv/bin/python -m pytest -k b210_gain_mapping -q 2>&1 | tail -2 → 10 passed, 3753 deselected, 1 warning in 1.73s (10-17)
+- [x] _dispatch_backend · 改造commit — 证据: bash -c git show --format=%s --no-patch 22b84f2 | grep -qF "dispatch_b210_gain" && git show --stat --format= 22b84f2 | wc -l && echo COMMIT_OK_22b84f2_六文件 → COMMIT_OK_22b84f2_六文件 (10-17)
 ### validate_scenario_schema 改造（顶层键 tx_gain_db）
-- [ ] validate_scenario_schema · 改造applied — 预告: _KNOWN_KEYS+tx_gain_db；未知键仍拒
-- [ ] validate_scenario_schema · 改造tested — 预告: tests/load_scenario（顶层键过/未知键拒 exit 2）
-- [ ] validate_scenario_schema · 改造commit — 预告: 随 B51 批提交
+- [x] validate_scenario_schema · 改造applied — 证据: bash -o pipefail -c grep -qF "tx_gain_db" fn_work/src/load_scenario/validate_scenario_schema.py && cd fn_work && .venv/bin/python -m pytest tests/load_scenario/ -q 2>&1 | tail -1 → 135 passed in 0.17s (10-17)
+- [x] validate_scenario_schema · 改造tested — 证据: bash -o pipefail -c cd fn_work && .venv/bin/python -m pytest tests/load_scenario/ tests/audit_responsibility_alignment/ -q 2>&1 | tail -1 → 141 passed in 0.09s (10-17)
+- [x] validate_scenario_schema · 改造commit — 证据: bash -c git show --stat --format= 338a10a | grep -c validate_scenario_schema && echo COMMIT_OK_338a10a → COMMIT_OK_338a10a (10-17)
 ### run_demo 改造（_backend_params 白名单+基准注入）
-- [ ] run_demo · 改造applied — 预告: tx_gain_db 透传+B210 缺省注入 resolve_base_tx_gain()；显式键=专家覆盖
-- [ ] run_demo · 改造tested — 预告: tests/run_demo（白名单/注入/显式覆盖/sim 不受扰）
-- [ ] run_demo · 改造commit — 预告: 随 B51 批提交
+- [x] run_demo · 改造applied — 证据: bash -o pipefail -c grep -qF "resolve_base_tx_gain" fn_work/src/run_demo/run_demo.py && cd fn_work && .venv/bin/python -m pytest tests/run_demo/test_tx_gain_passthrough.py -q 2>&1 | tail -1 → 5 passed in 0.09s (10-17)
+- [x] run_demo · 改造tested — 证据: bash -o pipefail -c cd fn_work && .venv/bin/python -m pytest tests/run_demo/ -q 2>&1 | tail -1 → 101 passed in 56.15s (10-17)
+- [x] run_demo · 改造commit — 证据: bash -c git show --stat --format= 338a10a | grep -c run_demo.py && echo COMMIT_OK_338a10a_run_demo在批 → COMMIT_OK_338a10a_run_demo在批 (10-17)
 
 ## B51 批间门
 - [ ] B51 · 评审三轴 — 预告: 三轴+四文档同步
