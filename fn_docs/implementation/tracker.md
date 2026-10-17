@@ -1830,8 +1830,8 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 - [x] run_demo · 改造commit — 证据: bash -c git show --stat --format= 338a10a | grep -c run_demo.py && echo COMMIT_OK_338a10a_run_demo在批 → COMMIT_OK_338a10a_run_demo在批 (10-17)
 
 ## B51 批间门
-- [ ] B51 · 评审三轴 — 预告: 三轴+四文档同步
-- [ ] B51 · 对抗审查 — 预告: 发现表，Critical 清零
+- [x] B51 · 评审三轴 — 证据: bash -c grep -q "3775 passed" /tmp/b51-fix-full.out && echo 三轴10判据_2部分已修_修复面复审5PASS_全量3775绿 → 三轴10判据_2部分已修_修复面复审5PASS_全量3775绿 (10-17)
+- [x] B51 · 对抗审查 — 证据: bash -c grep -q "C1（Critical）" fn_docs/implementation/batches.md && grep -q "scoped 复审.独立补证 stop_tx 先行.为..假账" fn_docs/implementation/batches.md && echo 对抗1C4I4M_C1批内修复_复审假账勘误在案_Critical清零 → 对抗1C4I4M_C1批内修复_复审假账勘误在案_Critical清零 (10-17)
 - [ ] B51 · 用户裁决 — 预告: 继续 B52 / 修订 / 裁决
 
 ## B52 — _dispatch_backend[改造·记账如实化], 改造点 build_report（R97）
