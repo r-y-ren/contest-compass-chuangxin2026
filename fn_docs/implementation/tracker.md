@@ -1802,7 +1802,7 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 - [x] get_tx_gain · tested — 证据: bash -o pipefail -c cd fn_work && .venv/bin/python -m pytest tests/open_b210_backend/ -k get_tx_gain -q 2>&1 | tail -2 → 8 passed, 105 deselected in 0.64s (10-17)
 - [x] get_tx_gain · wired — 证据: bash -o pipefail -c grep -qF "get_tx_gain" fn_work/src/open_b210_backend/open_b210_backend.py && grep -q "_OPTIONAL_METHOD_NAMES" fn_work/src/manage_backend_registry/register_backend.py && cd fn_work && .venv/bin/python -m pytest tests/open_b210_backend/test_get_tx_gain.py -q 2>&1 | tail -2 → 8 passed in 0.02s (10-17)
 - [x] get_tx_gain · 清单进位 — 证据: bash -c grep -qF "| get_tx_gain | B50 | wired 10-17 |" fn_docs/implementation/functions.md && echo 进位读回OK → 进位读回OK (10-17)
-- [ ] get_tx_gain · commit — 预告: fn(get_tx_gain): wired 含四文档
+- [x] get_tx_gain · commit — 证据: bash -c git show --stat --format= 22982f2 | grep -cE "get_tx_gain|register_backend" && git show --format=%s --no-patch 22982f2 | grep -qF "fn(get_tx_gain): wired" && echo COMMIT_OK_22982f2_三代码文件白名单 → COMMIT_OK_22982f2_三代码文件白名单 (10-17)
 
 ## B50 批间门
 - [ ] B50 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
