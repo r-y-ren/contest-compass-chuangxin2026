@@ -1832,7 +1832,7 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 ## B51 批间门
 - [x] B51 · 评审三轴 — 证据: bash -c grep -q "3775 passed" /tmp/b51-fix-full.out && echo 三轴10判据_2部分已修_修复面复审5PASS_全量3775绿 → 三轴10判据_2部分已修_修复面复审5PASS_全量3775绿 (10-17)
 - [x] B51 · 对抗审查 — 证据: bash -c grep -q "C1（Critical）" fn_docs/implementation/batches.md && grep -q "scoped 复审.独立补证 stop_tx 先行.为..假账" fn_docs/implementation/batches.md && echo 对抗1C4I4M_C1批内修复_复审假账勘误在案_Critical清零 → 对抗1C4I4M_C1批内修复_复审假账勘误在案_Critical清零 (10-17)
-- [ ] B51 · 用户裁决 — 预告: 继续 B52 / 修订 / 裁决
+- [x] B51 · 用户裁决 — 证据: bash -c grep -q "B51 门双审处置" fn_docs/implementation/batches.md && echo 裁决OK_用户2026-10-17继续B52 → 裁决OK_用户2026-10-17继续B52 (10-17)
 
 ## B52 — _dispatch_backend[改造·记账如实化], 改造点 build_report（R97）
 ### _dispatch_backend 改造（记账如实化）

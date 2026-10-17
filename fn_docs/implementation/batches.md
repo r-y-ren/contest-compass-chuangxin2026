@@ -2,9 +2,8 @@
 > fn-implement 独占更新。▶ = 下一批要完成的任务；未经批间门批准不得增删批次内容。
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
-|---|---|---|---|
-| ▶ B51 | resolve_base_tx_gain[新 shared], _dispatch_backend[改造·形态②正增益], 改造点×2（validate_scenario_schema 顶层键 tx_gain_db、run_demo._backend_params 白名单+B210 基准注入）；随批收敛 M1/M2/M3 | pytest -k b210_gain_mapping 全绿（6 档增益 30/40/45/50/55/60 断言+事件 applied_via/achieved 一致+sim 旧路径逐字节）；schema 用例（顶层键过/未知键拒 exit 2）；全套件零回归 | R95 映射；落序第二；M1-M3=对抗转批收敛项 |
-| B52 | _dispatch_backend[改造·记账如实化]（tx_gain_db/coarse_semantics 双列+地板正值适配+sim 有意保留注记）, 改造点 build_report 未标定换算脚注 | pytest -k attenuation_truthful 全绿（B210 形态无 unknown_gain/深档 partial 实达改写/sim 事件字段零变化反断言）；全套件回归绿 | R97 语义；落序第三 |
+|---|---|---|
+| ▶ B52 | _dispatch_backend[改造·记账如实化]（事件 tx_gain_db/coarse_semantics 双列+applied_via 入事件体+名义物理口径+sim 有意保留注记）, 改造点 build_report 未标定换算脚注 | pytest -k attenuation_truthful 全绿（B210 形态事件无 unknown_gain/双列字段/深档 partial/sim 事件字段零变化反断言）+build_report 脚注断言；全套件回归绿 | R97 语义；落序第三；I1 承接（R95 验收②事件 applied_via） |
 | B53 | 真机最小实证：手册第 1 章命令重跑+monitor 期望 bin 分析+overflow 计数+TX1 灯核对 | 顶档峰高出底噪 ≥15dB、首档 10dB 其余 5dB 递差可辨、事件 applied 无 unknown_gain、LED 现象记录（现场人）、overflow 计数在案 | R95 验收⑤=A/B/C 三相位复测口径；设备在位前提；合规=屏蔽实验室+30dB 衰减器恒串+总发射时长受限 |
 
 
