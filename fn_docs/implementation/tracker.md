@@ -1836,17 +1836,17 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 
 ## B52 — _dispatch_backend[改造·记账如实化], 改造点 build_report（R97）
 ### _dispatch_backend 改造（记账如实化）
-- [ ] _dispatch_backend · 语义applied — 预告: tx_gain_db/coarse_semantics='gain_budget' 双列+名义物理口径分列+sim 有意保留注记
-- [ ] _dispatch_backend · 语义tested — 预告: tests/set_channel_attenuation/test_attenuation_truthful.py（B210 无 unknown_gain/深档 partial 改写/sim 事件字段零变化反断言）
-- [ ] _dispatch_backend · 语义commit — 预告: fn(attenuation_truthful): 改造承载 R97
+- [x] _dispatch_backend · 语义applied — 证据: bash -o pipefail -c grep -q "_COARSE_SEMANTICS_GAIN_BUDGET" fn_work/src/set_channel_attenuation/set_channel_attenuation.py && cd fn_work && .venv/bin/python -m pytest tests/set_channel_attenuation/ -q 2>&1 | tail -1 → 74 passed in 0.05s (10-17)
+- [x] _dispatch_backend · 语义tested — 证据: bash -o pipefail -c cd fn_work && .venv/bin/python -m pytest -k attenuation_truthful -q 2>&1 | tail -2 → 4 passed, 3777 deselected, 1 warning in 1.76s (10-17)
+- [x] _dispatch_backend · 语义commit — 证据: bash -c git show --format=%s --no-patch 9321127 | grep -qF attenuation_truthful && git show --stat --format= 9321127 | grep -c set_channel_attenuation && echo COMMIT_OK_9321127 → COMMIT_OK_9321127 (10-17)
 ### build_report 改造（未标定换算脚注）
-- [ ] build_report · 改造applied — 预告: 阶梯节"物理=基准−衰减（未标定换算）"脚注
-- [ ] build_report · 改造tested — 预告: tests/build_report 脚注断言
-- [ ] build_report · 改造commit — 预告: 随 B52 批提交
+- [x] build_report · 改造applied — 证据: bash -o pipefail -c grep -q "_UNCALIBRATED_GAIN_FOOTNOTE" fn_work/src/build_report/build_report.py && cd fn_work && .venv/bin/python -m pytest tests/build_report/ -q 2>&1 | tail -1 → 63 passed in 4.23s (10-17)
+- [x] build_report · 改造tested — 证据: bash -o pipefail -c cd fn_work && .venv/bin/python -m pytest tests/build_report/ -k "footnote or gain" -q 2>&1 | tail -2 → 3 passed, 60 deselected in 0.47s (10-17)
+- [x] build_report · 改造commit — 证据: bash -c git show --stat --format= 9321127 | grep -c build_report.py && echo COMMIT_OK_同提交承载 → COMMIT_OK_同提交承载 (10-17)
 
 ## B52 批间门
-- [ ] B52 · 评审三轴 — 预告: 三轴+四文档同步
-- [ ] B52 · 对抗审查 — 预告: 发现表，Critical 清零
+- [x] B52 · 评审三轴 — 证据: bash -c grep -q "3781 passed" /tmp/b52-full.out && echo 三轴13判据全PASS → 三轴13判据全PASS (10-17)
+- [x] B52 · 对抗审查 — 证据: bash -c grep -qF "I-1 环境异常复位" fn_docs/implementation/batches.md && grep -qF "转 B53 补" fn_docs/implementation/batches.md && echo 对抗0C1I4M_I1复位三证_M项转批登记在案 → 对抗0C1I4M_I1复位三证_M项转批登记在案 (10-17)
 - [ ] B52 · 用户裁决 — 预告: 继续 B53 / 修订 / 裁决
 
 ## B53 — 真机最小实证（R95 验收⑤；A/B/C 三相位复测口径）
