@@ -4,6 +4,10 @@
 
 - ① 数据读回：run_dir 下 kpi.csv/events.jsonl/monitor.csv——存在才读，缺失段
   如实标「缺项」（缺项清单汇入缺项汇总段）；
+- ①b 未标定换算脚注（R97 名义/物理双列报告侧）：读回事件含 tx_gain_db 列
+  （B210 正增益映射的物理换算在场）→ 运行概要表后附小字引用行"功率档位为
+  名义值（GB 42590 口径，未标定）；B210 物理发射增益=基准−实达衰减的换算值
+  （未标定换算，非实测功率）"；纯 sim 数据无该列不附（名义模型无物理换算语义）；
 - ② 三元曲线：run_dir/plots/ 三 PNG 齐备→复用不重绘；否则 plot_triple_curves
   以读回数据绘制（三路全空/绘制失败→该段标缺项，不抛）；
 - ③ 失效电平对比：result['failure_levels'] 非空才调 compare_failure_boundaries
@@ -80,6 +84,16 @@ _FREQ_DEFAULT_NOTE = (
 _FREQ_SATISFIED_NOTE = "满足 ≥5 频点图谱位要求"
 _PLOT_REUSE_NOTE = "绘制口径：复用 plots/ 下已有三张 PNG（本次未重绘）"
 _NO_MISSING_NOTE = "无缺项：本 run 数据文件与报告产物双源核对齐备"
+
+#: 阶梯/attenuation 数据节"未标定换算"脚注（R97 名义/物理双列的报告侧）——仅当
+#: 读回事件含 tx_gain_db 列（B210 正增益映射的物理换算在场）时渲染；纯 sim 数据
+#: 无该列（名义模型无物理换算语义）不附。内联承载而非 make_disclaimer_block：
+#: 该块按 scene 枚举整块恒出（无法表达"仅物理换算在场才出"的数据条件），条件
+#: 判据本就只能在本模块读回事件后判定。
+_UNCALIBRATED_GAIN_FOOTNOTE = (
+    "口径：功率档位为名义值（GB 42590 口径，未标定）；"
+    "B210 物理发射增益=基准−实达衰减的换算值（未标定换算，非实测功率）"
+)
 
 
 def _as_path_str(value: object, name: str) -> str:
@@ -166,6 +180,21 @@ def _read_monitor(path: str) -> tuple[int | None, list[str] | None]:
 def _quote_line(line: str) -> str:
     """引用行规整：已是 '>' 前缀原样；否则补 '> '（EMC/声明区统一引用口径）。"""
     return line if line.startswith(">") else f"> {line}"
+
+
+def _gain_caliber_footnote_line(events: list[dict] | None) -> str | None:
+    """阶梯/attenuation 事件含 tx_gain_db 列（B210 物理换算在场）→ 脚注引用行。
+
+    判据=读回事件任一条带 tx_gain_db 键（attenuation 事件与摊开组合的 power_step
+    事件均承载该列——形态②记账增列）；纯 sim 数据无该列（名义模型无物理换算
+    语义）→ None 不渲染（R97：sim 场景报告不加此脚注）。返回 '> ' 引用行小字
+    口径，嵌入运行概要表之后（数据在位性语境附近）。
+    """
+    if not events:
+        return None
+    if not any("tx_gain_db" in item for item in events):
+        return None
+    return _quote_line(_UNCALIBRATED_GAIN_FOOTNOTE)
 
 
 def _sanitize_cell(text: str) -> str:
@@ -478,6 +507,11 @@ def build_report(run_dir: str, result: dict) -> str:
             monitor_n,
         )
     )
+    # ①b（R97）：阶梯/attenuation 物理换算在场（读回事件含 tx_gain_db 列）→ 运行
+    # 概要表后附"未标定换算"小字脚注（名义/物理双列的报告侧口径；sim 无该列不附）。
+    gain_footnote = _gain_caliber_footnote_line(events)
+    if gain_footnote is not None:
+        sections.append(gain_footnote)
     sections.append(
         _curves_md(run_dir, kpi_rows, events, failure_levels, run_id, missing)
     )

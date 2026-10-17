@@ -7,7 +7,9 @@
 EMC 三流程分节（R89，经 render_emc_flow_section 分发）：flow 标签
 conduction/radiation/sweep 各节标题与表体、sweep 标签优先于 readings 形状
 （映射层 flow 标签依赖下一任务 _report_payload 改造补齐）；simulated_parts
-防御回退随 emc.flow 出三流程段名（I-2——脚注与正文标题一致）。"""
+防御回退随 emc.flow 出三流程段名（I-2——脚注与正文标题一致）；
+R97 未标定换算脚注：读回事件含 tx_gain_db 列（B210 阶梯物理换算在场）→ 概要
+表后小字脚注，纯 sim 数据不附。"""
 from __future__ import annotations
 
 import json
@@ -544,3 +546,71 @@ def test_report_builder_simulated_parts_fallback_follows_flow(tmp_path):
     assert "报告涉及模拟段：EMC 辐射摸底段" in text  # 脚注回退随 flow
     assert "传导摸底段" not in text  # 不误称传导（旧回退缺陷）
     assert "CISPR 16-1-1" in text  # dict 形状 → emc 级声明照附
+
+
+def _write_b210_ladder_events(run_dir: Path) -> None:
+    """B210 形态阶梯事件夹具：attenuation 事件携 tx_gain_db/coarse_semantics
+    （R97 形态②记账增列——set_channel_attenuation 落盘口径同形）。"""
+    events = [
+        {
+            "type": "attenuation",
+            "target_db": 35.0,
+            "coarse": "in",
+            "coarse_db": 30.0,
+            "fine_step_db": 5.0,
+            "fine_actual_db": 5.0,
+            "achieved_db": 35.0,
+            "residual_db": 0.0,
+            "fine_from": "nominal",
+            "tx_gain_db": 25.0,
+            "coarse_semantics": "gain_budget",
+            "applied": True,
+            "applied_via": "tx_gain",
+        }
+    ]
+    (run_dir / "events.jsonl").write_text(
+        "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_report_builder_uncalibrated_gain_footnote_for_b210_ladder_events(tmp_path):
+    """㉕ R97：读回事件含 tx_gain_db 列（B210 正增益映射物理换算在场）→ 运行
+    概要表后渲染「未标定换算」小字脚注（名义/物理双列报告侧——不当实测值）。"""
+    _write_b210_ladder_events(tmp_path)
+    path = build_report(str(tmp_path), {"run_id": "RUN-B210", "backend": "b210"})
+    text = Path(path).read_text(encoding="utf-8")
+
+    assert "功率档位为名义值（GB 42590 口径，未标定）" in text
+    assert "B210 物理发射增益=基准−实达衰减的换算值（未标定换算，非实测功率）" in text
+    assert "> 口径：功率档位为名义值" in text  # 引用行小字口径
+    # 落点：运行概要（KPI/数据在位表）之后、三元曲线（阶梯事件图）之前
+    summary_pos = text.index("## 运行概要")
+    footnote_pos = text.index("未标定换算")
+    curves_pos = text.index("## 三元曲线")
+    assert summary_pos < footnote_pos < curves_pos
+
+
+def test_report_builder_no_gain_footnote_for_sim_events(tmp_path):
+    """㉖ R97 反面：纯 sim 数据（attenuation 事件无 tx_gain_db 列——名义模型无
+    物理换算语义）→ 不附「未标定换算」脚注。"""
+    sim_event = {
+        "type": "attenuation",
+        "target_db": 35.0,
+        "coarse": "in",
+        "coarse_db": 30.0,
+        "fine_step_db": 5.0,
+        "fine_actual_db": 5.0,
+        "achieved_db": 35.0,
+        "residual_db": 0.0,
+        "fine_from": "nominal",
+        "applied": "unknown_gain",
+    }
+    (tmp_path / "events.jsonl").write_text(
+        json.dumps(sim_event, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    path = build_report(str(tmp_path), {"run_id": "RUN-SIM", "backend": "sim"})
+    text = Path(path).read_text(encoding="utf-8")
+
+    assert "未标定换算" not in text
+    assert "功率档位为名义值" not in text

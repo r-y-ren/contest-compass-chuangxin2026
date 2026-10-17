@@ -1,5 +1,8 @@
 """set_channel_attenuation 对抗测试：验收 slug=channel_ladder（请求→组合映射、下发鸭子形态、
-越界拒绝附可达域、事件落盘严格 JSON、纯计算模式、标定口径注入、返回键集）。"""
+越界拒绝附可达域、事件落盘严格 JSON、纯计算模式、标定口径注入、返回键集）。
+R97 记账增列（2026-10-17）：形态②返回/事件增 tx_gain_db+coarse_semantics、形态①事件体
+补 applied_via——本文件精确键集断言随语义更新（B51 同款在案先例）；事件体逐档对拍与
+sim 零变化反断言另见 test_attenuation_truthful.py。"""
 from __future__ import annotations
 
 import json
@@ -101,8 +104,12 @@ def test_channel_ladder_run_dir_none_pure_computation_skips_event(monkeypatch, t
     backend.get_tx_gain.return_value = 100.0  # 增益足量：细档 20 全额生效
     result = set_channel_attenuation({"backend": backend}, 20.0)
     assert result["applied"] is True and result["achieved_db"] == 20.0
+    # R97 记账增列（2026-10-17）：形态②返回/事件增 tx_gain_db+coarse_semantics——键集随语义更新
+    assert set(result) == _COMBO_KEYS | {
+        "applied", "applied_via", "tx_gain_db", "coarse_semantics",
+    }
+    assert result["tx_gain_db"] == 40.0 and result["coarse_semantics"] == "gain_budget"
     assert not (tmp_path / "events.jsonl").exists()  # 任何位置均未落盘
-    assert set(result) == _COMBO_KEYS | {"applied", "applied_via"}
 
 
 def test_channel_ladder_unreachable_46db_attenuation_error_with_reachable_domain(tmp_path):
@@ -165,9 +172,11 @@ def test_channel_ladder_event_jsonl_strict_parse_shape_and_stamps(tmp_path):
     set_channel_attenuation({"backend": Mock(spec=["set_attenuation"]), "run_dir": str(tmp_path)}, 35.0)
     (event,) = _read_events(tmp_path)
     assert event["type"] == "attenuation"
+    # R97（2026-10-17）：形态①事件体补 applied_via（返回已有、事件补齐=如实对称）
     assert set(event) == _COMBO_KEYS | {
-        "type", "target_db", "applied", "ts", "wallclock",
+        "type", "target_db", "applied", "applied_via", "ts", "wallclock",
     }
+    assert event["applied_via"] == "set_attenuation"
     assert isinstance(event["ts"], int)  # 单调钟毫秒
     assert isinstance(event["wallclock"], str) and "T" in event["wallclock"]  # ISO8601
     assert all(isinstance(event[k], (int, float)) for k in
@@ -204,7 +213,11 @@ def test_channel_ladder_return_keyset_per_path(tmp_path):
     ok = set_channel_attenuation(
         {"backend": backend, "run_dir": str(tmp_path)}, 0.0
     )
-    assert set(ok) == _COMBO_KEYS | {"applied", "applied_via"}
+    # R97 记账增列（2026-10-17）：形态②返回增 tx_gain_db（请求 0 → 增益=基准 60）+coarse_semantics
+    assert set(ok) == _COMBO_KEYS | {
+        "applied", "applied_via", "tx_gain_db", "coarse_semantics",
+    }
+    assert ok["tx_gain_db"] == 60.0 and ok["coarse_semantics"] == "gain_budget"
     assert ok["coarse"] == "bypass" and ok["fine_step_db"] == 0.0 and ok["achieved_db"] == 0.0
     denied = set_channel_attenuation({"run_dir": str(tmp_path)}, 0.0)
     assert set(denied) == _COMBO_KEYS | {"applied", "reason"}
@@ -267,7 +280,10 @@ def test_channel_ladder_tx_gain_positive_mapping_and_floor_truthful(tmp_path):
     assert floored["achieved_db"] == 60.0 and floored["residual_db"] == pytest.approx(25.0)
     assert floored["applied"] == "partial"
     assert floored["applied_via"] == "tx_gain" and floored["applied_detail"] == "gain_floor"
-    assert set(floored) == _COMBO_KEYS | {"applied", "applied_via", "applied_detail"}
+    # R97 记账增列（2026-10-17）：形态②地板返回增 tx_gain_db（=0）+coarse_semantics
+    assert set(floored) == _COMBO_KEYS | {
+        "applied", "applied_via", "applied_detail", "tx_gain_db", "coarse_semantics",
+    }
     # 绝对映射无状态：同一 sim（已置 45）再下 85 → 仍下发 0、结果与全新后端一致
     sequential = set_channel_attenuation({"backend": sim}, 85.0, domain=domain)
     assert sim.gain_db == 0.0 and sim.gain_calls == [45.0, 0.0]
