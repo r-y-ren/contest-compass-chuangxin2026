@@ -1785,7 +1785,7 @@
 
 ## 功能块 设备接口真值同步 ← R94（文档交付物）
 
-（R94：据 docs/USRP_B210说明.pdf+设备清单.txt 更新——①**0.2 连接方式重写**：注入发=TRX1 口（SMA 直连 30dB 衰减器→双频天线A 或 SMA 负载闭合，无 MMCX 转接）；监测收=RX2 口（SMA 直连双频天线B）；MMCX 两线归位（公转母=GPS 天线接 GPS 口【MMCX】；公转公=PPS/10M 外接备用）；总图+接线表全用真实端口名（TRX1/RX1/RX2/TRX2 四 SMA+GPS/PPS/10M 三 MMCX）。②**0.3 加 FPGA 校验步**：新主机首次需替换 usrp_b210_fpga.bin 为 K7 优化版镜像（本演示机已替换——真机跑通在案）；GPSDO 插槽已移除不可接；板载 GPS 锁定时外接 PPS 不可用。③**0.1 清单行更新**：MMCX 两行细分+B210 行注接口布局；DEMO_CHECKLIST 同步（改造点）。④**残留清扫**：全文"CH1（MMCX）/CH2（MMCX）/MMCX 转 SMA→射频"旧接法零残留（含设备边界对照表、26 章、README 已同步句复核）。代码零改动——端口映射与 configure_b210_channels 白名单一致（tx=TX/RX 口、rx 缺省 RX2）。）
+（R94：据 docs/USRP_B210说明.pdf+设备清单.txt 更新——①**0.2 连接方式重写**：注入发=TRX1 口（SMA 直连 30dB 衰减器→双频天线A 或 SMA 负载闭合，无 MMCX 转接）；监测收=RX2 口（SMA 直连双频天线B）；MMCX 两线归位（公转母=GPS 天线接 GPS 口【MMCX】；公转公=PPS/10M 外接备用）；总图+接线表全用真实端口名（TRX1/RX1/RX2/TRX2 四 SMA+GPS/PPS/10M 三 MMCX）。②**0.3 加 FPGA 校验步**：新主机首次需替换 usrp_b210_fpga.bin 为 K7 优化版镜像（本演示机已替换——真机跑通在案）；GPSDO 插槽已移除不可接；板载 GPS 锁定时外接 PPS 不可用。③**0.1 清单行更新**：MMCX 两行细分+B210 行注接口布局；DEMO_CHECKLIST 同步（改造点）。④**残留清扫**：全文"CH1（MMCX）/CH2（MMCX）/MMCX 转 SMA→射频"旧接法零残留（含设备边界对照表、26 章、README 已同步句复核）。代码零改动——端口映射与 configure_b210_channels 白名单一致（tx=TX/RX 口、rx 缺省 RX2）。（勘误 2026-10-17：'RX2' 为 UHD 按信道相对天线名——监测链实际绑信道 0（StreamArgs/set_rx_* 未传信道号），其 'RX2'=丝印 RX1 口；监测天线改接 RX1（用户裁决，代码零改动），手册/user-guide/README 同步；真机监测实证随 R87。））
 
 - **设备接口真值同步** [L0|文档交付物]
   - 职责：按上述规格修订手册四处+DEMO_CHECKLIST 行；验收=旧接法 grep -qE 零命中+契约 v2 八键绿+分高双审门。
