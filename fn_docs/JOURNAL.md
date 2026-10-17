@@ -19,3 +19,9 @@
 - 现象：用户按手册接好两天线（TRX1/RX2）+GPS 真机运行，RX1 灯亮。定位：监测链实际绑 UHD **信道 0**——tx/rx 流句柄 StreamArgs 未传 channels（open_b210_backend.py:181/:218）、set_rx_* 未传信道号（configure_b210_channels.py:150）均缺省 chan 0；UHD 天线名 'RX2' 是**按信道相对命名**（活体探测两信道各列 'TX/RX'/'RX2'），信道 0 的 'RX2' 物理对应**丝印 RX1 口**——即现行代码监测物理口=RX1，手册"监测接 RX2"与实际错位（R94 当时"端口=按代码缺省"的核对混淆了逻辑名与丝印口）。
 - 用户裁决：监测天线改接丝印 RX1、代码零改动。文档面同步：手册 6 处（设备边界表/0.1 两行/0.2 总图+接线表+桥接注重写含 LED 预期注记）、user-guide 已知限制 8、README 演示段、requirements R94 行勘误注+变更记录新行、responsibility R94 块勘误注；契约检查器 24/24 复绿。
 - 遗留：真机监测谱实证（天线在 RX1 上实际监测到注入谱）随 R87；若日后要改回丝印 RX2 口为监测口=代码改动（channels=[1]+set_rx_*(…,1)），须立 R 条目走 fn-implement。
+
+## 真机 TX 发射无效诊断（2026-10-17，带练中用户发现→诊断报告在案，修复移交并行对话）
+- 现象：真机轮（runs/20261017-124103，B210Backend）TX1 灯不亮；monitor 102 万行零本方信号（>-40dB 热行=环境 WiFi 宽带突发、逐 bin 最长连续串=1、无阶梯结构）；每档事件 applied=unknown_gain。
+- 根因链：①open_b210_backend.py:50 缺省 TX 增益 0dB；②run_demo.py:328 _backend_params 只透传 freq_hz（场景无增益旋钮）；③set_channel_attenuation.py:99 B210 无 set_attenuation→回退 set_tx_gain(**负值**)被夹 0、粗档 30dB in/out 无执行器纯账面；④B210Backend 无 get_tx_gain（unknown_gain 分支必走）；⑤增益标定表【待实测】→ power_dbm 从未映射到增益。净效果：真机阶梯=常数 0dB 耳语（-110dBm@天线，低于底噪 50–70dB）。
+- 三相对照实验（平台路径 start_tx/read_samples，2450.2MHz 音调）：A 基线期望 bin=底噪；B 缺省 0dB 发射期望 bin 仍=底噪（复现缺陷）；C set_tx_gain(60) 期望 bin +37.3dB 干净出峰——电台与发射链完好，缺陷唯一在映射层。
+- 产物：fn_docs/诊断-TX发射无效-20261017.md（根因锚点/实验数据/影响面/修复方向面六节）；带练暂停于步骤 4 后（sim 口径不受影响）。修复由用户并行对话承接（立 R 条目走 fn-ladder）。
