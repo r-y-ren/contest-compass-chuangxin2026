@@ -4,16 +4,20 @@
 - 档位标定口径：cal_table 由调用方直传（细档标称→实际衰减），缺省取 ctx['attenuator_cal']；
   本函数不读文件标定表——gain 表口径是档位→功率、link_loss 表口径是频点→dB，均不适用
   档位级衰减标定（load_calibration_table 由上游构建后经 ctx/参数注入）。
-- 下发：backend 鸭子两方法都试——优先 set_attenuation(achieved_db)（程控衰减器后端，
-  承载粗+细全量实达值），缺则 set_tx_gain(-fine_step_db)（SDR 软件增益细档；粗档 30dB
-  为手调两态，状态经事件记录由操作面执行）；backend 缺或两方法皆缺→'applied': False +
-  'reason': 'no_backend'。后端方法自身异常不捕获，原样透传（操作面失败由调用方处置）。
-  set_tx_gain 回退路径的增益地板如实口径（B9中#3）：先经 get_tx_gain() 读当前增益——
-  缺方法无法判定地板→下发后 'applied': 'unknown_gain'（如实标不确定，不再虚报 True）；
-  细档衰减 ≥ 当前增益（减完会夹 0 或已夹）→ 实际细档衰减被夹至当前增益（增益减到 0）：
-  'applied': 'partial' + 'applied_detail': 'gain_floor'，组合实达如实改写
-  （fine_actual_db=当前增益、achieved_db=粗档+当前增益、residual_db 按实达重算），
-  事件与返回不再虚报 achieved 与 applied。
+- 下发：backend 鸭子四形态互斥择一（R95）——①有 set_attenuation（程控衰减器后端）
+  → set_attenuation(achieved_db) 全量实达值、applied=True、applied_via=
+  'set_attenuation'（仪器形态语义不变：粗+细全量由仪器承载）；②有 set_tx_gain+
+  get_tx_gain（B210 形态）→ 正增益映射：粗档 30dB 两态折进增益预算（不再由操作面
+  手调——"手调两态由操作面执行"旧句至此失真废除），target=resolve_base_tx_gain()
+  −achieved_db（基准 60−粗档预算−细档；resolve_base_tx_gain 越界 ValueError 透传）；
+  target≥0 → set_tx_gain(target)、applied=True、applied_via='tx_gain'；target<0 →
+  增益地板：set_tx_gain(0)、applied='partial'+applied_detail='gain_floor'，实际衰减
+  =基准（achieved_db=基准、residual_db=target_db−基准、fine_actual_db=基准−粗档，
+  实达组合如实改写，事件与返回不虚报）；③仅有 set_tx_gain 无 get_tx_gain（SimBackend
+  名义模型，有意保留）→ 旧相对增量路径 set_tx_gain(−fine_step_db)、applied=
+  'unknown_gain'（sim 零改变=演进轮⑤范围外硬约束，逐字节保留）；④backend 缺或
+  两方法皆缺→'applied': False+'reason': 'no_backend'。后端方法自身异常不捕获，
+  原样透传（操作面失败由调用方处置）。
 - 事件：ctx['run_dir'] 存在（非 None）时 append_event(run_dir, {'type': 'attenuation',
   'target_db', **combo, 'applied'}，未下发附 reason)；run_dir 缺省 None→纯计算模式跳过
   事件。事件是测量真值：append_event 失败（EventWriteError）透传，由调用方走停发射路径。
@@ -28,6 +32,7 @@ from .plan_attenuator_combo import (
     plan_attenuator_combo,
 )
 from src.shared.append_event import EventWriteError, append_event
+from src.shared.resolve_base_tx_gain import resolve_base_tx_gain
 
 #: EventWriteError 随错误契约一并重导出（本函数透传不捕获，调用方可就地导入）。
 __all__ = ["AttenuationError", "EventWriteError", "set_channel_attenuation"]
@@ -72,18 +77,24 @@ def _reachable_top(domain: dict | None, cal_table: dict | None) -> tuple[float, 
 def _dispatch_backend(
     backend: object, combo: dict, target_db: float
 ) -> tuple[dict, bool | str, str | None, str | None, str | None]:
-    """鸭子下发：优先 set_attenuation(achieved_db)，缺则 set_tx_gain(-fine_step_db)。
+    """鸭子下发四形态互斥择一：①set_attenuation 全量；②B210 正增益映射；③sim 旧路径；④no_backend。
 
     返回 (实达组合, applied, applied_via, applied_detail, reason)：backend 缺或两方法
-    皆缺/不可调用→(combo, False, None, None, 'no_backend')。两形态互斥择一
+    皆缺/不可调用→(combo, False, None, None, 'no_backend')。形态互斥择一
     （set_attenuation 已承载全量实达值，再调 set_tx_gain 会重复计细档）；后端方法
-    自身异常不捕获，原样透传。
+    自身异常不捕获原样透传，resolve_base_tx_gain 的 ValueError 同样透传。
 
-    set_tx_gain 回退路径的增益地板如实口径（B9中#3）：先经 get_tx_gain() 读当前增益
-    （缺方法→无法判定地板，dispatch 后 applied='unknown_gain'）；细档衰减 ≥ 当前增益
-    （减完会夹 0 或已夹）→ 实际细档衰减被夹至当前增益（增益减到 0）：applied='partial'
-    + applied_detail='gain_floor'，并如实改写实达组合（fine_actual_db=当前增益、
-    achieved_db=粗档+当前增益、residual_db 按实达重算）。
+    形态②（set_tx_gain+get_tx_gain 双在，B210，R95）：正增益映射——粗档折进增益
+    预算，target=resolve_base_tx_gain()−achieved_db（基准−粗档预算−细档）；get_tx_gain
+    在场兼作形态判据（R96 鸭子特征名），绝对映射无需先读当前增益。target≥0 →
+    set_tx_gain(target)、applied=True、applied_via='tx_gain'；target<0 → 增益地板：
+    set_tx_gain(0)、applied='partial'+applied_detail='gain_floor'，实际衰减=基准
+    （achieved_db=基准、residual_db=target_db−基准、fine_actual_db=基准−粗档，
+    实达组合如实改写，事件与返回不虚报）。
+
+    形态③（仅有 set_tx_gain 无 get_tx_gain，SimBackend）：旧相对增量路径逐字节保留
+    ——set_tx_gain(−fine_step_db)、applied='unknown_gain'、applied_via='set_tx_gain'
+    （有意保留=名义模型口径非缺陷，演进轮⑤登记防误判）。
     """
     if backend is not None:
         set_attenuation = getattr(backend, "set_attenuation", None)
@@ -97,17 +108,19 @@ def _dispatch_backend(
                 # 无增益可读：地板是否夹 0 无法判定——下发照做，applied 如实标不确定
                 set_tx_gain(-float(combo["fine_step_db"]))
                 return combo, "unknown_gain", "set_tx_gain", None, None
-            current_gain = float(get_tx_gain())  # 先读增益（异常透传，未下发无半截状态）
-            set_tx_gain(-float(combo["fine_step_db"]))
-            fine_requested = float(combo["fine_step_db"])
-            if fine_requested >= current_gain:
-                # 增益地板：细档衰减 ≥ 当前增益 → 实际细档衰减=当前增益（增益减到 0）
+            # 形态②（B210）：正增益映射——粗档折进增益预算，下发绝对增益=基准−实达衰减
+            base_db = resolve_base_tx_gain()  # 基准 60−粗档预算−细档；ValueError 透传
+            target_gain_db = base_db - float(combo["achieved_db"])
+            if target_gain_db < 0.0:
+                # 增益地板：请求实达 > 基准 → 增益 0 封底，实际衰减=基准（组合如实改写）
+                set_tx_gain(0)
                 floored = dict(combo)
-                floored["fine_actual_db"] = current_gain
-                floored["achieved_db"] = float(combo["coarse_db"]) + current_gain
-                floored["residual_db"] = float(target_db) - floored["achieved_db"]
-                return floored, "partial", "set_tx_gain", "gain_floor", None
-            return combo, True, "set_tx_gain", None, None
+                floored["fine_actual_db"] = base_db - float(combo["coarse_db"])
+                floored["achieved_db"] = base_db
+                floored["residual_db"] = float(target_db) - base_db
+                return floored, "partial", "tx_gain", "gain_floor", None
+            set_tx_gain(target_gain_db)
+            return combo, True, "tx_gain", None, None
     return combo, False, None, None, "no_backend"
 
 
@@ -121,9 +134,10 @@ def set_channel_attenuation(
 
     ctx 可含 backend/run_dir/attenuator_cal；domain/cal_table 直传（优先于 ctx）。
     返回 combo（coarse/coarse_db/fine_step_db/fine_actual_db/achieved_db/residual_db/
-    fine_from）+ applied（+applied_via 或 reason）；set_tx_gain 回退路径 applied 另有
-    'partial'（附 applied_detail='gain_floor'，实达组合按增益地板如实改写）与
-    'unknown_gain'（无 get_tx_gain 无法判定地板）两态（B9中#3）。
+    fine_from）+ applied（+applied_via 或 reason）；tx_gain 下发路径 applied 另有
+    'partial'（附 applied_detail='gain_floor'——B210 形态请求实达超基准，实际衰减
+    =基准，实达组合如实改写）与 'unknown_gain'（sim 形态无 get_tx_gain 无法判定
+    地板，旧路径有意保留）两态。
     """
     if not isinstance(ctx, dict):
         raise ValueError(f"ctx 必须为 dict，实际: {type(ctx).__name__}")
@@ -141,8 +155,9 @@ def set_channel_attenuation(
             fine_top_db=fine_top,
         )
 
-    # ② 下发：鸭子两方法都试，缺则 applied=False/reason='no_backend'（方法异常透传）；
-    #    set_tx_gain 回退的增益地板/增益不可读如实标注（B9中#3）
+    # ② 下发：鸭子四形态互斥择一，缺则 applied=False/reason='no_backend'（方法异常与
+    #    resolve_base_tx_gain 的 ValueError 透传）；B210 正增益映射/增益地板、sim 旧
+    #    路径增益不可读如实标注（R95/B9中#3）
     dispatched, applied, applied_via, applied_detail, reason = _dispatch_backend(
         ctx.get("backend"), combo, float(target_db)
     )

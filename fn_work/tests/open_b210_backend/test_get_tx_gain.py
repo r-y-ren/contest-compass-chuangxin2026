@@ -1,9 +1,10 @@
-"""get_tx_gain 单测（slug=backend_b210·R96 地基——R96 验收继承）。
+"""get_tx_gain 单测（slug=backend_b210·R96 地基——R96 验收继承；B51 扩 M1/M2 收敛例）。
 
 覆盖两级口径（device 读回优先 / self.tx_gain_db 跟踪回退）、device 异常原样
-透传（非 BackendError 包装）、注册表反射（_METHOD_NAMES 在册+契约面承载）与
-读回形状拒绝（bool/非数值如实抛）。夹具风格承 test_open_b210_backend（自建
-轻量假件，不 import 兄弟测试模块私有夹具）。
+透传（非 BackendError 包装）、注册表反射（_METHOD_NAMES 在册+契约面承载）、
+读回形状拒绝（bool/非数值如实抛）与有限性拒绝（NaN/±Inf → BackendError，M2）
+及 set_tx_gain 回读形状对称拒绝（M1）。夹具风格承 test_open_b210_backend
+（自建轻量假件，不 import 兄弟测试模块私有夹具）。
 """
 from __future__ import annotations
 
@@ -156,3 +157,28 @@ def test_get_tx_gain_non_numeric_readback_rejected(bad):
     device.get_tx_gain = lambda: bad
     with pytest.raises(BackendError, match="读回形状异常"):
         backend.get_tx_gain()
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_get_tx_gain_nonfinite_readback_rejected(bad):
+    """⑥M2 有限性校验：NaN/±Inf 读回 → BackendError（对齐 resolve_base_tx_gain
+    守卫口径），不返回非有限伪值。"""
+    device = FakeDevice()
+    backend = _open(device)
+    device.get_tx_gain = lambda: bad
+    with pytest.raises(BackendError, match="非有限"):
+        backend.get_tx_gain()
+
+
+@pytest.mark.parametrize("bad", [True, "60.0", None])
+def test_set_tx_gain_non_numeric_readback_rejected_symmetric(bad):
+    """⑦M1 对称收敛：set_tx_gain 回读非数值（含 bool）→ BackendError（与 get_tx_gain
+    同口径），不再静默返回伪值；跟踪字段不被异形回读污染（保持开箱基线 10.0），
+    设备 setter 已收值（先写后校验的既有次序如实保留）。"""
+    device = FakeDevice()
+    backend = _open(device)
+    device.get_tx_gain = lambda: bad
+    with pytest.raises(BackendError, match="回读形状异常"):
+        backend.set_tx_gain(50.0)
+    assert device.set_calls["set_tx_gain"] == 50.0  # 写已发生（回读校验不吞副作用）
+    assert backend.tx_gain_db == 10.0  # 异形回读不同步进跟踪字段

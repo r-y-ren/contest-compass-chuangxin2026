@@ -325,7 +325,12 @@ class B210Backend:
         return None
 
     def set_tx_gain(self, db) -> float:
-        """设置发射增益：透传 device.set_tx_gain 并回读 get_tx_gain 返回实际生效值。"""
+        """设置发射增益：透传 device.set_tx_gain 并回读 get_tx_gain 返回实际生效值。
+
+        回读非数值（含 bool）→ BackendError（读回形状异常，与 get_tx_gain 同口径
+        ——M1 对称收敛：不再静默返回伪值，跟踪字段不同步异形回读）；device 无该
+        getter 则回退跟踪值 self.tx_gain_db=val。
+        """
         val = _as_real("tx_gain_db", db)
         setter = getattr(self.device, "set_tx_gain", None)
         if not callable(setter):
@@ -341,7 +346,11 @@ class B210Backend:
             applied = getter()
             if isinstance(applied, (int, float)) and not isinstance(applied, bool):
                 self.tx_gain_db = float(applied)
-            return applied
+                return applied
+            raise BackendError(
+                f"B210 set_tx_gain 回读形状异常（须 int/float 且非 bool）: "
+                f"{type(applied).__name__}: {applied!r}"
+            )
         self.tx_gain_db = val
         return val
 
@@ -350,15 +359,21 @@ class B210Backend:
 
         两级口径：优先 device.get_tx_gain 读回实际生效值（数值校验 int/float 且
         非 bool → float，与 set_tx_gain 回读判定同款；bool/非数值视为读回形状
-        异常，如实抛 BackendError）；device 无该 getter 则回退 self.tx_gain_db
-        跟踪值。device 调用自身异常不捕获、原样透传不包装（先读后发契约：读
-        失败时未下发、无半截状态）。
+        异常，如实抛 BackendError；数值还须有限——NaN/±Inf 拒绝，对齐
+        resolve_base_tx_gain 守卫口径，M2）；device 无该 getter 则回退
+        self.tx_gain_db 跟踪值。device 调用自身异常不捕获、原样透传不包装（先读
+        后发契约：读失败时未下发、无半截状态）。
         """
         getter = getattr(self.device, "get_tx_gain", None)
         if callable(getter):
             applied = getter()
             if isinstance(applied, (int, float)) and not isinstance(applied, bool):
-                return float(applied)
+                value = float(applied)
+                if not math.isfinite(value):
+                    raise BackendError(
+                        f"B210 get_tx_gain 读回非有限（NaN/±Inf 拒绝）: {value!r}"
+                    )
+                return value
             raise BackendError(
                 f"B210 get_tx_gain 读回形状异常（须 int/float 且非 bool）: "
                 f"{type(applied).__name__}: {applied!r}"

@@ -361,32 +361,43 @@ def test_power_ladder_two_rounds_same_backend_each_round_stops(tmp_path):
 
 
 def test_power_ladder_executed_passes_through_gain_floor_status(tmp_path):
-    """B9中#3 executed 透传：set_tx_gain 后端增益地板档 applied 'partial'/
-    applied_detail 'gain_floor' 如实进入 executed 与 power_step 事件。"""
-    class _SimGainBackend:
-        """软件增益后端：set_tx_gain 负向调整夹 0，get_tx_gain 可读。"""
+    """B9中#3→R95 executed 透传：B210 形态增益地板档 applied 'partial'/
+    applied_detail 'gain_floor' 如实进入 executed 与 power_step 事件。
+    R95 正增益映射改造：旧负值/相对地板语义用例随语义替换改写（2026-10-17）——
+    默认域顶 30+20=50 < 基准 60 地板不可达，故经 ctx['attenuator_cal'] 把细档 20
+    标定为实际 40（域顶 70）：档位 −65dBm → 衰减请求 65 → 实达 70 > 基准 60 →
+    下发增益 0、partial（用例本意"地板状态透传"经构造域保留）。"""
+    class _B210LikeGainBackend:
+        """B210 形态假后端：get_tx_gain 在场=形态②判据；set_tx_gain 记录并持有
+        下发的绝对增益值（初始增益对绝对映射不参与计算）。"""
 
-        def __init__(self, initial_gain_db: float) -> None:
-            self.gain_db = float(initial_gain_db)
+        def __init__(self) -> None:
+            self.gain_db = 80.0
+            self.gain_calls: list[float] = []
 
         def get_tx_gain(self) -> float:
             return self.gain_db
 
-        def set_tx_gain(self, delta_db: float) -> None:
-            self.gain_db = max(0.0, self.gain_db + float(delta_db))
+        def set_tx_gain(self, db: float) -> None:
+            self.gain_calls.append(float(db))
+            self.gain_db = float(db)
 
-    sim = _SimGainBackend(12.0)  # 增益 12 < 首档衰减 20 → 首档即触地板减到 0
+    sim = _B210LikeGainBackend()
     result = run_power_ladder(
-        _ctx(tmp_path, sim), {"start_db": -20.0, "step_db": 5.0, "stop_db": -5.0}, dwell_s=0.0
+        _ctx(tmp_path, sim, attenuator_cal={20.0: 40.0}),
+        {"start_db": -65.0, "stop_db": -65.0},
+        dwell_s=0.0,
     )
     first = result["executed"][0]
-    assert first["target_db"] == -20.0  # 衰减 20 → 旁路粗档+细档 20 ≥ 增益 12
+    assert first["target_db"] == -65.0  # 衰减请求 65 → 实达 70 > 基准 60 → 地板
     assert first["applied"] == "partial" and first["applied_detail"] == "gain_floor"
-    assert first["fine_actual_db"] == 12.0 and first["achieved_db"] == 12.0
+    assert first["applied_via"] == "tx_gain"
+    assert first["achieved_db"] == 60.0 and first["fine_actual_db"] == 30.0  # 基准−粗档
+    assert sim.gain_calls == [0.0, 0.0]  # 地板下发 0 + 收尾 stop_transmit_safely 置 0
     power_first = _power_steps(_read_events(tmp_path))[0]
     assert power_first["applied"] == "partial" and power_first["applied_detail"] == "gain_floor"
-    assert power_first["achieved_db"] == 12.0  # 事件真值随实达
-    assert result["stop_result"]["status"] == "stopped"  # set_tx_gain(0) 收尾成功
+    assert power_first["achieved_db"] == 60.0  # 事件真值随实达
+    assert result["stop_result"]["status"] == "stopped"  # 收尾停发射成功
 
 
 @pytest.mark.parametrize("garbage", ["garbage", {"detail": "缺 failed"}, None, True])

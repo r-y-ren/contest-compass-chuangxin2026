@@ -49,17 +49,22 @@ def test_channel_ladder_35db_dispatches_set_attenuation_and_logs_event(tmp_path)
     assert event["coarse"] == "in" and event["achieved_db"] == 35.0 and event["applied"] is True
 
 
-def test_channel_ladder_set_tx_gain_fallback_receives_negated_fine_step(tmp_path):
-    """② 仅 set_tx_gain 形态（增益可读且足量）：先读增益再以软件增益 -5.0 下发细档 5。"""
+def test_channel_ladder_set_tx_gain_positive_gain_dispatch(tmp_path):
+    """② B210 形态（set_tx_gain+get_tx_gain 双在）正增益映射：请求 35 → 组合实达 35
+    → 下发绝对增益 25.0（基准 60−35），applied_via='tx_gain'。
+    R95 正增益映射改造：旧负值/相对地板语义用例随语义替换改写（2026-10-17）——原
+    断言 set_tx_gain(-5.0)+先读 get_tx_gain 属旧相对增量口径；用例 docstring 本意
+    "增益可读且足量"即形态②，故按本意改正增益断言（fake 保留 get_tx_gain）而非去
+    getter 转 sim——sim 负值路径由下方 unknown_gain 用例（spec=["set_tx_gain"]）独立钉住。"""
     backend = Mock(spec=["set_tx_gain", "get_tx_gain"])
-    backend.get_tx_gain.return_value = 80.0
     result = set_channel_attenuation({"backend": backend, "run_dir": str(tmp_path)}, 35.0)
-    backend.set_tx_gain.assert_called_once_with(-5.0)
-    # 先读当前增益（B9中#3 增益地板判定依据）再下发
-    assert backend.method_calls == [call.get_tx_gain(), call.set_tx_gain(-5.0)]
-    assert result["applied"] is True and result["applied_via"] == "set_tx_gain"
+    backend.set_tx_gain.assert_called_once_with(25.0)
+    # 绝对映射无需先读当前增益（唯一后端调用即下发本身）
+    assert backend.method_calls == [call.set_tx_gain(25.0)]
+    assert result["applied"] is True and result["applied_via"] == "tx_gain"
     (event,) = _read_events(tmp_path)
     assert event["applied"] is True and event["fine_step_db"] == 5.0
+    assert event["achieved_db"] == 35.0
 
 
 def test_channel_ladder_both_duck_methods_prefers_set_attenuation_exclusive(tmp_path):
@@ -220,11 +225,12 @@ def test_channel_ladder_non_dict_ctx_rejected():
         set_channel_attenuation([("backend", None)], 35.0)  # type: ignore[arg-type]
 
 
-# ---- B9中#3 鸭子下发保真：set_tx_gain 回退路径的增益地板/增益不可读如实标注 ----
+# ---- B9中#3 鸭子下发保真（R95 正增益映射改造后口径）：增益地板/增益不可读如实标注 ----
 
 
 class _SimGainBackend:
-    """SDR 软件增益后端仿真：set_tx_gain 负向调整夹 0，get_tx_gain 可读当前增益。"""
+    """B210 形态假后端（R95 后绝对增益口径）：get_tx_gain 在场=形态②判据；
+    set_tx_gain 记录并持有下发的绝对增益值（初始增益对绝对映射不参与计算）。"""
 
     def __init__(self, initial_gain_db: float = 80.0) -> None:
         self.gain_db = float(initial_gain_db)
@@ -233,42 +239,45 @@ class _SimGainBackend:
     def get_tx_gain(self) -> float:
         return self.gain_db
 
-    def set_tx_gain(self, delta_db: float) -> None:
-        self.gain_calls.append(float(delta_db))
-        self.gain_db = max(0.0, self.gain_db + float(delta_db))
+    def set_tx_gain(self, db: float) -> None:
+        self.gain_calls.append(float(db))
+        self.gain_db = float(db)
 
 
-def test_channel_ladder_tx_gain_gain_80_three_levels_truthful(tmp_path):
-    """B9中#3 增益地板：增益 80 首档 15 全额（80→65 applied True）；目标 85（细档 85
-    ≥ 当前增益 80）→ 减到 0，applied 'partial'+gain_floor，实达/事件/返回不再虚报。"""
+def test_channel_ladder_tx_gain_positive_mapping_and_floor_truthful(tmp_path):
+    """B9中#3→R95 增益地板如实（绝对映射口径）：正档全额（请求 15 → 下发 45=60−15，
+    applied True）；请求 85（域顶 30+85）实达 85 > 基准 60 → 地板：下发 0、partial
+    +gain_floor、实际衰减=基准（achieved=60、residual=25、fine_actual=基准−粗档）；
+    同一后端再下 85 结果一致（绝对映射无状态——旧"按当前增益判地板"性质随语义替换）。
+    R95 正增益映射改造：旧负值/相对地板语义用例随语义替换改写（2026-10-17）。"""
     domain = {"coarse_db": 30.0, "fine_steps_db": [0.0, 15.0, 85.0]}
     sim = _SimGainBackend(80.0)
-    # 首档 15：目标 15 → 旁路粗档+细档 15 < 当前增益 80 → 全额下发，增益 80−15=65
+    # 正档 15：请求 15 → 旁路粗档+细档 15，实达 15 ≤ 基准 → 下发绝对增益 45
     first = set_channel_attenuation({"backend": sim, "run_dir": str(tmp_path)}, 15.0)
-    assert sim.gain_db == 65.0 and sim.gain_calls == [-15.0]
-    assert first["applied"] is True and first["applied_via"] == "set_tx_gain"
+    assert sim.gain_db == 45.0 and sim.gain_calls == [45.0]
+    assert first["applied"] is True and first["applied_via"] == "tx_gain"
     assert first["fine_step_db"] == 15.0 and first["achieved_db"] == 15.0
     assert "applied_detail" not in first
-    # 目标 85（增益 80 的后端、细档 85）：85 ≥ 80 → 增益减到 0，实际细档衰减=80
+    # 请求 85（实达 85 > 基准 60）：增益地板——下发 0、实际细档衰减=基准−粗档
     floored = set_channel_attenuation(
         {"backend": _SimGainBackend(80.0), "run_dir": str(tmp_path)}, 85.0, domain=domain
     )
     assert floored["coarse"] == "bypass" and floored["fine_step_db"] == 85.0  # 请求档如实保留
-    assert floored["fine_actual_db"] == 80.0  # 实际细档衰减被夹至当前增益（减到 0）
-    assert floored["achieved_db"] == 80.0 and floored["residual_db"] == pytest.approx(5.0)
+    assert floored["fine_actual_db"] == 60.0  # 基准−粗档(0)=60：细档实享预算
+    assert floored["achieved_db"] == 60.0 and floored["residual_db"] == pytest.approx(25.0)
     assert floored["applied"] == "partial"
-    assert floored["applied_via"] == "set_tx_gain" and floored["applied_detail"] == "gain_floor"
+    assert floored["applied_via"] == "tx_gain" and floored["applied_detail"] == "gain_floor"
     assert set(floored) == _COMBO_KEYS | {"applied", "applied_via", "applied_detail"}
-    # 地板按**当前**增益判定：同一 sim（已减到 65）再下 85 → 实际细档衰减=65
+    # 绝对映射无状态：同一 sim（已置 45）再下 85 → 仍下发 0、结果与全新后端一致
     sequential = set_channel_attenuation({"backend": sim}, 85.0, domain=domain)
-    assert sim.gain_db == 0.0 and sim.gain_calls == [-15.0, -85.0]
-    assert sequential["fine_actual_db"] == 65.0 and sequential["achieved_db"] == 65.0
+    assert sim.gain_db == 0.0 and sim.gain_calls == [45.0, 0.0]
     assert sequential["applied"] == "partial" and sequential["applied_detail"] == "gain_floor"
-    # 事件真值：applied/achieved 按实际，不再虚报 True/85
+    assert sequential["achieved_db"] == 60.0
+    # 事件真值：applied/achieved 按实际，不再虚报
     event1, event2 = _read_events(tmp_path)
     assert event1["applied"] is True and event1["achieved_db"] == 15.0
     assert event2["applied"] == "partial" and event2["applied_detail"] == "gain_floor"
-    assert event2["achieved_db"] == 80.0 and event2["target_db"] == 85.0
+    assert event2["achieved_db"] == 60.0 and event2["target_db"] == 85.0
 
 
 def test_channel_ladder_tx_gain_without_get_tx_gain_marks_unknown_gain(tmp_path):
