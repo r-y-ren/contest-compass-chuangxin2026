@@ -1798,10 +1798,10 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 
 ## B50 — get_tx_gain（+改造点 _METHOD_NAMES 注册；R96 地基）
 ### get_tx_gain
-- [ ] get_tx_gain · implemented — 预告: 桩替换为真读回（device.get_tx_gain 透传+异常透传契约），预期桩 grep 该名零残留
-- [ ] get_tx_gain · tested — 预告: tests/open_b210_backend/test_get_tx_gain.py 新建（mock UHD set(60)→回读 60.0/异常透传），预期 pytest -k get_tx_gain 绿
-- [ ] get_tx_gain · wired — 预告: _METHOD_NAMES 注册（open_b210_backend.py:641）+注册表反射用例，预期 grep 命中+用例绿
-- [ ] get_tx_gain · 清单进位 — 预告: functions.md 行改 wired（核验命令绿后改+读回）
+- [x] get_tx_gain · implemented — 证据: bash -c ! grep -q "unimplemented:fn:get_tx_gain" fn_work/src/open_b210_backend/open_b210_backend.py && grep -q "def get_tx_gain" fn_work/src/open_b210_backend/open_b210_backend.py && echo 实现落盘_桩零残留 → 实现落盘_桩零残留 (10-17)
+- [x] get_tx_gain · tested — 证据: bash -o pipefail -c cd fn_work && .venv/bin/python -m pytest tests/open_b210_backend/ -k get_tx_gain -q 2>&1 | tail -2 → 8 passed, 105 deselected in 0.64s (10-17)
+- [x] get_tx_gain · wired — 证据: bash -o pipefail -c grep -qF "get_tx_gain" fn_work/src/open_b210_backend/open_b210_backend.py && grep -q "_OPTIONAL_METHOD_NAMES" fn_work/src/manage_backend_registry/register_backend.py && cd fn_work && .venv/bin/python -m pytest tests/open_b210_backend/test_get_tx_gain.py -q 2>&1 | tail -2 → 8 passed in 0.02s (10-17)
+- [x] get_tx_gain · 清单进位 — 证据: bash -c grep -qF "| get_tx_gain | B50 | wired 10-17 |" fn_docs/implementation/functions.md && echo 进位读回OK → 进位读回OK (10-17)
 - [ ] get_tx_gain · commit — 预告: fn(get_tx_gain): wired 含四文档
 
 ## B50 批间门
@@ -1859,3 +1859,4 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 - [ ] B53 · 评审三轴 — 预告: 三轴+四文档同步
 - [ ] B53 · 对抗审查 — 预告: 发现表，Critical 清零
 - [ ] B53 · 用户裁决 — 预告: 全员 wired→fn-close / 修订 / 裁决
+- Ruling: B50 文件面扩入 register_backend.py（_ALLOWED_METHOD_NAMES 增 get_tx_gain） — 原因：R96"注册表反射同步"的完整落点被立批白名单收窄遗漏，实现子代理实证 _check_contract 白名单拒未约定方法名、滤子绕法令注册表契约面仍四名（半截同步） — 代价：本批文件面+1（含其测试），注册白名单词汇表+1 名（子集关系，SimBackend 四名不受扰） — 落点：本行+批表 B50 行注；实现回归同批子代理（SendMessage 续做）

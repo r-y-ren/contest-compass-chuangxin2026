@@ -13,10 +13,15 @@ CONTRACT_METHODS: dict[str, list[str]] = {
     "rx": ["read_samples"],
 }
 
+# 契约词汇表可选扩充名（R96）：get_tx_gain 为 B210 形态鸭子特征名——允许出现在
+# method_names 在册（B210Backend 五名交检），不列入能力必备（契约检查是子集关系，
+# SimBackend 四名不在册不受扰）。
+_OPTIONAL_METHOD_NAMES: frozenset[str] = frozenset({"get_tx_gain"})
+
 # 契约方法名全集：method_names 须为其子集（未约定名如 'hack' 一律拒绝）。
 _ALLOWED_METHOD_NAMES: frozenset[str] = frozenset(
     name for names in CONTRACT_METHODS.values() for name in names
-)
+) | _OPTIONAL_METHOD_NAMES
 
 # 保留路由名（小写口径）：lookup_backend 永不把它解析到注册表（交 autodetect_backend
 # 决策），注册侧一并直接拒绝——杜绝登记一个永远查不到的"幽灵后端"。

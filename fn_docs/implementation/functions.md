@@ -188,6 +188,6 @@
 | view_cv_evaluation | B48 | wired 10-16（改造承载 R93 默认注入） | pytest tests/view_cv_evaluation → 14 passed（默认 aligned_template 注入锚/intrinsic_dummy 对照/非法值先拒/对齐回调可分 macro_f1==1.0 4 新例+既有 10 零改动）；全套件 3703 绿；调用点 mount_console_extensions | e33e80b |
 | prepare_demo_assets | B46 | wired 10-15（改造点 R94 行细分） | 19 passed；报告 checklist=19 项（9a/9b 转接线细分）；下标锚位移同步 | c7e4369 |
 | prepare_demo_assets | B49 | wired 10-16（fn-close 走查环 F1 解耦改造） | 21 passed（交付形态新用例 conflicts=7+prewarm 非空+七场景字节不变 / ② ②b 按新契约改写：冲突照列且预跑照常 / 七键契约无 refused_conflicts）；顶层实跑双口径：仓内形态 conflicts=7+prewarm 9 轮+场景字节不变、空临时目录 written=7+prewarm 9 轮照旧 | 0e77e83 |
-| get_tx_gain | B50 | stub 10-17 | — | — |
+| get_tx_gain | B50 | wired 10-17 | pytest tests/open_b210_backend/ -k get_tx_gain → 8 passed（mock UHD set(60)→回读 60.0/跟踪回退/异常透传非包装/bool 非数值拒/注册表反射链：_METHOD_NAMES 五名+_OPTIONAL_METHOD_NAMES 词汇表+契约直核+四名子集+lookup 取回）；调用点=set_channel_attenuation._dispatch_backend 的 getattr 鸭子探测（B51 消费）；register_backend 词汇表扩名=Ruling B50① | 待回填 |
 | resolve_base_tx_gain | B51 | stub 10-17 | — | — |
 | _dispatch_backend | B51 | 待改造 10-17（改造承载 R95 映射+R97 语义·域二十四新登记私有叶，R12 旧存量在岗） | — | — |

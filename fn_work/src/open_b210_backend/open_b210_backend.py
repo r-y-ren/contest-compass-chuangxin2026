@@ -348,10 +348,22 @@ class B210Backend:
     def get_tx_gain(self) -> float:
         """读回当前生效 TX 增益（dB）——纯读回，不修改状态、不下发指令（R96）。
 
-        构造即持有已开设备、无"未开"态；读回失败照 _dispatch 契约原样透传
-        （先读后发契约：读失败时未下发、无半截状态）。
+        两级口径：优先 device.get_tx_gain 读回实际生效值（数值校验 int/float 且
+        非 bool → float，与 set_tx_gain 回读判定同款；bool/非数值视为读回形状
+        异常，如实抛 BackendError）；device 无该 getter 则回退 self.tx_gain_db
+        跟踪值。device 调用自身异常不捕获、原样透传不包装（先读后发契约：读
+        失败时未下发、无半截状态）。
         """
-        raise NotImplementedError("unimplemented:fn:get_tx_gain")
+        getter = getattr(self.device, "get_tx_gain", None)
+        if callable(getter):
+            applied = getter()
+            if isinstance(applied, (int, float)) and not isinstance(applied, bool):
+                return float(applied)
+            raise BackendError(
+                f"B210 get_tx_gain 读回形状异常（须 int/float 且非 bool）: "
+                f"{type(applied).__name__}: {applied!r}"
+            )
+        return self.tx_gain_db
 
     def read_samples(self, max_blocks: int = 1) -> list[dict]:
         """CH2 监测读取（经 read_b210_rx_stream）：返回 [{'samples','ts','overflow','device_ts'}, ...]。
@@ -644,9 +656,11 @@ def open_b210_backend(params: dict) -> B210Backend:
     )
 
 
-# 注册名与实例方法清单（caps 声明 tx/rx 为真 → 契约要求四方法齐备，import 期即受形式检查；
-# override=True：重复 import / importlib.reload 幂等不炸）。
-_METHOD_NAMES = ["start_tx", "stop_tx", "set_tx_gain", "read_samples"]
+# 注册名与实例方法清单（caps 声明 tx/rx 为真 → 契约基线方法 import 期即受形式
+# 检查；get_tx_gain 为 R96 起入契约词汇表的可选名——B210 形态鸭子特征，消费方
+# （set_channel_attenuation）经 getattr(backend, "get_tx_gain") 探测，SimBackend
+# 不在册不受扰；override=True：重复 import / importlib.reload 幂等不炸）。
+_METHOD_NAMES = ["start_tx", "stop_tx", "set_tx_gain", "get_tx_gain", "read_samples"]
 
 register_backend(
     _BACKEND_NAME,
