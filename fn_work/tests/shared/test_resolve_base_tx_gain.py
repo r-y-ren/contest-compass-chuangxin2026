@@ -39,10 +39,12 @@ def test_hook_none_falls_back_to_default(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "bad", [80.5, 0, -1, float("nan"), float("inf")]
+    "bad", [80.5, 0, -1, float("nan"), float("inf"), True, False]
 )
 def test_hook_out_of_range_rejected(monkeypatch, bad):
-    """③ 越界即拒：>80、≤0、NaN/inf → ValueError，消息带原值与可达域 (0, 80]。"""
+    """③ 越界即拒：>80、≤0、NaN/inf → ValueError，消息带原值与可达域 (0, 80]。
+    对抗审查 M1（2026-10-17）：bool 拒——bool 是 int 子类，修前 True 被数学
+    比较当作 1.0 落入可达域接受；对齐 _as_real 全仓口径（bool 先拒）。"""
     monkeypatch.setattr(gain_module, "_resolve_from_calibration_hook", lambda: bad)
     with pytest.raises(ValueError) as exc_info:
         resolve_base_tx_gain()

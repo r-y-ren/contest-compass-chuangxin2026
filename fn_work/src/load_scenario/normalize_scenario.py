@@ -107,6 +107,8 @@ def normalize_scenario(valid: dict) -> dict:
       - fs: 必填数值化 float（无缺省——缺失即冲突）；
       - freq_hz: 若存在则数值化 float（'2450'→2450.0 宽容）；
       - bandwidth_hz: 若存在则数值化 float（带限类 bandwidth_hz 数值化）；
+      - tx_gain_db: 若存在则数值化 float（'60'→60.0，对抗审查 I4——与
+        freq/bandwidth 同款；缺失不填，无缺省语义）；
       - power_dbm: 缺省 -10.0；
       - duration_s: 缺省 1.0；
       - duty_cycle: 缺省 0.5（pulse 占空比，统一填充保形状唯一）；
@@ -155,6 +157,12 @@ def normalize_scenario(valid: dict) -> dict:
         out["freq_hz"] = _to_float("freq_hz", out["freq_hz"])
     if "bandwidth_hz" in out:
         out["bandwidth_hz"] = _to_float("bandwidth_hz", out["bandwidth_hz"])
+    # 对抗审查 I4（str 裂缝收敛）：tx_gain_db 同款数值化——schema 层宽容数字
+    # str（'60'，B17 中#4 PyYAML 口径），若此处不数值化则原样透传到
+    # open_b210_backend._as_real 拒 str（运行期炸）；数值化后 b210 白名单
+    # 透传链贯通（'60'→60.0）。无缺省语义：缺失不填（注入判定按键在场）。
+    if "tx_gain_db" in out:
+        out["tx_gain_db"] = _to_float("tx_gain_db", out["tx_gain_db"])
 
     # 带缺省数值键：缺则填默认，有则数值化宽容。
     out["power_dbm"] = (

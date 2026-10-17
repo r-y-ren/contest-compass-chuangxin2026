@@ -38,8 +38,14 @@ def resolve_base_tx_gain() -> float:
     """
     hooked = _resolve_from_calibration_hook()
     value = _DEFAULT_BASE_TX_GAIN_DB if hooked is None else hooked
+    # 对抗审查 M1：bool 显式拒（bool 是 int 子类，True 否则被数学比较当作 1.0
+    # 落入可达域）——对齐 _as_real 全仓口径（isinstance(value, bool) 先拒）。
     try:
-        in_range = math.isfinite(value) and 0 < value <= _MAX_BASE_TX_GAIN_DB
+        in_range = (
+            not isinstance(value, bool)
+            and math.isfinite(value)
+            and 0 < value <= _MAX_BASE_TX_GAIN_DB
+        )
     except TypeError:  # 非实数类型（str/complex 等误配）视同"非有限实数"拒绝
         in_range = False
     if not in_range:

@@ -382,6 +382,45 @@ def _backend_params(scenario: dict) -> dict:
     return params
 
 
+def _ensure_b210_tx_gain(backend_obj: object, selection: dict, scenario: dict) -> None:
+    """对抗审查 C1·Critical：b210 增益注入按**解析后的实际后端**（selection
+    真值——CLI 显式 > 场景键 > auto 探测，autodetect_backend 打开即定）补设。
+
+    缺陷（修前）：注入判定只看场景 'backend' 键字面（_backend_params 分支），
+    手册标准命令=scenarios/*.yaml 全写 backend: sim + CLI --backend auto/b210——
+    实际后端由 CLI/探测决定，命中 B210 时 params 无注入 → 工厂缺省
+    _DEFAULT_TX_GAIN_DB=0 → 0dB 耳语（端到端实证）。
+
+    修法（调用点后补注入，不预探测——selection=真实打开结果，无二次探测
+    开销、无探测竞态）：
+    - selection['backend'] != 'b210'（sim/replay/降级）→ 不动（本分支不向
+      params 增键；注：场景键字面 b210 而探测不命中降级 sim 时，params 工厂
+      注入仍会把键带入 sim——该路径既有语义，R95 改造点②职责域）；
+    - 场景键字面 b210 → 不动（_backend_params 的 params 工厂路径已带：
+      显式透传或基准注入，向后兼容=该路径行为逐字不变）；
+    - effective b210（CLI 显式/auto 探测命中）而场景键非 b210 → 打开后
+      立即补设发射增益：场景显式 tx_gain_db=专家直通（原样 set，形状/域
+      校验归后端方法 set_tx_gain 的 _as_real+设备层），无键=注入
+      resolve_base_tx_gain()。发射始于 start_tx，打开→补设间无发射窗。
+    """
+    if not isinstance(selection, dict) or selection.get("backend") != "b210":
+        return
+    declared = scenario.get("backend")
+    if isinstance(declared, str) and declared.strip().lower() == "b210":
+        return  # params 工厂路径已带（显式透传/基准注入），不重复下发
+    gain = scenario["tx_gain_db"] if "tx_gain_db" in scenario else resolve_base_tx_gain()
+    try:
+        backend_obj.set_tx_gain(gain)
+    except Exception:
+        stop_tx = getattr(backend_obj, "stop_tx", None)
+        if callable(stop_tx):
+            try:
+                stop_tx()  # 先停发射尽力而为——manage_run 尚未接管的窗口，自身失败不掩盖原异常
+            except Exception:
+                pass
+        raise
+
+
 def _sim_events(scenario: dict) -> list:
     """sim 注入事件源：场景 'sim_events' 直给，缺省生成 10 事件（jsr=-20 不失效）。"""
     given = scenario.get("sim_events")
@@ -788,6 +827,18 @@ def _execute_pipeline(
         # 后端句柄注册（B24 C1）：写回共享停容器——急停方经 stop['backend']
         # 直停真后端（形状登记见 run_scenario docstring）。
         stop["backend"] = backend_obj
+    try:
+        # 对抗审查 C1：effective b210（CLI 显式/auto 探测命中）补设发射增益
+        # （场景键字面 b210 路径 params 已带不进本分支；sim/replay 不动）。
+        _ensure_b210_tx_gain(backend_obj, selection, scenario)
+    except Exception:
+        # 先停发射再退出铁律：补设失败时后端已开（manage_run 尚未接管）——
+        # 尽力 stop_tx 后原样重抛（调用方转运行失败 exit 1 / failed dict）。
+        try:
+            backend_obj.stop_tx()
+        except Exception:  # noqa: BLE001 - 收尾尽力而为：不掩盖原始异常
+            pass
+        raise
     clock_ref = resolve_clock_reference(backend_obj)["clock_ref"]
 
     def _execute(ctx: dict) -> None:

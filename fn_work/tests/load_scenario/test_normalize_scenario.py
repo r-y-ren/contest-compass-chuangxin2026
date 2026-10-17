@@ -49,6 +49,33 @@ def test_numeric_string_values_coerced():
     assert out["repeats"] == 3
 
 
+# ---- tx_gain_db 数值化（对抗审查 I4：str 裂缝收敛——与 freq_hz/bandwidth_hz 同款先例） ----
+
+
+def test_tx_gain_db_numeric_str_coerced_to_float():
+    """I4：schema 宽容的数字 str '60'（B17 中#4 PyYAML 口径）在此数值化——
+    否则原样透传到 open_b210_backend._as_real 拒 str 运行期炸。"""
+    out = normalize_scenario({"style": "tone", "fs": 1e6, "tx_gain_db": "60"})
+    assert out["tx_gain_db"] == 60.0
+    assert isinstance(out["tx_gain_db"], float)
+    out = normalize_scenario({"style": "tone", "fs": 1e6, "tx_gain_db": 55})
+    assert out["tx_gain_db"] == 55.0
+
+
+def test_tx_gain_db_absent_not_filled():
+    """无缺省语义：缺失不填（注入判定按键在场，不虚构 60.0）。"""
+    out = normalize_scenario({"style": "tone", "fs": 1e6})
+    assert "tx_gain_db" not in out
+
+
+def test_tx_gain_db_bad_shapes_raise_scenario_error():
+    """bool/非数字 str 拒（_to_float 口径：bool 是 int 子类但语义是开关）。"""
+    with pytest.raises(ScenarioError, match="tx_gain_db"):
+        normalize_scenario({"style": "tone", "fs": 1e6, "tx_gain_db": True})
+    with pytest.raises(ScenarioError, match="tx_gain_db"):
+        normalize_scenario({"style": "tone", "fs": 1e6, "tx_gain_db": "abc"})
+
+
 def test_backend_sim_normalized_to_lowercase():
     out = normalize_scenario({"style": "tone", "fs": 1e6, "backend": "SIM"})
     assert out["backend"] == "sim"
