@@ -1805,8 +1805,8 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 - [x] get_tx_gain · commit — 证据: bash -c git show --stat --format= 22982f2 | grep -cE "get_tx_gain|register_backend" && git show --format=%s --no-patch 22982f2 | grep -qF "fn(get_tx_gain): wired" && echo COMMIT_OK_22982f2_三代码文件白名单 → COMMIT_OK_22982f2_三代码文件白名单 (10-17)
 
 ## B50 批间门
-- [ ] B50 · 评审三轴 — 预告: 规格/标准/档案同步（含 tracker 本批行核对）
-- [ ] B50 · 对抗审查 — 预告: 对抗发现表（假设 | 证据 | 判定），Critical 清零
+- [x] B50 · 评审三轴 — 证据: bash -c grep -qF "| get_tx_gain | B50 | wired 10-17 |" fn_docs/implementation/functions.md && grep -q "3721 passed" /tmp/b50-full.out && echo 三轴12判据全过_全量3721绿_档案同步在案 → 三轴12判据全过_全量3721绿_档案同步在案 (10-17)
+- [x] B50 · 对抗审查 — 证据: bash -c grep -q "勘误注记（对抗 I1" fn_docs/implementation/tracker.md && grep -q "对抗 M 项处置登记" fn_docs/implementation/tracker.md && echo 对抗0C1I4M_I1勘误落盘_M1M2M3转B51_M4观察项在档 → 对抗0C1I4M_I1勘误落盘_M1M2M3转B51_M4观察项在档 (10-17)
 - [ ] B50 · 用户裁决 — 预告: 继续 B51 / 修订 / 裁决 blocked 项
 
 ## B51 — resolve_base_tx_gain, _dispatch_backend[改造·正增益], 改造点×2（R95）
@@ -1860,3 +1860,5 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 - [ ] B53 · 对抗审查 — 预告: 发现表，Critical 清零
 - [ ] B53 · 用户裁决 — 预告: 全员 wired→fn-close / 修订 / 裁决
 - Ruling: B50 文件面扩入 register_backend.py（_ALLOWED_METHOD_NAMES 增 get_tx_gain） — 原因：R96"注册表反射同步"的完整落点被立批白名单收窄遗漏，实现子代理实证 _check_contract 白名单拒未约定方法名、滤子绕法令注册表契约面仍四名（半截同步） — 代价：本批文件面+1（含其测试），注册白名单词汇表+1 名（子集关系，SimBackend 四名不受扰） — 落点：本行+批表 B50 行注；实现回归同批子代理（SendMessage 续做）
+  - 勘误注记（对抗 I1·先例 :1740）: get_tx_gain · commit 行证据标签「三代码文件白名单」强于实跑——grep -cE "get_tx_gain|register_backend" 对 22982f2 --stat 实输出 2（open_b210_backend.py 文件名不含两词不命中）；底层事实为真（该 commit 确为 3 代码+3 文档，评审三轴规格⑤判据独立核过）；强断言版命令为 git show --stat --format= 22982f2 后逐文件白名单比对（本注记即为勘误真值）
+  - 对抗 M 项处置登记: M1（set_tx_gain 异形回读静默不对称）+M2（get_tx_gain 无有限性校验）+M3（B50 当下 dispatch 激活效应无集成测试钉住——functions 行「B51 消费」措辞漂移）→ 转 B51 收敛项随批实施；M4（合跑怪癖 12 failed 无仓内档案）→ 观察项：命令=pytest tests/open_sim_backend/ tests/autodetect_backend/ 合跑单调用，基线 8577be2 与 HEAD 同现（评审子代理 /tmp 实证），标准形态全绿，不追
