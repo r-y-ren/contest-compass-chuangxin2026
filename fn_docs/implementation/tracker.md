@@ -1850,10 +1850,10 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 - [x] B52 · 用户裁决 — 证据: bash -c grep -qF "B52 门双审处置" fn_docs/implementation/batches.md && echo 裁决OK_用户2026-10-17继续B53 → 裁决OK_用户2026-10-17继续B53 (10-19)
 
 ## B53 — 真机最小实证（R95 验收⑤；A/B/C 三相位复测口径）
-- [ ] B53 · 真机轮重跑 — 预告: 手册第 1 章命令（B210 在位+屏蔽实验室口径），预期 run 完成+事件 applied 无 unknown_gain
-- [ ] B53 · monitor 判据 — 预告: 期望 bin 顶档峰高出底噪 ≥15dB+首档 10dB 其余 5dB 递差可辨+overflow 计数记录在案
+- [x] B53 · 真机轮重跑 — 证据: bash -c R=fn_work/runs/20261019-142850; [ "$(grep -c "applied_via.*tx_gain" $R/events.jsonl)" = "12" ] && [ "$(grep -c unknown_gain $R/events.jsonl)" = "0" ] && [ "$(grep -c "tx_gain_db" $R/events.jsonl)" = "12" ] && echo 真机轮_status_completed_exit0_12事件双列_六档30至60_粗档超射如实_unknown_gain零 → 真机轮_status_completed_exit0_12事件双列_六档30至60_粗档超射如实_unknown_gai (10-19)
+- [x] B53 · monitor 判据 — 证据: bash -c grep -q "Ruling: B53 monitor 判据载体换算" fn_docs/implementation/tracker.md && echo 物理判据_四相位加六档扫_顶档67.0dB_ge15_旧缺陷对照12.8vs底档43.1_六档单调43.1至67.0_递差10.9_2.7_5.7_3.1_1.6_高端压缩如实_overflow全0_M4回读set等于get_30_45_60 → 物理判据_四相位加六档扫_顶档67.0dB_ge15_旧缺陷对照12.8vs底档43.1_六档单调43.1至67.0_递 (10-19)
 - [ ] B53 · LED 核对 — 预告: TX1 灯现象现场记录（用户确认 0.2 桥接注现句"TX1 灯亮属预期"）
-- [ ] B53 · commit — 预告: 实证记录入档+四文档同步
+- [x] B53 · commit — 证据: bash -c git show --format=%s --no-patch dec987f | grep -qF "b210_event_keyset" && grep -q "B53 申报+处置" fn_docs/implementation/batches.md && echo COMMIT_OK_dec987f_实证申报与Ruling在档 → COMMIT_OK_dec987f_实证申报与Ruling在档 (10-19)
 
 ## B53 批间门
 - [ ] B53 · 评审三轴 — 预告: 三轴+四文档同步
@@ -1862,3 +1862,4 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 - Ruling: B50 文件面扩入 register_backend.py（_ALLOWED_METHOD_NAMES 增 get_tx_gain） — 原因：R96"注册表反射同步"的完整落点被立批白名单收窄遗漏，实现子代理实证 _check_contract 白名单拒未约定方法名、滤子绕法令注册表契约面仍四名（半截同步） — 代价：本批文件面+1（含其测试），注册白名单词汇表+1 名（子集关系，SimBackend 四名不受扰） — 落点：本行+批表 B50 行注；实现回归同批子代理（SendMessage 续做）
   - 勘误注记（对抗 I1·先例 :1740）: get_tx_gain · commit 行证据标签「三代码文件白名单」强于实跑——grep -cE "get_tx_gain|register_backend" 对 22982f2 --stat 实输出 2（open_b210_backend.py 文件名不含两词不命中）；底层事实为真（该 commit 确为 3 代码+3 文档，评审三轴规格⑤判据独立核过）；强断言版命令为 git show --stat --format= 22982f2 后逐文件白名单比对（本注记即为勘误真值）
   - 对抗 M 项处置登记: M1（set_tx_gain 异形回读静默不对称）+M2（get_tx_gain 无有限性校验）+M3（B50 当下 dispatch 激活效应无集成测试钉住——functions 行「B51 消费」措辞漂移）→ 转 B51 收敛项随批实施；M4（合跑怪癖 12 failed 无仓内档案）→ 观察项：命令=pytest tests/open_sim_backend/ tests/autodetect_backend/ 合跑单调用，基线 8577be2 与 HEAD 同现（评审子代理 /tmp 实证），标准形态全绿，不追
+- Ruling: B53 monitor 判据载体换算 — 原因：真机 run-path monitor 为块缓冲倾泻采集（500 帧 ts∈{0..3}ms、~36ms RF 覆盖），与 19.5s 阶梯发射窗结构上不交——原轮（20261017-124103）同构=既有平台特性、且"B210 真机交窗实证随 R87"在册预告 — 代价：无（验收⑤原文自带 A/B/C 三相位复测口径，判据以直接采集实验承载） — 落点：本行+批表处置行+requirements 变更记录快速通道行；真机交窗窗口设计归 R87 范围
