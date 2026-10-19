@@ -26,3 +26,4 @@
 - 三相对照实验（平台路径 start_tx/read_samples，2450.2MHz 音调）：A 基线期望 bin=底噪；B 缺省 0dB 发射期望 bin 仍=底噪（复现缺陷）；C set_tx_gain(60) 期望 bin +37.3dB 干净出峰——电台与发射链完好，缺陷唯一在映射层。
 - 产物：fn_docs/诊断-TX发射无效-20261017.md（根因锚点/实验数据/影响面/修复方向面六节）；带练暂停于步骤 4 后（sim 口径不受影响）。修复由用户并行对话承接（立 R 条目走 fn-ladder）。
 | 2026-10-19 19:19 | 轻量线 | 手册两缺陷修复：第10章③训练命令补 index_path/runs_root 取数两参（与②同源，照抄不再拒训）+第6章三路时间戳宣称补 B210 真机限界句（monitor 首列交窗索引非毫秒、仅 kpi/events 毫秒量纲、随 R87）；.gitignore 补 fn_work/dataset|models 运行时产物 | 修后③形态 dry_run n_samples=53/6labels 非拒训、旧形态 TrainError'查询匹配 0 条'逐字复现；对抗审查 2I（record 全 0/键名 ts）批内修复+scoped 复审 16-run 全量普查通过 |
+| 2026-10-19 19:25 | 全量线:grill | R87 扩容+2（走查两 Minor 转入，用户裁决）：①train_classifier 零匹配测试补强（弱断言钉原文+缺省路径仓库根语义用例）②responsibility.md 取数措辞对齐；R87 行+变更记录 2026-10-19 行 | 读回证据：requirements.md L552（R87 扩容随批累计句）+L730（变更记录行）grep 命中；出处=2792feb 对抗审查 Minor 两则 |
