@@ -86,7 +86,7 @@
 | fn_docs/README.md | 命令与使用口径真值（26 项功能讲解=手册章节骨架） | 命令/退出码/FAQ 以此为起点，以代码现状复核 | 2026-10-14 |
 | docs/无人机通信链路电磁干扰测试平台.md | 项目背景回查（测试方法学/指标出处） | 背景理解用，不直接约束手册 | 2026-10-14 |
 | docs/USRP_B210说明.pdf | B210（K7 优化版）接口与使用差异真值：射频四口全 SMA（TRX1/RX1/RX2/TRX2），MMCX 仅 GPS/PPS/10M 三口；需替换 usrp_b210_fpga.bin；GPSDO 插槽已移除；板载 GPS 锁定时外接 PPS 不可用 | 手册连接方式与环境步骤以此为准（2026-10-15 用户附上） | 2026-10-15 |
-| docs/诊断-TX发射无效-20261017.md | 演进轮⑤立项输入：根因链/三相对照实验/影响面/修复方向面六节（commit 2b22608；原在 fn_docs/，用户移至 docs/） | 需求真值以 requirements.md 为准；**勘误注（fn-review 发现①）**：§5.6"sim 的 set_attenuation 存在、不走负增益回退"与代码不符——SimBackend 无 set_attenuation（open_sim_backend.py:48 四方法）、sim 真跑事件同样 unknown_gain（runs/20261015-094217 等实证；回退路径系 sim/B210 共享），以代码为准 | 2026-10-17 |
+| docs/诊断-TX发射无效-20261017.md | 演进轮⑤立项输入：根因链/三相对照实验/影响面/修复方向面六节（commit 2b22608；原在 fn_docs/，用户移至 docs/） | 需求真值以 requirements.md 为准；**勘误注（fn-review 发现①）**：§5.6"sim 的 set_attenuation 存在、不走负增益回退"与代码不符——SimBackend 无 set_attenuation（open_sim_backend.py:48 四方法）、sim 真跑事件同样 unknown_gain（runs/20261015-094217 等实证；回退路径系 sim/B210 共享），以代码为准。**历史参考·已删除（2026-10-19）**：R95–R97 修复实证完成后用户自行删除该文件（删除随 7570ce6 落痕）；留指针与勘误供回查，内容可经 `git show 2792feb:docs/诊断-TX发射无效-20261017.md` 取回 | 2026-10-17 |
 
 ## 需求条目
 
