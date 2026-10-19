@@ -25,3 +25,4 @@
 - 根因链：①open_b210_backend.py:50 缺省 TX 增益 0dB；②run_demo.py:328 _backend_params 只透传 freq_hz（场景无增益旋钮）；③set_channel_attenuation.py:99 B210 无 set_attenuation→回退 set_tx_gain(**负值**)被夹 0、粗档 30dB in/out 无执行器纯账面；④B210Backend 无 get_tx_gain（unknown_gain 分支必走）；⑤增益标定表【待实测】→ power_dbm 从未映射到增益。净效果：真机阶梯=常数 0dB 耳语（-110dBm@天线，低于底噪 50–70dB）。
 - 三相对照实验（平台路径 start_tx/read_samples，2450.2MHz 音调）：A 基线期望 bin=底噪；B 缺省 0dB 发射期望 bin 仍=底噪（复现缺陷）；C set_tx_gain(60) 期望 bin +37.3dB 干净出峰——电台与发射链完好，缺陷唯一在映射层。
 - 产物：fn_docs/诊断-TX发射无效-20261017.md（根因锚点/实验数据/影响面/修复方向面六节）；带练暂停于步骤 4 后（sim 口径不受影响）。修复由用户并行对话承接（立 R 条目走 fn-ladder）。
+| 2026-10-19 19:19 | 轻量线 | 手册两缺陷修复：第10章③训练命令补 index_path/runs_root 取数两参（与②同源，照抄不再拒训）+第6章三路时间戳宣称补 B210 真机限界句（monitor 首列交窗索引非毫秒、仅 kpi/events 毫秒量纲、随 R87）；.gitignore 补 fn_work/dataset|models 运行时产物 | 修后③形态 dry_run n_samples=53/6labels 非拒训、旧形态 TrainError'查询匹配 0 条'逐字复现；对抗审查 2I（record 全 0/键名 ts）批内修复+scoped 复审 16-run 全量普查通过 |

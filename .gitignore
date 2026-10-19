@@ -21,4 +21,6 @@ my_LLM_valut/
 my_LLM_valut/raw/pdfs/
 fn_work/runs/
 /runs/
+fn_work/dataset/
+fn_work/models/
 **/.pio/
