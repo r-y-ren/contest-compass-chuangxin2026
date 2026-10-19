@@ -1847,7 +1847,7 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 ## B52 批间门
 - [x] B52 · 评审三轴 — 证据: bash -c grep -q "3781 passed" /tmp/b52-full.out && echo 三轴13判据全PASS → 三轴13判据全PASS (10-17)
 - [x] B52 · 对抗审查 — 证据: bash -c grep -qF "I-1 环境异常复位" fn_docs/implementation/batches.md && grep -qF "转 B53 补" fn_docs/implementation/batches.md && echo 对抗0C1I4M_I1复位三证_M项转批登记在案 → 对抗0C1I4M_I1复位三证_M项转批登记在案 (10-17)
-- [ ] B52 · 用户裁决 — 预告: 继续 B53 / 修订 / 裁决
+- [x] B52 · 用户裁决 — 证据: bash -c grep -qF "B52 门双审处置" fn_docs/implementation/batches.md && echo 裁决OK_用户2026-10-17继续B53 → 裁决OK_用户2026-10-17继续B53 (10-19)
 
 ## B53 — 真机最小实证（R95 验收⑤；A/B/C 三相位复测口径）
 - [ ] B53 · 真机轮重跑 — 预告: 手册第 1 章命令（B210 在位+屏蔽实验室口径），预期 run 完成+事件 applied 无 unknown_gain

@@ -3,8 +3,7 @@
 
 | 批次 | 函数/任务清单 | 验收点 | 注 |
 |---|---|---|
-| ▶ B52 | _dispatch_backend[改造·记账如实化]（事件 tx_gain_db/coarse_semantics 双列+applied_via 入事件体+名义物理口径+sim 有意保留注记）, 改造点 build_report 未标定换算脚注 | pytest -k attenuation_truthful 全绿（B210 形态事件无 unknown_gain/双列字段/深档 partial/sim 事件字段零变化反断言）+build_report 脚注断言；全套件回归绿 | R97 语义；落序第三；I1 承接（R95 验收②事件 applied_via） |
-| B53 | 真机最小实证：手册第 1 章命令重跑+monitor 期望 bin 分析+overflow 计数+TX1 灯核对 | 顶档峰高出底噪 ≥15dB、首档 10dB 其余 5dB 递差可辨、事件 applied 无 unknown_gain、LED 现象记录（现场人）、overflow 计数在案 | R95 验收⑤=A/B/C 三相位复测口径；设备在位前提；合规=屏蔽实验室+30dB 衰减器恒串+总发射时长受限 |
+| ▶ B53 | 真机最小实证：手册第 1 章命令重跑+monitor 期望 bin 分析+overflow 计数+TX1 灯核对 | 顶档峰高出底噪 ≥15dB、首档 10dB 其余 5dB 递差可辨、事件 applied 无 unknown_gain、LED 现象记录（现场人）、overflow 计数在案 | R95 验收⑤=A/B/C 三相位复测口径；设备在位前提；合规=屏蔽实验室+30dB 衰减器恒串+总发射时长受限 |
 
 
 ## 变更记录（计划层事件：签名微调、需求变更往返、放弃等）
