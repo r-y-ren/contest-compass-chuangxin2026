@@ -311,3 +311,18 @@ def browse_dataset_library(
         "hint": None,
         "rebuild_available": False,
     }
+
+def _filter_replayable_cards(entries):
+    """判定 SigMF 对存在且 data 非空；返回 (可回放, 隐藏计数)。
+
+    输入: 条目列表 / 输出: (replayable, hidden_count) / 错误: 文件系统读失败按不可回放。
+    """
+    raise NotImplementedError("unimplemented:fn:_filter_replayable_cards")
+
+
+def _mark_legacy_recording(entry):
+    """按日期/后端/数据能量判定 R88 前 noise-only 并返回标注文本。
+
+    输入: 条目 / 输出: note|None / 错误: 不抛。
+    """
+    raise NotImplementedError("unimplemented:fn:_mark_legacy_recording")

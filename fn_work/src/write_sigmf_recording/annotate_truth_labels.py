@@ -196,3 +196,10 @@ def annotate_truth_labels(facts: dict) -> dict:
         ],
         "annotations": annotations,
     }
+
+def _backfill_annotation_spans(power_steps, num_samples, window=None):
+    """按实际总样本数与各档 ts 计算/夹取 annotation sample_start/sample_count。
+
+    输入: 功率档+实际样本数+窗口 / 输出: annotations 列表 / 错误: 非有限/负值→ValueError。
+    """
+    raise NotImplementedError("unimplemented:fn:_backfill_annotation_spans")

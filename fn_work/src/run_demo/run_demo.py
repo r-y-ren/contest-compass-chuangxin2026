@@ -1200,3 +1200,10 @@ def run_demo(argv: list | None = None) -> int:
     # ---- ⑦ 摘要行 stdout + 退出码 ----
     print(_summary(run_record, state, completed, ledger_status))
     return EXIT_OK if completed else EXIT_RUN_FAILED
+
+def _apply_fixed_attenuation_baseline(backend, atten_db):
+    """把整轮固定衰减作为基线写入运行上下文/传给下发层；不做档位规划。
+
+    输入: backend+atten_db(0–50) / 输出: 基线记录 dict / 错误: 越界 ValueError。
+    """
+    raise NotImplementedError("unimplemented:fn:_apply_fixed_attenuation_baseline")

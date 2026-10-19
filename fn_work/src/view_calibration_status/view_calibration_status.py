@@ -337,3 +337,10 @@ def view_calibration_status(section: str | None = None, demo: bool = False) -> d
     if demo:
         view["demo"] = _run_synthetic_demo()
     return view
+
+def _describe_empty_gain_status(read_result):
+    """区分"文件不存在（待实测）"与"文件存在但 entries 为空（ok/0 条）"。
+
+    输入: 表读取结果 / 输出: {'status','note','entry_count'} / 错误: 不抛。
+    """
+    raise NotImplementedError("unimplemented:fn:_describe_empty_gain_status")

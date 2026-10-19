@@ -152,3 +152,18 @@ def _pull_tick(backend: object, blocks: list, max_blocks: int) -> None:
         return
     for raw in result:
         blocks.append(normalize_monitor_block(raw))
+
+def _start_b210_capture_thread(backend, blocks, stop, max_blocks):
+    """B210 采集线程主体：循环 read_samples(1)→归一→append；停旗/到顶退出；异常暂存。
+
+    输入: backend+缓冲+stop+上限 / 输出: 线程句柄/错误槽 / 错误: 读异常存入错误槽由 close 重抛。
+    """
+    raise NotImplementedError("unimplemented:fn:_start_b210_capture_thread")
+
+
+def _stop_capture_thread(handle, timeout_s=1.0):
+    """置停止旗→join（≤timeout）→超时注记→错误槽非空则重抛；幂等。
+
+    输入: 线程句柄/错误槽 / 输出: 无 / 错误: 线程异常重抛；join 超时不抛只注记。
+    """
+    raise NotImplementedError("unimplemented:fn:_stop_capture_thread")
