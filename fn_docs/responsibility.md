@@ -285,6 +285,24 @@
 | R96 | open_b210_backend（改造承载：新增叶 get_tx_gain+_METHOD_NAMES 注册——详见文末域二十四功能块；SimBackend 有意不补） |
 | R95 | set_channel_attenuation（改造承载：_dispatch_backend 正增益映射+事件双列；shared 新增 resolve_base_tx_gain；快速通道改造点：validate_scenario_schema 顶层键 tx_gain_db、run_demo._backend_params 白名单+基准注入——详见文末域二十四功能块） |
 | R97 | set_channel_attenuation（改造承载：记账如实化——粗档 gain_budget 标注/地板正值适配/sim 有意保留注记；快速通道改造点：build_report 未标定换算脚注——详见文末域二十四功能块） |
+| R98 | tap_tx_window_blocks（改造承载：B210 采集线程+交窗时间戳；shared normalize_monitor_block 改造——详见域二十六） |
+| R99 | run_power_ladder（测试面：power_step 键集按后端形态逐键钉住；无代码改动） |
+| R100 | run_leakage_calibration（新增顶层；叶 _capture_leakage_phase/_compute_coupling_db/_write_leakage_table） |
+| R101 | view_calibration_status（改造承载：空表/路径边界如实化+文档口径） |
+| R102 | train_classifier（测试面：零匹配原文+缺省路径语义）+ index_dataset（DEFAULT_* 用例）——测试双函数承载 |
+| R103 | edit_scenario_ui（改造）+ read_scenario（新增 GET 端点）+ guard_scenario_update（新增 PUT 守卫） |
+| R104 | build_overview_area（新增 UI 区块）+ get_status_backend/get_status_clock（新增状态端点） |
+| R105 | verify_report_traceability（改造承载：聚合重算+豁免收窄；shared recompute_failure_aggregates） |
+| R106 | record_run_streams（改造承载：facts 真值）+ write_sigmf_recording（改造：标注回填）；shared build_recording_facts |
+| R107 | resolve_models_dir（新增 shared；改造点 launch_classifier_training/list_model_files/infer_style_entry/view_cv_evaluation/build_report） |
+| R108 | execute_scenario（改造承载：距离档供给）+ simulate_link_degradation（改造：距离-JSR 耦合） |
+| R109 | run_demo（改造承载：固定衰减基线）+ set_channel_attenuation（改造：基线叠加）+ validate_scenario_schema（快速通道：atten_db 白名单） |
+| R110 | render_console_pages（改造承载：场景卡事件刷新）+ edit_scenario_ui（事件派发） |
+| R111 | browse_dataset_library（改造承载：可回放过滤+旧录音标注） |
+| R112 | check_demo_manual（改造承载：文档契约同步；文档交付） |
+| R113 | predict_style（改造承载：裸模型回退 note） |
+| R114 | serve_console（改造承载：端口重启提示） |
+| R115 | demo_rff_pipeline（改造承载：拒跑文案分支） |
 
 ## 共享函数（shared/：多顶层共用；矩阵挂全部受益需求）
 
@@ -309,7 +327,7 @@
   - tested 策略：上游覆盖: build_report（口径声明字段断言）
   - 核验命令：上游覆盖: build_report
 - **normalize_monitor_block**（调用方：record_run_streams, tap_tx_window_blocks）〔新上提·快速通道 2026-10-15：自 record_run_streams._as_monitor_block 上提为共享实现（原私有函数改薄壳调用）——R88 发射窗内拉取与采集期拉取两处同源归一+盖戳，防两套口径漂移〕
-  - 职责：后端块形状归一+主机单调钟毫秒盖戳：dict 直通；(samples, meta) 二元组（sim 契约）转块 dict（ts=time.monotonic()*1000.0 盖戳时刻、meta['rx_ts'] 块号降级 'block_index' 附注、overflow 透传）；其余形状原样透传（由 capture 的块形状校验拒）。盖戳语义=调用时刻——发射窗内拉取即窗内时间戳（R88 交窗判据的时间基础）。
+  - 职责：后端块形状归一+主机单调钟毫秒盖戳：dict 直通；(samples, meta) 二元组（sim 契约）转块 dict（ts=time.monotonic()*1000.0 盖戳时刻、meta['rx_ts'] 块号降级 'block_index' 附注、overflow 透传）；其余形状原样透传（由 capture 的块形状校验拒）。盖戳语义=调用时刻——发射窗内拉取即窗内时间戳（R88 交窗判据的时间基础）。〔改造·R98〕B210 dict 块（含 `device_ts` 键）门控盖主机单调毫秒戳：`ts`=拉取时刻、原块序号降级 `block_index`、`device_ts` 原样保留；sim 元组与 replay dict 逐字节不变，且只盖一次。
   - 签名意图：输入: 后端原始块（dict/二元组/其他）/ 输出: 归一块 dict（或原样透传形状）/ 错误: 不抛（形状拒归 capture 侧）。
   - tested 策略：上游覆盖: record_run_streams + tap_tx_window_blocks（sim_delivery 族）
   - 核验命令：上游覆盖: record_run_streams
@@ -324,6 +342,23 @@
   - 签名意图：输入: 无（常量+钩子占位；标定后可扩表参数）/ 输出: float（基准增益 dB，∈(0, 80]）/ 错误: 钩子/配置越界→ValueError。
   - tested 策略：自有单测（常量锚 60+80 上限拒绝+sim/replay 不消费不受扰）
   - 核验命令：测试: pytest -k "b210_gain_mapping"（R95 验收继承）
+
+
+- **recompute_failure_aggregates**（调用方：verify_report_traceability, build_report）〔新增·R87 修复轮 R105〕
+  - 职责：按 style 分组从 failure 事件序列重算失效电平聚合（median/min/max/n_runs），公式与 compare_failure_boundaries 同源；只做纯计算，不读文件。
+  - 签名意图：输入: failure_level 事件条目序列（含 style/failure_level_db）/ 输出: {style: {median_db,min_db,max_db,n_runs}} / 错误: 条目缺 style 或非有限数值→ValueError（不静默跳过）。
+  - tested 策略：自有单测（单/多样式+unknown+非有限拒）
+  - 核验命令：测试: pytest -k "report_traceability or compare_failure"（R105 验收继承）
+- **build_recording_facts**（调用方：run_demo, record_run_streams）〔新增·R87 修复轮 R106〕
+  - 职责：按录制场景组装 SigMF 真值 facts：style/backend（实际选择）/freq_hz/sample_rate（取 fs，缺失回退 sample_rate*）/run_id/clock_ref/power_steps（GB power_step 或 distance distance_step 映射）/window（起止毫秒）；缺可选项时给出明确 status 而不是伪造。
+  - 签名意图：输入: scenario dict+backend selection+clock_ref+事件序列+录制起止 / 输出: facts dict / 错误: 必填缺失→ValueError；可选缺失→status 标注。
+  - tested 策略：自有单测（GB/distance 两形+缺省降级）
+  - 核验命令：测试: pytest -k "record_run_streams or sigmf"（R106 验收继承）
+- **resolve_models_dir**（调用方：launch_classifier_training, list_model_files, infer_style_entry, view_cv_evaluation, build_report, train_classifier 调用方）〔新增·R107〕
+  - 职责：解析全局模型目录 `fn_work/models`——以仓库根（`Path(__file__)` 上溯）锚定，cwd 无关；可被显式配置覆盖但默认唯一。
+  - 签名意图：输入: 无（或 repo_root 覆盖）/ 输出: 绝对路径 Path / 错误: 目录不可创建→OSError 透传。
+  - tested 策略：自有单测（仓库根与 fn_work 两 cwd 解析同值）
+  - 核验命令：测试: pytest -k "model_dir or models_dir"（R107 验收继承）
 
 ## 功能块 load_scenario ← R1
 
@@ -1827,3 +1862,357 @@
   - 调用方：set_channel_attenuation
   - tested 策略：自有单测（b210_gain_mapping+attenuation_truthful 两族；sim 旧路径逐字节反向断言）
   - 核验命令：测试: pytest -k "b210_gain_mapping or attenuation_truthful"（R95/R97 验收继承）
+
+## 功能块 tap_tx_window_blocks（改造承载：B210 并发采集+交窗时间戳） ← R98
+
+（R98：真机监测并发采集。目标态：装配期对 `capabilities().kind=='b210'` 启动采集线程，循环 `read_samples(1)`→`shared/normalize_monitor_block` 归一→追加缓冲；dwell_cb 不再拉数据，只做切片睡眠+停检（阶梯驻留恢复标称节奏）；装配返回增 `close`：ladder 结束/异常/急停路径在**先停发射之后**置停止旗并 join（≤1s，超时如实注记）；线程内异常暂存、close 时主线程重抛；缓冲到 `max_monitor_blocks` 即停拉并注记 `capture_capped`。sim 保持同步路径零改动。时间戳由 shared 改造承载（B210 dict 门控盖主机毫秒戳）。）
+
+- **tap_tx_window_blocks** [L0|改造]
+  - 职责：发射窗监测采集装配器：B210 形态启动并持有采集线程，dwell_cb 仅承载切片睡眠/停检；返回 `{dwell_cb, blocks, close}`；sim 形态沿用同步拉取装配。
+  - 签名意图：输入: ctx（backend/stop）/ 输出: dict|None（含 dwell_cb/blocks/close）/ 错误: 装配期不捕获；线程错误经 close 重抛。
+  - 调用方：execute_gb42590_protocol
+  - tested 策略：上游覆盖: tap_tx_window_blocks（R98 验收①）
+  - 核验命令：测试: pytest -k "tap_tx_window or record_run_streams"（R98 验收继承）
+  - **_start_b210_capture_thread** [L1|新增]
+    - 职责：采集线程主体：循环 `backend.read_samples(1)`→归一→append；停旗/到顶退出；异常暂存；到顶写 `capture_capped` 注记。
+    - 签名意图：输入: backend+缓冲+stop+上限 / 输出: 线程句柄/错误槽 / 错误: 读异常存入错误槽由 close 重抛。
+    - 调用方：tap_tx_window_blocks
+    - tested 策略：上游覆盖: tap_tx_window_blocks
+    - 核验命令：上游覆盖: tap_tx_window_blocks
+  - **_stop_capture_thread** [L1|新增]
+    - 职责：置停止旗→join（≤1s）→超时注记→若错误槽非空则重抛；幂等。
+    - 签名意图：输入: 线程句柄/错误槽 / 输出: 无 / 错误: 线程异常重抛；join 超时不抛只注记。
+    - 调用方：tap_tx_window_blocks.close（execute_gb42590_protocol 在停发射后调用）
+    - tested 策略：上游覆盖: tap_tx_window_blocks
+    - 核验命令：上游覆盖: tap_tx_window_blocks
+  - **_make_tick_dwell_cb** [L1|改造]
+    - 职责：B210 形态不再在 dwell 内拉数据，只切片睡眠+停检；sim 形态保持原有逐 tick 拉取行为逐字节不变。
+    - 签名意图：输入: backend/blocks/stop/slice/max_blocks / 输出: dwell_cb / 错误: 参数域 ValueError；停旗 EmergencyStopRequested。
+    - 调用方：tap_tx_window_blocks
+    - tested 策略：上游覆盖: tap_tx_window_blocks
+    - 核验命令：上游覆盖: tap_tx_window_blocks
+
+## 功能块 run_power_ladder（测试面：power_step 键集钉住） ← R99
+
+（R99：无代码行为改动；在既有测试中按后端形态钉住 power_step 键集：B210 正常 17/地板 18/cal_unused 18、attenuator 15、sim 15、无 backend 15；并补 sim 侧反断言。核验继承 R99 验收。）
+
+- **run_power_ladder** [L0|改造]
+  - 职责：保持既有逐档下发/事件/判据编排不变；本需求只新增测试面键集断言，不改事件字段。
+  - 签名意图：输入: 既有阶梯参数 / 输出: 既有 executed 结构 / 错误: 沿既有。
+  - 调用方：execute_gb42590_protocol
+  - tested 策略：自有单测（键集相等+变异自证）
+  - 核验命令：测试: pytest -k "power_step or attenuation_truthful"（R99 验收继承）
+
+## 功能块 run_leakage_calibration ← R100
+
+（R100：自漏标定入口（函数+一条 CLI）：B210 目标频段发射连续音，采 TX 关/开两相位 RX 谱，逐频点算 ΔdB 为 coupling_db，经 calibrate_leakage session 口径写 `fn_work/calibrations/leakage.json`；不足 3 点沿 insufficient 语义；入口不自动运行、不写其它表。）
+
+- **run_leakage_calibration** [L0|新增]
+  - 职责：自漏标定编排：打开后端→两相位采集→逐频点耦合→调用 calibrate_leakage 写表；返回表路径/点数/status。
+  - 签名意图：输入: target_band/out_path/后端参数 / 输出: {table_path, points, status} / 错误: 后端不可用→BackendError；点数不足→insufficient 标注不伪造。
+  - 调用方：CLI 入口（用户现场触发）
+  - tested 策略：上游覆盖: calibrate_leakage + 本函数集成用例
+  - 核验命令：测试: pytest -k "calibrate_leakage or leakage_calibration"（R100 验收继承）
+  - **_capture_leakage_phase** [L1|新增]
+    - 职责：单相位采集：TX 关/开下读取 RX 谱块并求逐频点功率；纯采集+统计，不下发标定逻辑。
+    - 签名意图：输入: backend+相位+dwell / 输出: [{freq_mhz, power_db}] / 错误: 读异常透传。
+    - 调用方：run_leakage_calibration
+    - tested 策略：上游覆盖: run_leakage_calibration
+    - 核验命令：上游覆盖: run_leakage_calibration
+  - **_compute_coupling_db** [L1|新增]
+    - 职责：两相位逐频点差 ΔdB→coupling_db；频点对齐/缺失处理明确。
+    - 签名意图：输入: 两相位谱 / 输出: [{freq_mhz,coupling_db}] 升序 / 错误: 频点不齐→ValueError。
+    - 调用方：run_leakage_calibration
+    - tested 策略：自有单测（差分/排序/频点不齐拒）
+    - 核验命令：测试: pytest -k "leakage_calibration"（R100 验收继承）
+  - **_write_leakage_table** [L1|新增]
+    - 职责：按 calibrate_leakage session 格式落盘 leakage.json（kind/status/points/freq_unit/coupling_unit/table）。
+    - 签名意图：输入: coupling 列表+out_path / 输出: 表路径 / 错误: IO 失败透传。
+    - 调用方：run_leakage_calibration
+    - tested 策略：上游覆盖: run_leakage_calibration
+    - 核验命令：上游覆盖: run_leakage_calibration
+
+## 功能块 view_calibration_status（改造承载） ← R101
+
+（R101：标定口径如实化——①手册第 26 章"三件演示"改为仅 gain 三分支；②user-guide"自动转实值"改为"手工建表后读取"；③空 `{}` gain 文件显示 ok（placeholder=False）与 builder/loader 路径错位的边界如实登记并补测试。行为不改，只补状态语义与文档。）
+
+- **view_calibration_status** [L0|改造]
+  - 职责：读取四表状态并返回如实描述；对空表/缺目录/路径错位给出与 loader 一致的 status 与 note；演示仍只覆盖 gain 三分支并在返回中标注覆盖范围。
+  - 签名意图：输入: section/demo 参数 / 输出: 状态 dict（含 present/entry_count/note/coverage）/ 错误: demo 失败如实上屏。
+  - 调用方：/api/calibration（mount_console_extensions）
+  - tested 策略：自有单测（空表/缺目录/路径错位/demo 覆盖标注）
+  - 核验命令：测试: pytest -k "view_calibration_status"（R101 验收继承）
+  - **_describe_empty_gain_status** [L1|新增]
+    - 职责：区分"文件不存在（待实测）"与"文件存在但 entries 为空（ok/0 条）"，返回与 loader 同口径的 note。
+    - 签名意图：输入: 表读取结果 / 输出: {status,note,entry_count} / 错误: 不抛。
+    - 调用方：view_calibration_status
+    - tested 策略：上游覆盖: view_calibration_status
+    - 核验命令：上游覆盖: view_calibration_status
+
+## 功能块 train_classifier + index_dataset（测试面） ← R102
+
+（R102：无代码行为改动。①零匹配断言钉住报错原文"样本不足拒训：查询匹配 0 条"；②DEFAULT_INDEX_PATH/DEFAULT_RUNS_ROOT 从仓库根与 fn_work 两 cwd 的解析语义用例；③responsibility 取数措辞对齐。核验继承 R102 验收。）
+
+- **train_classifier** [L0|改造]
+  - 职责：保持既有训练入口行为不变；本需求只补测试断言（报错原文/缺省路径语义）。
+  - 签名意图：输入: 既有 query/hyperparams/where / 输出: 既有结果 dict / 错误: 沿既有 TrainError。
+  - 调用方：run_demo / AI 端点
+  - tested 策略：自有单测（零匹配原文+缺省路径双 cwd）
+  - 核验命令：测试: pytest tests/train_classifier tests/index_dataset（R102 验收继承）
+- **index_dataset** [L1|测试面]
+  - 职责：保持既有索引读写行为不变；新增缺省路径语义用例（仓库根/ fn_work 两 cwd 的解析结果）。
+  - 签名意图：输入: 既有 action/query/路径 / 输出: 既有结果 / 错误: 沿既有。
+  - 调用方：train_classifier / RFF / 数据页
+  - tested 策略：自有单测（DEFAULT_* 语义）
+  - 核验命令：测试: pytest tests/index_dataset（R102 验收继承）
+
+## 功能块 read_scenario + guard_scenario_update + edit_scenario_ui（改造承载） ← R103
+
+（R103：场景编辑器读取原场景+双防线。①`GET /api/scenarios/{name}` 返回原始 YAML；②选中目标即载入原文并切 YAML；表单模式仅新建，未载入原文时表单保存拒绝；③`PUT` 守卫比较 `bands` 数量与键集，丢失频段/表单不表达键→400 并列出，`allow_drop=true` 才放行；④未知字段原样保留。C1 的两条路径：前端禁写 + 服务端兜底。）
+
+- **read_scenario** [L0|新增]
+  - 职责：读取单个场景原始 YAML 文本并返回（`.yaml`/`.yml` 与列表口径一致）；不存在/损坏如实报错。
+  - 签名意图：输入: 场景名 / 输出: {name, content} / 错误: 不存在→404；读取失败→500 含原因。
+  - 调用方：/api/scenarios/{name} 路由
+  - tested 策略：自有单测（TestClient 原文/404/双后缀）
+  - 核验命令：测试: pytest -k "scenario_editor or scenario_api"（R103 验收继承）
+- **guard_scenario_update** [L0|新增]
+  - 职责：保存前比较新旧场景：`bands` 数量减少或表单不表达键丢失→400 列出丢失键；`allow_drop=true` 放行；新旧解析失败如实报错。
+  - 签名意图：输入: 旧文本+新文本+allow_drop / 输出: 通过或错误详情 / 错误: 解析失败/丢键→ValueError 携带键清单。
+  - 调用方：PUT /api/scenarios/{name}
+  - tested 策略：自有单测（丢带/丢键/allow_drop/未知字段保留）
+  - 核验命令：测试: pytest -k "scenario_editor or scenario_api"（R103 验收继承）
+- **edit_scenario_ui** [L0|改造]
+  - 职责：编辑器前端：目标选中触发原文加载并切 YAML；表单仅新建；保存错误逐条上屏；不静默覆盖。
+  - 签名意图：输入: 卡片/场景目录 / 输出: 编辑器 HTML+JS / 错误: N/A（前端行为）。
+  - 调用方：serve_console（index 页注入）
+  - tested 策略：Playwright（多频段目标表单保存被阻；单频段编辑保留字段）
+  - 核验命令：测试: pytest -k "scenario_editor_e2e"（R103 验收继承）
+  - **_load_scenario_into_editor** [L1|新增]
+    - 职责：按选中名 fetch 原文→填 textarea→切 YAML 模式→清空错误；失败上屏。
+    - 签名意图：输入: 场景名 / 输出: 更新 DOM / 错误: 网络/404 上屏。
+    - 调用方：edit_scenario_ui（target change）
+    - tested 策略：上游覆盖: edit_scenario_ui
+    - 核验命令：上游覆盖: edit_scenario_ui
+
+## 功能块 build_overview_area + get_status_backend + get_status_clock ← R104
+
+（R104：总览页四块真实数据。新增两个状态端点与 overview 区块注入；时钟标明"最近运行/实时"口径；探测不打开/占用设备。）
+
+- **build_overview_area** [L0|新增]
+  - 职责：生成总览页四块（后端/时钟/清单完成度/近期运行）的原生 fetch 区块 HTML+JS；空态与 unavailable 如实。
+  - 签名意图：输入: 无 / 输出: HTML 片段 / 错误: 不抛（数据缺失由前端如实显示）。
+  - 调用方：serve_console（overview 注入）
+  - tested 策略：Playwright（四块非空/数字一致/无设备 unavailable）
+  - 核验命令：测试: pytest -k "console_pages_e2e or overview"（R104 验收继承）
+  - **_render_backend_block / _render_clock_block / _render_ledger_block / _render_recent_runs_block** [L1|新增]
+    - 职责：各自渲染一块并拉对应端点；单块失败只在本块显示错误，不影响其余块。
+    - 签名意图：输入: 无 / 输出: 区块 HTML+JS / 错误: 不抛。
+    - 调用方：build_overview_area
+    - tested 策略：上游覆盖: build_overview_area
+    - 核验命令：上游覆盖: build_overview_area
+- **get_status_backend** [L0|新增]
+  - 职责：只读探测后端在位状态（复用 autodetect_backend），不打开/占用设备；返回 kind/available/note。
+  - 签名意图：输入: 无 / 输出: {available, kind, note} / 错误: 探测失败→available=false 含原因。
+  - 调用方：/api/status/backend
+  - tested 策略：自有单测（在位/不在位/探测异常）
+  - 核验命令：测试: pytest -k "status_backend"（R104 验收继承）
+- **get_status_clock** [L0|新增]
+  - 职责：返回时钟参考状态（resolve_clock_reference 结果）；无设备/未记录→unavailable；标明来源（最近运行/实时）。
+  - 签名意图：输入: 无 / 输出: {clock_ref, source, available, note} / 错误: 解析失败→unavailable 含原因。
+  - 调用方：/api/status/clock
+  - tested 策略：自有单测（有值/无值/异常）
+  - 核验命令：测试: pytest -k "status_clock"（R104 验收继承）
+
+## 功能块 verify_report_traceability（改造承载：聚合重算+豁免收窄） ← R105
+
+（R105：不再整行豁免 `>`。失效表/结论行的 median/min/max 从 events 的 failure_level 事件按 shared recompute_failure_aggregates 同源重算并比对；静态脚注改固定文本精确白名单；events 缺失→unverifiable。报告页徽标注明生成时快照。）
+
+- **verify_report_traceability** [L0|改造]
+  - 职责：抽数→分类回查：普通数字回查三文件；聚合值走重算比对；静态脚注精确白名单；events 缺失时返回 unverifiable。
+  - 签名意图：输入: report_path+run_dir / 输出: {n_numbers,n_traced,n_contextual,mismatches,passed,status} / 错误: 读失败→异常；缺 events→status=unverifiable。
+  - 调用方：run_demo 收尾 / CLI / 报告页
+  - tested 策略：自有单测（篡改 median/min/max 必 fail；合法聚合 pass；脚注不误报）
+  - 核验命令：测试: pytest -k "report_traceability"（R105 验收继承）
+  - **_is_static_footnote_line** [L1|改造]
+    - 职责：只把固定口径声明/脚注行判为豁免；失效表/结论行不再整行豁免。
+    - 签名意图：输入: 行文本 / 输出: bool / 错误: 不抛。
+    - 调用方：verify_report_traceability
+    - tested 策略：上游覆盖: verify_report_traceability
+    - 核验命令：上游覆盖: verify_report_traceability
+
+## 功能块 record_run_streams + write_sigmf_recording（改造承载） ← R106
+
+（R106：SigMF 真值。facts 取 fs/实际 backend/clock_ref；从事件生成功率档；录制结束后按实际样本回填 annotation 起止并夹取；无档位事件时空标注+状态。shared build_recording_facts 承载组装。）
+
+- **record_run_streams** [L0|改造]
+  - 职责：录制阶段用 shared build_recording_facts 组 facts（不再只认 sample_rate）；把 facts 传给 write_sigmf_recording；保持采集泵行为不变。
+  - 签名意图：输入: 既有 ctx（新增可选 facts）/ 输出: 既有状态 dict / 错误: 沿既有。
+  - 调用方：run_demo
+  - tested 策略：上游覆盖: record_run_streams（GB+distance 端到端）
+  - 核验命令：测试: pytest -k "record_run_streams or sigmf"（R106 验收继承）
+  - **_recording_ctx** [L1|改造]
+    - 职责：优先用显式 facts；缺省时按 fs/selection/clock_ref/事件降级构建，不再落 1.0。
+    - 签名意图：输入: ctx+run_dir+backend / 输出: {facts} / 错误: 必填缺失→ValueError。
+    - 调用方：record_run_streams
+    - tested 策略：上游覆盖: record_run_streams
+    - 核验命令：上游覆盖: record_run_streams
+- **write_sigmf_recording** [L0|改造]
+  - 职责：录制结束后按实际 num_samples 与档位 ts 回填 annotation 起止（夹取+jam:annotation_clamped）；无档位事件时 annotations=[] 且带状态。
+  - 签名意图：输入: 既有流+facts / 输出: 数据+meta 文件 / 错误: 写失败透传。
+  - 调用方：record_run_streams
+  - tested 策略：自有单测（回填/夹取/空标注）
+  - 核验命令：测试: pytest -k "sigmf or annotate_truth"（R106 验收继承）
+  - **_backfill_annotation_spans** [L1|新增]
+    - 职责：按实际总样本数与各档 ts 计算/夹取 sample_start/sample_count；纯计算。
+    - 签名意图：输入: power_steps+num_samples+window / 输出: annotations / 错误: 非有限/负值→ValueError。
+    - 调用方：write_sigmf_recording
+    - tested 策略：自有单测（顺序/夹取/同毫秒/空）
+    - 核验命令：测试: pytest -k "annotate_truth"（R106 验收继承）
+
+## 功能块 execute_scenario（改造承载：距离档供给）+ simulate_link_degradation ← R108
+
+（R108：①距离每档按需供给样本（sim 容量按可达档数×judge_min_samples，或每档重开）；②样本不足落 distance_step_insufficient（区分源耗尽/衰减不可达）；③sim JSR 按该档 loss/achieved 计算，使 PER 随距离变化；④真链路不强行重开，耗尽即显式事件。）
+
+- **execute_scenario** [L0|改造]
+  - 职责：距离编排改为每档按需供给；不足显式事件；保持其它类型（gb/custom/emc）路径不变。
+  - 签名意图：输入: 既有 ctx+scenario / 输出: 既有结果+新增 insufficient 事件 / 错误: 沿既有。
+  - 调用方：run_demo
+  - tested 策略：上游覆盖: execute_scenario（距离三档样例数/事件）
+  - 核验命令：测试: pytest -k "distance"（R108 验收继承）
+  - **_run_distance** [L1|改造]
+    - 职责：逐档取样本：每档按需供给或重开源；StopIteration→insufficient 事件（reason 区分）；不再静默 break。
+    - 签名意图：输入: ctx+距离计划 / 输出: 每档 kpi_rows / 错误: 沿既有。
+    - 调用方：execute_scenario
+    - tested 策略：上游覆盖: execute_scenario
+    - 核验命令：上游覆盖: execute_scenario
+- **simulate_link_degradation** [L0|改造]
+  - 职责：JSR 输入支持按档 loss/achieved 计算（链路预算口径），使 PER 随距离变化；无距离信息时保持原缺省。
+  - 签名意图：输入: 事件+可选 loss_db / 输出: 退化样本 / 错误: 沿既有。
+  - 调用方：execute_scenario（sim DUT）
+  - tested 策略：自有单测（不同 loss→PER 单调）
+  - 核验命令：测试: pytest -k "simulate_link"（R108 验收继承）
+
+## 功能块 run_demo（改造承载：固定衰减基线）+ set_channel_attenuation + validate_scenario_schema ← R109
+
+（R109：`atten_db` 顶层键 0–50；run_demo 在业务编排前下发整轮固定衰减，作为基线叠加到阶梯/距离请求；事件增列 fixed_atten_db/baseline；运行页滑杆上限 50、功率仅触碰后提交、应用参数按钮删除。）
+
+- **run_demo** [L0|改造]
+  - 职责：解析 atten_db→编排前下发固定衰减→把基线传给阶梯/距离请求；未提供时行为不变。
+  - 签名意图：输入: 既有 CLI/scenario（新增顶层 atten_db）/ 输出: 既有结果+事件列 / 错误: 越界→exit 2。
+  - 调用方：程序入口
+  - tested 策略：上游覆盖: run_demo（atten_db 越界/叠加/未触碰功率）
+  - 核验命令：测试: pytest -k "atten_db or fixed_atten"（R109 验收继承）
+  - **_apply_fixed_attenuation_baseline** [L1|新增]
+    - 职责：把固定衰减作为基线写入运行上下文/传给下发层；不做档位规划。
+    - 签名意图：输入: backend+atten_db / 输出: 基线记录 / 错误: 越界 ValueError。
+    - 调用方：run_demo
+    - tested 策略：上游覆盖: run_demo
+    - 核验命令：上游覆盖: run_demo
+- **set_channel_attenuation** [L0|改造]
+  - 职责：在既有档位组合上叠加固定衰减基线；事件增列 fixed_atten_db/baseline；其余语义不变。
+  - 签名意图：输入: 既有请求+可选 baseline / 输出: 既有组合+基线列 / 错误: 沿既有。
+  - 调用方：run_power_ladder, execute_scenario
+  - tested 策略：上游覆盖: attenuation_truthful（基线叠加/事件列）
+  - 核验命令：测试: pytest -k "attenuation_truthful"（R109 验收继承）
+  - **_dispatch_backend** [L1|改造]
+    - 职责：把基线并入下发请求；B210/sim/attenuator/无后端四形态语义保持。
+    - 签名意图：输入: 既有组合+baseline / 输出: 既有下发结果 / 错误: 沿既有。
+    - 调用方：set_channel_attenuation
+    - tested 策略：上游覆盖: attenuation_truthful
+    - 核验命令：上游覆盖: attenuation_truthful
+- **validate_scenario_schema** [L0|改造]
+  - 职责：`_KNOWN_KEYS` 增顶层 `atten_db` 并校验 0–50；未知键仍全拒。
+  - 签名意图：输入: 场景 dict / 输出: 通过/错误清单 / 错误: 越界/未知键→校验错误（exit 2）。
+  - 调用方：load_scenario
+  - tested 策略：自有单测（0/50/50.01/未知键）
+  - 核验命令：测试: pytest -k "load_scenario"（R109 验收继承）
+
+## 功能块 render_console_pages（改造承载：场景卡刷新）+ edit_scenario_ui ← R110
+
+（R110：编辑器保存/删除成功后派发 `scenarios-updated`；运行页监听并 fetch `/api/scenarios` 重设 cards；处理空态；保留 WS/曲线状态。改造点：`edit_scenario_ui` 事件派发（目标态见 R103 块同名函数，避免重复声明）。）
+
+- **render_console_pages** [L0|改造]
+  - 职责：运行页监听场景更新事件→重拉 /api/scenarios→重设 cards 与空态；不整页 reload。
+  - 签名意图：输入: 既有卡片/参数 / 输出: 运行页 HTML+JS / 错误: N/A。
+  - 调用方：serve_console
+  - tested 策略：Playwright（新建后出现/删除后消失/空态两向）
+  - 核验命令：测试: pytest -k "console_pages_e2e or scenario_editor_e2e"（R110 验收继承）
+  - **_refresh_scenario_cards** [L1|新增]
+    - 职责：fetch 场景列表→更新 this.cards→切换空态；请求失败上屏。
+    - 签名意图：输入: 无 / 输出: 更新 DOM 状态 / 错误: 网络失败上屏不抛。
+    - 调用方：render_console_pages（事件监听/mounted）
+    - tested 策略：上游覆盖: render_console_pages
+    - 核验命令：上游覆盖: render_console_pages
+## 功能块 browse_dataset_library（改造承载：录音过滤+旧录音标注） ← R111
+
+（R111：数据页只列可回放录音（SigMF 成对且非空）；页脚显示"另有 N 条无录音记录未列出"；R88 前 noise-only 录音标"旧口径（无发射段）"。）
+
+- **browse_dataset_library** [L0|改造]
+  - 职责：构建录音卡片时过滤不可回放条目并计数；对旧口径录音加标注；回放入口只对可回放卡启用。
+  - 签名意图：输入: 索引条目 / 输出: {cards, hidden_count, notes} / 错误: 索引缺失如实空态。
+  - 调用方：/api/dataset + 数据页
+  - tested 策略：自有单测（178/120 过滤+计数+旧录音标注）
+  - 核验命令：测试: pytest -k "browse_dataset"（R111 验收继承）
+  - **_filter_replayable_cards** [L1|新增]
+    - 职责：判定 SigMF 对存在且 data 非空；返回可回放/隐藏两列。
+    - 签名意图：输入: 条目列表 / 输出: (replayable, hidden_count) / 错误: 文件系统读失败按不可回放。
+    - 调用方：browse_dataset_library
+    - tested 策略：上游覆盖: browse_dataset_library
+    - 核验命令：上游覆盖: browse_dataset_library
+  - **_mark_legacy_recording** [L1|新增]
+    - 职责：按日期/后端/数据能量判定 R88 前 noise-only 并返回标注文本。
+    - 签名意图：输入: 条目 / 输出: note|None / 错误: 不抛。
+    - 调用方：browse_dataset_library
+    - tested 策略：上游覆盖: browse_dataset_library
+    - 核验命令：上游覆盖: browse_dataset_library
+
+## 功能块 check_demo_manual（文档交付+契约同步） ← R112
+
+（R112：文档口径全修——第 8 章命令改 mtime/过滤、第 2 章 B210 耗时与谱限界、第 5 章 auto/sim 区分、500 帧→1000、README 计数、首轮报告 partial、+67dB 实验内、NRF 清缓冲、rounds=2、register 动态值、auto 决策行。手册直接改并逐处登记；check_demo_manual 断言同步。）
+
+- **check_demo_manual** [L0|改造]
+  - 职责：手册契约自检继续覆盖三件套；同步更新对修复句/命令形态的断言；文档改动逐处留痕。
+  - 签名意图：输入: 手册路径 / 输出: 契约检查结果 / 错误: 不匹配→失败清单。
+  - 调用方：测试/交付检查
+  - tested 策略：自有单测（契约 v2+新增断言）
+  - 核验命令：测试: pytest -k "demo_manual_check"（R112 验收继承）
+
+## 功能块 predict_style（改造承载：裸模型 note） ← R113
+
+（R113：无 weights/无 class_mean_spectra 的裸模型走规则路时补 note；带模板模型无该 note。）
+
+- **predict_style** [L0|改造]
+  - 职责：保持识别分流不变；裸模型规则路附"无模板数据，回退规则路"note。
+  - 签名意图：输入: 既有 IQ/模型 / 输出: 既有结果+note / 错误: 沿既有。
+  - 调用方：报告/AI 页
+  - tested 策略：自有单测（裸模型 note/有模板无 note）
+  - 核验命令：测试: pytest -k "predict_style"（R113 验收继承）
+
+## 功能块 serve_console（改造承载：端口重启提示） ← R114
+
+（R114：端口探测区分 TIME_WAIT 与真实占用，给准确提示；真实占用仍拒绝。）
+
+- **serve_console** [L0|改造]
+  - 职责：启动前端口探测；TIME_WAIT 给"刚释放，等待数秒或换端口"提示；真实占用拒绝。
+  - 签名意图：输入: 既有 config / 输出: 服务启动 / 错误: 占用→ConsoleError 含原因。
+  - 调用方：程序入口
+  - tested 策略：自有单测（占用/刚释放/正常）
+  - 核验命令：测试: pytest -k "serve_console"（R114 验收继承）
+  - **_port_in_use** [L1|改造]
+    - 职责：探测端口；区分可复用（TIME_WAIT）与真实占用。
+    - 签名意图：输入: host/port / 输出: bool+状态 / 错误: 不抛。
+    - 调用方：serve_console
+    - tested 策略：上游覆盖: serve_console
+    - 核验命令：上游覆盖: serve_console
+
+## 功能块 demo_rff_pipeline（改造承载：拒跑文案分支） ← R115
+
+（R115：空索引/零匹配与 min_samples 不足两种文案区分；手册同步。）
+
+- **demo_rff_pipeline** [L0|改造]
+  - 职责：按失败来源返回不同拒跑文案；不改变 RFF 流程与阈值。
+  - 签名意图：输入: 既有 index/参数 / 输出: 既有阶段结果/拒跑信息 / 错误: 零匹配→明确文案；样本不足→min_samples 文案。
+  - 调用方：CLI/AI 页
+  - tested 策略：自有单测（两分支）
+  - 核验命令：测试: pytest -k "rff"（R115 验收继承）
