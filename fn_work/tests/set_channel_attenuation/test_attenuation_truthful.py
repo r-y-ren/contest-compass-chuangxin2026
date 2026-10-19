@@ -40,6 +40,28 @@ _SIM_EVENT_KEYS = {
     "wallclock",
 }
 
+#: 形态②（B210）正常档事件体精确键集（B52 对抗 M-1：sim 有 _SIM_EVENT_KEYS 硬编码
+#: 反断言而形态②仅逐字段断言，未来杂键不会被拦）＝sim 同源底盘（含 ts/wallclock
+#: 自然戳——实跑确认在事件体，纳入策略与 _SIM_EVENT_KEYS 同款）＋形态②三新键
+#: tx_gain_db/coarse_semantics/applied_via；键集为实跑打印采集后写死（六档逐档一致）。
+_B210_EVENT_KEYS = {
+    "type",
+    "target_db",
+    "coarse",
+    "coarse_db",
+    "fine_step_db",
+    "fine_actual_db",
+    "achieved_db",
+    "residual_db",
+    "fine_from",
+    "tx_gain_db",
+    "coarse_semantics",
+    "applied",
+    "applied_via",
+    "ts",
+    "wallclock",
+}
+
 
 def _reject_constant(name: str) -> None:
     """严格解析哨兵：行内出现 NaN/Infinity 字面量即判失败（承兄弟测试口径）。"""
@@ -98,6 +120,26 @@ def test_attenuation_truthful_b210_gain_floor_event_tx_gain_zero(tmp_path):
     assert event["tx_gain_db"] == 0.0
     assert event["coarse_semantics"] == "gain_budget"
     assert result["tx_gain_db"] == 0.0  # 返回同携
+
+
+def test_attenuation_truthful_b210_event_keyset_pinned(tmp_path):
+    """⑤ B210 形态事件键集精确钉住（B52 对抗 M-1）：六档逐档 set(event)==
+    _B210_EVENT_KEYS——形态②此前仅逐字段断言，多键/漏键不会被拦（sim 已有键集
+    硬编码先例，此处同款补齐）；ts/wallclock 自然戳实跑确认在事件体并纳入键集。"""
+    for target in _SIX_TARGETS_DB:
+        run_dir = tmp_path / f"keyset_{target:g}"
+        run_dir.mkdir()
+        set_channel_attenuation(
+            {"backend": _b210_mock(), "run_dir": str(run_dir)}, target
+        )
+        (event,) = _read_events(run_dir)
+        # 键集逐档精确钉住；变异自证：若实现给形态②误加/漏加任一键，本用例即红。
+        assert set(event) == _B210_EVENT_KEYS
+        # 自然戳类型对拍（纳入键集后的同款口径，承 sim 用例）
+        assert isinstance(event["ts"], int) and isinstance(event["wallclock"], str)
+        # 正常档杂键显式点名（键集相等已蕴含，点名助读：地板/未下发键绝不在）
+        for absent in ("applied_detail", "reason"):
+            assert absent not in event
 
 
 def test_attenuation_truthful_sim_event_byte_identical_zero_change(tmp_path):
