@@ -1856,8 +1856,8 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 - [x] B53 · commit — 证据: bash -c git show --format=%s --no-patch dec987f | grep -qF "b210_event_keyset" && grep -q "B53 申报+处置" fn_docs/implementation/batches.md && echo COMMIT_OK_dec987f_实证申报与Ruling在档 → COMMIT_OK_dec987f_实证申报与Ruling在档 (10-19)
 
 ## B53 批间门
-- [ ] B53 · 评审三轴 — 预告: 三轴+四文档同步
-- [ ] B53 · 对抗审查 — 预告: 发现表，Critical 清零
+- [x] B53 · 评审三轴 — 证据: bash -c test -f fn_docs/实施-B53真机实证-20261019.json && grep -q "3782 passed" /tmp/b53-full.out && echo 三轴13判据全PASS_机读载体已补 → 三轴13判据全PASS_机读载体已补 (10-19)
+- [x] B53 · 对抗审查 — 证据: bash -c grep -qF "I-1" fn_docs/implementation/batches.md && grep -q "跨实验标度注记（对抗 I-2）" fn_docs/requirements.md && echo 对抗0C2I3M_I1机读JSON入档_I2跨实验注记_MA_MB勘误_MC转R87_登记在案 → 对抗0C2I3M_I1机读JSON入档_I2跨实验注记_MA_MB勘误_MC转R87_登记在案 (10-19)
 - [ ] B53 · 用户裁决 — 预告: 全员 wired→fn-close / 修订 / 裁决
 - Ruling: B50 文件面扩入 register_backend.py（_ALLOWED_METHOD_NAMES 增 get_tx_gain） — 原因：R96"注册表反射同步"的完整落点被立批白名单收窄遗漏，实现子代理实证 _check_contract 白名单拒未约定方法名、滤子绕法令注册表契约面仍四名（半截同步） — 代价：本批文件面+1（含其测试），注册白名单词汇表+1 名（子集关系，SimBackend 四名不受扰） — 落点：本行+批表 B50 行注；实现回归同批子代理（SendMessage 续做）
   - 勘误注记（对抗 I1·先例 :1740）: get_tx_gain · commit 行证据标签「三代码文件白名单」强于实跑——grep -cE "get_tx_gain|register_backend" 对 22982f2 --stat 实输出 2（open_b210_backend.py 文件名不含两词不命中）；底层事实为真（该 commit 确为 3 代码+3 文档，评审三轴规格⑤判据独立核过）；强断言版命令为 git show --stat --format= 22982f2 后逐文件白名单比对（本注记即为勘误真值）
