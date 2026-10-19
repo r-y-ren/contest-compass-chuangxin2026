@@ -1852,13 +1852,13 @@ print('WIRED_OK_仓内形态_conflicts7_prewarm3键无refused')" && echo 双口�
 ## B53 — 真机最小实证（R95 验收⑤；A/B/C 三相位复测口径）
 - [x] B53 · 真机轮重跑 — 证据: bash -c R=fn_work/runs/20261019-142850; [ "$(grep -c "applied_via.*tx_gain" $R/events.jsonl)" = "12" ] && [ "$(grep -c unknown_gain $R/events.jsonl)" = "0" ] && [ "$(grep -c "tx_gain_db" $R/events.jsonl)" = "12" ] && echo 真机轮_status_completed_exit0_12事件双列_六档30至60_粗档超射如实_unknown_gain零 → 真机轮_status_completed_exit0_12事件双列_六档30至60_粗档超射如实_unknown_gai (10-19)
 - [x] B53 · monitor 判据 — 证据: bash -c grep -q "Ruling: B53 monitor 判据载体换算" fn_docs/implementation/tracker.md && echo 物理判据_四相位加六档扫_顶档67.0dB_ge15_旧缺陷对照12.8vs底档43.1_六档单调43.1至67.0_递差10.9_2.7_5.7_3.1_1.6_高端压缩如实_overflow全0_M4回读set等于get_30_45_60 → 物理判据_四相位加六档扫_顶档67.0dB_ge15_旧缺陷对照12.8vs底档43.1_六档单调43.1至67.0_递 (10-19)
-- [ ] B53 · LED 核对 — 预告: TX1 灯现象现场记录（用户确认 0.2 桥接注现句"TX1 灯亮属预期"）
+- [x] B53 · LED 核对 — 证据: bash -c grep -qF "实施-B53真机实证-20261019.json" fn_docs/implementation/batches.md && echo LED观察_用户选择豁免延后_载体2026-10-19门报告offered选项_物理判据由谱分析4.5倍余量承载 → LED观察_用户选择豁免延后_载体2026-10-19门报告offered选项_物理判据由谱分析4.5倍余量承载 (10-19)
 - [x] B53 · commit — 证据: bash -c git show --format=%s --no-patch dec987f | grep -qF "b210_event_keyset" && grep -q "B53 申报+处置" fn_docs/implementation/batches.md && echo COMMIT_OK_dec987f_实证申报与Ruling在档 → COMMIT_OK_dec987f_实证申报与Ruling在档 (10-19)
 
 ## B53 批间门
 - [x] B53 · 评审三轴 — 证据: bash -c test -f fn_docs/实施-B53真机实证-20261019.json && grep -q "3782 passed" /tmp/b53-full.out && echo 三轴13判据全PASS_机读载体已补 → 三轴13判据全PASS_机读载体已补 (10-19)
 - [x] B53 · 对抗审查 — 证据: bash -c grep -qF "I-1" fn_docs/implementation/batches.md && grep -q "跨实验标度注记（对抗 I-2）" fn_docs/requirements.md && echo 对抗0C2I3M_I1机读JSON入档_I2跨实验注记_MA_MB勘误_MC转R87_登记在案 → 对抗0C2I3M_I1机读JSON入档_I2跨实验注记_MA_MB勘误_MC转R87_登记在案 (10-19)
-- [ ] B53 · 用户裁决 — 预告: 全员 wired→fn-close / 修订 / 裁决
+- [x] B53 · 用户裁决 — 证据: bash -c grep -qF "B53 门双审处置" fn_docs/implementation/batches.md && echo 裁决OK_用户2026-10-19调用fn-close即收口载体_演进轮5全批完成 → 裁决OK_用户2026-10-19调用fn-close即收口载体_演进轮5全批完成 (10-19)
 - Ruling: B50 文件面扩入 register_backend.py（_ALLOWED_METHOD_NAMES 增 get_tx_gain） — 原因：R96"注册表反射同步"的完整落点被立批白名单收窄遗漏，实现子代理实证 _check_contract 白名单拒未约定方法名、滤子绕法令注册表契约面仍四名（半截同步） — 代价：本批文件面+1（含其测试），注册白名单词汇表+1 名（子集关系，SimBackend 四名不受扰） — 落点：本行+批表 B50 行注；实现回归同批子代理（SendMessage 续做）
   - 勘误注记（对抗 I1·先例 :1740）: get_tx_gain · commit 行证据标签「三代码文件白名单」强于实跑——grep -cE "get_tx_gain|register_backend" 对 22982f2 --stat 实输出 2（open_b210_backend.py 文件名不含两词不命中）；底层事实为真（该 commit 确为 3 代码+3 文档，评审三轴规格⑤判据独立核过）；强断言版命令为 git show --stat --format= 22982f2 后逐文件白名单比对（本注记即为勘误真值）
   - 对抗 M 项处置登记: M1（set_tx_gain 异形回读静默不对称）+M2（get_tx_gain 无有限性校验）+M3（B50 当下 dispatch 激活效应无集成测试钉住——functions 行「B51 消费」措辞漂移）→ 转 B51 收敛项随批实施；M4（合跑怪癖 12 failed 无仓内档案）→ 观察项：命令=pytest tests/open_sim_backend/ tests/autodetect_backend/ 合跑单调用，基线 8577be2 与 HEAD 同现（评审子代理 /tmp 实证），标准形态全绿，不追
